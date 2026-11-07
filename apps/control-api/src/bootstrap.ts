@@ -74,7 +74,9 @@ export async function createApp(
   });
   app.useGlobalFilters(new ProblemFilter(logger));
   app.enableCors({
-    origin: [env.DASHBOARD_ORIGIN],
+    origin: env.DASHBOARD_ORIGIN.split(',')
+      .map((o) => o.trim())
+      .filter(Boolean),
     credentials: true,
     exposedHeaders: ['x-request-id', 'etag'],
   });

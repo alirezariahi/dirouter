@@ -110,8 +110,9 @@ services:
       KEY_PEPPER: ${KEY_PEPPER}
       JWT_SECRET: ${JWT_SECRET}
       INTERNAL_TOKEN: ${INTERNAL_TOKEN}
-      DASHBOARD_ORIGIN: ${DASHBOARD_ORIGIN:-https://app.${DOMAIN:-localhost}}
-      PUBLIC_DASHBOARD_URL: ${DASHBOARD_ORIGIN:-https://app.${DOMAIN:-localhost}}
+      # در dev داشبورد هم از http و هم از https (گواهی self-signed) باز می‌شود.
+      DASHBOARD_ORIGIN: https://app.${DOMAIN:-localhost},http://app.${DOMAIN:-localhost}
+      PUBLIC_DASHBOARD_URL: https://app.${DOMAIN:-localhost}
       GATEWAY_INTERNAL_URL: http://gateway:8080
       SMTP_URL: smtp://mailpit:1025
     command: ['pnpm', '--filter', '@dirouter/control-api', 'dev']
@@ -166,8 +167,7 @@ services:
   dashboard:
     <<: *dev-node
     build: !reset null
-    environment:
-      VITE_API_URL: https://admin.${DOMAIN:-localhost}/api/v1
+    # آدرس API از آدرس خود صفحه ساخته می‌شود (app. → admin.)، پس http و https هر دو کار می‌کنند.
     command:
       ['pnpm', '--filter', '@dirouter/dashboard', 'dev', '--host', '0.0.0.0', '--port', '8080']
     labels:
