@@ -91,7 +91,8 @@ describe('cost with real prices', () => {
     for (let i = 0; i < 1_000_000; i++)
       total += computeCost(usage({ inputTokens: 10 }), pricing).total;
     expect(total).toBe(100_000_000n); // 10M token × $0.10 = $1
-  });
+    // runnerهای CI چند برابر کندترند؛ این تست عمداً سنگین است.
+  }, 60_000);
 });
 
 describe('token estimation', () => {
