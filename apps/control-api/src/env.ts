@@ -11,6 +11,8 @@ export const envSchema = baseEnvSchema.extend({
   INTERNAL_TOKEN: z.string().min(32),
   DASHBOARD_ORIGIN: z.string().default('https://app.localhost'),
   PUBLIC_DASHBOARD_URL: z.string().default('https://app.localhost'),
+  /** گیت‌وی برای تست اتصال و کشف مدل provider (کارت ۳.۶). */
+  GATEWAY_INTERNAL_URL: z.string().default('http://gateway:8080'),
   SMTP_URL: z.string().optional(),
   SMTP_FROM: z.string().default('DiRouter <noreply@localhost>'),
 });

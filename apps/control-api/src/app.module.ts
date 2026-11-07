@@ -5,6 +5,7 @@ import { ENV, type Env } from './env.js';
 import { HealthController } from './health/health.controller.js';
 import { InfraModule } from './infra/infra.module.js';
 import { OrgsModule } from './orgs/orgs.module.js';
+import { ProvidersModule } from './providers/providers.module.js';
 
 @Module({})
 export class AppModule {
@@ -12,7 +13,7 @@ export class AppModule {
     return {
       module: AppModule,
       global: true,
-      imports: [InfraModule, AuthModule, OrgsModule],
+      imports: [InfraModule, AuthModule, OrgsModule, ProvidersModule],
       controllers: [HealthController],
       providers: [{ provide: ENV, useValue: env }],
       exports: [ENV],

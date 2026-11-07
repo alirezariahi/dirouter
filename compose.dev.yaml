@@ -112,6 +112,7 @@ services:
       INTERNAL_TOKEN: ${INTERNAL_TOKEN}
       DASHBOARD_ORIGIN: ${DASHBOARD_ORIGIN:-https://app.${DOMAIN:-localhost}}
       PUBLIC_DASHBOARD_URL: ${DASHBOARD_ORIGIN:-https://app.${DOMAIN:-localhost}}
+      GATEWAY_INTERNAL_URL: http://gateway:8080
       SMTP_URL: smtp://mailpit:1025
     command: ['pnpm', '--filter', '@dirouter/control-api', 'dev']
     labels:

@@ -105,6 +105,7 @@ services:
       INTERNAL_TOKEN: ${INTERNAL_TOKEN:?INTERNAL_TOKEN is required}
       DASHBOARD_ORIGIN: ${DASHBOARD_ORIGIN:-https://app.${DOMAIN:-localhost}}
       PUBLIC_DASHBOARD_URL: ${DASHBOARD_ORIGIN:-https://app.${DOMAIN:-localhost}}
+      GATEWAY_INTERNAL_URL: http://gateway:8080
       SMTP_URL: ${SMTP_URL:-}
       SMTP_FROM: ${SMTP_FROM:-DiRouter <noreply@${DOMAIN:-localhost}>}
     networks: [edge, internal]
