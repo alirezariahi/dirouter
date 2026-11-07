@@ -41,6 +41,8 @@ seed: .env ## داده‌های نمونهٔ توسعه و چاپ کلید dev (
 dev-snapshot: .env ## ساخت snapshot آزمایشی گیت‌وی با mock provider
 	pnpm --filter @dirouter/shared build >/dev/null
 	$(ENV) node scripts/dev-snapshot.mjs .data/gateway/snapshot.json http://mock-provider:8090/v1
+	@# سازمان snapshot در DB هم لازم است (FK در usage_ledger)؛ تا seed کامل (کارت ۳.۱۱).
+	-$(DEV) exec -T postgres sh -c 'psql -q -U "$$POSTGRES_USER" -d "$$POSTGRES_DB" -c "INSERT INTO organizations (id, name, slug, updated_at) VALUES ('"'"'org_dev'"'"', '"'"'Dev'"'"', '"'"'dev'"'"', now()) ON CONFLICT DO NOTHING"' >/dev/null
 	-$(DEV) restart gateway >/dev/null 2>&1
 
 test: ## تست‌های واحد و یکپارچه
