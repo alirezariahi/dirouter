@@ -72,3 +72,13 @@ export const UsageEvent = z.object({
   attempts: z.array(UsageAttempt),
 });
 export type UsageEvent = z.infer<typeof UsageEvent>;
+
+/** نام صف‌های BullMQ بین گیت‌وی و worker (کارت‌های ۶.۴ و ۶.۵). */
+export const QUEUES = {
+  /** رویدادهای مصرف؛ jobId همان idempotencyKey است. */
+  usage: 'usage',
+  /** jobهای مصرفی که بعد از همهٔ تلاش‌ها شکست خوردند. */
+  usageDead: 'usage-dead',
+  /** کارهای زمان‌بندی‌شده: rollup، پارتیشن، retention، reconcile. */
+  maintenance: 'maintenance',
+} as const;
