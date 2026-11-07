@@ -90,8 +90,14 @@ function toClientError(error: ClassifiedError | undefined, reason: string): DiRo
         message: error.message,
         ...(error.retryAfterMs !== undefined ? { retryAfterMs: error.retryAfterMs } : {}),
       });
+    // پیام خطای شبکه ممکن است آدرس داخلی provider یا پروکسی را داشته باشد؛ کلاینت فقط
+    // متن عمومی می‌گیرد و جزئیات (با رمز ماسک‌شده) فقط در لاگ سرور است.
     case 'timeout':
-      return new UpstreamError('upstream_timeout', { message: error.message });
+      return new UpstreamError('upstream_timeout', { message: 'Upstream request timed out' });
+    case 'connection':
+      return new UpstreamError('upstream_error', {
+        message: 'Could not connect to the upstream provider',
+      });
     case 'overloaded':
       return new UpstreamError('upstream_overloaded', { message: error.message });
     case 'bad_request':
@@ -251,7 +257,14 @@ export async function handleProxy(
 
     let call;
     try {
-      call = await callUpstream(candidate.provider, up, timeouts, signal, canonical.stream);
+      call = await callUpstream(
+        candidate.provider,
+        up,
+        timeouts,
+        signal,
+        canonical.stream,
+        candidate.credential.proxy?.url ?? candidate.provider.proxy?.url ?? settings.proxy?.url,
+      );
     } catch (error) {
       return { ok: false, error: classifyNetworkError(error, error instanceof UpstreamTimeout) };
     }
@@ -327,6 +340,10 @@ export async function handleProxy(
       void reply.status(200).send(body);
     }
   } else if (!reply.raw.headersSent && result.reason !== 'aborted') {
+    deps.logger.warn(
+      { requestId, reason: result.reason, error: result.error, attempts: result.attempts.length },
+      'request failed upstream',
+    );
     sendError(reply, api, toClientError(result.error, result.reason), requestId);
   }
 

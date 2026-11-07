@@ -7,9 +7,13 @@
  * - total: deadline کل تلاش
  * همهٔ timeoutها با AbortController به upstream منتقل می‌شوند.
  */
+import { lookup } from 'node:dns/promises';
+import { connect as tlsConnect } from 'node:tls';
+
 import type { ProviderConfig, TimeoutConfig } from '@dirouter/contracts';
 import type { UpstreamRequest } from '@dirouter/providers';
-import { Agent, type Dispatcher, ProxyAgent, fetch } from 'undici';
+import { SocksClient } from 'socks';
+import { Agent, type buildConnector, type Dispatcher, ProxyAgent, fetch } from 'undici';
 
 export type TimeoutKind = 'connect' | 'first_byte' | 'idle' | 'total';
 
@@ -42,9 +46,86 @@ export function mergeTimeouts(...layers: (TimeoutConfig | undefined)[]): Require
 const dispatchers = new Map<string, Dispatcher>();
 
 /** یک dispatcher (connection pool) به ازای provider؛ bulkhead اتصال‌ها جداست. */
-export function dispatcherFor(provider: ProviderConfig, connectMs: number): Dispatcher {
-  const proxyUrl = provider.proxy?.url;
-  const cacheKey = `${provider.id}|${connectMs}|${proxyUrl ?? ''}`;
+/** رمز پروکسی هرگز در لاگ و خطا نمی‌آید: `socks5://user:***@host:1080`. */
+export function maskProxyUrl(url: string): string {
+  try {
+    const u = new URL(url);
+    if (u.password) u.password = '***';
+    return u.toString();
+  } catch {
+    return '[invalid proxy url]';
+  }
+}
+
+/**
+ * اتصال از طریق SOCKS5. در `socks5h://` نام میزبان به خود پروکسی داده می‌شود (DNS
+ * سمت پروکسی، مناسب وقتی DNS محلی فیلتر است). در `socks5://` نام اول محلی resolve می‌شود.
+ */
+function socksConnector(proxyUrl: string, timeoutMs: number): buildConnector.connector {
+  const proxy = new URL(proxyUrl);
+  const remoteDns = proxy.protocol === 'socks5h:';
+  return (opts, callback) => {
+    const port = Number(opts.port) || (opts.protocol === 'https:' ? 443 : 80);
+    const target = remoteDns
+      ? Promise.resolve(opts.hostname)
+      : lookup(opts.hostname).then((r) => r.address);
+    target
+      .then((host) =>
+        SocksClient.createConnection({
+          proxy: {
+            host: proxy.hostname,
+            port: Number(proxy.port) || 1080,
+            type: 5,
+            ...(proxy.username ? { userId: decodeURIComponent(proxy.username) } : {}),
+            ...(proxy.password ? { password: decodeURIComponent(proxy.password) } : {}),
+          },
+          command: 'connect',
+          destination: { host, port },
+          timeout: timeoutMs,
+        }),
+      )
+      .then(({ socket }) => {
+        if (opts.protocol !== 'https:') {
+          callback(null, socket);
+          return;
+        }
+        const secure = tlsConnect({
+          socket,
+          servername: opts.servername ?? opts.hostname,
+          ALPNProtocols: ['http/1.1'],
+        });
+        secure.once('secureConnect', () => {
+          callback(null, secure);
+        });
+        secure.once('error', (error: Error) => {
+          callback(error, null);
+        });
+      })
+      .catch((error: unknown) => {
+        // پیام خطای socks گاهی آدرس پروکسی را دارد؛ فقط نسخهٔ ماسک‌شده بیرون می‌رود.
+        const message = error instanceof Error ? error.message : String(error);
+        const wrapped = Object.assign(
+          new Error(
+            `socks proxy ${maskProxyUrl(proxyUrl)}: ${message.replaceAll(proxyUrl, maskProxyUrl(proxyUrl))}`,
+          ),
+          { code: 'ECONNREFUSED' },
+        );
+        callback(wrapped, null);
+      });
+  };
+}
+
+/**
+ * یک dispatcher برای هر (provider، پروکسی، connect timeout)؛ اتصال‌های keep-alive جدا
+ * می‌مانند و provider کند بقیه را گرسنه نمی‌گذارد. پروکسی: HTTP(S) با ProxyAgent
+ * (CONNECT)، و SOCKS5/SOCKS5h با connector سفارشی.
+ */
+export function dispatcherFor(
+  provider: ProviderConfig,
+  connectMs: number,
+  proxyUrl: string | undefined = provider.proxy?.url,
+): Dispatcher {
+  const cacheKey = `${provider.id}|${String(connectMs)}|${proxyUrl ?? ''}`;
   let d = dispatchers.get(cacheKey);
   if (!d) {
     const common = {
@@ -52,9 +133,11 @@ export function dispatcherFor(provider: ProviderConfig, connectMs: number): Disp
       keepAliveTimeout: 30_000,
       connections: provider.maxConcurrency ?? 256,
     };
-    if (proxyUrl && /^https?:/.test(proxyUrl)) d = new ProxyAgent({ uri: proxyUrl, ...common });
-    else if (proxyUrl) throw new Error('SOCKS5 proxy support is not implemented yet');
-    else d = new Agent(common);
+    if (!proxyUrl) d = new Agent(common);
+    else if (/^https?:/.test(proxyUrl)) d = new ProxyAgent({ uri: proxyUrl, ...common });
+    else if (/^socks5h?:/.test(proxyUrl))
+      d = new Agent({ ...common, connect: socksConnector(proxyUrl, connectMs) });
+    else throw new Error(`unsupported proxy scheme: ${maskProxyUrl(proxyUrl)}`);
     dispatchers.set(cacheKey, d);
   }
   return d;
@@ -79,6 +162,8 @@ export async function callUpstream(
   timeouts: Required<TimeoutConfig>,
   parent: AbortSignal,
   stream: boolean,
+  /** پروکسی نهایی (credential، بعد provider، بعد سراسری)؛ پیش‌فرض پروکسی provider. */
+  proxyUrl: string | undefined = provider.proxy?.url,
 ): Promise<UpstreamCall> {
   const controller = new AbortController();
   let reason: TimeoutKind | undefined;
@@ -112,7 +197,7 @@ export async function callUpstream(
       headers: up.headers,
       ...(up.body !== undefined ? { body: up.body } : {}),
       signal: controller.signal,
-      dispatcher: dispatcherFor(provider, timeouts.connectMs),
+      dispatcher: dispatcherFor(provider, timeouts.connectMs, proxyUrl),
     });
     return {
       response,

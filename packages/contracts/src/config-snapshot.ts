@@ -76,6 +76,8 @@ export const CredentialConfig = z.object({
   weight: z.int().min(0).default(1),
   /** هدرهای اضافه (مثلاً `OpenAI-Organization`). */
   headers: z.record(z.string(), z.string()).default({}),
+  /** پروکسی خروجی همین credential؛ اولویت: credential، بعد provider، بعد سراسری (کارت ۴.۱۰). */
+  proxy: ProxyConfig.optional(),
 });
 export type CredentialConfig = z.infer<typeof CredentialConfig>;
 
@@ -232,6 +234,8 @@ export const GatewaySettings = z.object({
   /** رفتار limiter/budget وقتی Valkey در دسترس نیست. */
   failMode: z.enum(['open', 'closed']).default('open'),
   defaultTimeouts: TimeoutConfig.default({}),
+  /** پروکسی خروجی سراسری؛ provider یا credential می‌توانند جایگزینش کنند. */
+  proxy: ProxyConfig.optional(),
   defaultRetry: RetryPolicy.default({ maxAttempts: 2, baseDelayMs: 200, maxDelayMs: 2_000 }),
   logBodies: z.boolean().default(false),
 });
