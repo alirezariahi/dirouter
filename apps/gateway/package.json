@@ -14,9 +14,11 @@
     "clean": "rm -rf dist .turbo"
   },
   "devDependencies": {
+    "@anthropic-ai/sdk": "^1.6.0",
     "@dirouter/eslint-config": "workspace:*",
     "@dirouter/mock-provider": "workspace:*",
-    "@dirouter/tsconfig": "workspace:*"
+    "@dirouter/tsconfig": "workspace:*",
+    "openai": "^7.53.0"
   },
   "dependencies": {
     "@dirouter/contracts": "workspace:*",

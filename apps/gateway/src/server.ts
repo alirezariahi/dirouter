@@ -12,7 +12,7 @@ import Fastify from 'fastify';
 
 import { authenticate, extractApiKey } from './auth.js';
 import { ConfigStore } from './config-store.js';
-import { handleProxy } from './proxy.js';
+import { handleCountTokens, handleProxy } from './proxy.js';
 
 export interface GatewayOptions {
   logger: Logger;
@@ -75,6 +75,9 @@ export function buildGateway(opts: GatewayOptions) {
   app.post('/v1/chat/completions', (req, reply) => handleProxy('openai.chat', req, reply, deps));
   app.post('/chat/completions', (req, reply) => handleProxy('openai.chat', req, reply, deps));
   app.post('/v1/messages', (req, reply) => handleProxy('anthropic.messages', req, reply, deps));
+  app.post('/v1/messages/count_tokens', (req, reply) => {
+    handleCountTokens(req, reply, deps);
+  });
 
   app.get('/v1/models', async (req, reply) => {
     const config = store.current;

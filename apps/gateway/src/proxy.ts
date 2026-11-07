@@ -148,6 +148,35 @@ function parseInbound(api: InboundApi, body: unknown, logger: Logger): Canonical
     : anthropicRequestToCanonical(parsed.data as AnthropicMessagesRequest, { onDrop });
 }
 
+/**
+ * `POST /v1/messages/count_tokens` (سازگار با Anthropic، کارت ۴.۹): تخمین محلی با tokenizer
+ * و بدون فراخوانی upstream. Claude Code و SDK برای مدیریت context از آن استفاده می‌کنند.
+ */
+export function handleCountTokens(req: FastifyRequest, reply: FastifyReply, deps: ProxyDeps): void {
+  const api: InboundApi = 'anthropic.messages';
+  const config = deps.store.current;
+  if (!config) {
+    sendError(reply, api, new DiRouterError('service_unavailable'), req.id);
+    return;
+  }
+  try {
+    const key = authenticate(config, extractApiKey(req.headers), deps.pepper, req.ip);
+    // count_tokens بدنهٔ messages بدون max_tokens است.
+    const body = { max_tokens: 1, ...(req.body as Record<string, unknown> | undefined) };
+    const canonical = parseInbound(api, body, deps.logger);
+    if (key.allowedModels.length > 0 && !key.allowedModels.includes(canonical.model))
+      throw new ForbiddenError('model_not_allowed');
+    void reply.send({ input_tokens: estimateRequestTokens(canonical) });
+  } catch (error) {
+    sendError(
+      reply,
+      api,
+      error instanceof DiRouterError ? error : new DiRouterError('invalid_request'),
+      req.id,
+    );
+  }
+}
+
 export async function handleProxy(
   api: InboundApi,
   req: FastifyRequest,
