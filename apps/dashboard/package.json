@@ -11,18 +11,33 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run --passWithNoTests",
-    "clean": "rm -rf dist .turbo"
+    "clean": "rm -rf dist .turbo",
+    "api:generate": "orval --config orval.config.ts"
   },
   "devDependencies": {
     "@dirouter/eslint-config": "workspace:*",
     "@dirouter/tsconfig": "workspace:*",
+    "@tailwindcss/vite": "^4.3.5",
+    "@testing-library/react": "^16.3.3",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.2.1",
-    "vite": "^8.3.6"
+    "jsdom": "^31.0.0",
+    "orval": "^8.46.0",
+    "tailwindcss": "^4.3.5",
+    "vite": "^8.3.6",
+    "vitest": "^5.1.0"
   },
   "dependencies": {
+    "@fontsource-variable/vazirmatn": "^5.3.0",
+    "@tanstack/react-query": "^5.107.1",
+    "@tanstack/react-router": "^1.170.46",
+    "clsx": "^2.1.1",
+    "cmdk": "^1.1.1",
+    "i18next": "^27.0.1",
     "react": "^19.3.1",
-    "react-dom": "^19.3.1"
+    "react-dom": "^19.3.1",
+    "react-i18next": "^18.0.0",
+    "tailwind-merge": "^3.7.0"
   }
 }

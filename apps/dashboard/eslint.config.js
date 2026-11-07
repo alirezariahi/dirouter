@@ -1,3 +1,4 @@
 import { react } from '@dirouter/eslint-config';
 
-export default react;
+// خروجی orval تولیدی است و دستی ویرایش نمی‌شود.
+export default [{ ignores: ['src/api/generated.ts'] }, ...react];

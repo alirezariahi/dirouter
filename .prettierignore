@@ -6,3 +6,5 @@ pnpm-lock.yaml
 packages/db/generated
 # Go template (پردازش توسط Traefik)، YAML معتبر نیست
 deploy/traefik/dynamic/middlewares.yml
+apps/dashboard/src/api/generated.ts
+apps/dashboard/openapi.json
