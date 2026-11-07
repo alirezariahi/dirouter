@@ -77,7 +77,9 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('dashboard auth over HTTP', () => 
     expect((await inject({ method: 'GET', url: 'setup' })).json()).toEqual({ required: true });
     const [first, second] = await Promise.all([
       inject({ method: 'POST', url: 'setup', body: owner }),
-      inject({ method: 'POST', url: 'setup', body: { ...owner, email: 'other@example.com' } }),
+      // همان کاربر با حروف دیگر: هر کدام برنده شود، کاربر نهایی یکی است و تست‌های بعدی به
+      // برندهٔ مسابقه وابسته نیستند (فقط یکی باید 201 بگیرد).
+      inject({ method: 'POST', url: 'setup', body: { ...owner, email: 'OWNER@EXAMPLE.COM' } }),
     ]);
     const statuses = [first.statusCode, second.statusCode].sort();
     expect(statuses).toEqual([201, 409]);
