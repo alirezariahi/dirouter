@@ -209,6 +209,23 @@ describe('router: filters', () => {
     });
   });
 
+  it('too large for every model is a context error, not an outage', () => {
+    const r = setup().router.resolve(key(), 'smart', {
+      estimatedInputTokens: 10_000_000,
+      random: () => 0,
+    });
+    expect(isRouteError(r) && r.error).toBe('context_length_exceeded');
+    expect(isRouteError(r) && r.neededTokens).toBe(10_000_000);
+  });
+
+  it('stays an outage when a healthy-sized model is only temporarily unavailable', () => {
+    const s = setup();
+    for (const p of ['b', 'c'])
+      for (let i = 0; i < 20; i++) s.health.providerBreaker(p).record(false);
+    const r = s.router.resolve(key(), 'smart', { estimatedInputTokens: 10_000, random: () => 0 });
+    expect(isRouteError(r) && r.error).toBe('no_available_provider');
+  });
+
   it('skips disabled models, providers and credentials', () => {
     const snap = snapshot();
     snap.models[1]!.enabled = false;

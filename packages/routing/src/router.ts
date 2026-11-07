@@ -34,7 +34,10 @@ export interface ResolvedRoute {
 }
 
 export type RouteError = {
-  error: 'model_not_found' | 'model_not_allowed' | 'no_available_provider';
+  error:
+    'model_not_found' | 'model_not_allowed' | 'no_available_provider' | 'context_length_exceeded';
+  /** برای context_length_exceeded: توکن لازم (ورودی تخمینی + سقف خروجی). */
+  neededTokens?: number;
   skipped: ResolvedRoute['skipped'];
 };
 
@@ -227,7 +230,16 @@ export class Router {
         candidates.push({ model, provider, credential });
     }
 
-    if (candidates.length === 0) return { error: 'no_available_provider', skipped };
+    if (candidates.length === 0) {
+      // اگر هیچ مدلی به‌خاطر سلامت (breaker، cooldown) کنار نرفته و دست‌کم یکی فقط به‌خاطر
+      // context کوچک حذف شده، مشکل از درخواست است نه از providerها: 400 به‌جای 503.
+      const transient = skipped.some(
+        (s) => s.credentialId !== undefined || s.reason.endsWith('circuit_open'),
+      );
+      if (!transient && skipped.some((s) => s.reason === 'context_window'))
+        return { error: 'context_length_exceeded', skipped, neededTokens: needed };
+      return { error: 'no_available_provider', skipped };
+    }
     return {
       requested,
       kind: combo ? 'combo' : 'model',

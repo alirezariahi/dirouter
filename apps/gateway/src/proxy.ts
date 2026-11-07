@@ -226,7 +226,11 @@ export async function handleProxy(
           })
         : route.error === 'model_not_allowed'
           ? new ForbiddenError('model_not_allowed', { param: 'model' })
-          : new UpstreamError('no_available_provider');
+          : route.error === 'context_length_exceeded'
+            ? new DiRouterError('context_length_exceeded', {
+                message: `Request needs about ${String(route.neededTokens ?? 0)} tokens (input estimate + max output), more than any model for '${canonical.model}' supports`,
+              })
+            : new UpstreamError('no_available_provider');
     deps.logger.debug({ requestId, skipped: route.skipped }, 'route failed');
     sendError(reply, api, error, requestId);
     return;
