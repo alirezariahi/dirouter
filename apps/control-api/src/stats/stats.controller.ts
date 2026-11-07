@@ -1,10 +1,20 @@
 import { DiRouterError } from '@dirouter/shared';
-import { Controller, Get, Inject, Param, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  Inject,
+  Param,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { z } from 'zod';
 
 import { AccessGuard } from '../auth/auth.guard.js';
-import { ApiZodOk, ApiZodQuery, ZodPipe } from '../common/zod.js';
+import { ApiZodBody, ApiZodOk, ApiZodQuery, ZodPipe } from '../common/zod.js';
 import { Org, OrgGuard, type OrgContext, RequirePermission } from '../rbac/org.guard.js';
 import { StatsService } from './stats.service.js';
 
@@ -127,8 +137,21 @@ const LogDetail = LogItem.extend({
 const Breaker = z
   .object({ state: z.string(), total: z.int(), errors: z.int(), reopensAt: z.string().nullable() })
   .nullable();
+export const ResetBody = z.object({
+  scope: z.enum(['provider', 'model', 'credential']),
+  id: z.string().min(1),
+});
 const Health = z.object({
   gatewayReachable: z.boolean(),
+  nodes: z.array(
+    z.object({
+      instance: z.string(),
+      configVersion: z.int(),
+      ready: z.boolean(),
+      lastSeen: z.string(),
+      startedAt: z.string(),
+    }),
+  ),
   providers: z.array(
     z.object({
       id: z.string(),
@@ -211,5 +234,17 @@ export class StatsController {
   @ApiZodOk(Health, 'breaker، cooldown و lockout هر provider، credential و مدل')
   health(@Org() org: OrgContext) {
     return this.stats.runtimeHealth(org);
+  }
+
+  @Post('health/reset')
+  @HttpCode(200)
+  @RequirePermission('health:write')
+  @ApiZodBody(ResetBody)
+  @ApiZodOk(
+    z.object({ scope: z.string(), id: z.string(), gatewaysNotified: z.int() }),
+    'ریست breaker یا cooldown در همهٔ گیت‌وی‌ها',
+  )
+  reset(@Org() org: OrgContext, @Body(new ZodPipe(ResetBody)) body: z.infer<typeof ResetBody>) {
+    return this.stats.reset(org, body.scope, body.id);
   }
 }

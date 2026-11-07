@@ -20,6 +20,8 @@ export const PERMISSIONS = [
   'models:write',
   'usage:read',
   'audit:read',
+  /** ریست دستی breaker و cooldown در صفحهٔ Health (کارت ۷.۸)؛ فقط OWNER و ADMIN. */
+  'health:write',
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 export type Role = 'OWNER' | 'ADMIN' | 'MEMBER' | 'VIEWER';

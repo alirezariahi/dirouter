@@ -5,6 +5,7 @@ import { ValidationError } from '@dirouter/shared';
 import { z } from 'zod';
 
 import { API_PREFIX } from '../bootstrap.js';
+import { ENV, type Env } from '../env.js';
 import { ApiZodBody, ApiZodOk, ZodPipe } from '../common/zod.js';
 import { AccessGuard, CurrentUser } from './auth.guard.js';
 import { type ClientInfo, AuthService, type Session } from './auth.service.js';
@@ -60,13 +61,18 @@ const client = (req: FastifyRequest): ClientInfo => ({
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
-  constructor(@Inject(AuthService) private readonly auth: AuthService) {}
+  constructor(
+    @Inject(AuthService) private readonly auth: AuthService,
+    @Inject(ENV) private readonly env: Env,
+  ) {}
 
   /** refresh token فقط در کوکی httpOnly، فقط برای مسیرهای /auth و فقط same-site. */
   #setRefresh(reply: FastifyReply, session: Session) {
     void reply.setCookie(REFRESH_COOKIE, session.refreshToken, {
       httpOnly: true,
-      secure: true,
+      // در production همیشه Secure؛ در dev فقط روی https (پشت Traefik از X-Forwarded-Proto)،
+      // تا داشبورد روی http://app.localhost هم بعد از reload نشست را نگه دارد.
+      secure: this.env.NODE_ENV === 'production' || reply.request.protocol === 'https',
       sameSite: 'strict',
       path: `/${API_PREFIX}/auth`,
       maxAge: REFRESH_TTL_SECONDS,

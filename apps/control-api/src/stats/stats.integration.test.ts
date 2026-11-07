@@ -2,6 +2,7 @@
 import { createServer, type Server } from 'node:http';
 
 import { generateKey } from '@dirouter/shared';
+import { Redis } from 'ioredis';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -44,6 +45,16 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('stats and logs over HTTP', () => 
         method: 'GET',
         url: `/api/v1/orgs/${org}/${url}`,
         headers: { authorization: `Bearer ${t}` },
+      });
+  const post = (url: string, body: unknown, t = token) =>
+    app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        method: 'POST',
+        url: `/api/v1/orgs/${org}/${url}`,
+        headers: { authorization: `Bearer ${t}` },
+        payload: body as Record<string, unknown>,
       });
 
   async function insertLogs(
@@ -272,5 +283,62 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('stats and logs over HTTP', () => 
     expect(res.providers[0]?.breaker.state).toBe('open');
     expect(res.providers[0]?.credentials[0]?.cooldownUntil).toBeTruthy();
     expect(JSON.stringify(res)).not.toContain('prv_foreign');
+  });
+
+  it('lists gateway nodes with their config version from the heartbeat', async () => {
+    const valkey = app.get(ValkeyService).client;
+    await valkey.set(
+      'dirouter:gateway:node:gw-test-1',
+      JSON.stringify({
+        instance: 'gw-test-1',
+        configVersion: 42,
+        ready: true,
+        lastSeen: new Date().toISOString(),
+        startedAt: new Date().toISOString(),
+      }),
+      'PX',
+      15_000,
+    );
+    const res = (await call('health/runtime')).json<{
+      nodes: { instance: string; configVersion: number }[];
+    }>();
+    expect(res.nodes).toContainEqual(
+      expect.objectContaining({ instance: 'gw-test-1', configVersion: 42 }),
+    );
+    await valkey.del('dirouter:gateway:node:gw-test-1');
+  });
+
+  it('a manual reset is broadcast to the gateways and written to the audit log; viewers cannot', async () => {
+    const sub = new Redis(VALKEY_URL ?? '');
+    const messages: string[] = [];
+    sub.on('message', (_c: string, m: string) => messages.push(m));
+    await sub.subscribe('dirouter:health');
+    const res = await post('health/reset', { scope: 'provider', id: 'prv_mine' });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({ scope: 'provider', id: 'prv_mine', gatewaysNotified: 1 });
+    for (let i = 0; i < 20 && messages.length === 0; i++)
+      await new Promise((r) => setTimeout(r, 25));
+    expect(JSON.parse(messages[0] ?? '{}')).toEqual({
+      from: 'control-api',
+      change: { kind: 'reset', scope: 'provider', id: 'prv_mine' },
+    });
+    const audit = await app
+      .get(PrismaService)
+      .client.auditLog.findFirst({ where: { action: 'health.reset' } });
+    expect(audit).toMatchObject({
+      organizationId: org,
+      targetType: 'provider',
+      targetId: 'prv_mine',
+    });
+    expect((await post('health/reset', { scope: 'credential', id: 'cred_mine' })).statusCode).toBe(
+      200,
+    );
+    expect(
+      (await post('health/reset', { scope: 'provider', id: 'prv_mine' }, viewer)).statusCode,
+    ).toBe(403);
+    expect(
+      (await post('health/reset', { scope: 'model', id: 'mdl_of_someone_else' })).statusCode,
+    ).toBe(404);
+    sub.disconnect();
   });
 });

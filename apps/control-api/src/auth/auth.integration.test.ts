@@ -33,6 +33,8 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('dashboard auth over HTTP', () => 
         url: `/api/v1/auth/${opts.url}`,
         remoteAddress: opts.ip ?? '10.0.0.1',
         headers: {
+          // مثل Traefik: TLS در لبه، درخواست با X-Forwarded-Proto به control-api می‌رسد.
+          'x-forwarded-proto': 'https',
           ...(opts.cookie ? { cookie: `${REFRESH_COOKIE}=${opts.cookie}` } : {}),
           ...(opts.token ? { authorization: `Bearer ${opts.token}` } : {}),
         },
@@ -233,5 +235,23 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('dashboard auth over HTTP', () => 
     const user = await app.get(PrismaService).client.user.findFirst();
     expect(user?.passwordHash.startsWith('$argon2id$')).toBe(true);
     expect(user?.passwordHash).not.toContain('another-long-password');
+  });
+
+  it('over plain http in development the cookie is not Secure, so http dev sessions survive a reload', async () => {
+    const res = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        method: 'POST',
+        url: '/api/v1/auth/login',
+        remoteAddress: '10.3.0.1',
+        payload: { email: owner.email, password: 'another-long-password' },
+      });
+    expect(res.statusCode).toBe(200);
+    expect(res.cookies.find((c) => c.name === REFRESH_COOKIE)).toMatchObject({
+      httpOnly: true,
+      sameSite: 'Strict',
+    });
+    expect(res.cookies.find((c) => c.name === REFRESH_COOKIE)?.secure).toBeFalsy();
   });
 });

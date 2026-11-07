@@ -4,12 +4,13 @@
  * روی (created_at, id) و همیشه با بازهٔ زمانی تا پارتیشن‌ها هرس شوند. همه‌چیز به سازمانِ
  * تأییدشده در Guard محدود است.
  */
-import { DiRouterError } from '@dirouter/shared';
+import { DiRouterError, prefixedId } from '@dirouter/shared';
 import { Prisma } from '@dirouter/db';
 import { Inject, Injectable } from '@nestjs/common';
 
 import { ENV, type Env } from '../env.js';
 import { PrismaService } from '../infra/prisma.service.js';
+import { ValkeyService } from '../infra/valkey.service.js';
 import type { OrgContext } from '../rbac/org.guard.js';
 
 /** مرزهای بالای سطل‌های latency_hist (ms)؛ سطل آخر یعنی بیشتر از 60s (migration usage_rollups). */
@@ -62,7 +63,80 @@ export class StatsService {
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(ENV) private readonly env: Env,
+    @Inject(ValkeyService) private readonly valkey: ValkeyService,
   ) {}
+
+  /** نودهای گیت‌وی از heartbeat روی Valkey (هر ۵ ثانیه، انقضای ۱۵ ثانیه). */
+  async gatewayNodes() {
+    try {
+      const keys: string[] = [];
+      let cursor = '0';
+      do {
+        const [next, batch] = await this.valkey.client.scan(
+          cursor,
+          'MATCH',
+          'dirouter:gateway:node:*',
+          'COUNT',
+          100,
+        );
+        cursor = next;
+        keys.push(...batch);
+      } while (cursor !== '0');
+      const values = keys.length ? await this.valkey.client.mget(...keys) : [];
+      return values
+        .filter((v): v is string => typeof v === 'string')
+        .map(
+          (v) =>
+            JSON.parse(v) as {
+              instance: string;
+              configVersion: number;
+              ready: boolean;
+              lastSeen: string;
+              startedAt: string;
+            },
+        )
+        .sort((a, b) => a.instance.localeCompare(b.instance));
+    } catch {
+      return [];
+    }
+  }
+
+  /** ریست دستی (فقط OWNER و ADMIN): روی کانال سلامت منتشر و در audit log ثبت می‌شود. */
+  async reset(ctx: OrgContext, scope: 'provider' | 'model' | 'credential', id: string) {
+    const org = ctx.organizationId;
+    const owned =
+      scope === 'provider'
+        ? await this.db.provider.findFirst({
+            where: { id, organizationId: org },
+            select: { id: true },
+          })
+        : scope === 'model'
+          ? await this.db.model.findFirst({
+              where: { id, organizationId: org },
+              select: { id: true },
+            })
+          : await this.db.credential.findFirst({
+              where: { id, provider: { organizationId: org } },
+              select: { id: true },
+            });
+    if (!owned) throw new DiRouterError('not_found');
+    const receivers = await this.valkey.client.publish(
+      'dirouter:health',
+      JSON.stringify({ from: 'control-api', change: { kind: 'reset', scope, id } }),
+    );
+    await this.db.auditLog.create({
+      data: {
+        id: prefixedId('aud'),
+        organizationId: org,
+        actorUserId: ctx.userId,
+        action: 'health.reset',
+        targetType: scope,
+        targetId: id,
+        diff: { receivers },
+      },
+    });
+    return { scope, id, gatewaysNotified: receivers };
+  }
 
   get db() {
     return this.prisma.client;
@@ -337,6 +411,7 @@ export class StatsService {
     };
     return {
       gatewayReachable: Boolean(report),
+      nodes: await this.gatewayNodes(),
       providers: providers.map((p) => ({
         id: p.id,
         slug: p.slug,
