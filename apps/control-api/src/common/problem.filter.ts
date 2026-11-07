@@ -70,6 +70,9 @@ export class ProblemFilter implements ExceptionFilter {
     // پیام خطای داخلی به کلاینت نشت نمی‌کند.
     if (error.code === 'internal_error') problem.detail = 'Internal error';
     if (error instanceof ValidationError) problem.errors = error.errors satisfies FieldError[];
+    const retryAfterMs = (error as { retryAfterMs?: unknown }).retryAfterMs;
+    if (typeof retryAfterMs === 'number' && retryAfterMs > 0)
+      void reply.header('retry-after', String(Math.ceil(retryAfterMs / 1000)));
     void reply
       .status(error.status)
       .header('content-type', 'application/problem+json')

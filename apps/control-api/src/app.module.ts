@@ -1,5 +1,6 @@
 import { type DynamicModule, Module } from '@nestjs/common';
 
+import { AuthModule } from './auth/auth.module.js';
 import { ENV, type Env } from './env.js';
 import { HealthController } from './health/health.controller.js';
 import { InfraModule } from './infra/infra.module.js';
@@ -10,7 +11,7 @@ export class AppModule {
     return {
       module: AppModule,
       global: true,
-      imports: [InfraModule],
+      imports: [InfraModule, AuthModule],
       controllers: [HealthController],
       providers: [{ provide: ENV, useValue: env }],
       exports: [ENV],
