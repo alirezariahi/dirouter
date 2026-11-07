@@ -1,7 +1,8 @@
 /** layout اصلی: sidebar در سمت «شروع» (راست در RTL، چپ در LTR) و نوار بالا. */
-import { Link, Outlet } from '@tanstack/react-router';
+import { Link, Outlet, useNavigate } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
 
+import { logout, useSession } from '../../lib/session';
 import { useSettings } from '../../settings';
 import { Button } from '../ui/button';
 import { lazy, Suspense } from 'react';
@@ -15,6 +16,8 @@ export function AppShell() {
   const { t } = useTranslation();
   const s = useSettings();
   const palette = useCommandPalette();
+  const user = useSession();
+  const navigate = useNavigate();
   return (
     <div className="flex min-h-screen">
       <aside className="hidden w-60 shrink-0 border-e border-border bg-surface md:block">
@@ -92,6 +95,21 @@ export function AppShell() {
             <option value="light">{t('topbar.light')}</option>
             <option value="dark">{t('topbar.dark')}</option>
           </select>
+          {user ? (
+            <>
+              <Link to="/account" className="text-sm text-muted hover:text-fg">
+                {user.name || user.email}
+              </Link>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  void logout().then(() => navigate({ to: '/login' }));
+                }}
+              >
+                {t('auth.logout')}
+              </Button>
+            </>
+          ) : null}
         </header>
         <main className="flex-1 p-6">
           <Outlet />
