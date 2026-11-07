@@ -5,6 +5,7 @@ import { AuthModule } from './auth/auth.module.js';
 import { ENV, type Env } from './env.js';
 import { LOGGER } from './infra/tokens.js';
 import { SnapshotModule } from './snapshot/snapshot.module.js';
+import { StatsModule } from './stats/stats.module.js';
 import { HealthController } from './health/health.controller.js';
 import { InfraModule } from './infra/infra.module.js';
 import { KeysModule } from './keys/keys.module.js';
@@ -26,6 +27,7 @@ export class AppModule {
         KeysModule,
         ModelsModule,
         SnapshotModule,
+        StatsModule,
       ],
       controllers: [HealthController],
       providers: [
