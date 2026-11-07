@@ -9,6 +9,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./catalog": {
+      "types": "./dist/catalog.d.ts",
+      "default": "./dist/catalog.js"
     }
   },
   "files": [
@@ -24,12 +28,20 @@
   },
   "devDependencies": {
     "@dirouter/eslint-config": "workspace:*",
-    "@dirouter/tsconfig": "workspace:*"
+    "@dirouter/tsconfig": "workspace:*",
+    "js-tiktoken": "^1.0.21"
   },
   "dependencies": {
     "@dirouter/contracts": "workspace:*",
     "@dirouter/shared": "workspace:*",
-    "js-tiktoken": "^1.0.21",
     "zod": "^4.6.7"
+  },
+  "peerDependencies": {
+    "js-tiktoken": "^1.0.21"
+  },
+  "peerDependenciesMeta": {
+    "js-tiktoken": {
+      "optional": true
+    }
   }
 }
