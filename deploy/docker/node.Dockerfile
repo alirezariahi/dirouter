@@ -29,8 +29,12 @@ RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
 # حذف چیزهایی که در زمان اجرا لازم نیستند (پنجرهٔ ۲۵۰MB):
 # - peerهای اختیاری Prisma که pnpm نصب می‌کند (CLI، engines، typescript)
 # - runtimeهای Prisma برای دیتابیس‌های دیگر، edge و source map (engineType=client فقط client.js + compiler postgresql)
-# - همهٔ encodingهای js-tiktoken جز o200k_base
+# - همهٔ encodingهای js-tiktoken جز o200k_base؛ و کل js-tiktoken جز برای گیت‌وی (peer اختیاری
+#   model-catalog است و بقیهٔ اپ‌ها فقط `@dirouter/model-catalog/catalog` را import می‌کنند)
+# - source mapهای همهٔ وابستگی‌ها (در production استفاده نمی‌شوند؛ swagger-ui به‌تنهایی چند MB دارد)
 RUN cd /out/node_modules/.pnpm \
+    && if [ "${APP}" != gateway ]; then rm -rf js-tiktoken@* base64-js@*; fi \
+    && find /out/node_modules -name '*.map' -type f -delete \
     && rm -rf typescript@* prisma@* @prisma+engines@* @prisma+config@* effect@* \
     && for d in @prisma+client@*/node_modules/@prisma/client/runtime; do \
          [ -d "$d" ] || continue; cd "$d"; \
