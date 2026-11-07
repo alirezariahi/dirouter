@@ -79,7 +79,7 @@ async function main() {
 
   const providers: {
     id: string;
-    type: 'OPENAI_COMPATIBLE' | 'ANTHROPIC' | 'AZURE_OPENAI';
+    type: 'OPENAI_COMPATIBLE' | 'ANTHROPIC' | 'AZURE_OPENAI' | 'GEMINI';
     secret: string;
     options?: object;
     timeouts?: object;
@@ -91,6 +91,8 @@ async function main() {
     { id: 'mock-tool', type: 'OPENAI_COMPATIBLE', secret: 'mock:tool' },
     { id: 'mock-nousage', type: 'OPENAI_COMPATIBLE', secret: 'mock:no_usage' },
     { id: 'mock-anthropic', type: 'ANTHROPIC', secret: 'sk-mock' },
+    { id: 'mock-gemini', type: 'GEMINI', secret: 'AIza-mock' },
+    { id: 'mock-gemini-tool', type: 'GEMINI', secret: 'mock:tool' },
     {
       id: 'mock-azure',
       type: 'AZURE_OPENAI',
@@ -149,6 +151,8 @@ async function main() {
     ['mock/tool', 'mock-tool', 'mock-small'],
     ['mock/nousage', 'mock-nousage', 'mock-small'],
     ['mock/claude', 'mock-anthropic', 'claude-mock'],
+    ['mock/gemini', 'mock-gemini', 'gemini-2.5-flash'],
+    ['mock/gemini-tool', 'mock-gemini-tool', 'gemini-2.5-flash'],
     ['mock/azure', 'mock-azure', 'gpt-mock-deployment'],
     ['mock/long', 'mock-long', 'mock-small'],
   ];

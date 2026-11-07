@@ -2,7 +2,7 @@
   "name": "@dirouter/providers",
   "version": "0.0.0",
   "private": true,
-  "description": "آداپترهای provider (OpenAI، Azure، OpenAI-compatible، Anthropic) و طبقه‌بندی خطای upstream",
+  "description": "آداپترهای provider (OpenAI، Azure، OpenAI-compatible، Anthropic، Gemini) و طبقه‌بندی خطای upstream",
   "type": "module",
   "sideEffects": false,
   "exports": {

@@ -319,3 +319,138 @@ describe('error classification against the mock', () => {
     ]);
   });
 });
+
+describe('Gemini adapter (card 4.8)', () => {
+  const gemini = (over: Partial<ProviderConfig> = {}) =>
+    provider('gemini', { baseUrl: base, ...over });
+  const gModel: ModelConfig = { ...model, upstreamModel: 'models/gemini-2.5-flash' };
+  const run = async (p: ProviderConfig, req: CanonicalRequest, apiKey = 'k') => {
+    const adapter = adapterFor('gemini');
+    const up = adapter.buildRequest({ provider: p, model: gModel, apiKey, request: req });
+    const res = await fetch(up.url, {
+      method: up.method,
+      headers: up.headers,
+      body: up.body ?? null,
+    });
+    return { adapter, up, res };
+  };
+
+  it('builds generateContent with the API key header and no models/ duplication', async () => {
+    const { up, res, adapter } = await run(gemini(), request());
+    expect(up.url).toBe(`${base}/v1beta/models/gemini-2.5-flash:generateContent`);
+    expect(up.headers['x-goog-api-key']).toBe('k');
+    expect(up.headers.authorization).toBeUndefined();
+    const parsed = adapter.parseResponse(await res.json(), 'gemini-2.5-flash');
+    expect(parsed.content).toEqual([
+      { type: 'text', text: 'Hello from the DiRouter mock provider.' },
+    ]);
+    expect(parsed.finishReason).toBe('stop');
+    expect(parsed.usage?.inputTokens).toBeGreaterThan(0);
+  });
+
+  it('streams over SSE with CRLF framing', async () => {
+    const { up, res, adapter } = await run(gemini(), request({ stream: true }));
+    expect(up.url.endsWith(':streamGenerateContent?alt=sse')).toBe(true);
+    const decoder = adapter.createStreamDecoder('gemini-2.5-flash');
+    const parser = new SseParser();
+    const out: CanonicalStreamEvent[] = [];
+    for (const e of [...parser.feed(await res.text()), ...parser.flush()])
+      out.push(...decoder.push(e));
+    const text = out.map((e) => (e.type === 'text_delta' ? e.text : '')).join('');
+    expect(text).toBe('Hello from the DiRouter mock provider.');
+    expect(out.filter((e) => e.type === 'usage')).toHaveLength(1);
+    expect(out.at(-1)).toMatchObject({ type: 'finish', finishReason: 'stop' });
+  });
+
+  it('function calls, streamed and not', async () => {
+    const plain = await run(gemini(), request(), 'mock:tool');
+    const res = adapterFor('gemini').parseResponse(await plain.res.json());
+    expect(res.finishReason).toBe('tool_calls');
+    expect(res.content[0]).toMatchObject({ type: 'tool_call', name: 'get_weather' });
+    const streamed = await run(gemini(), request({ stream: true }), 'mock:tool');
+    const decoder = adapterFor('gemini').createStreamDecoder();
+    const parser = new SseParser();
+    const events = [...parser.feed(await streamed.res.text()), ...parser.flush()].flatMap((e) =>
+      decoder.push(e),
+    );
+    expect(events.find((e) => e.type === 'tool_call_delta')).toMatchObject({
+      argumentsDelta: '{"city":"Tehran"}',
+    });
+    expect(events.at(-1)).toMatchObject({ finishReason: 'tool_calls' });
+  });
+
+  it('classifies Google error bodies', async () => {
+    const classify = async (key: string) => {
+      const { res, adapter } = await run(gemini(), request(), key);
+      return adapter.classifyError({
+        status: res.status,
+        headers: res.headers,
+        body: await res.text(),
+      });
+    };
+    expect(await classify('mock:rate_limit')).toMatchObject({
+      class: 'rate_limit',
+      upstreamType: 'RESOURCE_EXHAUSTED',
+    });
+    expect((await classify('mock:status=503')).class).toBe('server');
+    expect((await classify('mock:auth')).class).toBe('auth');
+    expect((await classify('mock:context_length')).class).toBe('context_length');
+
+    const adapter = adapterFor('gemini');
+    const body = (status: string, message: string, extra: object = {}) =>
+      JSON.stringify({ error: { code: 400, message, status, ...extra } });
+    expect(
+      adapter.classifyError({
+        status: 400,
+        headers: new Headers(),
+        body: body('INVALID_ARGUMENT', 'API key not valid. Please pass a valid API key.', {
+          details: [{ reason: 'API_KEY_INVALID' }],
+        }),
+      }).class,
+    ).toBe('auth');
+    expect(
+      adapter.classifyError({
+        status: 429,
+        headers: new Headers(),
+        body: JSON.stringify({
+          error: {
+            code: 429,
+            message: 'quota',
+            status: 'RESOURCE_EXHAUSTED',
+            details: [{ '@type': 'type.googleapis.com/google.rpc.RetryInfo', retryDelay: '17s' }],
+          },
+        }),
+      }).retryAfterMs,
+    ).toBe(17_000);
+    expect(
+      adapter.classifyError({
+        status: 400,
+        headers: new Headers(),
+        body: body('INVALID_ARGUMENT', 'bad'),
+      }).class,
+    ).toBe('bad_request');
+  });
+
+  it('lists only models that support generateContent', async () => {
+    const adapter = adapterFor('gemini');
+    const up = adapter.listModelsRequest(gemini(), 'k');
+    expect(up.url).toBe(`${base}/v1beta/models?pageSize=1000`);
+    const res = await fetch(up.url, { headers: up.headers });
+    expect(adapter.parseModelList(await res.json())).toEqual([
+      'gemini-mock-flash',
+      'gemini-mock-pro',
+    ]);
+  });
+
+  it('honours apiVersion and safety options', () => {
+    const up = adapterFor('gemini').buildRequest({
+      provider: gemini({ options: { apiVersion: 'v1', safetyThreshold: 'BLOCK_ONLY_HIGH' } }),
+      model: gModel,
+      apiKey: 'k',
+      request: request(),
+    });
+    expect(up.url).toContain('/v1/models/');
+    const body = JSON.parse(up.body ?? '{}') as { safetySettings: { threshold: string }[] };
+    expect(body.safetySettings[0]?.threshold).toBe('BLOCK_ONLY_HIGH');
+  });
+});

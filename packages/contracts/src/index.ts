@@ -1,6 +1,7 @@
 export * from './common.js';
 export * from './openai/chat.js';
 export * from './anthropic/messages.js';
+export * from './gemini/generate.js';
 export * from './canonical.js';
 export * from './config-snapshot.js';
 export * from './usage-event.js';

@@ -316,7 +316,7 @@ export async function handleProxy(
       }
       if (!canonical.stream) {
         const json: unknown = await response.json();
-        const parsed = adapter.parseResponse(json);
+        const parsed = adapter.parseResponse(json, candidate.model.upstreamModel);
         // بدون usage از provider: تخمین با tokenizer تا هم کلاینت و هم رویداد مصرف عدد بگیرند.
         const usage = parsed.usage ?? estimateUsage(canonical, parsed.content);
         return {
@@ -332,7 +332,7 @@ export async function handleProxy(
         api,
         canonical,
         candidate,
-        adapter.createStreamDecoder(),
+        adapter.createStreamDecoder(candidate.model.upstreamModel),
         call,
         reply,
         { includeUsage, started, requestId, heartbeatMs: deps.heartbeatMs ?? 15_000 },

@@ -10,6 +10,7 @@ import {
   type CanonicalRequest,
   type CanonicalResponse,
   type CanonicalStreamEvent,
+  GeminiGenerateContentResponse,
   type ModelConfig,
   OpenAIChatCompletionChunk,
   OpenAIChatCompletionResponse,
@@ -19,15 +20,23 @@ import {
 import {
   AnthropicStreamDecoder,
   type DropReporter,
+  GeminiStreamDecoder,
   OpenAIStreamDecoder,
   type SseEvent,
   anthropicResponseToCanonical,
   canonicalToAnthropicRequest,
+  canonicalToGeminiRequest,
   canonicalToOpenAIRequest,
+  geminiResponseToCanonical,
   openAIResponseToCanonical,
 } from '@dirouter/translator';
 
-import { type ClassifiedError, type HttpErrorInput, classifyHttpError } from './errors.js';
+import {
+  type ClassifiedError,
+  type HttpErrorInput,
+  classified,
+  classifyHttpError,
+} from './errors.js';
 import { presetFor } from './presets.js';
 
 export interface UpstreamRequest {
@@ -58,8 +67,9 @@ export interface StreamDecoder {
 export interface ProviderAdapter {
   readonly type: ProviderType;
   buildRequest(ctx: BuildContext): UpstreamRequest;
-  parseResponse(json: unknown): CanonicalResponse;
-  createStreamDecoder(): StreamDecoder;
+  /** `model` نام upstream است، برای providerهایی که آن را در پاسخ نمی‌دهند. */
+  parseResponse(json: unknown, model?: string): CanonicalResponse;
+  createStreamDecoder(model?: string): StreamDecoder;
   classifyError(input: HttpErrorInput): ClassifiedError;
   /** درخواست فهرست مدل‌ها برای کشف مدل (control-api). */
   listModelsRequest(provider: ProviderConfig, apiKey: string): UpstreamRequest;
@@ -295,6 +305,148 @@ function allowedBetas(ctx: BuildContext): string | undefined {
   return all.length ? all.join(',') : undefined;
 }
 
+// ───────────── Google Gemini ─────────────
+
+export const GEMINI_DEFAULT_BASE_URL = 'https://generativelanguage.googleapis.com';
+export const GEMINI_API_VERSION = 'v1beta';
+
+class GeminiDecoder implements StreamDecoder {
+  readonly #inner: GeminiStreamDecoder;
+
+  constructor(model: string) {
+    this.#inner = new GeminiStreamDecoder(model);
+  }
+
+  push(event: SseEvent): CanonicalStreamEvent[] {
+    if (event.data === '' || event.data === '[DONE]') return [];
+    const json = JSON.parse(event.data) as Record<string, unknown>;
+    if (json.error && typeof json.error === 'object') {
+      const err = json.error as { message?: unknown; status?: unknown };
+      return [
+        {
+          type: 'error',
+          code: typeof err.status === 'string' ? err.status : 'upstream_error',
+          message: typeof err.message === 'string' ? err.message : 'upstream error',
+        },
+      ];
+    }
+    return this.#inner.push(GeminiGenerateContentResponse.parse(json));
+  }
+}
+
+function geminiVersion(provider: ProviderConfig): string {
+  return typeof provider.options.apiVersion === 'string'
+    ? provider.options.apiVersion
+    : GEMINI_API_VERSION;
+}
+
+/** نام مدل بدون پیشوند `models/` (هر دو شکل در config پذیرفته می‌شود). */
+const geminiModel = (name: string) => name.replace(/^models\//, '');
+
+/** کدهای وضعیت gRPC گوگل → وضعیت HTTP معادل برای طبقه‌بندی. */
+const GOOGLE_STATUS: Readonly<Record<string, number>> = {
+  RESOURCE_EXHAUSTED: 429,
+  UNAVAILABLE: 503,
+  INTERNAL: 500,
+  DEADLINE_EXCEEDED: 504,
+  UNAUTHENTICATED: 401,
+  PERMISSION_DENIED: 403,
+  NOT_FOUND: 404,
+};
+
+class GeminiAdapter implements ProviderAdapter {
+  readonly type = 'gemini' as const;
+
+  buildRequest(ctx: BuildContext): UpstreamRequest {
+    const opts = ctx.provider.options;
+    const body = canonicalToGeminiRequest(ctx.request, {
+      ...(typeof opts.safetyThreshold === 'string'
+        ? { safetyThreshold: opts.safetyThreshold }
+        : {}),
+      ...(Array.isArray(opts.safetySettings) ? { safetySettings: opts.safetySettings } : {}),
+      ...(ctx.onDrop ? { onDrop: ctx.onDrop } : {}),
+    });
+    const model = encodeURIComponent(geminiModel(ctx.model.upstreamModel));
+    const action = ctx.request.stream ? 'streamGenerateContent?alt=sse' : 'generateContent';
+    return {
+      url: `${trimSlash(ctx.provider.baseUrl)}/${geminiVersion(ctx.provider)}/models/${model}:${action}`,
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        accept: ctx.request.stream ? 'text/event-stream' : 'application/json',
+        'x-goog-api-key': ctx.apiKey,
+        ...ctx.credentialHeaders,
+      },
+      body: JSON.stringify(body),
+    };
+  }
+
+  parseResponse(json: unknown, model = 'gemini'): CanonicalResponse {
+    return geminiResponseToCanonical(GeminiGenerateContentResponse.parse(json), { model });
+  }
+
+  createStreamDecoder(model = 'gemini'): StreamDecoder {
+    return new GeminiDecoder(model);
+  }
+
+  classifyError(input: HttpErrorInput): ClassifiedError {
+    // بدنهٔ خطای گوگل: {"error":{"code":429,"message":"…","status":"RESOURCE_EXHAUSTED",
+    //   "details":[{"@type":"type.googleapis.com/google.rpc.RetryInfo","retryDelay":"17s"}]}}
+    let googleStatus: string | undefined;
+    let retryDelayMs: number | undefined;
+    try {
+      const parsed = JSON.parse(input.body) as {
+        error?: { status?: unknown; details?: { retryDelay?: unknown }[] };
+      };
+      if (typeof parsed.error?.status === 'string') googleStatus = parsed.error.status;
+      const delay = parsed.error?.details?.find((d) => typeof d.retryDelay === 'string')
+        ?.retryDelay as string | undefined;
+      const seconds = delay ? /^(\d+(?:\.\d+)?)s$/.exec(delay)?.[1] : undefined;
+      if (seconds) retryDelayMs = Math.round(Number(seconds) * 1000);
+    } catch {
+      // متن غیر JSON
+    }
+    const mapped = googleStatus ? GOOGLE_STATUS[googleStatus] : undefined;
+    const status = input.status === 400 && mapped ? mapped : input.status;
+    const result = classifyHttpError({ ...input, status });
+    const upstream = googleStatus ? { upstreamType: googleStatus } : {};
+    if (result.class === 'bad_request') {
+      // کلید نامعتبر گوگل 400 با API_KEY_INVALID است.
+      if (/API_KEY_INVALID|API key not valid/i.test(input.body))
+        return classified('auth', { status: input.status, message: result.message, ...upstream });
+      // «The input token count (…) exceeds the maximum number of tokens allowed (…)»
+      if (/input token count|exceeds the maximum number of tokens/i.test(result.message))
+        return classified('context_length', {
+          status: input.status,
+          message: result.message,
+          ...upstream,
+        });
+    }
+    if (result.class === 'rate_limit' && result.retryAfterMs === undefined && retryDelayMs)
+      return { ...result, retryAfterMs: retryDelayMs, ...upstream };
+    return { ...result, ...upstream };
+  }
+
+  listModelsRequest(provider: ProviderConfig, apiKey: string): UpstreamRequest {
+    return {
+      url: `${trimSlash(provider.baseUrl)}/${geminiVersion(provider)}/models?pageSize=1000`,
+      method: 'GET',
+      headers: { 'x-goog-api-key': apiKey },
+    };
+  }
+
+  parseModelList(json: unknown): string[] {
+    const models = (json as { models?: unknown } | undefined)?.models;
+    if (!Array.isArray(models)) return [];
+    return models.flatMap((m: { name?: unknown; supportedGenerationMethods?: unknown }) => {
+      if (typeof m.name !== 'string') return [];
+      const methods = m.supportedGenerationMethods;
+      if (Array.isArray(methods) && !methods.includes('generateContent')) return [];
+      return [geminiModel(m.name)];
+    });
+  }
+}
+
 // ───────────── registry ─────────────
 
 const ADAPTERS: Partial<Record<ProviderType, ProviderAdapter>> = {
@@ -303,6 +455,7 @@ const ADAPTERS: Partial<Record<ProviderType, ProviderAdapter>> = {
   mock: new OpenAICompatibleAdapter('mock'),
   'azure-openai': new AzureOpenAIAdapter(),
   anthropic: new AnthropicAdapter(),
+  gemini: new GeminiAdapter(),
 };
 
 export function adapterFor(type: ProviderType): ProviderAdapter {

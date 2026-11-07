@@ -1,5 +1,5 @@
 /**
- * provider ساختگی سازگار با OpenAI و Anthropic با تزریق خطا (کارت ۹.۱).
+ * provider ساختگی سازگار با OpenAI، Anthropic و Gemini با تزریق خطا (کارت‌های ۹.۱ و ۴.۸).
  */
 import { setTimeout as sleep } from 'node:timers/promises';
 
@@ -13,7 +13,7 @@ import {
   type Scenario,
 } from './scenario.js';
 
-type Api = 'openai' | 'anthropic';
+type Api = 'openai' | 'anthropic' | 'gemini';
 
 interface Stats {
   requests: number;
@@ -28,7 +28,21 @@ const newStats = (): Stats => ({ requests: 0, byKey: {}, byStatus: {}, last: [] 
 /** تخمین ساده: هر ۴ کاراکتر یک توکن. */
 const tokens = (value: unknown) => Math.max(1, Math.ceil(JSON.stringify(value ?? '').length / 4));
 
+const GOOGLE_STATUS: Record<number, string> = {
+  400: 'INVALID_ARGUMENT',
+  401: 'UNAUTHENTICATED',
+  403: 'PERMISSION_DENIED',
+  404: 'NOT_FOUND',
+  429: 'RESOURCE_EXHAUSTED',
+  500: 'INTERNAL',
+  502: 'UNAVAILABLE',
+  503: 'UNAVAILABLE',
+  529: 'UNAVAILABLE',
+};
+
 function errorBody(api: Api, status: number, message: string, type: string) {
+  if (api === 'gemini')
+    return { error: { code: status, message, status: GOOGLE_STATUS[status] ?? 'INTERNAL' } };
   return api === 'openai'
     ? { error: { message, type, param: null, code: type } }
     : { type: 'error', error: { type, message } };
@@ -67,14 +81,21 @@ export function buildServer(options: MockServerOptions = {}) {
     const header = req.headers['x-mock'];
     const fromHeader = typeof header === 'string' ? header : undefined;
     const keyHeader =
-      req.headers['x-api-key'] ?? req.headers.authorization ?? req.headers['api-key'];
+      req.headers['x-api-key'] ??
+      req.headers.authorization ??
+      req.headers['api-key'] ??
+      req.headers['x-goog-api-key'];
     const fromKey = directivesFromKey(typeof keyHeader === 'string' ? keyHeader : undefined);
     return parseScenario([fromKey, fromHeader].filter(Boolean).join(','), defaults);
   }
 
   function record(req: FastifyRequest, status: number) {
     const key = String(
-      req.headers['x-api-key'] ?? req.headers.authorization ?? req.headers['api-key'] ?? 'none',
+      req.headers['x-api-key'] ??
+        req.headers.authorization ??
+        req.headers['api-key'] ??
+        req.headers['x-goog-api-key'] ??
+        'none',
     );
     stats.requests++;
     stats.byKey[key] = (stats.byKey[key] ?? 0) + 1;
@@ -100,10 +121,15 @@ export function buildServer(options: MockServerOptions = {}) {
       anthropic: 'api_error',
       message: 'Internal server error',
     };
-    const message = s.contextLength
-      ? "This model's maximum context length is 8192 tokens. However, your messages resulted in 9001 tokens."
-      : spec.message;
-    const type = s.contextLength && api === 'openai' ? 'context_length_exceeded' : spec[api];
+    const message = !s.contextLength
+      ? spec.message
+      : api === 'gemini'
+        ? 'The input token count (9001) exceeds the maximum number of tokens allowed (8192).'
+        : "This model's maximum context length is 8192 tokens. However, your messages resulted in 9001 tokens.";
+    const type =
+      s.contextLength && api === 'openai'
+        ? 'context_length_exceeded'
+        : spec[api === 'gemini' ? 'openai' : api];
     if (s.retryAfter !== undefined) void reply.header('retry-after', String(s.retryAfter));
     await reply.status(status).send(errorBody(api, status, message, type));
     return true;
@@ -346,6 +372,102 @@ export function buildServer(options: MockServerOptions = {}) {
     });
     send('message_stop', { type: 'message_stop' });
     res.end();
+  });
+
+  // ───────────── Gemini ─────────────
+  // POST /v1beta/models/{model}:generateContent و :streamGenerateContent?alt=sse
+
+  app.post<{ Params: { '*': string } }>('/v1beta/models/*', async (req, reply) => {
+    const [rawModel = 'mock', action = ''] = req.params['*'].split(':');
+    const model = decodeURIComponent(rawModel);
+    if (action !== 'generateContent' && action !== 'streamGenerateContent')
+      return reply.status(404).send(errorBody('gemini', 404, `unknown action ${action}`, ''));
+    const s = scenarioFor(req);
+    await sleep(sampleLatency(s.latency));
+    if (await maybeFail('gemini', s, req, reply)) return;
+    const body = (req.body ?? {}) as { contents?: unknown; systemInstruction?: unknown };
+    const promptTokenCount = tokens([body.systemInstruction, body.contents]);
+    const pieces = chunksOf(s.text, s.chunks);
+    const candidatesTokenCount = s.tool ? 12 : pieces.length * 2;
+    const usageMetadata = {
+      promptTokenCount,
+      candidatesTokenCount,
+      totalTokenCount: promptTokenCount + candidatesTokenCount,
+    };
+    const responseId = `mockgem${Date.now().toString(36)}`;
+    const functionPart = s.tool
+      ? {
+          functionCall: { name: s.tool, args: { city: 'Tehran' } },
+          thoughtSignature: 'c2lnLW1vY2s=',
+        }
+      : undefined;
+    const frame = (parts: unknown[], finish?: string, usage?: unknown) => ({
+      candidates: [
+        {
+          content: { role: 'model', parts },
+          ...(finish ? { finishReason: finish } : {}),
+          index: 0,
+        },
+      ],
+      ...(usage && !s.noUsage ? { usageMetadata: usage } : {}),
+      modelVersion: model,
+      responseId,
+    });
+
+    if (action === 'generateContent') {
+      record(req, 200);
+      await sleep(s.ttftMs);
+      return reply.send(
+        frame(functionPart ? [functionPart] : [{ text: s.text }], 'STOP', usageMetadata),
+      );
+    }
+
+    record(req, 200);
+    await sleep(s.ttftMs);
+    reply.hijack();
+    const res = reply.raw;
+    res.writeHead(200, {
+      'content-type': 'text/event-stream',
+      'cache-control': 'no-cache',
+      connection: 'keep-alive',
+    });
+    const send = (data: unknown) => res.write(`data: ${JSON.stringify(data)}\r\n\r\n`);
+    if (functionPart) {
+      send(frame([functionPart], 'STOP', usageMetadata));
+      return res.end();
+    }
+    let sent = 0;
+    for (const [i, piece] of pieces.entries()) {
+      if (s.dropAfter !== undefined && sent >= s.dropAfter) return res.destroy();
+      await sleep(s.chunkDelayMs);
+      if (res.destroyed) return;
+      const last = i === pieces.length - 1;
+      // مثل Gemini واقعی usageMetadata در هر chunk تجمعی است.
+      send(
+        frame([{ text: piece }], last ? 'STOP' : undefined, {
+          ...usageMetadata,
+          candidatesTokenCount: (i + 1) * 2,
+        }),
+      );
+      sent++;
+    }
+    res.end();
+  });
+
+  app.get('/v1beta/models', async (req, reply) => {
+    const s = scenarioFor(req);
+    if (await maybeFail('gemini', s, req, reply)) return;
+    return {
+      models: [
+        ['gemini-mock-flash', ['generateContent', 'countTokens']],
+        ['gemini-mock-pro', ['generateContent']],
+        ['text-embedding-mock', ['embedContent']],
+      ].map(([id, methods]) => ({
+        name: `models/${String(id)}`,
+        displayName: String(id),
+        supportedGenerationMethods: methods,
+      })),
+    };
   });
 
   // ───────────── models، کنترل و آمار ─────────────
