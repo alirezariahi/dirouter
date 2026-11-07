@@ -108,7 +108,15 @@ export class ConfigStore {
       );
       return false;
     }
-    if (this.#current && parsed.data.version <= this.#current.version) return false;
+    // control-api منبع حقیقت است: هر نسخهٔ متفاوتی از آن پذیرفته می‌شود (مثلاً بعد از بازیابی
+    // DB یا جایگزینی snapshot آزمایشی dev). نسخهٔ دیسک فقط اگر تازه‌تر باشد.
+    if (this.#current) {
+      const same =
+        parsed.data.version === this.#current.version &&
+        parsed.data.checksum === this.#current.snapshot.checksum;
+      if (same || (source !== 'control-api' && parsed.data.version <= this.#current.version))
+        return false;
+    }
     // credentialهایی که در snapshot جدید فعال‌اند دوباره قابل استفاده می‌شوند.
     const previous = this.#current;
     this.#current = new LoadedConfig(parsed.data, this.opts.health, this.opts.keyring);

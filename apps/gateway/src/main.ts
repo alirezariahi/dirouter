@@ -68,6 +68,15 @@ const gateway = buildGateway({
 });
 await gateway.start();
 await healthSync?.start(gateway.health);
+// اعمال فوری تغییرات داشبورد: control-api بعد از هر نسخهٔ تازه این کانال را منتشر می‌کند
+// (کارت‌های ۳.۹ و ۴.۲)؛ poll دوره‌ای با ETag پشتیبان قطعی Valkey است.
+if (env.VALKEY_URL) {
+  const configSub = quiet(new Redis(env.VALKEY_URL, { maxRetriesPerRequest: null }));
+  configSub.on('message', () => {
+    void gateway.store.sync();
+  });
+  await configSub.subscribe('dirouter:config:updated').catch(() => undefined);
+}
 await gateway.app.listen({ port: env.PORT, host: '0.0.0.0' });
 logger.info(
   { port: env.PORT, configVersion: gateway.store.current?.version ?? 0 },
