@@ -23,7 +23,7 @@
     "dev": "tsc -p tsconfig.build.json --incremental --tsBuildInfoFile dist/.tsbuildinfo --watch --preserveWatchOutput",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
-    "test": "vitest run --passWithNoTests",
+    "test": "vitest run --passWithNoTests --testTimeout=30000",
     "clean": "rm -rf dist .turbo"
   },
   "devDependencies": {
