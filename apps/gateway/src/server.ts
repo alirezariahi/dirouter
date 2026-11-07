@@ -56,6 +56,9 @@ export function buildGateway(opts: GatewayOptions) {
     trustProxy: true,
     bodyLimit: 20 * 1024 * 1024,
     requestTimeout: 0,
+    // بیشتر از idleConnTimeout ترافیک (۹۰s) تا گیت‌وی زودتر از Traefik اتصال idle را نبندد
+    // (وگرنه درخواستی که Traefik روی اتصالِ در حال بسته‌شدن می‌فرستد 502 می‌گیرد).
+    keepAliveTimeout: 95_000,
     genReqId: (req: IncomingMessage) => {
       const incoming = req.headers['x-request-id'];
       return typeof incoming === 'string' && /^[\w.-]{1,128}$/.test(incoming)
