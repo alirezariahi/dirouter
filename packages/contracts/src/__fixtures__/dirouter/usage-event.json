@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "eventId": "01JC2Z8QH5V7Y3M4N6P8R0S2T4",
+  "idempotencyKey": "req_01JC2Z8QH5V7Y3M4N6P8R0S2T4",
+  "requestId": "req_01JC2Z8QH5V7Y3M4N6P8R0S2T4",
+  "occurredAt": "2026-11-07T08:01:02.345Z",
+  "gatewayInstance": "gateway-7d9c-1",
+  "configVersion": 42,
+  "orgId": "org_1",
+  "teamId": "team_1",
+  "projectId": "prj_1",
+  "virtualKeyId": "vk_1",
+  "inboundApi": "openai.chat",
+  "requestedModel": "best",
+  "resolvedModelId": "mdl_gpt41",
+  "providerId": "prv_openai",
+  "credentialId": "cred_1",
+  "stream": true,
+  "status": "success",
+  "httpStatus": 200,
+  "usage": { "inputTokens": 1200, "outputTokens": 300, "cacheReadTokens": 1024 },
+  "costMicros": 4912,
+  "latencyMs": 1830,
+  "ttftMs": 412,
+  "attempts": [
+    {
+      "providerId": "prv_anthropic",
+      "modelId": "mdl_sonnet",
+      "credentialId": "cred_3",
+      "outcome": "error",
+      "httpStatus": 529,
+      "errorCode": "upstream_overloaded",
+      "latencyMs": 380,
+      "startedAt": "2026-11-07T08:01:00.515Z"
+    },
+    {
+      "providerId": "prv_openai",
+      "modelId": "mdl_gpt41",
+      "credentialId": "cred_1",
+      "outcome": "success",
+      "httpStatus": 200,
+      "latencyMs": 1420,
+      "startedAt": "2026-11-07T08:01:00.925Z"
+    }
+  ]
+}

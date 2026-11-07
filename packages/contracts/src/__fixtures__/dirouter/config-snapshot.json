@@ -1,0 +1,115 @@
+{
+  "schemaVersion": 1,
+  "version": 42,
+  "generatedAt": "2026-11-07T08:00:00.000Z",
+  "providers": [
+    {
+      "id": "prv_openai",
+      "slug": "openai",
+      "type": "openai",
+      "name": "OpenAI",
+      "baseUrl": "https://api.openai.com/v1",
+      "enabled": true,
+      "proxy": { "url": "socks5h://127.0.0.1:1080" },
+      "timeouts": { "connectMs": 3000, "firstByteMs": 30000, "idleMs": 15000 },
+      "maxConcurrency": 200,
+      "credentials": [
+        {
+          "id": "cred_1",
+          "name": "primary",
+          "secret": "v1.ZmFrZS1pdi1hbmQtY2lwaGVydGV4dA",
+          "enabled": true,
+          "weight": 3
+        },
+        {
+          "id": "cred_2",
+          "name": "backup",
+          "secret": "v2.YW5vdGhlci1jaXBoZXJ0ZXh0",
+          "enabled": true
+        }
+      ]
+    },
+    {
+      "id": "prv_anthropic",
+      "slug": "anthropic",
+      "type": "anthropic",
+      "name": "Anthropic",
+      "baseUrl": "https://api.anthropic.com",
+      "enabled": true,
+      "credentials": [
+        { "id": "cred_3", "name": "main", "secret": "v1.YW50aHJvcGljLWtleQ", "enabled": true }
+      ]
+    }
+  ],
+  "models": [
+    {
+      "id": "mdl_gpt41",
+      "slug": "openai/gpt-4.1",
+      "providerId": "prv_openai",
+      "upstreamModel": "gpt-4.1",
+      "enabled": true,
+      "contextWindow": 1047576,
+      "maxOutputTokens": 32768,
+      "pricing": {
+        "inputPerMTokMicros": 2000000,
+        "outputPerMTokMicros": 8000000,
+        "cacheReadPerMTokMicros": 500000
+      },
+      "capabilities": { "tools": true, "vision": true, "jsonMode": true }
+    },
+    {
+      "id": "mdl_sonnet",
+      "slug": "anthropic/claude-sonnet-4-5",
+      "providerId": "prv_anthropic",
+      "upstreamModel": "claude-sonnet-4-5",
+      "enabled": true,
+      "contextWindow": 200000,
+      "pricing": {
+        "inputPerMTokMicros": 3000000,
+        "outputPerMTokMicros": 15000000,
+        "cacheReadPerMTokMicros": 300000,
+        "cacheWritePerMTokMicros": 3750000
+      },
+      "capabilities": { "tools": true, "vision": true, "reasoning": true }
+    }
+  ],
+  "combos": [
+    {
+      "id": "cmb_smart",
+      "slug": "smart",
+      "strategy": "priority",
+      "targets": [
+        { "modelId": "mdl_sonnet", "priority": 0 },
+        { "modelId": "mdl_gpt41", "priority": 1 }
+      ],
+      "retry": { "maxAttempts": 3 }
+    }
+  ],
+  "aliases": [
+    { "slug": "gpt-4.1", "target": { "kind": "model", "modelId": "mdl_gpt41" } },
+    { "slug": "best", "target": { "kind": "combo", "comboId": "cmb_smart" } }
+  ],
+  "virtualKeys": [
+    {
+      "id": "vk_1",
+      "hash": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+      "prefix": "dr-live-AbCd",
+      "orgId": "org_1",
+      "teamId": "team_1",
+      "projectId": "prj_1",
+      "enabled": true,
+      "expiresAt": null,
+      "allowedModels": ["best", "gpt-4.1"],
+      "rateLimit": { "requestsPerMinute": 600, "tokensPerMinute": 200000 },
+      "budget": { "limitMicros": 50000000, "period": "monthly" }
+    }
+  ],
+  "limits": [
+    {
+      "scope": "team",
+      "scopeId": "team_1",
+      "budget": { "limitMicros": 500000000, "period": "monthly" }
+    }
+  ],
+  "settings": { "failMode": "open" }
+}

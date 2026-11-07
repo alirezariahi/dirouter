@@ -1,0 +1,21 @@
+{
+  "name": "@dirouter/eslint-config",
+  "version": "0.0.0",
+  "private": true,
+  "description": "پیکربندی مشترک ESLint (flat config)",
+  "type": "module",
+  "exports": {
+    ".": "./index.js"
+  },
+  "files": [
+    "index.js"
+  ],
+  "dependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.7",
+    "globals": "^17.14.0",
+    "typescript-eslint": "^8.72.1"
+  }
+}

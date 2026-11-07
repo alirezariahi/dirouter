@@ -1,0 +1,41 @@
+{
+  "name": "dirouter",
+  "private": true,
+  "description": "DiRouter — گیت‌وی هوشمند و تاب‌آور LLM",
+  "packageManager": "pnpm@10.13.1",
+  "engines": {
+    "node": ">=22.12 <23",
+    "pnpm": ">=10"
+  },
+  "type": "module",
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "test": "turbo run test",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "clean": "turbo run clean && rm -rf node_modules .turbo",
+    "prepare": "husky"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^21.2.4",
+    "@commitlint/config-conventional": "^21.2.4",
+    "@dirouter/eslint-config": "workspace:*",
+    "@types/node": "^22.20.5",
+    "eslint": "^10.14.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.6.0",
+    "prettier": "^3.9.10",
+    "tsx": "^4.23.15",
+    "turbo": "^2.11.10",
+    "typescript": "~6.0.3",
+    "vitest": "^5.1.0"
+  }
+}

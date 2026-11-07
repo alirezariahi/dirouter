@@ -1,0 +1,33 @@
+{
+  "name": "@dirouter/contracts",
+  "version": "0.0.0",
+  "private": true,
+  "description": "اسکیماها و تایپ‌های مشترک (zod) بین همهٔ اپ‌ها",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./json-schema/*": "./dist/json-schema/*"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json && node scripts/emit-json-schema.js",
+    "dev": "tsc -p tsconfig.build.json --watch --preserveWatchOutput",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run --passWithNoTests",
+    "clean": "rm -rf dist .turbo"
+  },
+  "devDependencies": {
+    "@dirouter/eslint-config": "workspace:*",
+    "@dirouter/tsconfig": "workspace:*"
+  },
+  "dependencies": {
+    "zod": "^4.6.7"
+  }
+}

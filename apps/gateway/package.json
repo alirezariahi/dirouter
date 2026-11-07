@@ -1,0 +1,25 @@
+{
+  "name": "@dirouter/gateway",
+  "version": "0.0.0",
+  "private": true,
+  "description": "data plane — مسیر داغ درخواست‌های LLM",
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsx watch src/main.ts",
+    "start": "node dist/main.js",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run --passWithNoTests",
+    "clean": "rm -rf dist .turbo"
+  },
+  "devDependencies": {
+    "@dirouter/eslint-config": "workspace:*",
+    "@dirouter/tsconfig": "workspace:*"
+  },
+  "dependencies": {
+    "@dirouter/contracts": "workspace:*",
+    "@dirouter/shared": "workspace:*",
+    "zod": "^4.6.7"
+  }
+}

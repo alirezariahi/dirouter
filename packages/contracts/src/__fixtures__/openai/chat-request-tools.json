@@ -1,0 +1,55 @@
+{
+  "model": "gpt-4.1",
+  "messages": [
+    { "role": "developer", "content": "You are a helpful weather assistant." },
+    {
+      "role": "user",
+      "content": [
+        { "type": "text", "text": "What's the weather like in Tehran and what is in this photo?" },
+        {
+          "type": "image_url",
+          "image_url": { "url": "https://example.com/photo.jpg", "detail": "low" }
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": null,
+      "tool_calls": [
+        {
+          "id": "call_abc123",
+          "type": "function",
+          "function": { "name": "get_weather", "arguments": "{\"city\":\"Tehran\"}" }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "tool_call_id": "call_abc123",
+      "content": "{\"temp_c\":18,\"condition\":\"sunny\"}"
+    }
+  ],
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "get_weather",
+        "description": "Get current weather for a city",
+        "parameters": {
+          "type": "object",
+          "properties": { "city": { "type": "string" } },
+          "required": ["city"],
+          "additionalProperties": false
+        },
+        "strict": true
+      }
+    }
+  ],
+  "tool_choice": "auto",
+  "parallel_tool_calls": true,
+  "temperature": 0.2,
+  "max_completion_tokens": 512,
+  "stream": false,
+  "user": "user-42",
+  "prediction": { "type": "content", "content": "future field kept by passthrough" }
+}

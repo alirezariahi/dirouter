@@ -1,0 +1,70 @@
+{
+  "model": "claude-sonnet-4-5",
+  "max_tokens": 1024,
+  "system": [
+    {
+      "type": "text",
+      "text": "You are a helpful weather assistant.",
+      "cache_control": { "type": "ephemeral" }
+    }
+  ],
+  "messages": [
+    {
+      "role": "user",
+      "content": [
+        { "type": "text", "text": "What's the weather like in Tehran?" },
+        {
+          "type": "image",
+          "source": {
+            "type": "base64",
+            "media_type": "image/png",
+            "data": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="
+          }
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "thinking",
+          "thinking": "The user wants weather; call the tool.",
+          "signature": "EqQBCgIYAhIM1gbcDa9GJwZA2b3hGgxBdjrkzLoky3dl1pkiMOYds"
+        },
+        {
+          "type": "tool_use",
+          "id": "toolu_01A09q90qw90lq917835lq9",
+          "name": "get_weather",
+          "input": { "city": "Tehran" }
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "tool_result",
+          "tool_use_id": "toolu_01A09q90qw90lq917835lq9",
+          "content": "18°C, sunny"
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "get_weather",
+      "description": "Get current weather for a city",
+      "input_schema": {
+        "type": "object",
+        "properties": { "city": { "type": "string" } },
+        "required": ["city"]
+      }
+    },
+    { "type": "web_search_20250305", "name": "web_search", "max_uses": 3 }
+  ],
+  "tool_choice": { "type": "auto" },
+  "thinking": { "type": "enabled", "budget_tokens": 2048 },
+  "stop_sequences": ["\n\nHuman:"],
+  "metadata": { "user_id": "user-42" },
+  "stream": false
+}
