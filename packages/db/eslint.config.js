@@ -1,3 +1,3 @@
 import { node } from '@dirouter/eslint-config';
 
-export default node;
+export default [{ ignores: ['generated/**'] }, ...node];

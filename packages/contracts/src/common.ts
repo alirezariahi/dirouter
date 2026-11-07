@@ -18,3 +18,11 @@ export const Slug = z
   .regex(/^[a-zA-Z0-9][a-zA-Z0-9._:/-]*$/, 'invalid slug');
 
 export const NonNegativeInt = z.int().nonnegative();
+
+/**
+ * مبلغ دلاری به‌صورت رشتهٔ اعشاری با حداکثر ۸ رقم اعشار (معادل Decimal(18,8)).
+ * پول هرگز float نیست؛ محاسبه با `@dirouter/shared` (BigInt fixed-point).
+ */
+export const UsdAmount = z
+  .string()
+  .regex(/^\d{1,10}(\.\d{1,8})?$/, 'USD amount must be a decimal string with ≤ 8 decimals');

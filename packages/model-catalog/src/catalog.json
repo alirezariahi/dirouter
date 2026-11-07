@@ -1,0 +1,199 @@
+{
+  "version": "2026.11.07",
+  "currency": "USD",
+  "unit": "per 1M tokens",
+  "models": [
+    {
+      "key": "openai/gpt-4.1",
+      "provider": "openai",
+      "upstreamModel": "gpt-4.1",
+      "contextWindow": 1047576,
+      "maxOutputTokens": 32768,
+      "pricing": { "inputPerMTok": "2.00", "outputPerMTok": "8.00", "cacheReadPerMTok": "0.50" },
+      "capabilities": { "tools": true, "vision": true, "jsonMode": true }
+    },
+    {
+      "key": "openai/gpt-4.1-mini",
+      "provider": "openai",
+      "upstreamModel": "gpt-4.1-mini",
+      "contextWindow": 1047576,
+      "maxOutputTokens": 32768,
+      "pricing": { "inputPerMTok": "0.40", "outputPerMTok": "1.60", "cacheReadPerMTok": "0.10" },
+      "capabilities": { "tools": true, "vision": true, "jsonMode": true }
+    },
+    {
+      "key": "openai/gpt-4.1-nano",
+      "provider": "openai",
+      "upstreamModel": "gpt-4.1-nano",
+      "contextWindow": 1047576,
+      "maxOutputTokens": 32768,
+      "pricing": { "inputPerMTok": "0.10", "outputPerMTok": "0.40", "cacheReadPerMTok": "0.025" },
+      "capabilities": { "tools": true, "vision": true, "jsonMode": true }
+    },
+    {
+      "key": "openai/gpt-4o",
+      "provider": "openai",
+      "upstreamModel": "gpt-4o",
+      "contextWindow": 128000,
+      "maxOutputTokens": 16384,
+      "pricing": { "inputPerMTok": "2.50", "outputPerMTok": "10.00", "cacheReadPerMTok": "1.25" },
+      "capabilities": { "tools": true, "vision": true, "jsonMode": true }
+    },
+    {
+      "key": "openai/gpt-4o-mini",
+      "provider": "openai",
+      "upstreamModel": "gpt-4o-mini",
+      "contextWindow": 128000,
+      "maxOutputTokens": 16384,
+      "pricing": { "inputPerMTok": "0.15", "outputPerMTok": "0.60", "cacheReadPerMTok": "0.075" },
+      "capabilities": { "tools": true, "vision": true, "jsonMode": true }
+    },
+    {
+      "key": "openai/o3",
+      "provider": "openai",
+      "upstreamModel": "o3",
+      "contextWindow": 200000,
+      "maxOutputTokens": 100000,
+      "pricing": { "inputPerMTok": "2.00", "outputPerMTok": "8.00", "cacheReadPerMTok": "0.50" },
+      "capabilities": { "tools": true, "vision": true, "reasoning": true, "jsonMode": true }
+    },
+    {
+      "key": "openai/o4-mini",
+      "provider": "openai",
+      "upstreamModel": "o4-mini",
+      "contextWindow": 200000,
+      "maxOutputTokens": 100000,
+      "pricing": { "inputPerMTok": "1.10", "outputPerMTok": "4.40", "cacheReadPerMTok": "0.275" },
+      "capabilities": { "tools": true, "vision": true, "reasoning": true, "jsonMode": true }
+    },
+    {
+      "key": "anthropic/claude-opus-4-1",
+      "provider": "anthropic",
+      "upstreamModel": "claude-opus-4-1",
+      "contextWindow": 200000,
+      "maxOutputTokens": 32000,
+      "pricing": {
+        "inputPerMTok": "15.00",
+        "outputPerMTok": "75.00",
+        "cacheReadPerMTok": "1.50",
+        "cacheWritePerMTok": "18.75"
+      },
+      "capabilities": { "tools": true, "vision": true, "reasoning": true }
+    },
+    {
+      "key": "anthropic/claude-sonnet-4-5",
+      "provider": "anthropic",
+      "upstreamModel": "claude-sonnet-4-5",
+      "contextWindow": 200000,
+      "maxOutputTokens": 64000,
+      "pricing": {
+        "inputPerMTok": "3.00",
+        "outputPerMTok": "15.00",
+        "cacheReadPerMTok": "0.30",
+        "cacheWritePerMTok": "3.75"
+      },
+      "capabilities": { "tools": true, "vision": true, "reasoning": true }
+    },
+    {
+      "key": "anthropic/claude-haiku-4-5",
+      "provider": "anthropic",
+      "upstreamModel": "claude-haiku-4-5",
+      "contextWindow": 200000,
+      "maxOutputTokens": 64000,
+      "pricing": {
+        "inputPerMTok": "1.00",
+        "outputPerMTok": "5.00",
+        "cacheReadPerMTok": "0.10",
+        "cacheWritePerMTok": "1.25"
+      },
+      "capabilities": { "tools": true, "vision": true, "reasoning": true }
+    },
+    {
+      "key": "gemini/gemini-2.5-pro",
+      "provider": "gemini",
+      "upstreamModel": "gemini-2.5-pro",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 65536,
+      "pricing": { "inputPerMTok": "1.25", "outputPerMTok": "10.00", "cacheReadPerMTok": "0.31" },
+      "capabilities": { "tools": true, "vision": true, "reasoning": true, "jsonMode": true }
+    },
+    {
+      "key": "gemini/gemini-2.5-flash",
+      "provider": "gemini",
+      "upstreamModel": "gemini-2.5-flash",
+      "contextWindow": 1048576,
+      "maxOutputTokens": 65536,
+      "pricing": { "inputPerMTok": "0.30", "outputPerMTok": "2.50", "cacheReadPerMTok": "0.075" },
+      "capabilities": { "tools": true, "vision": true, "reasoning": true, "jsonMode": true }
+    },
+    {
+      "key": "deepseek/deepseek-chat",
+      "provider": "deepseek",
+      "upstreamModel": "deepseek-chat",
+      "contextWindow": 65536,
+      "maxOutputTokens": 8192,
+      "pricing": { "inputPerMTok": "0.27", "outputPerMTok": "1.10", "cacheReadPerMTok": "0.07" },
+      "capabilities": { "tools": true, "jsonMode": true }
+    },
+    {
+      "key": "deepseek/deepseek-reasoner",
+      "provider": "deepseek",
+      "upstreamModel": "deepseek-reasoner",
+      "contextWindow": 65536,
+      "maxOutputTokens": 32768,
+      "pricing": { "inputPerMTok": "0.55", "outputPerMTok": "2.19", "cacheReadPerMTok": "0.14" },
+      "capabilities": { "reasoning": true }
+    },
+    {
+      "key": "groq/llama-3.3-70b-versatile",
+      "provider": "groq",
+      "upstreamModel": "llama-3.3-70b-versatile",
+      "contextWindow": 131072,
+      "maxOutputTokens": 32768,
+      "pricing": { "inputPerMTok": "0.59", "outputPerMTok": "0.79" },
+      "capabilities": { "tools": true, "jsonMode": true }
+    },
+    {
+      "key": "mistral/mistral-large-latest",
+      "provider": "mistral",
+      "upstreamModel": "mistral-large-latest",
+      "contextWindow": 131072,
+      "pricing": { "inputPerMTok": "2.00", "outputPerMTok": "6.00" },
+      "capabilities": { "tools": true, "jsonMode": true }
+    },
+    {
+      "key": "mistral/mistral-small-latest",
+      "provider": "mistral",
+      "upstreamModel": "mistral-small-latest",
+      "contextWindow": 131072,
+      "pricing": { "inputPerMTok": "0.10", "outputPerMTok": "0.30" },
+      "capabilities": { "tools": true, "vision": true, "jsonMode": true }
+    },
+    {
+      "key": "xai/grok-4",
+      "provider": "xai",
+      "upstreamModel": "grok-4",
+      "contextWindow": 256000,
+      "pricing": { "inputPerMTok": "3.00", "outputPerMTok": "15.00", "cacheReadPerMTok": "0.75" },
+      "capabilities": { "tools": true, "vision": true, "reasoning": true }
+    },
+    {
+      "key": "mock/mock-small",
+      "provider": "mock",
+      "upstreamModel": "mock-small",
+      "contextWindow": 32000,
+      "maxOutputTokens": 4096,
+      "pricing": { "inputPerMTok": "0.10", "outputPerMTok": "0.20" },
+      "capabilities": { "tools": true }
+    },
+    {
+      "key": "mock/mock-large",
+      "provider": "mock",
+      "upstreamModel": "mock-large",
+      "contextWindow": 200000,
+      "maxOutputTokens": 8192,
+      "pricing": { "inputPerMTok": "1.00", "outputPerMTok": "2.00" },
+      "capabilities": { "tools": true }
+    }
+  ]
+}

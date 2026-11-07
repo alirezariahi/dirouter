@@ -1,0 +1,184 @@
+# محیط توسعه: hot-reload با bind mount، پورت دیتابیس‌ها فقط روی localhost،
+# mailpit و mock-provider. اجرا: make up
+
+x-dev-node: &dev-node
+  image: dirouter/dev:local
+  build:
+    context: .
+    dockerfile: deploy/docker/dev.Dockerfile
+  restart: unless-stopped
+  working_dir: /repo
+  volumes:
+    - .:/repo
+    # node_modules داخل کانتینر (لینوکس) از node_modules میزبان (macOS) جداست.
+    - nm-root:/repo/node_modules
+    - nm-gateway:/repo/apps/gateway/node_modules
+    - nm-control-api:/repo/apps/control-api/node_modules
+    - nm-worker:/repo/apps/worker/node_modules
+    - nm-dashboard:/repo/apps/dashboard/node_modules
+    - nm-mock-provider:/repo/apps/mock-provider/node_modules
+    - nm-contracts:/repo/packages/contracts/node_modules
+    - nm-shared:/repo/packages/shared/node_modules
+    - nm-db:/repo/packages/db/node_modules
+    - nm-model-catalog:/repo/packages/model-catalog/node_modules
+    - nm-ui:/repo/packages/ui/node_modules
+    - nm-eslint-config:/repo/packages/eslint-config/node_modules
+    - nm-tsconfig:/repo/packages/tsconfig/node_modules
+    - pnpm-store:/pnpm/store
+    - gateway-data:/data
+  depends_on: !override
+    dev-deps: { condition: service_healthy }
+
+volumes:
+  nm-root:
+  nm-gateway:
+  nm-control-api:
+  nm-worker:
+  nm-dashboard:
+  nm-mock-provider:
+  nm-contracts:
+  nm-shared:
+  nm-db:
+  nm-model-catalog:
+  nm-ui:
+  nm-eslint-config:
+  nm-tsconfig:
+  pnpm-store:
+
+services:
+  traefik:
+    volumes:
+      - ./deploy/traefik/traefik.dev.yml:/etc/traefik/traefik.yml:ro
+
+  postgres:
+    # در dev روی edge هم هست تا پورت منتشرشده کار کند (شبکهٔ internal پورت منتشر نمی‌کند).
+    networks: [internal, edge]
+    ports:
+      - '127.0.0.1:${POSTGRES_PORT:-55432}:5432'
+
+  valkey:
+    networks: [internal, edge]
+    ports:
+      - '127.0.0.1:${VALKEY_PORT:-56379}:6379'
+
+  # در dev، migration را dev-deps اجرا می‌کند.
+  migrate:
+    profiles: [never]
+
+  # نصب وابستگی‌ها، prisma generate و migrate، و tsc watch برای همهٔ پکیج‌ها.
+  dev-deps:
+    <<: *dev-node
+    depends_on: !override
+      postgres: { condition: service_healthy }
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-dirouter}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-dirouter}
+    networks: [internal, edge]
+    command:
+      - sh
+      - -c
+      - >-
+        pnpm install --frozen-lockfile &&
+        pnpm --filter @dirouter/db exec prisma migrate deploy &&
+        pnpm turbo run build --filter='./packages/*' &&
+        touch /tmp/ready &&
+        pnpm turbo run dev --filter='./packages/*' --concurrency=20
+    healthcheck:
+      test: ['CMD', 'test', '-f', '/tmp/ready']
+      interval: 5s
+      timeout: 2s
+      retries: 120
+      start_period: 300s
+
+  control-api:
+    <<: *dev-node
+    environment:
+      NODE_ENV: development
+      LOG_LEVEL: ${LOG_LEVEL:-debug}
+      PORT: '3000'
+      DATABASE_URL: postgresql://${POSTGRES_USER:-dirouter}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-dirouter}
+      VALKEY_URL: redis://valkey:6379
+      MASTER_KEY: ${MASTER_KEY}
+      KEY_PEPPER: ${KEY_PEPPER}
+      JWT_SECRET: ${JWT_SECRET}
+      INTERNAL_TOKEN: ${INTERNAL_TOKEN}
+      DASHBOARD_ORIGIN: ${DASHBOARD_ORIGIN:-https://app.${DOMAIN:-localhost}}
+      PUBLIC_DASHBOARD_URL: ${DASHBOARD_ORIGIN:-https://app.${DOMAIN:-localhost}}
+      SMTP_URL: smtp://mailpit:1025
+    command: ['pnpm', '--filter', '@dirouter/control-api', 'dev']
+    labels:
+      traefik.http.routers.control-api.entrypoints: web,websecure
+    depends_on: !override
+      dev-deps: { condition: service_healthy }
+      valkey: { condition: service_healthy }
+
+  gateway:
+    <<: *dev-node
+    environment:
+      NODE_ENV: development
+      LOG_LEVEL: ${LOG_LEVEL:-debug}
+      PORT: '8080'
+      VALKEY_URL: redis://valkey:6379
+      MASTER_KEY: ${MASTER_KEY}
+      KEY_PEPPER: ${KEY_PEPPER}
+      INTERNAL_TOKEN: ${INTERNAL_TOKEN}
+      CONTROL_API_URL: http://control-api:3000
+      DATA_DIR: /data
+    command: ['pnpm', '--filter', '@dirouter/gateway', 'dev']
+    labels:
+      traefik.http.routers.gateway.entrypoints: web,websecure
+    depends_on: !override
+      dev-deps: { condition: service_healthy }
+      valkey: { condition: service_healthy }
+
+  worker:
+    <<: *dev-node
+    environment:
+      NODE_ENV: development
+      LOG_LEVEL: ${LOG_LEVEL:-debug}
+      PORT: '3100'
+      DATABASE_URL: postgresql://${POSTGRES_USER:-dirouter}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-dirouter}
+      VALKEY_URL: redis://valkey:6379
+    command: ['pnpm', '--filter', '@dirouter/worker', 'dev']
+    depends_on: !override
+      dev-deps: { condition: service_healthy }
+      valkey: { condition: service_healthy }
+
+  dashboard:
+    <<: *dev-node
+    environment:
+      VITE_API_URL: https://admin.${DOMAIN:-localhost}/api/v1
+    command:
+      ['pnpm', '--filter', '@dirouter/dashboard', 'dev', '--host', '0.0.0.0', '--port', '8080']
+    labels:
+      traefik.enable: 'true'
+      traefik.docker.network: dirouter_edge
+      traefik.http.routers.dashboard.rule: Host(`app.${DOMAIN:-localhost}`)
+      traefik.http.routers.dashboard.entrypoints: web,websecure
+      traefik.http.services.dashboard.loadbalancer.server.port: '8080'
+
+  mock-provider:
+    <<: *dev-node
+    environment:
+      NODE_ENV: development
+      PORT: '8090'
+    command: ['pnpm', '--filter', '@dirouter/mock-provider', 'dev']
+    networks: [edge]
+    labels:
+      traefik.enable: 'true'
+      traefik.docker.network: dirouter_edge
+      traefik.http.routers.mock.rule: Host(`mock.${DOMAIN:-localhost}`)
+      traefik.http.routers.mock.entrypoints: web,websecure
+      traefik.http.services.mock.loadbalancer.server.port: '8090'
+
+  mailpit:
+    image: axllent/mailpit:v1.27
+    restart: unless-stopped
+    networks: [edge]
+    ports:
+      - '127.0.0.1:${MAILPIT_UI_PORT:-58025}:8025'
+    labels:
+      traefik.enable: 'true'
+      traefik.docker.network: dirouter_edge
+      traefik.http.routers.mail.rule: Host(`mail.${DOMAIN:-localhost}`)
+      traefik.http.routers.mail.entrypoints: web,websecure
+      traefik.http.services.mail.loadbalancer.server.port: '8025'

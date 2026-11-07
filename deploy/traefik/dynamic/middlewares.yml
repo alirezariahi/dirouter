@@ -1,0 +1,76 @@
+# پیکربندی dynamic مشترک: middlewareها، transport استریم و داشبورد Traefik.
+# این فایل با Go template و env کانتینر Traefik پردازش می‌شود.
+http:
+  middlewares:
+    security-headers:
+      headers:
+        stsSeconds: 31536000
+        stsIncludeSubdomains: true
+        stsPreload: true
+        forceSTSHeader: true
+        contentTypeNosniff: true
+        frameDeny: true
+        referrerPolicy: strict-origin-when-cross-origin
+        browserXssFilter: false
+        customResponseHeaders:
+          Server: ''
+          X-Powered-By: ''
+
+    # SSE هرگز فشرده/بافر نمی‌شود.
+    compress:
+      compress:
+        excludedContentTypes:
+          - text/event-stream
+        minResponseBodyBytes: 1024
+
+    control-api-cors:
+      headers:
+        accessControlAllowOriginList:
+          - 'https://app.{{ env "DOMAIN" }}'
+          - 'http://app.{{ env "DOMAIN" }}'
+        accessControlAllowCredentials: true
+        accessControlAllowMethods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
+        accessControlAllowHeaders: [Authorization, Content-Type, X-Request-Id, X-Organization-Id]
+        accessControlExposeHeaders: [X-Request-Id, ETag]
+        accessControlMaxAge: 600
+        addVaryHeader: true
+
+    # محدودیت لبه برای control-api؛ rate limit اصلی LLM در خود گیت‌وی است.
+    control-api-ratelimit:
+      rateLimit:
+        average: 50
+        period: 1s
+        burst: 100
+
+    dashboard-auth:
+      basicAuth:
+        users:
+{{- range $u := splitList "," (env "TRAEFIK_DASHBOARD_USERS") }}
+{{- if $u }}
+          - '{{ $u }}'
+{{- end }}
+{{- end }}
+          - 'disabled:$apr1$invalid$invalidinvalidinvalid00'
+
+    dashboard-ips:
+      ipAllowList:
+        sourceRange:
+{{- range $ip := splitList "," (env "TRAEFIK_ALLOW_IPS") }}
+          - '{{ trim $ip }}'
+{{- end }}
+
+  serversTransports:
+    # streamهای طولانی گیت‌وی: بدون timeout برای هدر پاسخ (TTFT را خود گیت‌وی کنترل می‌کند).
+    long-stream:
+      forwardingTimeouts:
+        dialTimeout: 5s
+        responseHeaderTimeout: 0s
+        idleConnTimeout: 90s
+
+  routers:
+    traefik-dashboard:
+      rule: 'Host(`traefik.{{ env "DOMAIN" }}`)'
+      entryPoints: [websecure]
+      tls: {}
+      service: api@internal
+      middlewares: [dashboard-ips, dashboard-auth, security-headers]

@@ -1,0 +1,564 @@
+// شِمای دیتابیس control plane (PostgreSQL 17).
+// قواعد:
+// - همهٔ کلیدهای خارجی ایندکس دارند.
+// - موجودیت‌های قابل‌مدیریت soft-delete دارند (deleted_at)؛ وابسته‌های مالکیتی cascade.
+// - پول Decimal(18,8) است، هرگز float.
+// - request_log و جداول تجمیعی در migration خام SQL پارتیشن/مدیریت می‌شوند.
+
+generator client {
+  provider   = "prisma-client-js"
+  output     = "../generated/client"
+  engineType = "client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ───────────── Tenancy & identity ─────────────
+
+model Organization {
+  id        String    @id
+  name      String
+  slug      String    @unique
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  memberships  Membership[]
+  invitations  Invitation[]
+  teams        Team[]
+  projects     Project[]
+  apiKeys      ApiKey[]
+  providers    Provider[]
+  models       Model[]
+  aliases      ModelAlias[]
+  combos       Combo[]
+  budgets      Budget[]
+  rateLimits   RateLimitPolicy[]
+  usageLedger  UsageLedger[]
+  auditLogs    AuditLog[]
+
+  @@map("organizations")
+}
+
+model User {
+  id           String    @id
+  email        String    @unique
+  name         String
+  passwordHash String    @map("password_hash")
+  isActive     Boolean   @default(true) @map("is_active")
+  lastLoginAt  DateTime? @map("last_login_at") @db.Timestamptz(3)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt    DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  memberships   Membership[]
+  refreshTokens RefreshToken[]
+  invitations   Invitation[]   @relation("InvitedBy")
+  apiKeys       ApiKey[]       @relation("CreatedBy")
+  auditLogs     AuditLog[]
+
+  @@map("users")
+}
+
+enum Role {
+  OWNER
+  ADMIN
+  MEMBER
+  VIEWER
+}
+
+model Membership {
+  id             String   @id
+  userId         String   @map("user_id")
+  organizationId String   @map("organization_id")
+  role           Role
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, organizationId])
+  @@index([organizationId])
+  @@map("memberships")
+}
+
+model Invitation {
+  id             String    @id
+  organizationId String    @map("organization_id")
+  email          String
+  role           Role
+  tokenHash      String    @unique @map("token_hash")
+  invitedById    String    @map("invited_by_id")
+  expiresAt      DateTime  @map("expires_at") @db.Timestamptz(3)
+  acceptedAt     DateTime? @map("accepted_at") @db.Timestamptz(3)
+  revokedAt      DateTime? @map("revoked_at") @db.Timestamptz(3)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invitedBy    User         @relation("InvitedBy", fields: [invitedById], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([invitedById])
+  @@map("invitations")
+}
+
+/// refresh tokenهای چرخشی؛ هر زنجیره یک familyId دارد. استفادهٔ دوباره از توکن
+/// مصرف‌شده کل خانواده را باطل می‌کند (تشخیص سرقت).
+model RefreshToken {
+  id         String    @id
+  userId     String    @map("user_id")
+  familyId   String    @map("family_id")
+  tokenHash  String    @unique @map("token_hash")
+  expiresAt  DateTime  @map("expires_at") @db.Timestamptz(3)
+  usedAt     DateTime? @map("used_at") @db.Timestamptz(3)
+  revokedAt  DateTime? @map("revoked_at") @db.Timestamptz(3)
+  userAgent  String?   @map("user_agent")
+  ip         String?
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([familyId])
+  @@map("refresh_tokens")
+}
+
+model Team {
+  id             String    @id
+  organizationId String    @map("organization_id")
+  name           String
+  slug           String
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  projects     Project[]
+
+  @@unique([organizationId, slug])
+  @@map("teams")
+}
+
+model Project {
+  id             String    @id
+  organizationId String    @map("organization_id")
+  teamId         String?   @map("team_id")
+  name           String
+  slug           String
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  team         Team?        @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  apiKeys      ApiKey[]
+
+  @@unique([organizationId, slug])
+  @@index([teamId])
+  @@map("projects")
+}
+
+// ───────────── Virtual keys ─────────────
+
+enum ApiKeyStatus {
+  ACTIVE
+  REVOKED
+}
+
+model ApiKey {
+  id             String       @id
+  organizationId String       @map("organization_id")
+  projectId      String       @map("project_id")
+  name           String
+  /// بخش قابل‌نمایش کلید (`dr-<prefix>`) برای جستجو در UI.
+  prefix         String       @unique
+  /// HMAC-SHA256 کلید کامل با pepper سرور؛ کلید خام ذخیره نمی‌شود.
+  hash           String       @unique
+  status         ApiKeyStatus @default(ACTIVE)
+  allowedModels  String[]     @default([]) @map("allowed_models")
+  ipAllowlist    String[]     @default([]) @map("ip_allowlist")
+  rpm            Int?
+  tpm            Int?
+  maxConcurrency Int?         @map("max_concurrency")
+  expiresAt      DateTime?    @map("expires_at") @db.Timestamptz(3)
+  revokedAt      DateTime?    @map("revoked_at") @db.Timestamptz(3)
+  /// کلیدی که با چرخش جایگزین این کلید شد.
+  rotatedToId    String?      @unique @map("rotated_to_id")
+  lastUsedAt     DateTime?    @map("last_used_at") @db.Timestamptz(3)
+  createdById    String?      @map("created_by_id")
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy    User?        @relation("CreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  rotatedTo    ApiKey?      @relation("Rotation", fields: [rotatedToId], references: [id], onDelete: SetNull)
+  rotatedFrom  ApiKey?      @relation("Rotation")
+
+  @@index([organizationId])
+  @@index([projectId])
+  @@index([createdById])
+  @@map("api_keys")
+}
+
+// ───────────── Providers & models ─────────────
+
+enum ProviderType {
+  OPENAI         @map("openai")
+  AZURE_OPENAI   @map("azure-openai")
+  OPENAI_COMPATIBLE @map("openai-compatible")
+  ANTHROPIC      @map("anthropic")
+  GEMINI         @map("gemini")
+  MOCK           @map("mock")
+}
+
+model Provider {
+  id             String       @id
+  organizationId String       @map("organization_id")
+  slug           String
+  name           String
+  type           ProviderType
+  baseUrl        String       @map("base_url")
+  enabled        Boolean      @default(true)
+  proxyUrl       String?      @map("proxy_url")
+  /// { connectMs, firstByteMs, idleMs, totalMs }
+  timeouts       Json?
+  /// تنظیمات مخصوص نوع (مثلاً apiVersion در Azure).
+  options        Json         @default("{}")
+  maxConcurrency Int?         @map("max_concurrency")
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt      DateTime?    @map("deleted_at") @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  credentials  Credential[]
+  models       Model[]
+
+  @@unique([organizationId, slug])
+  @@map("providers")
+}
+
+enum CredentialStatus {
+  ACTIVE
+  DISABLED
+}
+
+model Credential {
+  id            String           @id
+  providerId    String           @map("provider_id")
+  name          String
+  /// AES-256-GCM با AAD = id؛ قالب v<keyVersion>.<base64url>.
+  secretEnc     String           @map("secret_enc")
+  keyVersion    Int              @map("key_version")
+  /// چهار کاراکتر آخر برای نمایش ماسک‌شده.
+  last4         String
+  weight        Int              @default(1)
+  status        CredentialStatus @default(ACTIVE)
+  cooldownUntil DateTime?        @map("cooldown_until") @db.Timestamptz(3)
+  headers       Json             @default("{}")
+  createdAt     DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  provider Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@index([providerId])
+  @@map("credentials")
+}
+
+model Model {
+  id               String    @id
+  organizationId   String    @map("organization_id")
+  providerId       String    @map("provider_id")
+  /// نام عمومی، مثلاً openai/gpt-4.1
+  slug             String
+  upstreamModel    String    @map("upstream_model")
+  displayName      String?   @map("display_name")
+  enabled          Boolean   @default(true)
+  contextWindow    Int?      @map("context_window")
+  maxOutputTokens  Int?      @map("max_output_tokens")
+  /// دلار به ازای یک میلیون توکن
+  inputPrice       Decimal   @map("input_price") @db.Decimal(18, 8)
+  outputPrice      Decimal   @map("output_price") @db.Decimal(18, 8)
+  cacheReadPrice   Decimal?  @map("cache_read_price") @db.Decimal(18, 8)
+  cacheWritePrice  Decimal?  @map("cache_write_price") @db.Decimal(18, 8)
+  reasoningPrice   Decimal?  @map("reasoning_price") @db.Decimal(18, 8)
+  /// { streaming, tools, vision, reasoning, jsonMode }
+  capabilities     Json      @default("{}")
+  /// کلید ورودی کاتالوگ (packages/model-catalog) اگر از کاتالوگ آمده باشد.
+  catalogKey       String?   @map("catalog_key")
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt        DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  provider     Provider      @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  aliases      ModelAlias[]
+  comboTargets ComboTarget[]
+
+  @@unique([organizationId, slug])
+  @@index([providerId])
+  @@map("models")
+}
+
+model ModelAlias {
+  id             String   @id
+  organizationId String   @map("organization_id")
+  slug           String
+  modelId        String?  @map("model_id")
+  comboId        String?  @map("combo_id")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  model        Model?       @relation(fields: [modelId], references: [id], onDelete: Cascade)
+  combo        Combo?       @relation(fields: [comboId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, slug])
+  @@index([modelId])
+  @@index([comboId])
+  @@map("model_aliases")
+}
+
+enum ComboStrategy {
+  PRIORITY    @map("priority")
+  WEIGHTED    @map("weighted")
+  ROUND_ROBIN @map("round-robin")
+}
+
+model Combo {
+  id               String        @id
+  organizationId   String        @map("organization_id")
+  slug             String
+  strategy         ComboStrategy @default(PRIORITY)
+  /// کلاس‌های خطا که باعث فال‌بک می‌شوند (UpstreamErrorClass).
+  fallbackOn       String[]      @default([]) @map("fallback_on")
+  retryMaxAttempts Int           @default(2) @map("retry_max_attempts")
+  timeouts         Json?
+  createdAt        DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt        DateTime?     @map("deleted_at") @db.Timestamptz(3)
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  targets      ComboTarget[]
+  aliases      ModelAlias[]
+
+  @@unique([organizationId, slug])
+  @@map("combos")
+}
+
+model ComboTarget {
+  id      String @id
+  comboId String @map("combo_id")
+  modelId String @map("model_id")
+  order   Int
+  weight  Int    @default(1)
+
+  combo Combo @relation(fields: [comboId], references: [id], onDelete: Cascade)
+  model Model @relation(fields: [modelId], references: [id], onDelete: Cascade)
+
+  @@unique([comboId, modelId])
+  @@index([modelId])
+  @@map("combo_targets")
+}
+
+// ───────────── Limits & budgets ─────────────
+
+enum LimitScope {
+  API_KEY @map("api_key")
+  PROJECT @map("project")
+  TEAM    @map("team")
+}
+
+enum BudgetPeriod {
+  DAILY   @map("daily")
+  MONTHLY @map("monthly")
+}
+
+model Budget {
+  id              String       @id
+  organizationId  String       @map("organization_id")
+  scope           LimitScope
+  /// شناسهٔ کلید، پروژه یا تیم
+  scopeId         String       @map("scope_id")
+  period          BudgetPeriod
+  limitUsd        Decimal?     @map("limit_usd") @db.Decimal(18, 8)
+  limitTokens     BigInt?      @map("limit_tokens")
+  alertThresholds Int[]        @default([50, 80, 100]) @map("alert_thresholds")
+  createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([scope, scopeId, period])
+  @@index([organizationId])
+  @@map("budgets")
+}
+
+/// محدودیت سطح پروژه و تیم؛ محدودیت سطح کلید روی خود ApiKey است.
+model RateLimitPolicy {
+  id             String     @id
+  organizationId String     @map("organization_id")
+  scope          LimitScope
+  scopeId        String     @map("scope_id")
+  rpm            Int?
+  tpm            Int?
+  maxConcurrency Int?       @map("max_concurrency")
+  createdAt      DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([scope, scopeId])
+  @@index([organizationId])
+  @@map("rate_limit_policies")
+}
+
+// ───────────── Usage & logs ─────────────
+
+/// جدول پارتیشن‌بندی‌شدهٔ ماهانه (migration خام SQL). کلید اصلی شامل ستون پارتیشن است.
+/// شناسهٔ ارجاعات عمداً FK ندارد: لاگ باید پس از حذف کلید/پروژه باقی بماند.
+model RequestLog {
+  id               String   @map("id")
+  createdAt        DateTime @map("created_at") @db.Timestamptz(3)
+  organizationId   String   @map("organization_id")
+  teamId           String?  @map("team_id")
+  projectId        String   @map("project_id")
+  apiKeyId         String   @map("api_key_id")
+  endUser          String?  @map("end_user")
+  inboundApi       String   @map("inbound_api")
+  requestedModel   String   @map("requested_model")
+  modelId          String?  @map("model_id")
+  providerId       String?  @map("provider_id")
+  credentialId     String?  @map("credential_id")
+  stream           Boolean
+  status           String
+  httpStatus       Int      @map("http_status")
+  errorCode        String?  @map("error_code")
+  inputTokens      Int      @map("input_tokens")
+  outputTokens     Int      @map("output_tokens")
+  cacheReadTokens  Int      @default(0) @map("cache_read_tokens")
+  cacheWriteTokens Int      @default(0) @map("cache_write_tokens")
+  reasoningTokens  Int      @default(0) @map("reasoning_tokens")
+  costUsd          Decimal  @map("cost_usd") @db.Decimal(18, 8)
+  usageEstimated   Boolean  @default(false) @map("usage_estimated")
+  latencyMs        Int      @map("latency_ms")
+  ttftMs           Int?     @map("ttft_ms")
+  attempts         Json     @default("[]")
+  configVersion    Int      @map("config_version")
+  gatewayInstance  String   @map("gateway_instance")
+
+  @@id([id, createdAt])
+  @@index([projectId, createdAt])
+  @@index([apiKeyId, createdAt])
+  @@index([organizationId, createdAt])
+  @@index([status])
+  @@map("request_log")
+}
+
+/// دفتر مالی؛ یک ردیف به ازای هر درخواست (idempotent با request_id).
+model UsageLedger {
+  id             String   @id
+  requestId      String   @unique @map("request_id")
+  organizationId String   @map("organization_id")
+  teamId         String?  @map("team_id")
+  projectId      String   @map("project_id")
+  apiKeyId       String   @map("api_key_id")
+  costUsd        Decimal  @map("cost_usd") @db.Decimal(18, 8)
+  tokens         Int
+  occurredAt     DateTime @map("occurred_at") @db.Timestamptz(3)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, occurredAt])
+  @@index([projectId, occurredAt])
+  @@index([apiKeyId, occurredAt])
+  @@index([teamId, occurredAt])
+  @@map("usage_ledger")
+}
+
+/// تجمیع ساعتی (upsert توسط worker).
+model UsageHourly {
+  bucket           DateTime @db.Timestamptz(3)
+  organizationId   String   @map("organization_id")
+  projectId        String   @map("project_id")
+  apiKeyId         String   @map("api_key_id")
+  modelSlug        String   @map("model_slug")
+  providerId       String   @map("provider_id")
+  teamId           String?  @map("team_id")
+  requests         Int      @default(0)
+  errors           Int      @default(0)
+  inputTokens      BigInt   @default(0) @map("input_tokens")
+  outputTokens     BigInt   @default(0) @map("output_tokens")
+  cacheReadTokens  BigInt   @default(0) @map("cache_read_tokens")
+  costUsd          Decimal  @default(0) @map("cost_usd") @db.Decimal(18, 8)
+  latencyMsSum     BigInt   @default(0) @map("latency_ms_sum")
+  ttftMsSum        BigInt   @default(0) @map("ttft_ms_sum")
+  ttftCount        Int      @default(0) @map("ttft_count")
+  /// هیستوگرام latency (سطل‌های ثابت) برای p50/p95/p99 تقریبی.
+  latencyHist      Int[]    @default([]) @map("latency_hist")
+
+  @@id([bucket, organizationId, projectId, apiKeyId, modelSlug, providerId])
+  @@index([organizationId, bucket])
+  @@map("usage_hourly")
+}
+
+/// تجمیع روزانه (upsert توسط worker).
+model UsageDaily {
+  bucket           DateTime @db.Date
+  organizationId   String   @map("organization_id")
+  projectId        String   @map("project_id")
+  apiKeyId         String   @map("api_key_id")
+  modelSlug        String   @map("model_slug")
+  providerId       String   @map("provider_id")
+  teamId           String?  @map("team_id")
+  requests         Int      @default(0)
+  errors           Int      @default(0)
+  inputTokens      BigInt   @default(0) @map("input_tokens")
+  outputTokens     BigInt   @default(0) @map("output_tokens")
+  cacheReadTokens  BigInt   @default(0) @map("cache_read_tokens")
+  costUsd          Decimal  @default(0) @map("cost_usd") @db.Decimal(18, 8)
+  latencyMsSum     BigInt   @default(0) @map("latency_ms_sum")
+  ttftMsSum        BigInt   @default(0) @map("ttft_ms_sum")
+  ttftCount        Int      @default(0) @map("ttft_count")
+  latencyHist      Int[]    @default([]) @map("latency_hist")
+
+  @@id([bucket, organizationId, projectId, apiKeyId, modelSlug, providerId])
+  @@index([organizationId, bucket])
+  @@map("usage_daily")
+}
+
+// ───────────── Config & audit ─────────────
+
+/// هر انتشار snapshot یک ردیف با شمارهٔ افزایشی.
+model ConfigVersion {
+  version   Int      @id @default(autoincrement())
+  checksum  String
+  snapshot  Json
+  reason    String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@map("config_versions")
+}
+
+model AuditLog {
+  id             String   @id
+  organizationId String   @map("organization_id")
+  actorUserId    String?  @map("actor_user_id")
+  action         String
+  targetType     String   @map("target_type")
+  targetId       String?  @map("target_id")
+  diff           Json?
+  ip             String?
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  actor        User?        @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt])
+  @@index([actorUserId])
+  @@map("audit_logs")
+}

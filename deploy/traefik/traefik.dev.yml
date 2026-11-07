@@ -1,0 +1,51 @@
+# پیکربندی static Traefik برای توسعه: *.localhost با گواهی self-signed پیش‌فرض
+# Traefik روی HTTPS و بدون ریدایرکت روی HTTP (برای curl ساده).
+global:
+  checkNewVersion: false
+  sendAnonymousUsage: false
+
+entryPoints:
+  # ping و متریک؛ منتشر نمی‌شود.
+  traefik:
+    address: ':8082'
+  web:
+    address: ':80'
+    transport:
+      respondingTimeouts:
+        readTimeout: 300s
+        writeTimeout: 0s
+        idleTimeout: 180s
+  websecure:
+    address: ':443'
+    transport:
+      respondingTimeouts:
+        readTimeout: 300s
+        writeTimeout: 0s
+        idleTimeout: 180s
+
+ping:
+  entryPoint: traefik
+
+api:
+  dashboard: true
+
+providers:
+  docker:
+    exposedByDefault: false
+    network: dirouter_edge
+  file:
+    directory: /etc/traefik/dynamic
+    watch: true
+
+log:
+  level: INFO
+  format: json
+
+accessLog:
+  format: json
+
+metrics:
+  prometheus:
+    entryPoint: traefik
+    addRoutersLabels: true
+    addServicesLabels: true

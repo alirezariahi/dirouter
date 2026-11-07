@@ -129,6 +129,15 @@ describe('ConfigSnapshot', () => {
     expect(ConfigSnapshot.safeParse(raw).success).toBe(false);
   });
 
+  it('requires a budget limit', () => {
+    const raw = json('dirouter/config-snapshot.json') as ConfigSnapshot;
+    const tampered = structuredClone(raw);
+    tampered.virtualKeys[0]!.budgets = [
+      { id: 'b', period: 'daily', alertThresholds: [50] } as never,
+    ];
+    expect(ConfigSnapshot.safeParse(tampered).success).toBe(false);
+  });
+
   it('rejects a plaintext provider secret', () => {
     const raw = json('dirouter/config-snapshot.json') as ConfigSnapshot;
     const tampered = structuredClone(raw);
@@ -144,9 +153,10 @@ describe('UsageEvent', () => {
     expect(ev.usage.reasoningTokens).toBe(0);
   });
 
-  it('rejects a fractional cost', () => {
+  it('rejects a float cost or one with more than 8 decimals', () => {
     const raw = json('dirouter/usage-event.json') as Record<string, unknown>;
-    expect(UsageEvent.safeParse({ ...raw, costMicros: 1.5 }).success).toBe(false);
+    expect(UsageEvent.safeParse({ ...raw, costUsd: 0.0049 }).success).toBe(false);
+    expect(UsageEvent.safeParse({ ...raw, costUsd: '0.000000001' }).success).toBe(false);
   });
 });
 

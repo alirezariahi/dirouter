@@ -1,0 +1,65 @@
+import type {
+  CanonicalFinishReason,
+  CanonicalImagePart,
+  CanonicalPart,
+  CanonicalTextPart,
+  CanonicalUsage,
+} from '@dirouter/contracts';
+
+/**
+ * گزارش فیلدهایی که در مقصد معادل ندارند و کنار گذاشته شدند. گیت‌وی این‌ها را
+ * با سطح debug لاگ می‌کند.
+ */
+export type DropReporter = (field: string, reason: string) => void;
+
+export const ignoreDrops: DropReporter = () => undefined;
+
+export interface TranslateOptions {
+  onDrop?: DropReporter;
+}
+
+export function textOf(parts: readonly CanonicalPart[]): string {
+  return parts
+    .filter((p): p is CanonicalTextPart => p.type === 'text')
+    .map((p) => p.text)
+    .join('');
+}
+
+/** تبدیل data URL به منبع base64؛ آدرس معمولی دست‌نخورده می‌ماند. */
+export function imageFromUrl(url: string): CanonicalImagePart['source'] {
+  const match = /^data:([^;,]+);base64,(.*)$/s.exec(url);
+  if (match)
+    return {
+      kind: 'base64',
+      mediaType: match[1] ?? 'application/octet-stream',
+      data: match[2] ?? '',
+    };
+  return { kind: 'url', url };
+}
+
+export function imageToUrl(source: CanonicalImagePart['source']): string {
+  return source.kind === 'url' ? source.url : `data:${source.mediaType};base64,${source.data}`;
+}
+
+/** JSON.parse امن برای آرگومان ابزار؛ آرگومان نامعتبر به `{}` تبدیل می‌شود. */
+export function parseToolArguments(raw: string, onDrop: DropReporter): unknown {
+  if (raw.trim() === '') return {};
+  try {
+    return JSON.parse(raw) as unknown;
+  } catch {
+    onDrop('tool_call.arguments', 'invalid JSON replaced with {}');
+    return {};
+  }
+}
+
+export function emptyUsage(): CanonicalUsage {
+  return {
+    inputTokens: 0,
+    outputTokens: 0,
+    cacheReadTokens: 0,
+    cacheWriteTokens: 0,
+    reasoningTokens: 0,
+  };
+}
+
+export type FinishReasonMap<T extends string> = Record<CanonicalFinishReason, T>;

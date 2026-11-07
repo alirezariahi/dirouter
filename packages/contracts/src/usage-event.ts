@@ -5,7 +5,7 @@
 import { z } from 'zod';
 
 import { CanonicalUsage, InboundApi } from './canonical.js';
-import { IsoDateTime, NonNegativeInt, Ulid } from './common.js';
+import { IsoDateTime, NonNegativeInt, Ulid, UsdAmount } from './common.js';
 
 export const USAGE_EVENT_SCHEMA_VERSION = 1 as const;
 
@@ -40,9 +40,10 @@ export const UsageEvent = z.object({
   requestId: z.string().min(1),
   occurredAt: IsoDateTime,
   gatewayInstance: z.string(),
-  configVersion: z.int().positive(),
+  /** نسخهٔ snapshot؛ ۰ یعنی هنوز snapshot بارگذاری نشده بود. */
+  configVersion: z.int().nonnegative(),
 
-  orgId: z.string(),
+  organizationId: z.string(),
   teamId: z.string().nullable(),
   projectId: z.string(),
   virtualKeyId: z.string(),
@@ -61,8 +62,8 @@ export const UsageEvent = z.object({
   errorCode: z.string().optional(),
 
   usage: CanonicalUsage,
-  /** هزینه به میکرودلار (۱ دلار = ۱٬۰۰۰٬۰۰۰). */
-  costMicros: NonNegativeInt,
+  /** هزینه به دلار (رشتهٔ اعشاری، ۸ رقم). */
+  costUsd: UsdAmount,
   /** true وقتی توکن‌ها تخمینی‌اند (provider usage برنگردانده). */
   usageEstimated: z.boolean().default(false),
 

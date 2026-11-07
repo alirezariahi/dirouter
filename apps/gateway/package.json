@@ -15,11 +15,18 @@
   },
   "devDependencies": {
     "@dirouter/eslint-config": "workspace:*",
+    "@dirouter/mock-provider": "workspace:*",
     "@dirouter/tsconfig": "workspace:*"
   },
   "dependencies": {
     "@dirouter/contracts": "workspace:*",
+    "@dirouter/model-catalog": "workspace:*",
+    "@dirouter/providers": "workspace:*",
+    "@dirouter/routing": "workspace:*",
     "@dirouter/shared": "workspace:*",
+    "@dirouter/translator": "workspace:*",
+    "fastify": "^5.12.8",
+    "undici": "^8.12.4",
     "zod": "^4.6.7"
   }
 }

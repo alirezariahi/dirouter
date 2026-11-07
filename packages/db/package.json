@@ -12,18 +12,31 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "generated",
+    "prisma"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "prisma generate && tsc -p tsconfig.build.json",
     "dev": "tsc -p tsconfig.build.json --watch --preserveWatchOutput",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run --passWithNoTests",
-    "clean": "rm -rf dist .turbo"
+    "clean": "rm -rf dist .turbo",
+    "generate": "prisma generate",
+    "migrate:dev": "prisma migrate dev",
+    "migrate:deploy": "prisma migrate deploy",
+    "studio": "prisma studio"
   },
   "devDependencies": {
     "@dirouter/eslint-config": "workspace:*",
-    "@dirouter/tsconfig": "workspace:*"
+    "@dirouter/tsconfig": "workspace:*",
+    "@types/pg": "^8.23.1",
+    "prisma": "^6.19.3"
+  },
+  "dependencies": {
+    "@prisma/adapter-pg": "^6.19.3",
+    "@prisma/client": "^6.19.3",
+    "pg": "^8.23.1"
   }
 }

@@ -130,7 +130,7 @@ export const ERROR_CODES = {
     title: 'Rate limit exceeded',
   },
   budget_exceeded: {
-    status: 402,
+    status: 429,
     openai: 'insufficient_quota',
     anthropic: 'billing_error',
     title: 'Budget exceeded',

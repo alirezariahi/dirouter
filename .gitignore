@@ -12,3 +12,4 @@ __pycache__/
 
 # Documentation here is English and public; private docs live in ../docs/.
 /docs/
+packages/db/generated/

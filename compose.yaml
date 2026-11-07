@@ -1,0 +1,198 @@
+# پایهٔ مشترک همهٔ محیط‌ها. همیشه همراه یکی از overrideها اجرا شود:
+#   dev:  docker compose -f compose.yaml -f compose.dev.yaml up
+#   prod: docker compose -f compose.yaml -f compose.prod.yaml up -d
+# (یا از طریق Makefile: make up / make prod-up)
+
+name: dirouter
+
+x-node-env: &node-env
+  NODE_ENV: ${NODE_ENV:-production}
+  LOG_LEVEL: ${LOG_LEVEL:-info}
+
+networks:
+  # Traefik و اپ‌ها
+  edge:
+  # دیتابیس و Valkey؛ بدون دسترسی بیرونی
+  internal:
+    internal: true
+
+volumes:
+  pgdata:
+  valkeydata:
+  gateway-data:
+  traefik-acme:
+
+services:
+  traefik:
+    image: traefik:${TRAEFIK_VERSION:-v3.6}
+    restart: unless-stopped
+    ports:
+      - '${HTTP_PORT:-80}:80'
+      - '${HTTPS_PORT:-443}:443'
+    environment:
+      TRAEFIK_DASHBOARD_USERS: ${TRAEFIK_DASHBOARD_USERS:-}
+      TRAEFIK_ALLOW_IPS: ${TRAEFIK_ALLOW_IPS:-127.0.0.1/32}
+      DOMAIN: ${DOMAIN:-localhost}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./deploy/traefik/dynamic:/etc/traefik/dynamic:ro
+      - traefik-acme:/acme
+    networks: [edge]
+    healthcheck:
+      test: ['CMD', 'traefik', 'healthcheck', '--ping']
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-dirouter}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:-dirouter}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks: [internal]
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  valkey:
+    image: valkey/valkey:8-alpine
+    restart: unless-stopped
+    command: ['valkey-server', '--appendonly', 'yes', '--maxmemory-policy', 'noeviction']
+    volumes:
+      - valkeydata:/data
+    networks: [internal]
+    healthcheck:
+      test: ['CMD', 'valkey-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # اجرای migrationها پیش از بالا آمدن control-api و worker.
+  migrate:
+    image: ${REGISTRY:-dirouter}/migrate:${TAG:-latest}
+    build:
+      context: .
+      dockerfile: deploy/docker/migrate.Dockerfile
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-dirouter}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-dirouter}
+    networks: [internal]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: 'no'
+
+  control-api:
+    image: ${REGISTRY:-dirouter}/control-api:${TAG:-latest}
+    build:
+      context: .
+      dockerfile: deploy/docker/node.Dockerfile
+      args: { APP: control-api, PORT: '3000' }
+    restart: unless-stopped
+    environment:
+      <<: *node-env
+      PORT: '3000'
+      DATABASE_URL: postgresql://${POSTGRES_USER:-dirouter}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-dirouter}
+      VALKEY_URL: redis://valkey:6379
+      MASTER_KEY: ${MASTER_KEY:?MASTER_KEY is required}
+      KEY_PEPPER: ${KEY_PEPPER:?KEY_PEPPER is required}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      INTERNAL_TOKEN: ${INTERNAL_TOKEN:?INTERNAL_TOKEN is required}
+      DASHBOARD_ORIGIN: ${DASHBOARD_ORIGIN:-https://app.${DOMAIN:-localhost}}
+      PUBLIC_DASHBOARD_URL: ${DASHBOARD_ORIGIN:-https://app.${DOMAIN:-localhost}}
+      SMTP_URL: ${SMTP_URL:-}
+      SMTP_FROM: ${SMTP_FROM:-DiRouter <noreply@${DOMAIN:-localhost}>}
+    networks: [edge, internal]
+    depends_on:
+      postgres: { condition: service_healthy }
+      valkey: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
+    labels:
+      traefik.enable: 'true'
+      traefik.docker.network: dirouter_edge
+      traefik.http.routers.control-api.rule: Host(`admin.${DOMAIN:-localhost}`)
+      traefik.http.routers.control-api.entrypoints: websecure
+      traefik.http.routers.control-api.tls: 'true'
+      traefik.http.routers.control-api.middlewares: security-headers@file,control-api-cors@file,control-api-ratelimit@file,compress@file
+      traefik.http.services.control-api.loadbalancer.server.port: '3000'
+      traefik.http.services.control-api.loadbalancer.healthcheck.path: /healthz
+      traefik.http.services.control-api.loadbalancer.healthcheck.interval: 5s
+
+  gateway:
+    image: ${REGISTRY:-dirouter}/gateway:${TAG:-latest}
+    build:
+      context: .
+      dockerfile: deploy/docker/node.Dockerfile
+      args: { APP: gateway, PORT: '8080' }
+    restart: unless-stopped
+    environment:
+      <<: *node-env
+      PORT: '8080'
+      VALKEY_URL: redis://valkey:6379
+      MASTER_KEY: ${MASTER_KEY}
+      KEY_PEPPER: ${KEY_PEPPER}
+      INTERNAL_TOKEN: ${INTERNAL_TOKEN}
+      CONTROL_API_URL: http://control-api:3000
+      DATA_DIR: /data
+      SHUTDOWN_DRAIN_MS: ${GATEWAY_SHUTDOWN_DRAIN_MS:-30000}
+    # gateway به Postgres دسترسی ندارد (ADR-006): فقط Valkey روی شبکهٔ internal.
+    networks: [edge, internal]
+    stop_grace_period: 45s
+    volumes:
+      - gateway-data:/data
+    depends_on:
+      valkey: { condition: service_healthy }
+    labels:
+      traefik.enable: 'true'
+      traefik.docker.network: dirouter_edge
+      traefik.http.routers.gateway.rule: Host(`api.${DOMAIN:-localhost}`)
+      traefik.http.routers.gateway.entrypoints: websecure
+      traefik.http.routers.gateway.tls: 'true'
+      # compress با استثنای text/event-stream تا SSE بافر نشود.
+      traefik.http.routers.gateway.middlewares: security-headers@file,compress@file
+      traefik.http.services.gateway.loadbalancer.server.port: '8080'
+      traefik.http.services.gateway.loadbalancer.serversTransport: long-stream@file
+      traefik.http.services.gateway.loadbalancer.healthcheck.path: /readyz
+      traefik.http.services.gateway.loadbalancer.healthcheck.interval: 2s
+      traefik.http.services.gateway.loadbalancer.healthcheck.timeout: 1s
+
+  worker:
+    image: ${REGISTRY:-dirouter}/worker:${TAG:-latest}
+    build:
+      context: .
+      dockerfile: deploy/docker/node.Dockerfile
+      args: { APP: worker, PORT: '3100' }
+    restart: unless-stopped
+    environment:
+      <<: *node-env
+      PORT: '3100'
+      DATABASE_URL: postgresql://${POSTGRES_USER:-dirouter}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-dirouter}
+      VALKEY_URL: redis://valkey:6379
+    networks: [internal]
+    depends_on:
+      postgres: { condition: service_healthy }
+      valkey: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
+
+  dashboard:
+    image: ${REGISTRY:-dirouter}/dashboard:${TAG:-latest}
+    build:
+      context: .
+      dockerfile: deploy/docker/dashboard.Dockerfile
+    restart: unless-stopped
+    environment:
+      DIROUTER_API_URL: https://admin.${DOMAIN:-localhost}/api/v1
+    networks: [edge]
+    labels:
+      traefik.enable: 'true'
+      traefik.docker.network: dirouter_edge
+      traefik.http.routers.dashboard.rule: Host(`app.${DOMAIN:-localhost}`)
+      traefik.http.routers.dashboard.entrypoints: websecure
+      traefik.http.routers.dashboard.tls: 'true'
+      traefik.http.routers.dashboard.middlewares: security-headers@file,compress@file
+      traefik.http.services.dashboard.loadbalancer.server.port: '8080'

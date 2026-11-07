@@ -3,3 +3,6 @@ coverage
 .turbo
 node_modules
 pnpm-lock.yaml
+packages/db/generated
+# Go template (پردازش توسط Traefik)، YAML معتبر نیست
+deploy/traefik/dynamic/middlewares.yml

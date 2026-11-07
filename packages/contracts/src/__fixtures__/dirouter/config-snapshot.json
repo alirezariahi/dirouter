@@ -10,8 +10,14 @@
       "name": "OpenAI",
       "baseUrl": "https://api.openai.com/v1",
       "enabled": true,
-      "proxy": { "url": "socks5h://127.0.0.1:1080" },
-      "timeouts": { "connectMs": 3000, "firstByteMs": 30000, "idleMs": 15000 },
+      "proxy": {
+        "url": "socks5h://127.0.0.1:1080"
+      },
+      "timeouts": {
+        "connectMs": 3000,
+        "firstByteMs": 30000,
+        "idleMs": 15000
+      },
       "maxConcurrency": 200,
       "credentials": [
         {
@@ -27,7 +33,8 @@
           "secret": "v2.YW5vdGhlci1jaXBoZXJ0ZXh0",
           "enabled": true
         }
-      ]
+      ],
+      "organizationId": "org_1"
     },
     {
       "id": "prv_anthropic",
@@ -37,8 +44,14 @@
       "baseUrl": "https://api.anthropic.com",
       "enabled": true,
       "credentials": [
-        { "id": "cred_3", "name": "main", "secret": "v1.YW50aHJvcGljLWtleQ", "enabled": true }
-      ]
+        {
+          "id": "cred_3",
+          "name": "main",
+          "secret": "v1.YW50aHJvcGljLWtleQ",
+          "enabled": true
+        }
+      ],
+      "organizationId": "org_1"
     }
   ],
   "models": [
@@ -51,11 +64,16 @@
       "contextWindow": 1047576,
       "maxOutputTokens": 32768,
       "pricing": {
-        "inputPerMTokMicros": 2000000,
-        "outputPerMTokMicros": 8000000,
-        "cacheReadPerMTokMicros": 500000
+        "inputPerMTok": "2.00",
+        "outputPerMTok": "8.00",
+        "cacheReadPerMTok": "0.50"
       },
-      "capabilities": { "tools": true, "vision": true, "jsonMode": true }
+      "capabilities": {
+        "tools": true,
+        "vision": true,
+        "jsonMode": true
+      },
+      "organizationId": "org_1"
     },
     {
       "id": "mdl_sonnet",
@@ -65,12 +83,17 @@
       "enabled": true,
       "contextWindow": 200000,
       "pricing": {
-        "inputPerMTokMicros": 3000000,
-        "outputPerMTokMicros": 15000000,
-        "cacheReadPerMTokMicros": 300000,
-        "cacheWritePerMTokMicros": 3750000
+        "inputPerMTok": "3.00",
+        "outputPerMTok": "15.00",
+        "cacheReadPerMTok": "0.30",
+        "cacheWritePerMTok": "3.75"
       },
-      "capabilities": { "tools": true, "vision": true, "reasoning": true }
+      "capabilities": {
+        "tools": true,
+        "vision": true,
+        "reasoning": true
+      },
+      "organizationId": "org_1"
     }
   ],
   "combos": [
@@ -79,37 +102,80 @@
       "slug": "smart",
       "strategy": "priority",
       "targets": [
-        { "modelId": "mdl_sonnet", "priority": 0 },
-        { "modelId": "mdl_gpt41", "priority": 1 }
+        {
+          "modelId": "mdl_sonnet",
+          "order": 0
+        },
+        {
+          "modelId": "mdl_gpt41",
+          "order": 1
+        }
       ],
-      "retry": { "maxAttempts": 3 }
+      "retry": {
+        "maxAttempts": 3
+      },
+      "organizationId": "org_1"
     }
   ],
   "aliases": [
-    { "slug": "gpt-4.1", "target": { "kind": "model", "modelId": "mdl_gpt41" } },
-    { "slug": "best", "target": { "kind": "combo", "comboId": "cmb_smart" } }
+    {
+      "slug": "gpt-4.1",
+      "target": {
+        "kind": "model",
+        "modelId": "mdl_gpt41"
+      },
+      "organizationId": "org_1"
+    },
+    {
+      "slug": "best",
+      "target": {
+        "kind": "combo",
+        "comboId": "cmb_smart"
+      },
+      "organizationId": "org_1"
+    }
   ],
   "virtualKeys": [
     {
       "id": "vk_1",
       "hash": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
-      "prefix": "dr-live-AbCd",
-      "orgId": "org_1",
+      "prefix": "dr-AbCd1234",
       "teamId": "team_1",
       "projectId": "prj_1",
       "enabled": true,
       "expiresAt": null,
       "allowedModels": ["best", "gpt-4.1"],
-      "rateLimit": { "requestsPerMinute": 600, "tokensPerMinute": 200000 },
-      "budget": { "limitMicros": 50000000, "period": "monthly" }
+      "rateLimit": {
+        "requestsPerMinute": 600,
+        "tokensPerMinute": 200000
+      },
+      "organizationId": "org_1",
+      "budgets": [
+        {
+          "id": "bud_1",
+          "period": "monthly",
+          "limitUsd": "50"
+        }
+      ],
+      "ipAllowlist": ["10.0.0.0/8"]
     }
   ],
   "limits": [
     {
+      "organizationId": "org_1",
       "scope": "team",
       "scopeId": "team_1",
-      "budget": { "limitMicros": 500000000, "period": "monthly" }
+      "budgets": [
+        {
+          "id": "bud_2",
+          "period": "monthly",
+          "limitUsd": "500",
+          "limitTokens": 100000000
+        }
+      ]
     }
   ],
-  "settings": { "failMode": "open" }
+  "settings": {
+    "failMode": "open"
+  }
 }

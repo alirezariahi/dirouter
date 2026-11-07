@@ -27,6 +27,8 @@ const typescript = tseslint.config(
         { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
       ],
       '@typescript-eslint/restrict-template-expressions': ['error', { allowNumber: true }],
+      // ماژول‌های NestJS کلاس خالیِ دکوریت‌شده‌اند.
+      '@typescript-eslint/no-extraneous-class': ['error', { allowWithDecorator: true }],
       eqeqeq: ['error', 'always'],
       'no-console': 'error',
     },
@@ -39,6 +41,8 @@ const typescript = tseslint.config(
     files: ['**/*.test.ts', '**/*.test.tsx'],
     rules: {
       '@typescript-eslint/no-non-null-assertion': 'off',
+      // mockهای async بدون await در تست طبیعی‌اند.
+      '@typescript-eslint/require-await': 'off',
     },
   },
 );

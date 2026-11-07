@@ -21,7 +21,12 @@ import {
   envKeyring,
   envPort,
   generateKey,
+  costForTokens,
+  formatUsd,
   hashApiKey,
+  parseUsd,
+  percentOf,
+  sumUsd,
   keyVersionOf,
   loadEnvOrExit,
   needsReencryption,
@@ -107,7 +112,7 @@ describe('errors', () => {
 
   it('maps budget errors to billing/quota types', () => {
     const err = new BudgetExceededError();
-    expect(err.status).toBe(402);
+    expect(err.status).toBe(429);
     expect(err.toOpenAI().error.type).toBe('insufficient_quota');
     expect(err.toAnthropic().error.type).toBe('billing_error');
   });
@@ -293,5 +298,32 @@ describe('hash', () => {
     expect(sha256Hex('test')).toBe(
       '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08',
     );
+  });
+});
+
+describe('money', () => {
+  it('parses and formats with 8 decimals', () => {
+    expect(formatUsd(parseUsd('2.5'))).toBe('2.50000000');
+    expect(formatUsd(parseUsd('0.00000001'))).toBe('0.00000001');
+    expect(formatUsd(parseUsd('-1.2'))).toBe('-1.20000000');
+    expect(() => parseUsd('0.000000001')).toThrow(TypeError);
+    expect(() => parseUsd('1e-3')).toThrow(TypeError);
+  });
+
+  it('prices tokens exactly (no float drift)', () => {
+    // GPT-4.1: $2/MTok input, $8/MTok output
+    const cost = sumUsd([costForTokens(1200, '2'), costForTokens(300, '8')]);
+    expect(formatUsd(cost)).toBe('0.00480000');
+    // 0.1 + 0.2 class of error does not exist
+    expect(formatUsd(sumUsd([parseUsd('0.1'), parseUsd('0.2')]))).toBe('0.30000000');
+    // one token at $0.10/MTok = $0.0000001
+    expect(formatUsd(costForTokens(1, '0.10'))).toBe('0.00000010');
+    // half-up rounding below 1e-8
+    expect(formatUsd(costForTokens(1, '0.015'))).toBe('0.00000002');
+  });
+
+  it('computes threshold percentages', () => {
+    expect(percentOf(parseUsd('40'), parseUsd('50'))).toBe(80);
+    expect(percentOf(parseUsd('1'), 0n)).toBe(100);
   });
 });

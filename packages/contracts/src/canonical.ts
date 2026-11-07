@@ -51,6 +51,12 @@ export const CanonicalReasoningPart = z.object({
   redacted: z.string().optional(),
 });
 
+export type CanonicalTextPart = z.infer<typeof CanonicalTextPart>;
+export type CanonicalImagePart = z.infer<typeof CanonicalImagePart>;
+export type CanonicalToolCallPart = z.infer<typeof CanonicalToolCallPart>;
+export type CanonicalToolResultPart = z.infer<typeof CanonicalToolResultPart>;
+export type CanonicalReasoningPart = z.infer<typeof CanonicalReasoningPart>;
+
 export const CanonicalPart = z.discriminatedUnion('type', [
   CanonicalTextPart,
   CanonicalImagePart,

@@ -25,5 +25,11 @@
   "devDependencies": {
     "@dirouter/eslint-config": "workspace:*",
     "@dirouter/tsconfig": "workspace:*"
+  },
+  "dependencies": {
+    "@dirouter/contracts": "workspace:*",
+    "@dirouter/shared": "workspace:*",
+    "js-tiktoken": "^1.0.21",
+    "zod": "^4.6.7"
   }
 }
