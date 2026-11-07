@@ -139,6 +139,17 @@ const snapshot = {
   ],
   aliases: [
     { organizationId: 'org_dev', slug: 'gpt-4.1', target: { kind: 'combo', comboId: 'cmb_dev' } },
+    // Claude Code فقط نام مدل‌های واقعی Claude را می‌پذیرد (کارت ۴.۹)؛ این‌ها به mock می‌روند.
+    {
+      organizationId: 'org_dev',
+      slug: 'claude-sonnet-4-5',
+      target: { kind: 'model', modelId: 'mock/claude' },
+    },
+    {
+      organizationId: 'org_dev',
+      slug: 'claude-haiku-4-5',
+      target: { kind: 'model', modelId: 'mock/tool' },
+    },
   ],
   virtualKeys: [
     {
