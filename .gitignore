@@ -9,3 +9,6 @@ coverage/
 .DS_Store
 __pycache__/
 *.log
+
+# Documentation here is English and public; private docs live in ../docs/.
+/docs/
