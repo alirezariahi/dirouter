@@ -46,7 +46,7 @@ const model = (id, providerId, upstream) => ({
   providerId,
   upstreamModel: upstream,
   enabled: true,
-  contextWindow: 32_000,
+  contextWindow: 200_000,
   pricing: { inputPerMTok: '0.10', outputPerMTok: '0.20' },
   capabilities: { tools: true },
 });
