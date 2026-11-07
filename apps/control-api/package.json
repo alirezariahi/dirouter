@@ -21,6 +21,7 @@
   "dependencies": {
     "@dirouter/contracts": "workspace:*",
     "@dirouter/db": "workspace:*",
+    "@dirouter/model-catalog": "workspace:*",
     "@dirouter/shared": "workspace:*",
     "@fastify/cookie": "^11.1.5",
     "@fastify/static": "^10.1.10",
