@@ -9,6 +9,7 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 import { AppModule } from './app.module.js';
 import { ProblemFilter } from './common/problem.filter.js';
+import { SnapshotService } from './snapshot/snapshot.service.js';
 import type { Env } from './env.js';
 import type { IncomingMessage } from 'node:http';
 
@@ -28,14 +29,28 @@ export async function createApp(
         : prefixedId('req');
     },
   });
-  const app = await NestFactory.create<NestFastifyApplication>(AppModule.forRoot(env), adapter, {
-    logger: false,
-  });
+  const app = await NestFactory.create<NestFastifyApplication>(
+    AppModule.forRoot(env, logger),
+    adapter,
+    {
+      logger: false,
+    },
+  );
 
   await app.register(fastifyCookie);
   const fastify = app.getHttpAdapter().getInstance();
   fastify.addHook('onSend', async (request, reply) => {
     void reply.header('x-request-id', request.id);
+  });
+  // هر تغییر موفق در پیکربندی سازمان، snapshot گیت‌وی را دوباره می‌سازد (کارت ۳.۹).
+  const snapshots = app.get(SnapshotService);
+  fastify.addHook('onResponse', async (request, reply) => {
+    if (
+      !['GET', 'HEAD', 'OPTIONS'].includes(request.method) &&
+      request.url.startsWith(`/${API_PREFIX}/orgs/`) &&
+      reply.statusCode < 400
+    )
+      snapshots.schedule(`${request.method} ${request.routeOptions.url ?? request.url}`);
   });
   fastify.addHook('onResponse', async (request, reply) => {
     logger.info(
