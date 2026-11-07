@@ -6,13 +6,19 @@ import {
   AnthropicMessagesRequest,
   type CanonicalRequest,
   type CanonicalResponse,
+  type CanonicalStreamEvent,
   type CanonicalUsage,
   type InboundApi,
   OpenAIChatCompletionRequest,
   USAGE_EVENT_SCHEMA_VERSION,
   type UsageEvent,
 } from '@dirouter/contracts';
-import { computeCostUsd, estimateRequestTokens, roughTokens } from '@dirouter/model-catalog';
+import {
+  computeCostUsd,
+  estimateRequestTokens,
+  estimateUsage,
+  roughTokens,
+} from '@dirouter/model-catalog';
 import { type ClassifiedError, adapterFor, classifyNetworkError } from '@dirouter/providers';
 import {
   type AttemptResult,
@@ -59,12 +65,19 @@ export interface ProxyDeps {
 }
 
 interface StreamOutcome {
-  usage: CanonicalUsage | undefined;
+  usage: CanonicalUsage;
+  /** provider usage نداد و مقدار با tokenizer تخمین زده شد. */
+  usageEstimated: boolean;
   ttftMs: number;
 }
 
 type Outcome =
-  { kind: 'json'; response: CanonicalResponse } | { kind: 'stream'; result: StreamOutcome };
+  | {
+      kind: 'json';
+      response: CanonicalResponse & { usage: CanonicalUsage };
+      usageEstimated: boolean;
+    }
+  | { kind: 'stream'; result: StreamOutcome };
 
 function toClientError(error: ClassifiedError | undefined, reason: string): DiRouterError {
   if (!error)
@@ -257,7 +270,17 @@ export async function handleProxy(
       }
       if (!canonical.stream) {
         const json: unknown = await response.json();
-        return { ok: true, value: { kind: 'json', response: adapter.parseResponse(json) } };
+        const parsed = adapter.parseResponse(json);
+        // بدون usage از provider: تخمین با tokenizer تا هم کلاینت و هم رویداد مصرف عدد بگیرند.
+        const usage = parsed.usage ?? estimateUsage(canonical, parsed.content);
+        return {
+          ok: true,
+          value: {
+            kind: 'json',
+            response: { ...parsed, usage },
+            usageEstimated: parsed.usage === undefined,
+          },
+        };
       }
       return await pipeStream(
         api,
@@ -313,6 +336,11 @@ export async function handleProxy(
       ? result.value.response.usage
       : result.value.result.usage
     : undefined;
+  const usageEstimated = result.ok
+    ? result.value.kind === 'json'
+      ? result.value.usageEstimated
+      : result.value.result.usageEstimated
+    : false;
   emitUsageEvent(deps, config, {
     api,
     requestId,
@@ -321,6 +349,7 @@ export async function handleProxy(
     started,
     candidate,
     usage,
+    usageEstimated,
     ok: result.ok,
     httpStatus: result.ok ? 200 : reply.statusCode,
     ttftMs: result.ok && result.value.kind === 'stream' ? result.value.result.ttftMs : undefined,
@@ -352,6 +381,14 @@ async function pipeStream(
   const raw = reply.raw;
   // در state نگه داشته می‌شود چون داخل closureِ commit تغییر می‌کند.
   const state = { committed: false, ttftMs: 0 };
+  // متن خروجی برای تخمین usage وقتی upstream آن را نفرستد.
+  const output: string[] = [];
+  const collect = (ev: CanonicalStreamEvent) => {
+    if (ev.type === 'text_delta') output.push(ev.text);
+    else if (ev.type === 'reasoning_delta' && ev.text) output.push(ev.text);
+    else if (ev.type === 'tool_call_start') output.push(ev.name, ' ');
+    else if (ev.type === 'tool_call_delta') output.push(ev.argumentsDelta);
+  };
   let heartbeat: NodeJS.Timeout | undefined;
 
   const write = async (text: string) => {
@@ -393,6 +430,7 @@ async function pipeStream(
             throw new CommittedFailure(classified);
           }
           if (!state.committed) commit();
+          collect(ev);
           await write(encoder.push(ev));
         }
       }
@@ -400,14 +438,18 @@ async function pipeStream(
     for (const event of parser.flush())
       for (const ev of decoder.push(event)) {
         if (!state.committed) commit();
+        collect(ev);
         await write(encoder.push(ev));
       }
     if (!state.committed) commit();
+    const usageEstimated = encoder.usage === undefined;
+    const usage = encoder.usage ?? estimateUsage(canonical, output.join(''));
+    if (usageEstimated) await write(encoder.push({ type: 'usage', usage }));
     await write(encoder.end());
     raw.end();
     return {
       ok: true,
-      value: { kind: 'stream', result: { usage: encoder.usage, ttftMs: state.ttftMs } },
+      value: { kind: 'stream', result: { usage, usageEstimated, ttftMs: state.ttftMs } },
     };
   } catch (error) {
     if (error instanceof CommittedFailure) {
@@ -444,6 +486,7 @@ function emitUsageEvent(
     started: number;
     candidate: Candidate | undefined;
     usage: CanonicalUsage | undefined;
+    usageEstimated: boolean;
     ok: boolean;
     httpStatus: number;
     ttftMs: number | undefined;
@@ -452,9 +495,9 @@ function emitUsageEvent(
   },
 ): void {
   try {
-    const estimated = e.usage === undefined && e.ok;
+    // درخواست ناموفق upstream توکنی مصرف نکرده (یا خبری از آن نداریم)؛ هزینه صفر.
     const usage: CanonicalUsage = e.usage ?? {
-      inputTokens: e.ok ? estimateRequestTokens(e.canonical, roughTokens) : 0,
+      inputTokens: 0,
       outputTokens: 0,
       cacheReadTokens: 0,
       cacheWriteTokens: 0,
@@ -485,7 +528,7 @@ function emitUsageEvent(
       ...(e.errorCode ? { errorCode: e.errorCode } : {}),
       usage,
       costUsd,
-      usageEstimated: estimated,
+      usageEstimated: e.usageEstimated,
       latencyMs: Date.now() - e.started,
       ...(e.ttftMs !== undefined ? { ttftMs: e.ttftMs } : {}),
       attempts: e.attempts

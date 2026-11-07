@@ -23,6 +23,7 @@ import type {
 
 import {
   type DropReporter,
+  emptyUsage,
   type FinishReasonMap,
   ignoreDrops,
   imageFromUrl,
@@ -420,7 +421,7 @@ export function openAIResponseToCanonical(res: OpenAIChatCompletionResponse): Ca
     content,
     finishReason,
     ...(choice?.finish_reason ? { rawFinishReason: choice.finish_reason } : {}),
-    usage: openAIUsageToCanonical(res.usage),
+    ...(res.usage ? { usage: openAIUsageToCanonical(res.usage) } : {}),
     created: res.created,
   };
 }
@@ -481,6 +482,6 @@ export function canonicalToOpenAIResponse(
         logprobs: null,
       },
     ],
-    usage: canonicalUsageToOpenAI(res.usage),
+    usage: canonicalUsageToOpenAI(res.usage ?? emptyUsage()),
   };
 }

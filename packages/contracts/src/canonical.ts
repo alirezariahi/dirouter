@@ -170,7 +170,8 @@ export const CanonicalResponse = z.object({
   finishReason: CanonicalFinishReason,
   /** دلیل خام provider (مثلاً `end_turn`) برای لاگ و دیباگ. */
   rawFinishReason: z.string().optional(),
-  usage: CanonicalUsage,
+  /** نبودنش یعنی provider usage نداده و گیت‌وی باید تخمین بزند (کارت ۶.۲). */
+  usage: CanonicalUsage.optional(),
   created: z.int(),
 });
 export type CanonicalResponse = z.infer<typeof CanonicalResponse>;

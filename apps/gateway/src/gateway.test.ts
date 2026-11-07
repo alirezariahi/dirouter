@@ -77,6 +77,7 @@ beforeAll(async () => {
       provider('down', [cred('down-k', 'mock:status=503')]),
       provider('slow', [cred('slow-k', 'mock:ttft=2000')], { firstByteMs: 200 }),
       provider('invalid', [cred('invalid-k', 'mock:status=400')]),
+      provider('nousage', [cred('nousage-k', 'mock:no_usage')]),
       provider('limited', [
         cred('limited-k1', 'mock:rate_limit,retry_after=30'),
         cred('limited-k2', 'sk-ok'),
@@ -87,6 +88,7 @@ beforeAll(async () => {
       model('down-m', 'down'),
       model('slow-m', 'slow'),
       model('invalid-m', 'invalid'),
+      model('nousage-m', 'nousage'),
       model('limited-m', 'limited'),
     ],
     combos: [
@@ -207,6 +209,45 @@ describe('gateway end-to-end against the mock provider', () => {
       .map((e) => (JSON.parse(e.data) as { delta: { text: string } }).delta.text)
       .join('');
     expect(text).toBe('Hello from the DiRouter mock provider.');
+  });
+
+  it('estimates usage with the tokenizer when the provider sends none (json)', async () => {
+    const res = await chat({ model: 'nousage-m' });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      usage: { prompt_tokens: number; completion_tokens: number };
+    };
+    // «Hello from the DiRouter mock provider.» با o200k هشت توکن است.
+    expect(body.usage.completion_tokens).toBe(8);
+    expect(body.usage.prompt_tokens).toBeGreaterThan(0);
+    const event = await waitForEvent();
+    expect(event?.usageEstimated).toBe(true);
+    expect(event?.usage.outputTokens).toBe(8);
+    expect(event?.usage.inputTokens).toBe(body.usage.prompt_tokens);
+    expect(Number(event?.costUsd)).toBeGreaterThan(0);
+  });
+
+  it('estimates usage when a stream carries no usage chunk', async () => {
+    const res = await chat({
+      model: 'nousage-m',
+      stream: true,
+      stream_options: { include_usage: true },
+    });
+    const evs = await sse(res);
+    const usageChunk = evs
+      .filter((e) => e.data !== '[DONE]')
+      .map((e) => JSON.parse(e.data) as { usage?: { completion_tokens: number } | null })
+      .find((c) => c.usage);
+    expect(usageChunk?.usage?.completion_tokens).toBe(8);
+    const event = await waitForEvent();
+    expect(event).toMatchObject({ stream: true, usageEstimated: true });
+    expect(event?.usage.outputTokens).toBe(8);
+  });
+
+  it('reports real provider usage as not estimated', async () => {
+    await chat({ model: 'gpt' });
+    const event = await waitForEvent();
+    expect(event?.usageEstimated).toBe(false);
   });
 
   it('falls back from a failing provider to a healthy one and records every attempt', async () => {

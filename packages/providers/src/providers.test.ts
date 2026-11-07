@@ -90,7 +90,7 @@ describe('contract: every OpenAI-compatible preset against the mock', () => {
     expect(res.status).toBe(200);
     const parsed = adapter.parseResponse(await res.json());
     expect(parsed.finishReason).toBe('stop');
-    expect(parsed.usage.inputTokens).toBeGreaterThan(0);
+    expect(parsed.usage?.inputTokens).toBeGreaterThan(0);
 
     const events = await streamEvents(p, request());
     const text = events.flatMap((e) => (e.type === 'text_delta' ? [e.text] : [])).join('');

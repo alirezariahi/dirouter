@@ -5,7 +5,9 @@ import {
   computeCost,
   computeCostUsd,
   countTokens,
+  estimateOutputTokens,
   estimateRequestTokens,
+  estimateUsage,
   findByUpstream,
   findCatalogEntry,
   roughTokens,
@@ -129,5 +131,36 @@ describe('token estimation', () => {
     });
     expect(n).toBeGreaterThan(100);
     expect(n).toBeLessThan(140);
+  });
+});
+
+describe('usage estimation without provider usage', () => {
+  const req = {
+    inboundApi: 'openai.chat' as const,
+    model: 'x',
+    stream: false,
+    system: [],
+    messages: [
+      { role: 'user' as const, content: [{ type: 'text' as const, text: 'hello world' }] },
+    ],
+  };
+
+  it('estimates output from response parts and from stream text alike', () => {
+    const parts = [
+      { type: 'text' as const, text: 'Hello from the DiRouter mock provider.' },
+      { type: 'tool_call' as const, id: 'c', name: 'get_weather', arguments: '{"city":"Tehran"}' },
+    ];
+    expect(estimateOutputTokens([parts[0]!])).toBe(8);
+    expect(estimateOutputTokens(parts)).toBeGreaterThan(8);
+    const fromParts = estimateUsage(req, [parts[0]!]);
+    const fromText = estimateUsage(req, 'Hello from the DiRouter mock provider.');
+    expect(fromParts).toEqual(fromText);
+    expect(fromParts).toEqual({
+      inputTokens: 4 + 2,
+      outputTokens: 8,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
+      reasoningTokens: 0,
+    });
   });
 });

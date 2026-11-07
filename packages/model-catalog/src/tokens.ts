@@ -3,7 +3,7 @@
  * window در router. encoder یک بار و lazy بارگذاری می‌شود (o200k_base؛ برای مدل‌های
  * غیر OpenAI تقریبی است و رویداد با `usageEstimated=true` علامت می‌خورد).
  */
-import type { CanonicalPart, CanonicalRequest } from '@dirouter/contracts';
+import type { CanonicalPart, CanonicalRequest, CanonicalUsage } from '@dirouter/contracts';
 import { Tiktoken } from 'js-tiktoken/lite';
 import o200k from 'js-tiktoken/ranks/o200k_base';
 
@@ -40,6 +40,32 @@ function partText(part: CanonicalPart): string {
     case 'image':
       return '';
   }
+}
+
+/** تخمین توکن خروجی از محتوای پاسخ (متن، استدلال و فراخوانی ابزار). */
+export function estimateOutputTokens(
+  parts: readonly CanonicalPart[],
+  count: (text: string) => number = countTokens,
+): number {
+  return parts.reduce((n, p) => n + (p.type === 'image' ? IMAGE_TOKENS : count(partText(p))), 0);
+}
+
+/**
+ * usage تخمینی برای وقتی provider چیزی نداده؛ ورودی از درخواست و خروجی از محتوای
+ * پاسخ (یا متن جمع‌شدهٔ stream).
+ */
+export function estimateUsage(
+  req: CanonicalRequest,
+  output: readonly CanonicalPart[] | string,
+  count: (text: string) => number = countTokens,
+): CanonicalUsage {
+  return {
+    inputTokens: estimateRequestTokens(req, count),
+    outputTokens: typeof output === 'string' ? count(output) : estimateOutputTokens(output, count),
+    cacheReadTokens: 0,
+    cacheWriteTokens: 0,
+    reasoningTokens: 0,
+  };
 }
 
 export function estimateRequestTokens(

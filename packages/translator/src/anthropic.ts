@@ -24,6 +24,7 @@ import type {
 
 import {
   type DropReporter,
+  emptyUsage,
   type FinishReasonMap,
   ignoreDrops,
   parseToolArguments,
@@ -494,6 +495,6 @@ export function canonicalToAnthropicResponse(
     content,
     stop_reason: FINISH_TO_ANTHROPIC[res.finishReason],
     stop_sequence: null,
-    usage: canonicalUsageToAnthropic(res.usage),
+    usage: canonicalUsageToAnthropic(res.usage ?? emptyUsage()),
   };
 }
