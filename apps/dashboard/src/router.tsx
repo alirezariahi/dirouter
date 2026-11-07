@@ -71,7 +71,12 @@ const account = createRoute({
   path: '/account',
   component: lazyRouteComponent(() => import('./pages/account')),
 });
-const sections = NAV.filter((n) => n.to !== '/').map((n) =>
+const health = createRoute({
+  getParentRoute: () => app,
+  path: '/health',
+  component: lazyRouteComponent(() => import('./pages/health')),
+});
+const sections = NAV.filter((n) => n.to !== '/' && n.to !== '/health').map((n) =>
   createRoute({
     getParentRoute: () => app,
     path: n.to,
@@ -82,7 +87,7 @@ const sections = NAV.filter((n) => n.to !== '/').map((n) =>
 export const routeTree = root.addChildren([
   login,
   setup,
-  app.addChildren([overview, account, ...sections]),
+  app.addChildren([overview, account, health, ...sections]),
 ]);
 
 export function makeRouter(history?: Parameters<typeof createRouter>[0]['history']) {

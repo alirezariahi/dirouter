@@ -263,3 +263,98 @@ describe('sign-in and setup', () => {
     });
   });
 });
+
+describe('health page', () => {
+  afterEach(() => {
+    cleanup();
+    vi.useRealTimers();
+  });
+  beforeEach(async () => {
+    localStorage.clear();
+    resetSessionForTests();
+    setupI18n('fa');
+    await i18n.changeLanguage('fa');
+  });
+
+  const report = {
+    gatewayReachable: true,
+    nodes: [
+      {
+        instance: 'gw-1',
+        configVersion: 7,
+        ready: true,
+        lastSeen: new Date().toISOString(),
+        startedAt: new Date().toISOString(),
+      },
+    ],
+    providers: [
+      {
+        id: 'prv_1',
+        slug: 'openai',
+        name: 'OpenAI',
+        breaker: {
+          state: 'open',
+          total: 12,
+          errors: 9,
+          reopensAt: new Date(Date.now() + 20_000).toISOString(),
+        },
+        credentials: [
+          {
+            id: 'cred_1',
+            name: 'main',
+            status: 'ACTIVE',
+            cooldownUntil: new Date(Date.now() + 30_000).toISOString(),
+            disabledUntil: null,
+            disabledReason: null,
+            lockouts: [],
+          },
+        ],
+      },
+    ],
+    models: [],
+  };
+
+  it('refreshes every 5 seconds and lets an owner reset a breaker', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const calls = mockApi((path) =>
+      path === '/orgs/org_1/health/runtime'
+        ? { status: 200, body: report }
+        : path === '/orgs/org_1/health/reset'
+          ? { status: 200, body: { gatewaysNotified: 2 } }
+          : undefined,
+    );
+    await renderApp('/health');
+    expect(await screen.findByText('gw-1')).toBeTruthy();
+    expect(screen.getByText('باز')).toBeTruthy();
+    const count = () => calls.filter((c) => c.path === '/orgs/org_1/health/runtime').length;
+    const before = count();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5_100);
+    });
+    expect(count()).toBeGreaterThan(before);
+    const resetButtons = screen.getAllByRole('button', { name: 'ریست' });
+    expect(resetButtons.length).toBe(2); // provider و credential در cooldown
+    await act(async () => {
+      fireEvent.click(resetButtons[0] as HTMLElement);
+    });
+    const post = calls.find((c) => c.path === '/orgs/org_1/health/reset');
+    expect(JSON.parse(post?.init.body as string)).toEqual({ scope: 'provider', id: 'prv_1' });
+    expect((await screen.findByRole('status')).textContent).toContain('۲');
+  });
+
+  it('a viewer sees the state but no reset buttons', async () => {
+    mockApi((path) =>
+      path === '/auth/me'
+        ? {
+            status: 200,
+            body: { ...USER, organizations: [{ ...USER.organizations[0], role: 'VIEWER' }] },
+          }
+        : path === '/orgs/org_1/health/runtime'
+          ? { status: 200, body: report }
+          : undefined,
+    );
+    await renderApp('/health');
+    expect(await screen.findByText('gw-1')).toBeTruthy();
+    expect(screen.queryAllByRole('button', { name: 'ریست' })).toHaveLength(0);
+  });
+});
