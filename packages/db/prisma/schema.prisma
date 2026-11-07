@@ -259,6 +259,8 @@ model Credential {
   status        CredentialStatus @default(ACTIVE)
   cooldownUntil DateTime?        @map("cooldown_until") @db.Timestamptz(3)
   headers       Json             @default("{}")
+  /// پروکسی خروجی همین credential (اولویت بر proxy_url provider؛ کارت ۴.۱۰).
+  proxyUrl      String?          @map("proxy_url")
   createdAt     DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt     DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
 
