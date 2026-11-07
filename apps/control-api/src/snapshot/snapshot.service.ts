@@ -22,7 +22,10 @@ import { PrismaService } from '../infra/prisma.service.js';
 import { ValkeyService } from '../infra/valkey.service.js';
 import { LOGGER } from '../infra/tokens.js';
 
-export const CONFIG_CHANNEL = 'dirouter:config:updated';
+import { CONFIG_CHANNEL, REBUILD_CHANNEL } from './channels.js';
+
+export { CONFIG_CHANNEL, REBUILD_CHANNEL };
+const PERIODIC_MS = 30_000;
 const LOCK = 482_903;
 const KEEP_VERSIONS = 50;
 
@@ -60,6 +63,8 @@ function stable(value: unknown): unknown {
 @Injectable()
 export class SnapshotService implements OnModuleInit, OnModuleDestroy {
   #timer: NodeJS.Timeout | undefined;
+  #periodic: NodeJS.Timeout | undefined;
+  #sub: ReturnType<ValkeyService['client']['duplicate']> | undefined;
   #running: Promise<unknown> = Promise.resolve();
 
   constructor(
@@ -73,10 +78,26 @@ export class SnapshotService implements OnModuleInit, OnModuleDestroy {
     await this.rebuild('startup').catch((error: unknown) => {
       this.logger.error({ err: error }, 'initial config snapshot failed');
     });
+    // تور ایمنی: تغییر مستقیم DB (seed، ابزار) و انقضای کلیدها؛ بدون تغییر نسخه‌ای ساخته نمی‌شود.
+    this.#periodic = setInterval(() => {
+      this.schedule('periodic', 0);
+    }, PERIODIC_MS);
+    this.#periodic.unref();
+    this.#sub = this.valkey.client.duplicate({
+      enableOfflineQueue: true,
+      maxRetriesPerRequest: null,
+    });
+    this.#sub.on('error', () => undefined);
+    this.#sub.on('message', () => {
+      this.schedule('rebuild requested', 0);
+    });
+    await this.#sub.subscribe(REBUILD_CHANNEL).catch(() => undefined);
   }
 
   onModuleDestroy() {
     if (this.#timer) clearTimeout(this.#timer);
+    if (this.#periodic) clearInterval(this.#periodic);
+    this.#sub?.disconnect();
   }
 
   /** چند تغییر پشت سر هم یک نسخه می‌سازند. */

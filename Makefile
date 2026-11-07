@@ -36,9 +36,10 @@ migrate: .env ## اجرای migrationهای دیتابیس (prisma migrate deplo
 
 seed: .env ## داده‌های نمونهٔ توسعه و چاپ کلید dev (فقط dev)
 	@case "$$(grep -E '^NODE_ENV=' .env | cut -d= -f2)" in production) echo "seed در production اجرا نمی‌شود / refusing to seed production" >&2; exit 1;; esac
-	@$(MAKE) --no-print-directory dev-snapshot
+	@# داده در DB؛ control-api snapshot را می‌سازد و گیت‌وی بی‌درنگ می‌گیرد (کارت ۳.۱۱).
+	$(DEV) exec -T control-api pnpm --silent --filter @dirouter/control-api seed
 
-dev-snapshot: .env ## ساخت snapshot آزمایشی گیت‌وی با mock provider
+dev-snapshot: .env ## snapshot آزمایشی روی دیسک گیت‌وی بدون control-api (اجرای جدای گیت‌وی)
 	pnpm --filter @dirouter/shared build >/dev/null
 	$(ENV) node scripts/dev-snapshot.mjs .data/gateway/snapshot.json http://mock-provider:8090/v1
 	@# سازمان snapshot در DB هم لازم است (FK در usage_ledger)؛ تا seed کامل (کارت ۳.۱۱).
