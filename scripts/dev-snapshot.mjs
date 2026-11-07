@@ -64,6 +64,14 @@ const snapshot = {
     provider('mock-tool', 'mock:tool'),
     // بدون usage در پاسخ: گیت‌وی باید توکن را تخمین بزند (کارت ۶.۲)
     provider('mock-nousage', 'mock:no_usage'),
+    // پروکسی خروجی (کارت ۴.۱۰): credential از SOCKS5 داخل کانتینر گیت‌وی عبور می‌کند
+    // (`node scripts/dev/socks5-proxy.mjs`)، و provider با پروکسی مرده باید فال‌بک بدهد.
+    provider('mock-socks', 'sk-mock', {
+      credentials: [
+        { ...cred('mock-socks-key', 'sk-mock'), proxy: { url: 'socks5h://127.0.0.1:1080' } },
+      ],
+    }),
+    provider('mock-deadproxy', 'sk-mock', { proxy: { url: 'socks5://user:secret@127.0.0.1:1' } }),
     provider('mock-anthropic', 'sk-mock', { type: 'anthropic', baseUrl: mockRoot }),
     provider('mock-azure', 'sk-mock', {
       type: 'azure-openai',
@@ -82,6 +90,8 @@ const snapshot = {
     model('mock/429', 'mock-429', 'mock-small'),
     model('mock/tool', 'mock-tool', 'mock-small'),
     model('mock/nousage', 'mock-nousage', 'mock-small'),
+    model('mock/socks', 'mock-socks', 'mock-small'),
+    model('mock/deadproxy', 'mock-deadproxy', 'mock-small'),
     model('mock/claude', 'mock-anthropic', 'claude-mock'),
     model('mock/azure', 'mock-azure', 'gpt-mock-deployment'),
   ],
@@ -104,6 +114,16 @@ const snapshot = {
       targets: [
         { modelId: 'mock/bad', order: 0 },
         { modelId: 'mock/small', order: 1 },
+      ],
+    },
+    {
+      id: 'cmb_dev_proxy',
+      organizationId: 'org_dev',
+      slug: 'dev-proxy',
+      strategy: 'priority',
+      targets: [
+        { modelId: 'mock/deadproxy', order: 0 },
+        { modelId: 'mock/socks', order: 1 },
       ],
     },
     {
