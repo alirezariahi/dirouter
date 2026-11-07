@@ -238,6 +238,13 @@ export const GatewaySettings = z.object({
   proxy: ProxyConfig.optional(),
   defaultRetry: RetryPolicy.default({ maxAttempts: 2, baseDelayMs: 200, maxDelayMs: 2_000 }),
   logBodies: z.boolean().default(false),
+  /** صف کوتاه bulkhead (کارت ۵.۷)؛ پیش‌فرض گیت‌وی: ۱۶ منتظر و ۲ ثانیه. */
+  bulkhead: z
+    .object({
+      queueSize: z.int().nonnegative().optional(),
+      queueTimeoutMs: z.int().nonnegative().optional(),
+    })
+    .optional(),
 });
 export type GatewaySettings = z.infer<typeof GatewaySettings>;
 

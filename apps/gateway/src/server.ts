@@ -7,7 +7,12 @@ import { timingSafeEqual } from 'node:crypto';
 import { hostname } from 'node:os';
 
 import type { UsageEvent } from '@dirouter/contracts';
-import { type HealthChange, HealthRegistry, RetryBudget } from '@dirouter/routing';
+import {
+  BulkheadRegistry,
+  type HealthChange,
+  HealthRegistry,
+  RetryBudget,
+} from '@dirouter/routing';
 import { type Keyring, type Logger, prefixedId } from '@dirouter/shared';
 import Fastify, { type FastifyRequest } from 'fastify';
 
@@ -47,6 +52,7 @@ export function buildGateway(opts: GatewayOptions) {
   const deps = {
     store,
     budget: new RetryBudget(),
+    bulkheads: new BulkheadRegistry({ queueSize: 16, queueTimeoutMs: 2_000 }),
     pepper: opts.pepper,
     logger: opts.logger,
     // در داکر hostname همان شناسهٔ کانتینر است؛ برای ردیابی replica در لاگ و هدر.
@@ -136,7 +142,9 @@ export function buildGateway(opts: GatewayOptions) {
   };
   const notFound = { error: { message: 'Not found', code: 'not_found' } };
   app.get('/internal/health', async (req, reply) =>
-    internalOk(req) ? health.report() : reply.status(404).send(notFound),
+    internalOk(req)
+      ? { ...health.report(), bulkheads: deps.bulkheads.snapshot() }
+      : reply.status(404).send(notFound),
   );
   // تست اتصال و کشف مدل برای control-api (کارت ۳.۶).
   app.post('/internal/providers/probe', async (req, reply) => {

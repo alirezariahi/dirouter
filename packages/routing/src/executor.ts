@@ -106,6 +106,15 @@ export interface ExecuteOptions {
   clock?: () => number;
   random?: () => number;
   sleep?: (ms: number, signal?: AbortSignal) => Promise<void>;
+  /**
+   * پذیرش محلی پیش از هر تلاش (bulkhead، کارت ۵.۷). رد شدن یعنی کاندیدا بدون تماس با
+   * upstream و بدون اثر روی breaker و cooldown کنار می‌رود و نوبت کاندیدای بعدی است.
+   * release بعد از پایان تلاش (و stream) صدا زده می‌شود.
+   */
+  admit?: (
+    candidate: Candidate,
+    signal: AbortSignal | undefined,
+  ) => Promise<{ ok: true; release: () => void } | { ok: false; error: ClassifiedError }>;
 }
 
 export type ExecuteResult<T> =
@@ -208,6 +217,7 @@ export async function executeWithFallback<T>(
       continue;
     }
 
+    let rejected = false;
     for (let attempt = 1; attempt <= options.retry.maxAttempts; attempt++) {
       if (options.signal?.aborted)
         return { ok: false, error: lastError, reason: 'aborted', attempts };
@@ -229,6 +239,23 @@ export async function executeWithFallback<T>(
         };
       first = false;
 
+      const admission = options.admit ? await options.admit(candidate, options.signal) : undefined;
+      if (admission && !admission.ok) {
+        lastError = admission.error;
+        lastCandidate = candidate;
+        rejected = true;
+        attempts.push({
+          ...target,
+          attempt,
+          outcome: 'skipped',
+          errorClass: admission.error.class,
+          message: admission.error.message,
+          startedAt: clock(),
+          latencyMs: 0,
+        });
+        break;
+      }
+
       const startedAt = clock();
       const controller = new AbortController();
       const onAbort = () => {
@@ -242,6 +269,7 @@ export async function executeWithFallback<T>(
         result = await fn(candidate, controller.signal, attempt);
       } finally {
         options.signal?.removeEventListener('abort', onAbort);
+        if (admission?.ok) admission.release();
       }
       const latencyMs = clock() - startedAt;
       lastCandidate = candidate;
@@ -281,6 +309,8 @@ export async function executeWithFallback<T>(
       break;
     }
 
+    // رد شده در bulkhead: بدون شرط fallbackOn به کاندیدای بعدی.
+    if (rejected) continue;
     // فال‌بک به کاندیدای بعدی؟
     if (!lastError) continue;
     if (!lastError.fallbackAllowed || !options.fallbackOn.includes(lastError.class)) {

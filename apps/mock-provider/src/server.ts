@@ -21,9 +21,19 @@ interface Stats {
   byStatus: Record<string, number>;
   /** آخرین بدنه‌های دریافتی (برای assert در تست e2e). */
   last: unknown[];
+  /** درخواست‌های باز همین حالا و بیشینهٔ آن (برای تست bulkhead). */
+  inFlight: number;
+  maxInFlight: number;
 }
 
-const newStats = (): Stats => ({ requests: 0, byKey: {}, byStatus: {}, last: [] });
+const newStats = (): Stats => ({
+  requests: 0,
+  byKey: {},
+  byStatus: {},
+  last: [],
+  inFlight: 0,
+  maxInFlight: 0,
+});
 
 /** تخمین ساده: هر ۴ کاراکتر یک توکن. */
 const tokens = (value: unknown) => Math.max(1, Math.ceil(JSON.stringify(value ?? '').length / 4));
@@ -76,6 +86,20 @@ export function buildServer(options: MockServerOptions = {}) {
   const app = Fastify({ logger: false, bodyLimit: 10 * 1024 * 1024 });
   let defaults = parseScenario(options.defaultDirectives, DEFAULT_SCENARIO);
   let stats = newStats();
+
+  app.addHook('onRequest', (req, reply, done) => {
+    if (req.url.startsWith('/__mock') || req.url === '/healthz') {
+      done();
+      return;
+    }
+    const counted = stats;
+    counted.inFlight++;
+    counted.maxInFlight = Math.max(counted.maxInFlight, counted.inFlight);
+    reply.raw.once('close', () => {
+      counted.inFlight--;
+    });
+    done();
+  });
 
   function scenarioFor(req: FastifyRequest): Scenario {
     const header = req.headers['x-mock'];

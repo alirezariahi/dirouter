@@ -12,6 +12,7 @@ import {
   OpenAIChatCompletionRequest,
   USAGE_EVENT_SCHEMA_VERSION,
   type UsageEvent,
+  type VirtualKeyConfig,
 } from '@dirouter/contracts';
 import {
   computeCostUsd,
@@ -19,12 +20,19 @@ import {
   estimateUsage,
   roughTokens,
 } from '@dirouter/model-catalog';
-import { type ClassifiedError, adapterFor, classifyNetworkError } from '@dirouter/providers';
+import {
+  type ClassifiedError,
+  adapterFor,
+  classified,
+  classifyNetworkError,
+} from '@dirouter/providers';
 import {
   type AttemptResult,
+  type BulkheadRegistry,
   type Candidate,
   executeWithFallback,
   isRouteError,
+  type ResolvedRoute,
   type RetryBudget,
 } from '@dirouter/routing';
 import {
@@ -56,6 +64,8 @@ import { callUpstream, mergeTimeouts, readErrorBody, UpstreamTimeout } from './u
 export interface ProxyDeps {
   store: ConfigStore;
   budget: RetryBudget;
+  /** سقف همزمانی هر provider و هر کلید (کارت ۵.۷). */
+  bulkheads?: BulkheadRegistry;
   pepper: string;
   logger: Logger;
   instance: string;
@@ -242,6 +252,69 @@ export async function handleProxy(
     if (!reply.raw.writableFinished) clientGone.abort(new Error('client disconnected'));
   });
 
+  const queue = config.snapshot.settings.bulkhead;
+  const queueOverrides = {
+    ...(queue?.queueSize !== undefined ? { queueSize: queue.queueSize } : {}),
+    ...(queue?.queueTimeoutMs !== undefined ? { queueTimeoutMs: queue.queueTimeoutMs } : {}),
+  };
+  // سقف همزمانی کلید: پر بودن یعنی 429 فوری (بعد از صف کوتاه)، بدون تماس با upstream.
+  const keyBulkhead = deps.bulkheads?.get(
+    `key:${key.id}`,
+    key.rateLimit?.maxConcurrency,
+    queueOverrides,
+  );
+  const releaseKey = keyBulkhead ? await keyBulkhead.acquire(clientGone.signal) : () => undefined;
+  if (!releaseKey) {
+    if (clientGone.signal.aborted) return;
+    deps.logger.info(
+      { requestId, key: key.id, limit: keyBulkhead?.limit },
+      'key concurrency limit',
+    );
+    sendError(
+      reply,
+      api,
+      new RateLimitError({
+        message: `Too many concurrent requests for this key (limit ${String(keyBulkhead?.limit)})`,
+        retryAfterMs: 1_000,
+      }),
+      requestId,
+    );
+    return;
+  }
+  try {
+    await runRoute(api, req, reply, deps, {
+      config,
+      key,
+      canonical,
+      route,
+      requestId,
+      started,
+      clientGone,
+      queueOverrides,
+    });
+  } finally {
+    releaseKey();
+  }
+}
+
+async function runRoute(
+  api: InboundApi,
+  req: FastifyRequest,
+  reply: FastifyReply,
+  deps: ProxyDeps,
+  ctx: {
+    config: LoadedConfig;
+    key: VirtualKeyConfig;
+    canonical: CanonicalRequest;
+    route: ResolvedRoute;
+    requestId: string;
+    started: number;
+    clientGone: AbortController;
+    queueOverrides: { queueSize?: number; queueTimeoutMs?: number };
+  },
+): Promise<void> {
+  const { config, key, canonical, route, requestId, started, clientGone } = ctx;
+
   const settings = config.snapshot.settings;
   const retry = route.combo?.retry ?? settings.defaultRetry;
   const baseTimeouts = mergeTimeouts(settings.defaultTimeouts, route.combo?.timeouts);
@@ -356,6 +429,7 @@ export async function handleProxy(
     budget: deps.budget,
     health: deps.store.healthRegistry,
     signal: clientGone.signal,
+    ...(deps.bulkheads ? { admit: admitProvider(deps.bulkheads, ctx.queueOverrides) } : {}),
   });
 
   const candidate = result.candidate;
@@ -406,6 +480,30 @@ export async function handleProxy(
     errorCode: result.ok ? undefined : (result.error?.class ?? result.reason),
     attempts: result.attempts,
   });
+}
+
+/** bulkhead هر provider: پر بودن یعنی رفتن به کاندیدای بعدی (یا 429 اگر کاندیدایی نماند). */
+function admitProvider(
+  bulkheads: BulkheadRegistry,
+  overrides: { queueSize?: number; queueTimeoutMs?: number },
+) {
+  return async (candidate: Candidate, signal: AbortSignal | undefined) => {
+    const bulkhead = bulkheads.get(
+      `provider:${candidate.provider.id}`,
+      candidate.provider.maxConcurrency,
+      overrides,
+    );
+    if (!bulkhead) return { ok: true as const, release: () => undefined };
+    const release = await bulkhead.acquire(signal);
+    if (release) return { ok: true as const, release };
+    return {
+      ok: false as const,
+      error: classified('rate_limit', {
+        message: `Provider '${candidate.provider.slug}' is at its concurrency limit (${String(bulkhead.limit)})`,
+        retryAfterMs: 1_000,
+      }),
+    };
+  };
 }
 
 class CommittedFailure extends Error {

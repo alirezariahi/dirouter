@@ -377,3 +377,16 @@ describe('errors and edge cases', () => {
     expect(retained).toBeLessThan(256 * 1024);
   });
 });
+
+describe('anthropicErrorType', () => {
+  it('keeps standard types and maps DiRouter classes to standard ones', async () => {
+    const { anthropicErrorType } = await import('./index.js');
+    expect(anthropicErrorType('overloaded_error')).toBe('overloaded_error');
+    expect(anthropicErrorType('overloaded')).toBe('overloaded_error');
+    expect(anthropicErrorType('rate_limit')).toBe('rate_limit_error');
+    expect(anthropicErrorType('RESOURCE_EXHAUSTED')).toBe('rate_limit_error');
+    expect(anthropicErrorType('timeout')).toBe('timeout_error');
+    expect(anthropicErrorType('connection')).toBe('api_error');
+    expect(anthropicErrorType('server')).toBe('api_error');
+  });
+});

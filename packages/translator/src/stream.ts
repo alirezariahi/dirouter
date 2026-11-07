@@ -189,6 +189,28 @@ export class AnthropicStreamDecoder {
 
 // ───────────── canonical → OpenAI SSE ─────────────
 
+const ANTHROPIC_ERROR_TYPES = new Set([
+  'invalid_request_error',
+  'authentication_error',
+  'billing_error',
+  'permission_error',
+  'not_found_error',
+  'request_too_large',
+  'rate_limit_error',
+  'timeout_error',
+  'api_error',
+  'overloaded_error',
+]);
+
+/** کد خطای canonical (کلاس DiRouter یا نوع upstream) → نوع استاندارد خطای Anthropic. */
+export function anthropicErrorType(code: string): string {
+  if (ANTHROPIC_ERROR_TYPES.has(code)) return code;
+  if (/overload/i.test(code)) return 'overloaded_error';
+  if (/rate_limit|RESOURCE_EXHAUSTED/i.test(code)) return 'rate_limit_error';
+  if (/timeout|DEADLINE/i.test(code)) return 'timeout_error';
+  return 'api_error';
+}
+
 export interface StreamEncoderOptions {
   /** نام مدلی که کلاینت فرستاده (در پاسخ همان برمی‌گردد). */
   model: string;
@@ -377,7 +399,7 @@ export class AnthropicStreamEncoder {
           event: 'error',
           data: JSON.stringify({
             type: 'error',
-            error: { type: event.code, message: event.message },
+            error: { type: anthropicErrorType(event.code), message: event.message },
           }),
         });
     }

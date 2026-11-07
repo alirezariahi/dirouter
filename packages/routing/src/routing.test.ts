@@ -9,6 +9,8 @@ import { type ClassifiedError, classified } from '@dirouter/providers';
 import { describe, expect, it } from 'vitest';
 
 import {
+  Bulkhead,
+  BulkheadRegistry,
   type Candidate,
   CircuitBreaker,
   DEFAULT_BREAKER,
@@ -622,5 +624,136 @@ describe('manual reset (card 7.8)', () => {
     expect(health.credentialAvailable('c', 'm')).toBe(true);
     expect(health.credentialAvailable('c', 'm2')).toBe(true);
     expect(health.report().credentials).toEqual([]);
+  });
+});
+
+// ───────────── bulkhead (کارت ۵.۷) ─────────────
+
+describe('bulkhead', () => {
+  it('grants up to the limit, queues briefly, then rejects', async () => {
+    const b = new Bulkhead({ limit: 2, queueSize: 1, queueTimeoutMs: 50 });
+    const r1 = await b.acquire();
+    const r2 = await b.acquire();
+    expect(r1 && r2).toBeTruthy();
+    expect(b.active).toBe(2);
+    const waiting = b.acquire();
+    expect(b.queued).toBe(1);
+    // صف پر: فوراً رد
+    expect(await b.acquire()).toBeUndefined();
+    r1?.();
+    const r3 = await waiting;
+    expect(r3).toBeTypeOf('function');
+    expect(b.active).toBe(2);
+    // timeout در صف
+    const started = Date.now();
+    expect(await b.acquire()).toBeUndefined();
+    expect(Date.now() - started).toBeGreaterThanOrEqual(45);
+    expect(b.queued).toBe(0);
+    r2?.();
+    r3?.();
+    r3?.(); // release دوم بی‌اثر است
+    expect(b.active).toBe(0);
+  });
+
+  it('abort removes a waiter from the queue', async () => {
+    const b = new Bulkhead({ limit: 1, queueSize: 4, queueTimeoutMs: 10_000 });
+    const held = await b.acquire();
+    const ac = new AbortController();
+    const waiting = b.acquire(ac.signal);
+    ac.abort();
+    expect(await waiting).toBeUndefined();
+    expect(b.queued).toBe(0);
+    held?.();
+    expect(b.active).toBe(0);
+  });
+
+  it('registry follows config: new limits apply and removing the limit frees waiters', async () => {
+    const reg = new BulkheadRegistry({ queueSize: 4, queueTimeoutMs: 10_000 });
+    const b = reg.get('provider:a', 1);
+    const held = await b?.acquire();
+    const waiting = b?.acquire();
+    expect(reg.get('provider:a', 1)).toBe(b);
+    expect(reg.snapshot()).toEqual([{ name: 'provider:a', active: 1, queued: 1, limit: 1 }]);
+    // سقف بالا رفت → منتظر راه می‌افتد
+    reg.get('provider:a', 2);
+    const second = await waiting;
+    expect(b?.active).toBe(2);
+    held?.();
+    second?.();
+    expect(reg.get('provider:a', undefined)).toBeUndefined();
+    expect(reg.snapshot()).toEqual([]);
+  });
+});
+
+describe('executor: admission (bulkhead)', () => {
+  it('a rejected candidate is skipped without touching health and the next one serves', async () => {
+    const health = new HealthRegistry();
+    const route = candidatesFor(setup().router);
+    const released: string[] = [];
+    const result = await executeWithFallback(
+      route.candidates,
+      async (c) => ({ ok: true as const, value: c.provider.id }),
+      {
+        retry: policy,
+        fallbackOn: [],
+        deadline: Date.now() + 60_000,
+        budget: new RetryBudget(),
+        health,
+        admit: async (c) =>
+          c.provider.id === 'a'
+            ? { ok: false, error: classified('rate_limit', { message: 'full' }) }
+            : { ok: true, release: () => released.push(c.provider.id) },
+      },
+    );
+    expect(result).toMatchObject({ ok: true, value: 'b' });
+    expect(result.attempts.filter((a) => a.providerId === 'a').map((a) => a.outcome)).toEqual([
+      'skipped',
+      'skipped',
+    ]);
+    expect(released).toEqual(['b']);
+    // رد محلی نه breaker را باز می‌کند نه credential را در cooldown می‌برد.
+    expect(health.providerBreaker('a').state).toBe('closed');
+    expect(health.credentialAvailable('a-k1', route.candidates[0]?.model.id ?? '')).toBe(true);
+  });
+
+  it('when every candidate is full the result is a rate_limit failure', async () => {
+    const route = candidatesFor(setup().router);
+    const result = await executeWithFallback(
+      route.candidates,
+      async () => ({ ok: true as const, value: 'x' }),
+      {
+        retry: policy,
+        fallbackOn: [],
+        deadline: Date.now() + 60_000,
+        budget: new RetryBudget(),
+        admit: async () => ({ ok: false, error: classified('rate_limit', { message: 'full' }) }),
+      },
+    );
+    expect(result).toMatchObject({
+      ok: false,
+      reason: 'exhausted',
+      error: { class: 'rate_limit' },
+    });
+  });
+
+  it('release runs even when the attempt throws', async () => {
+    const route = candidatesFor(setup().router);
+    let releases = 0;
+    await expect(
+      executeWithFallback(
+        route.candidates,
+        async () => {
+          throw new Error('boom');
+        },
+        {
+          retry: policy,
+          fallbackOn: [],
+          deadline: Date.now() + 60_000,
+          budget: new RetryBudget(),
+          admit: async () => ({ ok: true, release: () => releases++ }),
+        },
+      ),
+    ).rejects.toThrow('boom');
+    expect(releases).toBe(1);
   });
 });
