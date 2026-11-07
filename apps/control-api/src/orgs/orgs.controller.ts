@@ -74,6 +74,7 @@ export class OrgsController {
   @Patch()
   @RequirePermission('org:write')
   @ApiZodBody(OrgPatch)
+  @ApiZodOk(z.object({ id: z.string(), name: z.string(), slug: z.string(), role: RoleSchema }))
   rename(@Org() org: OrgContext, @Body(new ZodPipe(OrgPatch)) body: z.infer<typeof OrgPatch>) {
     return this.orgs.renameOrg(org, body.name);
   }
@@ -88,6 +89,7 @@ export class OrgsController {
   @Patch('members/:userId')
   @RequirePermission('members:write')
   @ApiZodBody(RoleBody)
+  @ApiZodOk(z.object({ userId: z.string(), role: RoleSchema }))
   role(
     @Org() org: OrgContext,
     @Param('userId') userId: string,
