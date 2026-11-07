@@ -91,6 +91,31 @@ export const ERROR_CODES = {
     anthropic: 'authentication_error',
     title: 'API key expired',
   },
+  invalid_credentials: {
+    status: 401,
+    openai: 'authentication_error',
+    anthropic: 'authentication_error',
+    title: 'Invalid email or password',
+  },
+  /** refresh token قبلاً مصرف شده: نشانهٔ سرقت؛ کل خانوادهٔ نشست باطل می‌شود. */
+  refresh_token_reused: {
+    status: 401,
+    openai: 'authentication_error',
+    anthropic: 'authentication_error',
+    title: 'Refresh token reuse detected',
+  },
+  login_locked: {
+    status: 429,
+    openai: 'rate_limit_error',
+    anthropic: 'rate_limit_error',
+    title: 'Too many failed login attempts',
+  },
+  setup_completed: {
+    status: 409,
+    openai: 'invalid_request_error',
+    anthropic: 'invalid_request_error',
+    title: 'Setup has already been completed',
+  },
   forbidden: {
     status: 403,
     openai: 'permission_error',

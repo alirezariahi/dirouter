@@ -102,7 +102,14 @@ export class AuthenticationError extends DiRouterError {
   // فقط نوع `code` را به کدهای احراز هویت محدود می‌کند.
   // eslint-disable-next-line @typescript-eslint/no-useless-constructor
   constructor(
-    code: Extract<ErrorCode, 'unauthenticated' | 'invalid_api_key' | 'api_key_expired'>,
+    code: Extract<
+      ErrorCode,
+      | 'unauthenticated'
+      | 'invalid_api_key'
+      | 'api_key_expired'
+      | 'invalid_credentials'
+      | 'refresh_token_reused'
+    >,
     options?: DiRouterErrorOptions,
   ) {
     super(code, options);
