@@ -87,7 +87,8 @@ describe('layered upstream timeouts', () => {
       new AbortController().signal,
       false,
     ).catch((e: unknown) => e);
-    expect(Date.now() - started).toBeLessThan(1_500);
+    // connectMs=200؛ سقف گشاده برای runnerهای شلوغ CI، ولی بسیار کمتر از پیش‌فرض ۵ ثانیه.
+    expect(Date.now() - started).toBeLessThan(3_000);
     const classified = classifyNetworkError(error, error instanceof UpstreamTimeout);
     expect(classified.class).toBe('timeout');
     expect(classified.fallbackAllowed).toBe(true);

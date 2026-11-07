@@ -227,7 +227,7 @@ describe('gateway end-to-end against the mock provider', () => {
     expect(event?.usage.outputTokens).toBe(8);
     expect(event?.usage.inputTokens).toBe(body.usage.prompt_tokens);
     expect(Number(event?.costUsd)).toBeGreaterThan(0);
-  });
+  }, 30_000); // بارگذاری اول o200k روی CPU شلوغ چند ثانیه طول می‌کشد.
 
   it('estimates usage when a stream carries no usage chunk', async () => {
     const res = await chat({

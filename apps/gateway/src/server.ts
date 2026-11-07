@@ -9,10 +9,11 @@ import { hostname } from 'node:os';
 import type { UsageEvent } from '@dirouter/contracts';
 import { type HealthChange, HealthRegistry, RetryBudget } from '@dirouter/routing';
 import { type Keyring, type Logger, prefixedId } from '@dirouter/shared';
-import Fastify from 'fastify';
+import Fastify, { type FastifyRequest } from 'fastify';
 
 import { authenticate, extractApiKey } from './auth.js';
 import { ConfigStore } from './config-store.js';
+import { probeProvider } from './probe.js';
 import { handleCountTokens, handleProxy } from './proxy.js';
 
 export interface GatewayOptions {
@@ -123,17 +124,29 @@ export function buildGateway(opts: GatewayOptions) {
   });
   // وضعیت داخلی (شناسهٔ providerها و credentialها) فقط با INTERNAL_TOKEN؛ مسیر از Traefik هم
   // در دسترس است، پس بدون توکن 404 می‌دهد تا وجودش هم لو نرود.
-  app.get('/internal/health', async (req, reply) => {
+  const internalOk = (req: FastifyRequest) => {
     const token = opts.internalToken;
     const given = typeof req.headers.authorization === 'string' ? req.headers.authorization : '';
     const expected = token ? `Bearer ${token}` : undefined;
-    if (
-      !expected ||
-      given.length !== expected.length ||
-      !timingSafeEqual(Buffer.from(given), Buffer.from(expected))
-    )
-      return reply.status(404).send({ error: { message: 'Not found', code: 'not_found' } });
-    return health.report();
+    return (
+      expected !== undefined &&
+      given.length === expected.length &&
+      timingSafeEqual(Buffer.from(given), Buffer.from(expected))
+    );
+  };
+  const notFound = { error: { message: 'Not found', code: 'not_found' } };
+  app.get('/internal/health', async (req, reply) =>
+    internalOk(req) ? health.report() : reply.status(404).send(notFound),
+  );
+  // تست اتصال و کشف مدل برای control-api (کارت ۳.۶).
+  app.post('/internal/providers/probe', async (req, reply) => {
+    if (!internalOk(req)) return reply.status(404).send(notFound);
+    try {
+      return await probeProvider(req.body, opts.keyring);
+    } catch (error) {
+      const e = error as { status?: number; toProblem?: (id: string) => unknown };
+      return reply.status(e.status ?? 500).send(e.toProblem?.(req.id) ?? { error: 'probe failed' });
+    }
   });
 
   return {
