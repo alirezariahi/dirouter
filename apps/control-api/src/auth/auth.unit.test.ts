@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { slugify } from './auth.service.js';
+import { slugify } from '../common/ids.js';
 import { hashPassword, TokenService, verifyPassword } from './crypto.js';
 import { LOGIN_LIMITS, LoginLimiter, type LimiterStore } from './login-limiter.js';
 

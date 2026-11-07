@@ -15,6 +15,7 @@ import {
   TokenService,
   verifyPassword,
 } from './crypto.js';
+import { hashInvite, slugify } from '../common/ids.js';
 import { LoginLimiter } from './login-limiter.js';
 
 export interface ClientInfo {
@@ -30,17 +31,6 @@ export interface Session {
 }
 
 const SETUP_LOCK = 482_902;
-
-export function slugify(name: string): string {
-  const base = name
-    .normalize('NFKD')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 48);
-  // نام فارسی یا بدون حروف لاتین: slug تصادفی کوتاه.
-  return base.length >= 2 ? base : `org-${prefixedId('x').slice(-8).toLowerCase()}`;
-}
 
 @Injectable()
 export class AuthService {
@@ -155,6 +145,76 @@ export class AuthService {
       throw new AuthenticationError('unauthenticated');
     }
     return this.#issue(user, row.familyId, client);
+  }
+
+  /**
+   * پذیرش دعوت: اگر کاربری با همان ایمیل هست، رمز همان کاربر لازم است (حساب کسی با لینک
+   * تصاحب نمی‌شود)؛ وگرنه کاربر تازه با نام و رمز ساخته می‌شود. لینک یک‌بارمصرف است.
+   */
+  async acceptInvitation(
+    input: { token: string; name?: string | undefined; password: string },
+    client: ClientInfo,
+  ): Promise<Session> {
+    const db = this.prisma.client;
+    const invite = await db.invitation.findUnique({
+      where: { tokenHash: hashInvite(input.token) },
+    });
+    if (
+      !invite ||
+      invite.acceptedAt ||
+      invite.revokedAt ||
+      invite.expiresAt.getTime() <= Date.now()
+    )
+      throw new DiRouterError('not_found', { message: 'Invitation is invalid or expired' });
+    const existing = await db.user.findUnique({ where: { email: invite.email } });
+    if (existing && !(await verifyPassword(existing.passwordHash, input.password)))
+      throw new AuthenticationError('invalid_credentials');
+    if (!existing && !input.name)
+      throw new DiRouterError('validation_failed', {
+        message: 'name is required for a new account',
+      });
+    const passwordHash = existing ? undefined : await hashPassword(input.password);
+    const user = await db.$transaction(async (tx) => {
+      const claimed = await tx.invitation.updateMany({
+        where: { id: invite.id, acceptedAt: null, revokedAt: null },
+        data: { acceptedAt: new Date() },
+      });
+      if (claimed.count !== 1)
+        throw new DiRouterError('not_found', { message: 'Invitation is invalid or expired' });
+      const u =
+        existing ??
+        (await tx.user.create({
+          data: {
+            id: prefixedId('usr'),
+            email: invite.email,
+            name: input.name ?? '',
+            passwordHash: passwordHash ?? '',
+          },
+        }));
+      await tx.membership.upsert({
+        where: { userId_organizationId: { userId: u.id, organizationId: invite.organizationId } },
+        create: {
+          id: prefixedId('mem'),
+          userId: u.id,
+          organizationId: invite.organizationId,
+          role: invite.role,
+        },
+        update: {},
+      });
+      await tx.auditLog.create({
+        data: {
+          id: prefixedId('aud'),
+          organizationId: invite.organizationId,
+          actorUserId: u.id,
+          action: 'invitation.accepted',
+          targetType: 'invitation',
+          targetId: invite.id,
+          ip: client.ip,
+        },
+      });
+      return u;
+    });
+    return this.#issue(user, prefixedId('fam'), client);
   }
 
   async logout(token: string | undefined): Promise<void> {

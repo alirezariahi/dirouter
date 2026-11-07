@@ -11,7 +11,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run --passWithNoTests",
-    "test:integration": "vitest run src/**/*.integration.test.ts",
+    "test:integration": "vitest run --no-file-parallelism src/**/*.integration.test.ts",
     "clean": "rm -rf dist .turbo"
   },
   "devDependencies": {

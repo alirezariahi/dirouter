@@ -1,6 +1,7 @@
 import { Body, Controller, Get, HttpCode, Inject, Post, Req, Res, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiCookieAuth, ApiNoContentResponse, ApiTags } from '@nestjs/swagger';
 import type { FastifyReply, FastifyRequest } from 'fastify';
+import { ValidationError } from '@dirouter/shared';
 import { z } from 'zod';
 
 import { API_PREFIX } from '../bootstrap.js';
@@ -22,6 +23,11 @@ export const SetupBody = z.object({
   password: Password,
 });
 export const LoginBody = z.object({ email: Email, password: z.string().min(1).max(256) });
+export const AcceptInviteBody = z.object({
+  token: z.string().min(16).max(128),
+  name: z.string().trim().min(1).max(100).optional(),
+  password: z.string().min(1).max(256),
+});
 export const PasswordBody = z.object({
   currentPassword: z.string().min(1).max(256),
   newPassword: Password,
@@ -115,6 +121,23 @@ export class AuthController {
       this.#clearRefresh(reply);
       throw error;
     }
+  }
+
+  @Post('invitations/accept')
+  @HttpCode(200)
+  @ApiZodBody(AcceptInviteBody)
+  @ApiZodOk(SessionResponse, 'عضو سازمان شد و وارد شد')
+  async acceptInvitation(
+    @Body(new ZodPipe(AcceptInviteBody)) body: z.infer<typeof AcceptInviteBody>,
+    @Req() req: FastifyRequest,
+    @Res({ passthrough: true }) reply: FastifyReply,
+  ) {
+    // رمز کاربر تازه هم باید سیاست حداقل ۱۰ کاراکتر را داشته باشد.
+    if (body.name !== undefined && body.password.length < 10)
+      throw new ValidationError([
+        { path: 'password', message: 'Too small: expected at least 10 characters' },
+      ]);
+    return this.#setRefresh(reply, await this.auth.acceptInvitation(body, client(req)));
   }
 
   @Post('logout')
