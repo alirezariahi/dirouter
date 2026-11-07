@@ -3,10 +3,11 @@
  * ADR-001: هیچ hook یا middleware سراسری روی مسیر داغ.
  */
 import type { IncomingMessage } from 'node:http';
+import { timingSafeEqual } from 'node:crypto';
 import { hostname } from 'node:os';
 
 import type { UsageEvent } from '@dirouter/contracts';
-import { HealthRegistry, RetryBudget } from '@dirouter/routing';
+import { type HealthChange, HealthRegistry, RetryBudget } from '@dirouter/routing';
 import { type Keyring, type Logger, prefixedId } from '@dirouter/shared';
 import Fastify from 'fastify';
 
@@ -23,11 +24,17 @@ export interface GatewayOptions {
   internalToken?: string;
   instance?: string;
   emitUsage?: (event: UsageEvent) => void;
+  /** تغییرات سلامت محلی برای انتشار به replicaهای دیگر (HealthSync). */
+  onHealthChange?: (change: HealthChange) => void;
   heartbeatMs?: number;
 }
 
 export function buildGateway(opts: GatewayOptions) {
-  const health = new HealthRegistry();
+  const health = new HealthRegistry({
+    onChange: (change) => {
+      opts.onHealthChange?.(change);
+    },
+  });
   const store = new ConfigStore({
     dataDir: opts.dataDir,
     keyring: opts.keyring,
@@ -114,7 +121,20 @@ export function buildGateway(opts: GatewayOptions) {
       controlApiSync: store.lastSyncOk,
     });
   });
-  app.get('/internal/health', () => health.report());
+  // وضعیت داخلی (شناسهٔ providerها و credentialها) فقط با INTERNAL_TOKEN؛ مسیر از Traefik هم
+  // در دسترس است، پس بدون توکن 404 می‌دهد تا وجودش هم لو نرود.
+  app.get('/internal/health', async (req, reply) => {
+    const token = opts.internalToken;
+    const given = typeof req.headers.authorization === 'string' ? req.headers.authorization : '';
+    const expected = token ? `Bearer ${token}` : undefined;
+    if (
+      !expected ||
+      given.length !== expected.length ||
+      !timingSafeEqual(Buffer.from(given), Buffer.from(expected))
+    )
+      return reply.status(404).send({ error: { message: 'Not found', code: 'not_found' } });
+    return health.report();
+  });
 
   return {
     app,

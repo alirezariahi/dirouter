@@ -1,8 +1,17 @@
+import { hostname } from 'node:os';
+
 import { baseEnvSchema, createLogger, envKeyring, envPort, loadEnvOrExit } from '@dirouter/shared';
+import { Redis } from 'ioredis';
 import { z } from 'zod';
 
+import { HealthSync } from './health-sync.js';
 import { buildGateway } from './server.js';
 import { UsageSink } from './usage-sink.js';
+
+const quiet = (r: Redis) => {
+  r.on('error', () => undefined);
+  return r;
+};
 
 const env = loadEnvOrExit(
   baseEnvSchema.extend({
@@ -23,8 +32,27 @@ const usageSink = env.VALKEY_URL
   ? new UsageSink({ logger, dataDir: env.DATA_DIR, valkeyUrl: env.VALKEY_URL })
   : undefined;
 
+// هم‌خبری وضعیت breaker بین replicaها؛ اتصال subscribe باید جدا باشد (حالت pub/sub).
+const healthSync = env.VALKEY_URL
+  ? new HealthSync({
+      instance: `${hostname()}-${String(process.pid)}`,
+      logger,
+      publisher: quiet(
+        new Redis(env.VALKEY_URL, { enableOfflineQueue: false, maxRetriesPerRequest: 1 }),
+      ),
+      subscriber: quiet(new Redis(env.VALKEY_URL, { maxRetriesPerRequest: null })),
+    })
+  : undefined;
+
 const gateway = buildGateway({
   logger,
+  ...(healthSync
+    ? {
+        onHealthChange: (change) => {
+          healthSync.publish(change);
+        },
+      }
+    : {}),
   ...(usageSink
     ? {
         emitUsage: (event) => {
@@ -39,6 +67,7 @@ const gateway = buildGateway({
   ...(env.INTERNAL_TOKEN ? { internalToken: env.INTERNAL_TOKEN } : {}),
 });
 await gateway.start();
+await healthSync?.start(gateway.health);
 await gateway.app.listen({ port: env.PORT, host: '0.0.0.0' });
 logger.info(
   { port: env.PORT, configVersion: gateway.store.current?.version ?? 0 },

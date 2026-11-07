@@ -14,6 +14,7 @@ const keyring = parseKeyring(generateKey());
 const pepper = 'p'.repeat(32);
 const KEY = 'dr-test-0123456789abcdef';
 const LIMITED_KEY = 'dr-test-limited';
+const INTERNAL = 'i'.repeat(32);
 const events: UsageEvent[] = [];
 
 const mock = buildMock();
@@ -131,6 +132,7 @@ beforeAll(async () => {
     dataDir,
     emitUsage: (e) => events.push(e),
     heartbeatMs: 50,
+    internalToken: INTERNAL,
   });
   await gw.start();
   await gw.app.listen({ port: 0, host: '127.0.0.1' });
@@ -310,7 +312,15 @@ describe('gateway end-to-end against the mock provider', () => {
   it('cools down a rate-limited key and keeps serving with the other one', async () => {
     const ok = await chat({ model: 'limited-m' });
     expect(ok.status).toBe(200);
-    const report = (await (await fetch(`${base}/internal/health`)).json()) as {
+    // بدون توکن داخلی، مسیر وجود ندارد.
+    expect((await fetch(`${base}/internal/health`)).status).toBe(404);
+    expect(
+      (await fetch(`${base}/internal/health`, { headers: { authorization: 'Bearer wrong' } }))
+        .status,
+    ).toBe(404);
+    const report = (await (
+      await fetch(`${base}/internal/health`, { headers: { authorization: `Bearer ${INTERNAL}` } })
+    ).json()) as {
       credentials: { credentialId: string; cooldownUntil?: number }[];
     };
     if (report.credentials.length > 0)
