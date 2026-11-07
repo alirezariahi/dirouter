@@ -49,6 +49,13 @@ describe('OpenAPI document', () => {
           )
         )
           missing.push(`${method} ${path}: response`);
+        for (const name of [...path.matchAll(/\{(\w+)\}/g)].map((m) => m[1]))
+          if (
+            !(op as { parameters?: { in: string; name: string }[] }).parameters?.some(
+              (p) => p.in === 'path' && p.name === name,
+            )
+          )
+            missing.push(`${method} ${path}: path parameter ${String(name)}`);
         if (
           ['post', 'patch', 'put'].includes(method) &&
           !op.requestBody &&

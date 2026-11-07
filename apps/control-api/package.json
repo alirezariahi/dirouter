@@ -8,6 +8,7 @@
     "build": "tsc -p tsconfig.build.json",
     "dev": "tsx watch src/main.ts",
     "seed": "tsx src/seed.ts",
+    "openapi:export": "tsx src/export-openapi.ts",
     "start": "node dist/main.js",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
