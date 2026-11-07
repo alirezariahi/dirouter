@@ -78,6 +78,7 @@ jobs:
           POSTGRES_USER: dirouter
           POSTGRES_PASSWORD: ci-only-password
           POSTGRES_DB: dirouter_ci
+        ports: ['5432:5432']
         options: >-
           --health-cmd "pg_isready -U dirouter -d dirouter_ci"
           --health-interval 5s
@@ -85,6 +86,7 @@ jobs:
           --health-retries 12
       valkey:
         image: valkey/valkey:8-alpine
+        ports: ['6379:6379']
         options: >-
           --health-cmd "valkey-cli ping"
           --health-interval 5s
@@ -96,12 +98,21 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/setup
       - name: Build integration test dependencies
-        run: pnpm exec turbo run build --filter=@dirouter/shared
+        run: pnpm exec turbo run build --filter=@dirouter/shared --filter=@dirouter/worker^...
       - name: Run integration tests against real services
         env:
           POSTGRES_CONTAINER: ${{ job.services.postgres.id }}
           VALKEY_CONTAINER: ${{ job.services.valkey.id }}
         run: node --test scripts/ci/services.integration.mjs
+      - name: Apply database migrations
+        env:
+          DATABASE_URL: postgresql://dirouter:ci-only-password@localhost:5432/dirouter_ci
+        run: pnpm --filter @dirouter/db exec prisma migrate deploy
+      - name: Usage pipeline against PostgreSQL and Valkey
+        env:
+          INTEGRATION_DATABASE_URL: postgresql://dirouter:ci-only-password@localhost:5432/dirouter_ci
+          INTEGRATION_VALKEY_URL: redis://localhost:6379
+        run: pnpm --filter @dirouter/worker run test:integration
 
   images:
     name: Image (${{ matrix.app }})
