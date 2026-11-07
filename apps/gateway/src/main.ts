@@ -68,6 +68,34 @@ const gateway = buildGateway({
 });
 await gateway.start();
 await healthSync?.start(gateway.health);
+// heartbeat نود برای صفحهٔ Health (کارت ۷.۸): نسخهٔ config و آمادگی هر replica، با انقضای ۱۵ ثانیه.
+if (env.VALKEY_URL) {
+  const beat = quiet(
+    new Redis(env.VALKEY_URL, { enableOfflineQueue: false, maxRetriesPerRequest: 1 }),
+  );
+  const instance = hostname();
+  const startedAt = new Date().toISOString();
+  const tick = () => {
+    void beat
+      .set(
+        `dirouter:gateway:node:${instance}`,
+        JSON.stringify({
+          instance,
+          startedAt,
+          lastSeen: new Date().toISOString(),
+          configVersion: gateway.store.current?.version ?? 0,
+          ready: gateway.store.ready,
+          controlApiSync: gateway.store.lastSyncOk,
+        }),
+        'PX',
+        15_000,
+      )
+      .catch(() => undefined);
+  };
+  tick();
+  setInterval(tick, 5_000).unref();
+}
+
 // اعمال فوری تغییرات داشبورد: control-api بعد از هر نسخهٔ تازه این کانال را منتشر می‌کند
 // (کارت‌های ۳.۹ و ۴.۲)؛ poll دوره‌ای با ETag پشتیبان قطعی Valkey است.
 if (env.VALKEY_URL) {

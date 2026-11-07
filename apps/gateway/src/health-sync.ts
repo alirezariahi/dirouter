@@ -21,7 +21,7 @@ export interface Subscriber {
   on(event: 'message', listener: (channel: string, message: string) => void): unknown;
 }
 
-const KINDS = new Set(['breaker', 'cooldown', 'lockout', 'credential_disabled']);
+const KINDS = new Set(['breaker', 'cooldown', 'lockout', 'credential_disabled', 'reset']);
 
 export class HealthSync {
   published = 0;

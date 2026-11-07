@@ -584,3 +584,41 @@ describe('executor: retry and fallback', () => {
     expect(backoffDelay(10, policy, () => 0.999)).toBeLessThan(1000);
   });
 });
+
+describe('manual reset (card 7.8)', () => {
+  it('closes breakers and clears cooldowns, lockouts and disabled credentials', () => {
+    const { health } = setup();
+    for (let i = 0; i < 20; i++) health.providerBreaker('p').record(false);
+    for (let i = 0; i < 20; i++) health.modelBreaker('m').record(false);
+    expect(health.providerBreaker('p').state).toBe('open');
+    health.recordFailure(
+      { providerId: 'p', modelId: 'm', credentialId: 'c' },
+      {
+        class: 'rate_limit',
+        retryable: false,
+        fallbackAllowed: true,
+        message: 'rate limit for model m',
+        retryAfterMs: 60_000,
+      },
+    );
+    health.recordFailure(
+      { providerId: 'p', modelId: 'm2', credentialId: 'c' },
+      {
+        class: 'rate_limit',
+        retryable: false,
+        fallbackAllowed: true,
+        message: 'Rate limit reached',
+        retryAfterMs: 60_000,
+      },
+    );
+    expect(health.credentialAvailable('c', 'm')).toBe(false);
+    health.applyRemote({ kind: 'reset', scope: 'provider', id: 'p' });
+    health.applyRemote({ kind: 'reset', scope: 'model', id: 'm' });
+    health.applyRemote({ kind: 'reset', scope: 'credential', id: 'c' });
+    expect(health.providerBreaker('p').state).toBe('closed');
+    expect(health.modelBreaker('m').state).toBe('closed');
+    expect(health.credentialAvailable('c', 'm')).toBe(true);
+    expect(health.credentialAvailable('c', 'm2')).toBe(true);
+    expect(health.report().credentials).toEqual([]);
+  });
+});

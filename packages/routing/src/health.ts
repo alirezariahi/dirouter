@@ -187,7 +187,9 @@ export type HealthChange =
     }
   | { kind: 'cooldown'; credentialId: string; until: number }
   | { kind: 'lockout'; credentialId: string; modelId: string; until: number }
-  | { kind: 'credential_disabled'; credentialId: string; reason: string };
+  | { kind: 'credential_disabled'; credentialId: string; reason: string }
+  /** ریست دستی از داشبورد (کارت ۷.۸): breaker بسته، یا cooldown، lockout و غیرفعالی پاک. */
+  | { kind: 'reset'; scope: 'provider' | 'model' | 'credential'; id: string };
 
 export interface HealthOptions {
   breaker?: Partial<BreakerOptions>;
@@ -323,6 +325,9 @@ export class HealthRegistry {
       case 'lockout':
         this.#lockouts.set(`${change.credentialId}:${change.modelId}`, change.until);
         break;
+      case 'reset':
+        this.reset(change.scope, change.id);
+        break;
       case 'credential_disabled':
         this.#disabled.set(change.credentialId, {
           until: this.#clock() + this.#disableMs,
@@ -333,6 +338,17 @@ export class HealthRegistry {
   }
 
   /** فعال‌سازی دوبارهٔ credential (مثلاً بعد از تغییر کلید در snapshot جدید). */
+  /** ریست دستی؛ بدون onChange (منبعش خودش منتشر می‌کند). */
+  reset(scope: 'provider' | 'model' | 'credential', id: string): void {
+    if (scope === 'provider') this.providerBreaker(id).force('closed');
+    else if (scope === 'model') this.modelBreaker(id).force('closed');
+    else {
+      this.enableCredential(id);
+      for (const key of [...this.#lockouts.keys()])
+        if (key.startsWith(`${id}:`)) this.#lockouts.delete(key);
+    }
+  }
+
   enableCredential(credentialId: string): void {
     this.#disabled.delete(credentialId);
     this.#cooldowns.delete(credentialId);
