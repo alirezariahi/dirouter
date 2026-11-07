@@ -9,6 +9,11 @@ import { encrypt, hashApiKey, parseKeyring } from '../packages/shared/dist/index
 const [out = '.data/gateway/snapshot.json', mockUrl = 'http://mock-provider:8090/v1'] =
   process.argv.slice(2);
 const { MASTER_KEY, KEY_PEPPER, DEV_API_KEY = 'dr-dev-local-0000000000000000' } = process.env;
+// کلیدهای کمکی برای تست احراز هویت در dev (کارت ۴.۳): محدود به یک مدل، و منقضی.
+const LIMITED_API_KEY = 'dr-dev-limited-000000000000';
+const EXPIRED_API_KEY = 'dr-dev-expired-000000000000';
+const IP_API_KEY = 'dr-dev-ipallow-000000000000';
+const mockRoot = mockUrl.replace(/\/v1\/?$/, '');
 if (!MASTER_KEY || !KEY_PEPPER) {
   process.stderr.write(
     'MASTER_KEY و KEY_PEPPER لازم‌اند / MASTER_KEY and KEY_PEPPER are required\n',
@@ -53,6 +58,18 @@ const snapshot = {
     provider('mock', 'sk-mock'),
     provider('mock-down', 'mock:status=503'),
     // stream ده‌دقیقه‌ای: ۶۰۰ chunk با فاصلهٔ یک ثانیه (تست Traefik، کارت ۲.۳)
+    // سناریوهای خطا برای تست طبقه‌بندی و fallback (کارت‌های ۵.۱ و ۵.۲)
+    provider('mock-bad', 'mock:status=400'),
+    provider('mock-429', 'mock:rate_limit'),
+    provider('mock-tool', 'mock:tool'),
+    // بدون usage در پاسخ: گیت‌وی باید توکن را تخمین بزند (کارت ۶.۲)
+    provider('mock-nousage', 'mock:no_usage'),
+    provider('mock-anthropic', 'sk-mock', { type: 'anthropic', baseUrl: mockRoot }),
+    provider('mock-azure', 'sk-mock', {
+      type: 'azure-openai',
+      baseUrl: mockRoot,
+      options: { apiVersion: '2024-10-21' },
+    }),
     provider('mock-long', 'mock:chunks=600,chunk_delay=1000,text=' + 'x'.repeat(600), {
       timeouts: { totalMs: 900_000, idleMs: 30_000 },
     }),
@@ -61,6 +78,12 @@ const snapshot = {
     model('mock/small', 'mock', 'mock-small'),
     model('mock/down', 'mock-down', 'mock-small'),
     model('mock/long', 'mock-long', 'mock-small'),
+    model('mock/bad', 'mock-bad', 'mock-small'),
+    model('mock/429', 'mock-429', 'mock-small'),
+    model('mock/tool', 'mock-tool', 'mock-small'),
+    model('mock/nousage', 'mock-nousage', 'mock-small'),
+    model('mock/claude', 'mock-anthropic', 'claude-mock'),
+    model('mock/azure', 'mock-azure', 'gpt-mock-deployment'),
   ],
   combos: [
     {
@@ -71,6 +94,26 @@ const snapshot = {
       targets: [
         { modelId: 'mock/down', order: 0 },
         { modelId: 'mock/small', order: 1 },
+      ],
+    },
+    {
+      id: 'cmb_dev_bad',
+      organizationId: 'org_dev',
+      slug: 'dev-bad',
+      strategy: 'priority',
+      targets: [
+        { modelId: 'mock/bad', order: 0 },
+        { modelId: 'mock/small', order: 1 },
+      ],
+    },
+    {
+      id: 'cmb_dev_429',
+      organizationId: 'org_dev',
+      slug: 'dev-429',
+      strategy: 'priority',
+      targets: [
+        { modelId: 'mock/429', order: 0 },
+        { modelId: 'mock/claude', order: 1 },
       ],
     },
   ],
@@ -87,6 +130,39 @@ const snapshot = {
       projectId: 'prj_dev',
       enabled: true,
       expiresAt: null,
+    },
+    {
+      id: 'vk_dev_limited',
+      hash: hashApiKey(LIMITED_API_KEY, KEY_PEPPER),
+      prefix: LIMITED_API_KEY.slice(0, 10),
+      organizationId: 'org_dev',
+      teamId: null,
+      projectId: 'prj_dev',
+      enabled: true,
+      expiresAt: null,
+      allowedModels: ['mock/small'],
+    },
+    {
+      id: 'vk_dev_expired',
+      hash: hashApiKey(EXPIRED_API_KEY, KEY_PEPPER),
+      prefix: EXPIRED_API_KEY.slice(0, 10),
+      organizationId: 'org_dev',
+      teamId: null,
+      projectId: 'prj_dev',
+      enabled: true,
+      expiresAt: '2020-01-01T00:00:00.000Z',
+    },
+    {
+      // فقط از 203.0.113.7 (TEST-NET-3)؛ برای تست جعل X-Forwarded-For.
+      id: 'vk_dev_ip',
+      hash: hashApiKey(IP_API_KEY, KEY_PEPPER),
+      prefix: IP_API_KEY.slice(0, 10),
+      organizationId: 'org_dev',
+      teamId: null,
+      projectId: 'prj_dev',
+      enabled: true,
+      expiresAt: null,
+      ipAllowlist: ['203.0.113.7/32'],
     },
   ],
   settings: { defaultTimeouts: { totalMs: 900_000 } },
