@@ -98,7 +98,7 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/setup
       - name: Build integration test dependencies
-        run: pnpm exec turbo run build --filter=@dirouter/shared --filter=@dirouter/worker^...
+        run: pnpm exec turbo run build --filter=@dirouter/shared --filter=@dirouter/worker^... --filter=@dirouter/control-api^...
       - name: Run integration tests against real services
         env:
           POSTGRES_CONTAINER: ${{ job.services.postgres.id }}
@@ -113,6 +113,11 @@ jobs:
           INTEGRATION_DATABASE_URL: postgresql://dirouter:ci-only-password@localhost:5432/dirouter_ci
           INTEGRATION_VALKEY_URL: redis://localhost:6379
         run: pnpm --filter @dirouter/worker run test:integration
+      - name: Dashboard auth against PostgreSQL and Valkey
+        env:
+          INTEGRATION_DATABASE_URL: postgresql://dirouter:ci-only-password@localhost:5432/dirouter_ci
+          INTEGRATION_VALKEY_URL: redis://localhost:6379
+        run: pnpm --filter @dirouter/control-api run test:integration
 
   images:
     name: Image (${{ matrix.app }})
