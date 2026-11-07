@@ -16,8 +16,8 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.build.json && node scripts/emit-json-schema.js",
-    "dev": "tsc -p tsconfig.build.json --watch --preserveWatchOutput",
+    "build": "tsc -p tsconfig.build.json --incremental --tsBuildInfoFile dist/.tsbuildinfo && node scripts/emit-json-schema.js",
+    "dev": "tsc -p tsconfig.build.json --incremental --tsBuildInfoFile dist/.tsbuildinfo --watch --preserveWatchOutput",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run --passWithNoTests",

@@ -26,6 +26,22 @@ COPY --from=prune /repo/out/full/ .
 RUN pnpm turbo run build --filter=@dirouter/${APP}
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
     pnpm --filter=@dirouter/${APP} deploy --prod --legacy /out
+# حذف چیزهایی که در زمان اجرا لازم نیستند (پنجرهٔ ۲۵۰MB):
+# - peerهای اختیاری Prisma که pnpm نصب می‌کند (CLI، engines، typescript)
+# - runtimeهای Prisma برای دیتابیس‌های دیگر، edge و source map (engineType=client فقط client.js + compiler postgresql)
+# - همهٔ encodingهای js-tiktoken جز o200k_base
+RUN cd /out/node_modules/.pnpm \
+    && rm -rf typescript@* prisma@* @prisma+engines@* @prisma+config@* effect@* \
+    && for d in @prisma+client@*/node_modules/@prisma/client/runtime; do \
+         [ -d "$d" ] || continue; cd "$d"; \
+         rm -f *.map query_engine_bg.* binary.* library.* edge* react-native* wasm-engine-edge* wasm-compiler-edge* index-browser*; \
+         for db in cockroachdb mysql sqlite sqlserver; do rm -f query_compiler_bg.$db.*; done; \
+         cd /out/node_modules/.pnpm; \
+       done \
+    && for d in js-tiktoken@*/node_modules/js-tiktoken/dist; do \
+         [ -d "$d" ] || continue; rm -f "$d/index.js" "$d/index.cjs"; \
+         find "$d/ranks" -type f ! -name 'o200k_base*' -delete; \
+       done
 
 # ۳) ایمیج نهایی: alpine خالص + باینری node (بدون npm/yarn/corepack)، کاربر غیر root.
 FROM node:${NODE_VERSION}-alpine AS node

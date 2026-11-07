@@ -3,6 +3,7 @@
  * ADR-001: هیچ hook یا middleware سراسری روی مسیر داغ.
  */
 import type { IncomingMessage } from 'node:http';
+import { hostname } from 'node:os';
 
 import type { UsageEvent } from '@dirouter/contracts';
 import { HealthRegistry, RetryBudget } from '@dirouter/routing';
@@ -40,7 +41,8 @@ export function buildGateway(opts: GatewayOptions) {
     budget: new RetryBudget(),
     pepper: opts.pepper,
     logger: opts.logger,
-    instance: opts.instance ?? prefixedId('gw'),
+    // در داکر hostname همان شناسهٔ کانتینر است؛ برای ردیابی replica در لاگ و هدر.
+    instance: opts.instance ?? hostname(),
     emitUsage:
       opts.emitUsage ??
       ((event: UsageEvent) => {
@@ -64,7 +66,7 @@ export function buildGateway(opts: GatewayOptions) {
 
   let draining = false;
   app.addHook('onRequest', async (req, reply) => {
-    void reply.header('x-request-id', req.id);
+    void reply.header('x-request-id', req.id).header('x-dirouter-instance', deps.instance);
   });
 
   app.post('/v1/chat/completions', (req, reply) => handleProxy('openai.chat', req, reply, deps));

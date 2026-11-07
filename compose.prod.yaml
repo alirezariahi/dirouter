@@ -1,0 +1,73 @@
+# production: چند replica از gateway، محدودیت منابع، چرخش لاگ، بدون انتشار پورت دیتابیس.
+# اجرا: make prod-up   (یا docker compose -f compose.yaml -f compose.prod.yaml up -d)
+# رازها فقط در .env (دسترسی 600، ساخته‌شده با scripts/bootstrap.sh) هستند.
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: '10m'
+    max-file: '5'
+
+x-resources: &small
+  limits: { cpus: '0.50', memory: 256M }
+  reservations: { memory: 64M }
+
+services:
+  traefik:
+    volumes:
+      - ./deploy/traefik/traefik.yml:/etc/traefik/traefik.tmpl.yml:ro
+    environment:
+      ACME_EMAIL: ${ACME_EMAIL:-}
+    # ایمیل ACME از env در پیکربندی static جایگزین می‌شود.
+    entrypoint:
+      - sh
+      - -c
+      - sed "s|__ACME_EMAIL__|$${ACME_EMAIL}|g" /etc/traefik/traefik.tmpl.yml > /tmp/traefik.yml && exec traefik --configFile=/tmp/traefik.yml
+    healthcheck:
+      test: ['CMD', 'traefik', 'healthcheck', '--ping', '--configFile=/tmp/traefik.yml']
+    logging: *logging
+    deploy:
+      resources: *small
+
+  postgres:
+    logging: *logging
+    shm_size: 256m
+    deploy:
+      resources:
+        limits: { cpus: '2.0', memory: 2G }
+
+  valkey:
+    logging: *logging
+    deploy:
+      resources:
+        limits: { cpus: '1.0', memory: 1G }
+
+  migrate:
+    logging: *logging
+
+  control-api:
+    logging: *logging
+    deploy:
+      resources:
+        limits: { cpus: '1.0', memory: 512M }
+
+  gateway:
+    logging: *logging
+    deploy:
+      replicas: ${GATEWAY_REPLICAS:-2}
+      resources:
+        limits: { cpus: '1.0', memory: 512M }
+      update_config:
+        parallelism: 1
+        order: start-first
+
+  worker:
+    logging: *logging
+    deploy:
+      resources:
+        limits: { cpus: '1.0', memory: 512M }
+
+  dashboard:
+    logging: *logging
+    deploy:
+      resources: *small

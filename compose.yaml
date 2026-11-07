@@ -196,3 +196,16 @@ services:
       traefik.http.routers.dashboard.tls: 'true'
       traefik.http.routers.dashboard.middlewares: security-headers@file,compress@file
       traefik.http.services.dashboard.loadbalancer.server.port: '8080'
+
+  # provider ساختگی برای تست e2e و بار (پروفایل mock؛ در dev همیشه بالاست).
+  mock-provider:
+    image: ${REGISTRY:-dirouter}/mock-provider:${TAG:-latest}
+    profiles: [mock]
+    build:
+      context: .
+      dockerfile: deploy/docker/node.Dockerfile
+      args: { APP: mock-provider, PORT: '8090' }
+    restart: unless-stopped
+    environment:
+      PORT: '8090'
+    networks: [edge]

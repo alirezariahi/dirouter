@@ -1,11 +1,10 @@
 # محیط توسعه: hot-reload با bind mount، پورت دیتابیس‌ها فقط روی localhost،
 # mailpit و mock-provider. اجرا: make up
 
-x-dev-node: &dev-node
+x-dev-node:
+  &dev-node # ایمیج را فقط dev-deps می‌سازد؛ بقیه همان را استفاده می‌کنند (build موازی یک تگ تداخل دارد).
   image: dirouter/dev:local
-  build:
-    context: .
-    dockerfile: deploy/docker/dev.Dockerfile
+  pull_policy: never
   restart: unless-stopped
   working_dir: /repo
   volumes:
@@ -68,22 +67,31 @@ services:
   # نصب وابستگی‌ها، prisma generate و migrate، و tsc watch برای همهٔ پکیج‌ها.
   dev-deps:
     <<: *dev-node
+    build:
+      context: .
+      dockerfile: deploy/docker/dev.Dockerfile
+    pull_policy: build
     depends_on: !override
       postgres: { condition: service_healthy }
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-dirouter}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-dirouter}
     networks: [internal, edge]
+    # فقط watch (یک emit اولیه)، و healthy وقتی همهٔ پکیج‌ها emit کرده‌اند؛ اپ‌ها بعد از آن
+    # بالا می‌آیند تا emit اولیه باعث ری‌استارت پشت‌سرهم‌شان نشود.
     command:
       - sh
       - -c
       - >-
         pnpm install --frozen-lockfile &&
         pnpm --filter @dirouter/db exec prisma migrate deploy &&
-        pnpm turbo run build --filter='./packages/*' &&
-        touch /tmp/ready &&
-        pnpm turbo run dev --filter='./packages/*' --concurrency=20
+        pnpm --filter @dirouter/db exec prisma generate &&
+        rm -rf packages/*/dist /tmp/watching &&
+        touch /tmp/watching &&
+        pnpm -r --parallel --filter './packages/*' run dev
     healthcheck:
-      test: ['CMD', 'test', '-f', '/tmp/ready']
+      test:
+        - CMD-SHELL
+        - test -f /tmp/watching && for p in contracts shared db model-catalog ui translator providers routing; do test -f packages/$$p/dist/index.js || exit 1; done
       interval: 5s
       timeout: 2s
       retries: 120
@@ -91,6 +99,7 @@ services:
 
   control-api:
     <<: *dev-node
+    build: !reset null
     environment:
       NODE_ENV: development
       LOG_LEVEL: ${LOG_LEVEL:-debug}
@@ -106,13 +115,18 @@ services:
       SMTP_URL: smtp://mailpit:1025
     command: ['pnpm', '--filter', '@dirouter/control-api', 'dev']
     labels:
-      traefik.http.routers.control-api.entrypoints: web,websecure
+      # در dev روتر TLS فقط HTTPS را می‌گیرد؛ روتر جدا برای HTTP ساده.
+      traefik.http.routers.control-api-http.rule: Host(`admin.${DOMAIN:-localhost}`)
+      traefik.http.routers.control-api-http.entrypoints: web
+      traefik.http.routers.control-api-http.service: control-api
+      traefik.http.routers.control-api-http.middlewares: security-headers@file,control-api-cors@file
     depends_on: !override
       dev-deps: { condition: service_healthy }
       valkey: { condition: service_healthy }
 
   gateway:
     <<: *dev-node
+    build: !reset null
     environment:
       NODE_ENV: development
       LOG_LEVEL: ${LOG_LEVEL:-debug}
@@ -122,16 +136,21 @@ services:
       KEY_PEPPER: ${KEY_PEPPER}
       INTERNAL_TOKEN: ${INTERNAL_TOKEN}
       CONTROL_API_URL: http://control-api:3000
-      DATA_DIR: /data
+      DATA_DIR: /repo/.data/gateway
     command: ['pnpm', '--filter', '@dirouter/gateway', 'dev']
     labels:
-      traefik.http.routers.gateway.entrypoints: web,websecure
+      traefik.http.routers.gateway-http.rule: Host(`api.${DOMAIN:-localhost}`)
+      traefik.http.routers.gateway-http.entrypoints: web
+      traefik.http.routers.gateway-http.service: gateway
+      traefik.http.routers.gateway-http.middlewares: security-headers@file
+      traefik.http.services.gateway.loadbalancer.healthcheck.path: /healthz
     depends_on: !override
       dev-deps: { condition: service_healthy }
       valkey: { condition: service_healthy }
 
   worker:
     <<: *dev-node
+    build: !reset null
     environment:
       NODE_ENV: development
       LOG_LEVEL: ${LOG_LEVEL:-debug}
@@ -145,6 +164,7 @@ services:
 
   dashboard:
     <<: *dev-node
+    build: !reset null
     environment:
       VITE_API_URL: https://admin.${DOMAIN:-localhost}/api/v1
     command:
@@ -153,11 +173,17 @@ services:
       traefik.enable: 'true'
       traefik.docker.network: dirouter_edge
       traefik.http.routers.dashboard.rule: Host(`app.${DOMAIN:-localhost}`)
-      traefik.http.routers.dashboard.entrypoints: web,websecure
+      traefik.http.routers.dashboard.entrypoints: websecure
+      traefik.http.routers.dashboard-http.rule: Host(`app.${DOMAIN:-localhost}`)
+      traefik.http.routers.dashboard-http.entrypoints: web
+      traefik.http.routers.dashboard-http.service: dashboard
+      traefik.http.routers.dashboard-http.middlewares: security-headers@file
       traefik.http.services.dashboard.loadbalancer.server.port: '8080'
 
   mock-provider:
     <<: *dev-node
+    build: !reset null
+    profiles: !reset []
     environment:
       NODE_ENV: development
       PORT: '8090'
