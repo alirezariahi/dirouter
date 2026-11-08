@@ -66,6 +66,8 @@ export interface ProxyDeps {
   budget: RetryBudget;
   /** سقف همزمانی هر provider و هر کلید (کارت ۵.۷). */
   bulkheads?: BulkheadRegistry;
+  /** وضعیت خاموشی (کارت ۵.۸): در drain، اتصال‌ها بعد از پاسخ بسته می‌شوند. */
+  lifecycle?: { readonly draining: boolean; readonly signal: AbortSignal };
   pepper: string;
   logger: Logger;
   instance: string;
@@ -251,6 +253,12 @@ export async function handleProxy(
   reply.raw.on('close', () => {
     if (!reply.raw.writableFinished) clientGone.abort(new Error('client disconnected'));
   });
+  // پایان مهلت drain: درخواست‌های باقی‌مانده مثل قطع کلاینت لغو می‌شوند.
+  const onShutdown = () => {
+    clientGone.abort(new Error('gateway shutting down'));
+  };
+  deps.lifecycle?.signal.addEventListener('abort', onShutdown, { once: true });
+  reply.raw.once('close', () => deps.lifecycle?.signal.removeEventListener('abort', onShutdown));
 
   const queue = config.snapshot.settings.bulkhead;
   const queueOverrides = {
@@ -408,7 +416,14 @@ async function runRoute(
         adapter.createStreamDecoder(candidate.model.upstreamModel),
         call,
         reply,
-        { includeUsage, started, requestId, heartbeatMs: deps.heartbeatMs ?? 15_000 },
+        {
+          includeUsage,
+          started,
+          requestId,
+          heartbeatMs: deps.heartbeatMs ?? 15_000,
+          draining: () => deps.lifecycle?.draining === true,
+          shuttingDown: () => deps.lifecycle?.signal.aborted === true,
+        },
       );
     } catch (error) {
       if (error instanceof CommittedFailure)
@@ -446,6 +461,13 @@ async function runRoute(
           : canonicalToAnthropicResponse(outcome.response, { model: canonical.model });
       void reply.status(200).send(body);
     }
+  } else if (!reply.raw.headersSent && deps.lifecycle?.signal.aborted) {
+    sendError(
+      reply,
+      api,
+      new DiRouterError('service_unavailable', { message: 'Gateway is shutting down, retry' }),
+      requestId,
+    );
   } else if (!reply.raw.headersSent && result.reason !== 'aborted') {
     deps.logger.warn(
       { requestId, reason: result.reason, error: result.error, attempts: result.attempts.length },
@@ -519,7 +541,14 @@ async function pipeStream(
   decoder: ReturnType<ReturnType<typeof adapterFor>['createStreamDecoder']>,
   call: Awaited<ReturnType<typeof callUpstream>>,
   reply: FastifyReply,
-  opts: { includeUsage: boolean; started: number; requestId: string; heartbeatMs: number },
+  opts: {
+    includeUsage: boolean;
+    started: number;
+    requestId: string;
+    heartbeatMs: number;
+    draining: () => boolean;
+    shuttingDown: () => boolean;
+  },
 ): Promise<AttemptResult<Outcome>> {
   const encoder =
     api === 'openai.chat'
@@ -547,10 +576,17 @@ async function pipeStream(
     state.committed = true;
     state.ttftMs = Date.now() - opts.started;
     reply.hijack();
+    // هدرهای سراسری (x-request-id، x-dirouter-instance) هم در stream بمانند.
+    const base = Object.fromEntries(
+      Object.entries(reply.getHeaders()).filter(
+        (e): e is [string, string | number | string[]] => e[1] !== undefined,
+      ),
+    );
     raw.writeHead(200, {
+      ...base,
       'content-type': 'text/event-stream; charset=utf-8',
       'cache-control': 'no-cache',
-      connection: 'keep-alive',
+      connection: opts.draining() ? 'close' : 'keep-alive',
       'x-accel-buffering': 'no',
       'x-request-id': opts.requestId,
       'x-dirouter-model': candidate.model.slug,
@@ -611,7 +647,9 @@ async function pipeStream(
         encoder.push({
           type: 'error',
           code: classified.class,
-          message: 'upstream stream interrupted',
+          message: opts.shuttingDown()
+            ? 'gateway shutting down, retry the request'
+            : 'upstream stream interrupted',
         }),
       );
       raw.end();

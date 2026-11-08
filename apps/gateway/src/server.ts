@@ -14,6 +14,8 @@ import {
   RetryBudget,
 } from '@dirouter/routing';
 import { type Keyring, type Logger, prefixedId } from '@dirouter/shared';
+import { setTimeout as sleep } from 'node:timers/promises';
+
 import Fastify, { type FastifyRequest } from 'fastify';
 
 import { authenticate, extractApiKey } from './auth.js';
@@ -49,9 +51,13 @@ export function buildGateway(opts: GatewayOptions) {
     ...(opts.controlApiUrl ? { controlApiUrl: opts.controlApiUrl } : {}),
     ...(opts.internalToken ? { internalToken: opts.internalToken } : {}),
   });
+  // چرخهٔ خاموشی (کارت ۵.۸): draining و سیگنال قطع اجباری درخواست‌های باقی‌مانده.
+  const shutdown = new AbortController();
+  const lifecycle = { draining: false, signal: shutdown.signal };
   const deps = {
     store,
     budget: new RetryBudget(),
+    lifecycle,
     bulkheads: new BulkheadRegistry({ queueSize: 16, queueTimeoutMs: 2_000 }),
     pepper: opts.pepper,
     logger: opts.logger,
@@ -73,6 +79,9 @@ export function buildGateway(opts: GatewayOptions) {
     // بیشتر از idleConnTimeout ترافیک (۹۰s) تا گیت‌وی زودتر از Traefik اتصال idle را نبندد
     // (وگرنه درخواستی که Traefik روی اتصالِ در حال بسته‌شدن می‌فرستد 502 می‌گیرد).
     keepAliveTimeout: 95_000,
+    // درخواستی که هنگام بستن روی اتصال باز برسد هنوز سرویس می‌گیرد (نه 503)؛ سقف زمان را
+    // خود drain کنترل می‌کند.
+    return503OnClosing: false,
     genReqId: (req: IncomingMessage) => {
       const incoming = req.headers['x-request-id'];
       return typeof incoming === 'string' && /^[\w.-]{1,128}$/.test(incoming)
@@ -81,9 +90,17 @@ export function buildGateway(opts: GatewayOptions) {
     },
   });
 
-  let draining = false;
+  let inFlight = 0;
   app.addHook('onRequest', async (req, reply) => {
     void reply.header('x-request-id', req.id).header('x-dirouter-instance', deps.instance);
+    // در drain هر پاسخ اتصالش را می‌بندد تا Traefik اتصال تازه (به replica سالم) باز کند.
+    if (lifecycle.draining) void reply.header('connection', 'close');
+    if (req.url.startsWith('/v1/') || req.url.startsWith('/chat/')) {
+      inFlight++;
+      reply.raw.once('close', () => {
+        inFlight--;
+      });
+    }
   });
 
   app.post('/v1/chat/completions', (req, reply) => handleProxy('openai.chat', req, reply, deps));
@@ -121,9 +138,9 @@ export function buildGateway(opts: GatewayOptions) {
 
   app.get('/healthz', () => ({ status: 'ok' }));
   app.get('/readyz', async (_req, reply) => {
-    const ok = store.ready && !draining;
+    const ok = store.ready && !lifecycle.draining;
     return reply.status(ok ? 200 : 503).send({
-      status: ok ? 'ok' : draining ? 'draining' : 'no_config',
+      status: ok ? 'ok' : lifecycle.draining ? 'draining' : 'no_config',
       configVersion: store.current?.version ?? 0,
       controlApiSync: store.lastSyncOk,
     });
@@ -164,12 +181,40 @@ export function buildGateway(opts: GatewayOptions) {
     async start() {
       await store.start();
     },
-    /** graceful drain: readyz=503 تا Traefik ترافیک جدید نفرستد، سپس بستن. */
-    async drain(ms: number) {
-      draining = true;
+    /** تعداد درخواست‌های proxy باز (از جمله streamها). */
+    get inFlight() {
+      return inFlight;
+    },
+    /**
+     * graceful shutdown (کارت ۵.۸):
+     * 1. readyz=503 و ادامهٔ سرویس به مدت `readyDelayMs` تا health check Traefik این replica
+     *    را از چرخش خارج کند (در این فاصله پاسخ‌ها `connection: close` دارند).
+     * 2. توقف پذیرش اتصال تازه و انتظار برای درخواست‌ها و streamهای باز تا سقف `drainMs`.
+     * 3. درخواست‌های باقی‌مانده قطع می‌شوند: stream رویداد خطای استاندارد می‌گیرد و
+     *    درخواست بی‌پاسخ 503.
+     */
+    async drain(options: { readyDelayMs: number; drainMs: number }): Promise<{ forced: number }> {
+      lifecycle.draining = true;
       store.stop();
-      await new Promise((r) => setTimeout(r, Math.min(ms, 5_000)));
-      await app.close();
+      await sleep(options.readyDelayMs);
+      const closing = app.close();
+      const deadline = Date.now() + options.drainMs;
+      while (inFlight > 0 && Date.now() < deadline) {
+        // اتصال keep-alive که پاسخش تمام شده بیکار است و بستنش امن است.
+        app.server.closeIdleConnections();
+        await sleep(50);
+      }
+      const forced = inFlight;
+      if (forced > 0) {
+        opts.logger.warn({ inFlight: forced }, 'drain timeout, aborting open requests');
+        shutdown.abort(new Error('gateway shutting down'));
+        // فرصت کوتاه برای نوشتن رویداد خطا یا 503 پیش از بستن اتصال‌ها.
+        const grace = Date.now() + 1_000;
+        while (inFlight > 0 && Date.now() < grace) await sleep(20);
+      }
+      app.server.closeAllConnections();
+      await Promise.race([closing, sleep(2_000)]);
+      return { forced };
     },
   };
 }

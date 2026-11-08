@@ -22,6 +22,8 @@ const env = loadEnvOrExit(
     CONTROL_API_URL: z.string().optional(),
     DATA_DIR: z.string().default('./.data'),
     SHUTDOWN_DRAIN_MS: z.coerce.number().int().min(0).default(30_000),
+    /** مکث بعد از readyz=503 تا Traefik (health check هر ۲ ثانیه) replica را کنار بگذارد. */
+    SHUTDOWN_READY_DELAY_MS: z.coerce.number().int().min(0).default(5_000),
     VALKEY_URL: z.string().optional(),
   }),
 );
@@ -115,7 +117,10 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.once(signal, () => {
     logger.info({ signal }, 'draining');
     void gateway
-      .drain(env.SHUTDOWN_DRAIN_MS)
+      .drain({ readyDelayMs: env.SHUTDOWN_READY_DELAY_MS, drainMs: env.SHUTDOWN_DRAIN_MS })
+      .then(({ forced }) => {
+        logger.info({ forced }, 'drained');
+      })
       // رویدادهای درخواست‌های آخر قبل از خروج فرستاده (یا در outbox نوشته) می‌شوند.
       .then(() => usageSink?.close())
       .then(() => process.exit(0));

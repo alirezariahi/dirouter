@@ -141,8 +141,11 @@ services:
       CONTROL_API_URL: http://control-api:3000
       DATA_DIR: /data
       SHUTDOWN_DRAIN_MS: ${GATEWAY_SHUTDOWN_DRAIN_MS:-30000}
+      # بیشتر از دو دور health check Traefik (۲ ثانیه) تا replica پیش از بستن از چرخش خارج شود.
+      SHUTDOWN_READY_DELAY_MS: ${GATEWAY_SHUTDOWN_READY_DELAY_MS:-5000}
     # gateway به Postgres دسترسی ندارد (ADR-006): فقط Valkey روی شبکهٔ internal.
     networks: [edge, internal]
+    # ready delay (۵s) + drain (۳۰s) + flush مصرف؛ باید از مجموع بیشتر باشد وگرنه SIGKILL streamها را می‌بُرد.
     stop_grace_period: 45s
     volumes:
       - gateway-data:/data
