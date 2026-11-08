@@ -10,7 +10,7 @@
     "start": "node dist/main.js",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
-    "test:integration": "vitest run src/health-sync.test.ts src/rate-limiter.test.ts",
+    "test:integration": "vitest run src/health-sync.test.ts src/rate-limiter.test.ts src/budget-guard.test.ts",
     "test": "vitest run --passWithNoTests",
     "clean": "rm -rf dist .turbo"
   },

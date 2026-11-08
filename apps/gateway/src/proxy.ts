@@ -59,6 +59,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 
 import { authenticate, extractApiKey } from './auth.js';
 import type { ConfigStore, LoadedConfig } from './config-store.js';
+import type { BudgetGuard, ScopedBudget } from './budget-guard.js';
 import type { LimitScope, RateLimiter } from './rate-limiter.js';
 import { callUpstream, mergeTimeouts, readErrorBody, UpstreamTimeout } from './upstream.js';
 
@@ -67,6 +68,8 @@ export interface ProxyDeps {
   budget: RetryBudget;
   /** سقف همزمانی هر provider و هر کلید (کارت ۵.۷). */
   bulkheads?: BulkheadRegistry;
+  /** بودجهٔ کلید، پروژه و تیم (کارت ۶.۳). */
+  budgets?: BudgetGuard;
   /** rate limiter توزیع‌شده (کارت ۶.۱). */
   limiter?: RateLimiter;
   /** وضعیت خاموشی (کارت ۵.۸): در drain، اتصال‌ها بعد از پاسخ بسته می‌شوند. */
@@ -290,6 +293,31 @@ export async function handleProxy(
   if (admission)
     for (const [name, value] of Object.entries(admission.headers)) void reply.header(name, value);
 
+  // بودجه: رسیده به سقف یعنی 429 budget_exceeded تا شروع دورهٔ بعد.
+  const budgets = budgetScopes(config, key);
+  const budgetCheck = deps.budgets ? await deps.budgets.check(budgets) : { ok: true as const };
+  if (!budgetCheck.ok) {
+    admission?.settle(0);
+    admission?.release();
+    void reply.header(
+      'retry-after',
+      String(Math.max(1, Math.ceil((budgetCheck.resetAt.getTime() - Date.now()) / 1000))),
+    );
+    const what =
+      budgetCheck.kind === 'usd' ? `USD ${budgetCheck.limit}` : `${budgetCheck.limit} tokens`;
+    sendError(
+      reply,
+      api,
+      new DiRouterError('budget_exceeded', {
+        message: budgetCheck.unavailable
+          ? 'Budget check unavailable (fail-closed), retry shortly'
+          : `${budgetCheck.period === 'daily' ? 'Daily' : 'Monthly'} ${budgetCheck.scope} budget exceeded (${what})`,
+      }),
+      requestId,
+    );
+    return;
+  }
+
   const queue = config.snapshot.settings.bulkhead;
   const queueOverrides = {
     ...(queue?.queueSize !== undefined ? { queueSize: queue.queueSize } : {}),
@@ -321,9 +349,9 @@ export async function handleProxy(
     );
     return;
   }
-  let actualTokens = 0;
+  let spent = { tokens: 0, costUsd: '0' };
   try {
-    actualTokens = await runRoute(api, req, reply, deps, {
+    spent = await runRoute(api, req, reply, deps, {
       config,
       key,
       canonical,
@@ -335,9 +363,30 @@ export async function handleProxy(
     });
   } finally {
     releaseKey();
-    admission?.settle(actualTokens);
+    admission?.settle(spent.tokens);
     admission?.release();
+    deps.budgets?.record(budgets, spent.costUsd, spent.tokens);
   }
+}
+
+/** بودجه‌های یک کلید: خودش، پروژه و تیمش (کارت ۶.۳). */
+function budgetScopes(config: LoadedConfig, key: VirtualKeyConfig): ScopedBudget[] {
+  const out: ScopedBudget[] = key.budgets.map((budget) => ({
+    budget,
+    scope: 'key',
+    scopeId: key.id,
+    organizationId: key.organizationId,
+  }));
+  for (const l of config.snapshot.limits) {
+    if (l.organizationId !== key.organizationId || l.budgets.length === 0) continue;
+    const match =
+      (l.scope === 'project' && l.scopeId === key.projectId) ||
+      (l.scope === 'team' && key.teamId !== null && l.scopeId === key.teamId);
+    if (match)
+      for (const budget of l.budgets)
+        out.push({ budget, scope: l.scope, scopeId: l.scopeId, organizationId: l.organizationId });
+  }
+  return out;
 }
 
 /** scopeهای limit یک کلید: خودش، پروژه و تیمش. */
@@ -369,7 +418,7 @@ async function runRoute(
     clientGone: AbortController;
     queueOverrides: { queueSize?: number; queueTimeoutMs?: number };
   },
-): Promise<number> {
+): Promise<{ tokens: number; costUsd: string }> {
   const { config, key, canonical, route, requestId, started, clientGone } = ctx;
 
   const settings = config.snapshot.settings;
@@ -536,7 +585,7 @@ async function runRoute(
       ? result.value.usageEstimated
       : result.value.result.usageEstimated
     : false;
-  emitUsageEvent(deps, config, {
+  const costUsd = emitUsageEvent(deps, config, {
     api,
     requestId,
     key,
@@ -551,7 +600,7 @@ async function runRoute(
     errorCode: result.ok ? undefined : (result.error?.class ?? result.reason),
     attempts: result.attempts,
   });
-  return usage ? usage.inputTokens + usage.outputTokens : 0;
+  return { tokens: usage ? usage.inputTokens + usage.outputTokens : 0, costUsd };
 }
 
 /** bulkhead هر provider: پر بودن یعنی رفتن به کاندیدای بعدی (یا 429 اگر کاندیدایی نماند). */
@@ -729,7 +778,7 @@ function emitUsageEvent(
     errorCode: string | undefined;
     attempts: Awaited<ReturnType<typeof executeWithFallback>>['attempts'];
   },
-): void {
+): string {
   try {
     // درخواست ناموفق upstream توکنی مصرف نکرده (یا خبری از آن نداریم)؛ هزینه صفر.
     const usage: CanonicalUsage = e.usage ?? {
@@ -787,7 +836,9 @@ function emitUsageEvent(
           startedAt: new Date(a.startedAt).toISOString(),
         })),
     });
+    return costUsd;
   } catch (error) {
     deps.logger.error({ err: error, requestId: e.requestId }, 'failed to build usage event');
+    return '0';
   }
 }

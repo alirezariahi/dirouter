@@ -18,6 +18,7 @@ import {
   type MaintenanceDb,
   rollup,
 } from './maintenance.js';
+import { type BudgetDb, processBudgetAlerts, reconcileBudgets } from './budgets.js';
 import { createMetrics } from './metrics.js';
 import { type UsageDb, UsageBatchWriter } from './writer.js';
 
@@ -96,6 +97,8 @@ const jobs: Record<string, () => Promise<unknown>> = {
   rollup: () => rollup(mdb, connection, logger),
   partitions: () => ensurePartitions(mdb, 3),
   retention: () => dropOldPartitions(mdb, env.REQUEST_LOG_RETENTION_MONTHS),
+  'budget-alerts': () => processBudgetAlerts(db as unknown as BudgetDb, connection, logger),
+  'budget-reconcile': () => reconcileBudgets(db as unknown as BudgetDb, connection, logger),
 };
 
 const maintenanceWorker = new Worker(
@@ -128,6 +131,8 @@ const schedule = {
   rollup: { every: env.ROLLUP_INTERVAL_MS },
   partitions: { every: 3_600_000 },
   retention: { pattern: '17 3 * * *', tz: 'UTC' },
+  'budget-alerts': { every: 10_000 },
+  'budget-reconcile': { every: 300_000 },
 };
 for (const [name, repeat] of Object.entries(schedule)) {
   await maintenanceQueue.upsertJobScheduler(name, repeat, {

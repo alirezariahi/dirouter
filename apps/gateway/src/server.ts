@@ -23,6 +23,7 @@ import { authenticate, extractApiKey } from './auth.js';
 import { ConfigStore } from './config-store.js';
 import { probeProvider } from './probe.js';
 import { handleCountTokens, handleProxy } from './proxy.js';
+import { BudgetGuard } from './budget-guard.js';
 import { RateLimiter } from './rate-limiter.js';
 
 export interface GatewayOptions {
@@ -64,6 +65,11 @@ export function buildGateway(opts: GatewayOptions) {
     store,
     budget: new RetryBudget(),
     lifecycle,
+    budgets: new BudgetGuard({
+      logger: opts.logger,
+      failMode: () => store.current?.snapshot.settings.failMode ?? 'open',
+      ...(opts.limiterRedis ? { redis: opts.limiterRedis } : {}),
+    }),
     limiter: new RateLimiter({
       logger: opts.logger,
       failMode: () => store.current?.snapshot.settings.failMode ?? 'open',
@@ -176,6 +182,7 @@ export function buildGateway(opts: GatewayOptions) {
           ...health.report(),
           bulkheads: deps.bulkheads.snapshot(),
           rateLimiter: { ...deps.limiter.stats, nodes: deps.limiter.nodes },
+          budgets: deps.budgets.stats,
         }
       : reply.status(404).send(notFound),
   );
@@ -195,6 +202,7 @@ export function buildGateway(opts: GatewayOptions) {
     store,
     health,
     limiter: deps.limiter,
+    budgets: deps.budgets,
     async start() {
       await store.start();
       if (opts.limiterRedis) deps.limiter.startNodeCount();
