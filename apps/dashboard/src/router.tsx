@@ -18,6 +18,7 @@ import { AppShell } from './components/layout/app-shell';
 import { NAV } from './components/layout/nav';
 import { Empty, ErrorState, Loading } from './components/ui/states';
 import { restoreSession, setupRequired } from './lib/session';
+import { validateLogSearch } from './lib/log-search';
 import { Placeholder } from './pages/placeholder';
 
 function NotFound() {
@@ -76,7 +77,13 @@ const health = createRoute({
   path: '/health',
   component: lazyRouteComponent(() => import('./pages/health')),
 });
-const sections = NAV.filter((n) => n.to !== '/' && n.to !== '/health').map((n) =>
+const logs = createRoute({
+  getParentRoute: () => app,
+  path: '/logs',
+  validateSearch: validateLogSearch,
+  component: lazyRouteComponent(() => import('./pages/logs')),
+});
+const sections = NAV.filter((n) => !['/', '/health', '/logs'].includes(n.to)).map((n) =>
   createRoute({
     getParentRoute: () => app,
     path: n.to,
@@ -87,7 +94,7 @@ const sections = NAV.filter((n) => n.to !== '/' && n.to !== '/health').map((n) =
 export const routeTree = root.addChildren([
   login,
   setup,
-  app.addChildren([overview, account, health, ...sections]),
+  app.addChildren([overview, account, health, logs, ...sections]),
 ]);
 
 export function makeRouter(history?: Parameters<typeof createRouter>[0]['history']) {

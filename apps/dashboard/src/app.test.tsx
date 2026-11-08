@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createMemoryHistory, RouterProvider } from '@tanstack/react-router';
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { i18n, setupI18n } from './i18n';
@@ -356,5 +356,137 @@ describe('health page', () => {
     await renderApp('/health');
     expect(await screen.findByText('gw-1')).toBeTruthy();
     expect(screen.queryAllByRole('button', { name: 'ریست' })).toHaveLength(0);
+  });
+});
+
+describe('overview and request log (cards 7.3 and 7.7)', () => {
+  afterEach(() => {
+    cleanup();
+  });
+  beforeEach(async () => {
+    localStorage.clear();
+    resetSessionForTests();
+    setupI18n('fa');
+    await i18n.changeLanguage('fa');
+  });
+  const OVERVIEW = {
+    requests: 1200,
+    errors: 12,
+    errorRate: 0.01,
+    inputTokens: 90_000,
+    outputTokens: 30_000,
+    costUsd: '3.5',
+    latencyP50Ms: 210,
+    latencyP95Ms: 900,
+    avgTtftMs: 150,
+    activeKeys: 4,
+  };
+  const stats = (path: string) =>
+    path.endsWith('/stats/overview')
+      ? { status: 200, body: OVERVIEW }
+      : path.endsWith('/stats/timeseries')
+        ? {
+            status: 200,
+            body: {
+              points: [
+                { bucket: '2026-11-08T10:00:00.000Z', requests: 600, errors: 2, costUsd: '1.5' },
+                { bucket: '2026-11-08T11:00:00Z', requests: 600, errors: 10, costUsd: '2' },
+              ],
+            },
+          }
+        : path.endsWith('/stats/top')
+          ? { status: 200, body: { items: [{ id: 'gpt-4.1', requests: 900, costUsd: '3' }] } }
+          : path.endsWith('/health/runtime')
+            ? {
+                status: 200,
+                body: { providers: [{ id: 'p1', name: 'OpenAI', breaker: { state: 'open' } }] },
+              }
+            : path.endsWith('/logs')
+              ? {
+                  status: 200,
+                  body: {
+                    items: [
+                      {
+                        id: 'req_1',
+                        createdAt: '2026-11-08T10:05:00.000Z',
+                        requestedModel: 'gpt-4.1',
+                        apiKeyId: 'key_1',
+                        status: 'error',
+                        httpStatus: 503,
+                        errorCode: 'server',
+                        inputTokens: 10,
+                        outputTokens: 0,
+                        costUsd: '0',
+                        latencyMs: 40,
+                        stream: true,
+                      },
+                    ],
+                    nextCursor: null,
+                  },
+                }
+              : undefined;
+
+  it('shows KPIs with the comparison, provider status and the chart', async () => {
+    mockApi(stats);
+    await renderApp('/');
+    expect((await screen.findByTestId('kpi-requests')).textContent).toBe('۱٬۲۰۰');
+    expect(screen.getByTestId('kpi-cost').textContent).toContain('۳٫۵');
+    expect(screen.getByTestId('kpi-p95').textContent).toContain('۹۰۰');
+    expect(screen.getAllByText(/نسبت به دورهٔ قبل/).length).toBe(8);
+    expect(await screen.findByText('OpenAI')).toBeTruthy();
+    expect((await screen.findAllByTestId('bar')).length).toBe(2);
+  });
+
+  it('a chart bar drills down to the log for that hour, and errors filter by status', async () => {
+    const calls = mockApi(stats);
+    const router = await renderApp('/');
+    await act(async () => {
+      fireEvent.click(await screen.findByRole('button', { name: 'خطا' }));
+    });
+    const bars = await screen.findAllByTestId('bar');
+    await act(async () => {
+      fireEvent.click(bars[1] as Element);
+    });
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe('/logs');
+    });
+    expect(router.state.location.search).toEqual({
+      from: '2026-11-08T11:00:00.000Z',
+      to: '2026-11-08T12:00:00.000Z',
+      status: 'error',
+    });
+    expect((await screen.findAllByTestId('log-row')).length).toBe(1);
+    const logCall = calls.find((c) => c.path.endsWith('/logs'));
+    expect(logCall).toBeTruthy();
+    expect(screen.getByTestId('log-filters').textContent).toContain('خطا');
+  });
+
+  it('a top model drills down with the model filter, and the filter can be removed', async () => {
+    mockApi(stats);
+    const router = await renderApp('/');
+    await act(async () => {
+      fireEvent.click((await screen.findAllByText('gpt-4.1'))[0] as Element);
+    });
+    await waitFor(() => {
+      expect(router.state.location.search).toMatchObject({ model: 'gpt-4.1' });
+    });
+    await act(async () => {
+      fireEvent.click(
+        (await screen.findAllByRole('button', { name: 'حذف فیلتر' })).at(-1) as Element,
+      );
+    });
+    await waitFor(() => {
+      expect(router.state.location.search).not.toHaveProperty('model');
+    });
+  });
+
+  it('the global range is shared and remembered', async () => {
+    mockApi(stats);
+    await renderApp('/');
+    await act(async () => {
+      fireEvent.click(await screen.findByRole('radio', { name: '۷ روز' }));
+    });
+    expect(screen.getByRole('radio', { name: '۷ روز' }).getAttribute('aria-checked')).toBe('true');
+    expect(localStorage.getItem('dirouter.range')).toBe('7d');
   });
 });
