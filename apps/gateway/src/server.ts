@@ -16,12 +16,14 @@ import {
 import { type Keyring, type Logger, prefixedId } from '@dirouter/shared';
 import { setTimeout as sleep } from 'node:timers/promises';
 
+import type { Redis } from 'ioredis';
 import Fastify, { type FastifyRequest } from 'fastify';
 
 import { authenticate, extractApiKey } from './auth.js';
 import { ConfigStore } from './config-store.js';
 import { probeProvider } from './probe.js';
 import { handleCountTokens, handleProxy } from './proxy.js';
+import { RateLimiter } from './rate-limiter.js';
 
 export interface GatewayOptions {
   logger: Logger;
@@ -35,6 +37,10 @@ export interface GatewayOptions {
   /** تغییرات سلامت محلی برای انتشار به replicaهای دیگر (HealthSync). */
   onHealthChange?: (change: HealthChange) => void;
   heartbeatMs?: number;
+  /** اتصال Valkey برای rate limiter (کارت ۶.۱)؛ بدون آن limiter محلی تک‌نودی است. */
+  limiterRedis?: Redis;
+  /** فقط برای تست: طول پنجرهٔ limiter. */
+  limiterWindowMs?: number;
 }
 
 export function buildGateway(opts: GatewayOptions) {
@@ -58,6 +64,12 @@ export function buildGateway(opts: GatewayOptions) {
     store,
     budget: new RetryBudget(),
     lifecycle,
+    limiter: new RateLimiter({
+      logger: opts.logger,
+      failMode: () => store.current?.snapshot.settings.failMode ?? 'open',
+      ...(opts.limiterRedis ? { redis: opts.limiterRedis } : {}),
+      ...(opts.limiterWindowMs ? { windowMs: opts.limiterWindowMs } : {}),
+    }),
     bulkheads: new BulkheadRegistry({ queueSize: 16, queueTimeoutMs: 2_000 }),
     pepper: opts.pepper,
     logger: opts.logger,
@@ -160,7 +172,11 @@ export function buildGateway(opts: GatewayOptions) {
   const notFound = { error: { message: 'Not found', code: 'not_found' } };
   app.get('/internal/health', async (req, reply) =>
     internalOk(req)
-      ? { ...health.report(), bulkheads: deps.bulkheads.snapshot() }
+      ? {
+          ...health.report(),
+          bulkheads: deps.bulkheads.snapshot(),
+          rateLimiter: { ...deps.limiter.stats, nodes: deps.limiter.nodes },
+        }
       : reply.status(404).send(notFound),
   );
   // تست اتصال و کشف مدل برای control-api (کارت ۳.۶).
@@ -178,8 +194,10 @@ export function buildGateway(opts: GatewayOptions) {
     app,
     store,
     health,
+    limiter: deps.limiter,
     async start() {
       await store.start();
+      if (opts.limiterRedis) deps.limiter.startNodeCount();
     },
     /** تعداد درخواست‌های proxy باز (از جمله streamها). */
     get inFlight() {
@@ -196,6 +214,7 @@ export function buildGateway(opts: GatewayOptions) {
     async drain(options: { readyDelayMs: number; drainMs: number }): Promise<{ forced: number }> {
       lifecycle.draining = true;
       store.stop();
+      deps.limiter.stop();
       await sleep(options.readyDelayMs);
       const closing = app.close();
       const deadline = Date.now() + options.drainMs;

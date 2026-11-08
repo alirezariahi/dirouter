@@ -59,6 +59,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 
 import { authenticate, extractApiKey } from './auth.js';
 import type { ConfigStore, LoadedConfig } from './config-store.js';
+import type { LimitScope, RateLimiter } from './rate-limiter.js';
 import { callUpstream, mergeTimeouts, readErrorBody, UpstreamTimeout } from './upstream.js';
 
 export interface ProxyDeps {
@@ -66,6 +67,8 @@ export interface ProxyDeps {
   budget: RetryBudget;
   /** سقف همزمانی هر provider و هر کلید (کارت ۵.۷). */
   bulkheads?: BulkheadRegistry;
+  /** rate limiter توزیع‌شده (کارت ۶.۱). */
+  limiter?: RateLimiter;
   /** وضعیت خاموشی (کارت ۵.۸): در drain، اتصال‌ها بعد از پاسخ بسته می‌شوند. */
   lifecycle?: { readonly draining: boolean; readonly signal: AbortSignal };
   pepper: string;
@@ -223,8 +226,9 @@ export async function handleProxy(
     return;
   }
 
+  const estimatedInputTokens = estimateRequestTokens(canonical, roughTokens);
   const route = config.router.resolve(key, canonical.model, {
-    estimatedInputTokens: estimateRequestTokens(canonical, roughTokens),
+    estimatedInputTokens,
     ...(canonical.maxOutputTokens !== undefined
       ? { maxOutputTokens: canonical.maxOutputTokens }
       : {}),
@@ -260,6 +264,32 @@ export async function handleProxy(
   deps.lifecycle?.signal.addEventListener('abort', onShutdown, { once: true });
   reply.raw.once('close', () => deps.lifecycle?.signal.removeEventListener('abort', onShutdown));
 
+  // rate limit توزیع‌شده (کارت ۶.۱): کلید، پروژه و تیم. رزرو TPM = ورودی + سقف خروجی.
+  const admission = deps.limiter
+    ? await deps.limiter.acquire(
+        limitScopes(config, key),
+        estimatedInputTokens + Math.min(canonical.maxOutputTokens ?? 1_024, 8_192),
+        requestId,
+      )
+    : undefined;
+  if (admission && !admission.ok) {
+    for (const [name, value] of Object.entries(admission.headers)) void reply.header(name, value);
+    sendError(
+      reply,
+      api,
+      new RateLimitError({
+        message: admission.unavailable
+          ? 'Rate limiter unavailable (fail-closed), retry shortly'
+          : `Rate limit exceeded for ${admission.scope.split(':')[0] ?? 'key'} (${admission.kind})`,
+        retryAfterMs: admission.retryAfterMs,
+      }),
+      requestId,
+    );
+    return;
+  }
+  if (admission)
+    for (const [name, value] of Object.entries(admission.headers)) void reply.header(name, value);
+
   const queue = config.snapshot.settings.bulkhead;
   const queueOverrides = {
     ...(queue?.queueSize !== undefined ? { queueSize: queue.queueSize } : {}),
@@ -273,6 +303,8 @@ export async function handleProxy(
   );
   const releaseKey = keyBulkhead ? await keyBulkhead.acquire(clientGone.signal) : () => undefined;
   if (!releaseKey) {
+    admission?.settle(0);
+    admission?.release();
     if (clientGone.signal.aborted) return;
     deps.logger.info(
       { requestId, key: key.id, limit: keyBulkhead?.limit },
@@ -289,8 +321,9 @@ export async function handleProxy(
     );
     return;
   }
+  let actualTokens = 0;
   try {
-    await runRoute(api, req, reply, deps, {
+    actualTokens = await runRoute(api, req, reply, deps, {
       config,
       key,
       canonical,
@@ -302,7 +335,23 @@ export async function handleProxy(
     });
   } finally {
     releaseKey();
+    admission?.settle(actualTokens);
+    admission?.release();
   }
+}
+
+/** scopeهای limit یک کلید: خودش، پروژه و تیمش. */
+function limitScopes(config: LoadedConfig, key: VirtualKeyConfig): LimitScope[] {
+  const scopes: LimitScope[] = [];
+  if (key.rateLimit) scopes.push({ name: `key:${key.id}`, limit: key.rateLimit });
+  for (const l of config.snapshot.limits) {
+    if (!l.rateLimit || l.organizationId !== key.organizationId) continue;
+    if (l.scope === 'project' && l.scopeId === key.projectId)
+      scopes.push({ name: `project:${l.scopeId}`, limit: l.rateLimit });
+    else if (l.scope === 'team' && key.teamId && l.scopeId === key.teamId)
+      scopes.push({ name: `team:${l.scopeId}`, limit: l.rateLimit });
+  }
+  return scopes;
 }
 
 async function runRoute(
@@ -320,7 +369,7 @@ async function runRoute(
     clientGone: AbortController;
     queueOverrides: { queueSize?: number; queueTimeoutMs?: number };
   },
-): Promise<void> {
+): Promise<number> {
   const { config, key, canonical, route, requestId, started, clientGone } = ctx;
 
   const settings = config.snapshot.settings;
@@ -502,6 +551,7 @@ async function runRoute(
     errorCode: result.ok ? undefined : (result.error?.class ?? result.reason),
     attempts: result.attempts,
   });
+  return usage ? usage.inputTokens + usage.outputTokens : 0;
 }
 
 /** bulkhead هر provider: پر بودن یعنی رفتن به کاندیدای بعدی (یا 429 اگر کاندیدایی نماند). */

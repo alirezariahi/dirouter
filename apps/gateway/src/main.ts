@@ -67,6 +67,14 @@ const gateway = buildGateway({
   dataDir: env.DATA_DIR,
   ...(env.CONTROL_API_URL ? { controlApiUrl: env.CONTROL_API_URL } : {}),
   ...(env.INTERNAL_TOKEN ? { internalToken: env.INTERNAL_TOKEN } : {}),
+  // اتصال جدا با صف آفلاین خاموش: در قطعی Valkey فرمان فوراً خطا می‌دهد و limiter محلی جایش را می‌گیرد.
+  ...(env.VALKEY_URL
+    ? {
+        limiterRedis: quiet(
+          new Redis(env.VALKEY_URL, { enableOfflineQueue: false, maxRetriesPerRequest: 0 }),
+        ),
+      }
+    : {}),
 });
 await gateway.start();
 await healthSync?.start(gateway.health);
