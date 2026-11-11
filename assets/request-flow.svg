@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 300" width="960" height="300" role="img" aria-labelledby="t d">
+  <title id="t">Request fallback animation</title>
+  <desc id="d">A request passes Traefik and the gateway, fails at Provider A with 529, and succeeds at Provider B.</desc>
+  <rect width="960" height="300" rx="16" fill="#fbf8f4"/>
+  <g font-family="Vazirmatn, Helvetica, Arial, sans-serif" text-anchor="middle">
+    <rect x="30" y="115" width="130" height="60" rx="10" fill="#fff" stroke="#1f1d1a" stroke-width="2"/>
+    <text x="95" y="150" font-size="15" fill="#1f1d1a">Client</text>
+
+    <rect x="205" y="115" width="130" height="60" rx="10" fill="#fff" stroke="#1f1d1a" stroke-width="2"/>
+    <text x="270" y="150" font-size="15" fill="#1f1d1a">Traefik</text>
+
+    <rect x="380" y="105" width="150" height="80" rx="12" fill="#b8432b"/>
+    <text x="455" y="142" font-size="17" fill="#fff" font-weight="700">Gateway</text>
+    <text x="455" y="164" font-size="12" fill="#fbe7df">fallback engine</text>
+
+    <rect x="700" y="30" width="200" height="70" rx="10" fill="#fff" stroke="#b8432b" stroke-width="2" stroke-dasharray="5 4"/>
+    <text x="800" y="60" font-size="15" fill="#1f1d1a">Provider A</text>
+    <text x="800" y="82" font-size="12" fill="#b8432b">529 overloaded</text>
+
+    <rect x="700" y="200" width="200" height="70" rx="10" fill="#fff" stroke="#2b5db8" stroke-width="2"/>
+    <text x="800" y="230" font-size="15" fill="#1f1d1a">Provider B</text>
+    <text x="800" y="252" font-size="12" fill="#2b5db8">200 streaming</text>
+  </g>
+
+  <path d="M160 145 L205 145" stroke="#1f1d1a" stroke-width="2" fill="none"/>
+  <path d="M335 145 L380 145" stroke="#1f1d1a" stroke-width="2" fill="none"/>
+  <path d="M530 130 Q620 60 700 65" stroke="#b8432b" stroke-width="2" fill="none" stroke-dasharray="6 6"/>
+  <path d="M530 160 Q620 230 700 235" stroke="#2b5db8" stroke-width="2" fill="none" stroke-dasharray="6 6"/>
+
+  <g font-family="Helvetica, Arial, sans-serif" font-size="22" font-weight="700" text-anchor="middle" fill="#b8432b">
+    <text x="660" y="50">
+      <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.2;0.8;1" dur="5s" repeatCount="indefinite"/>
+      ✕
+    </text>
+  </g>
+
+  <circle r="7" fill="#b8432b">
+    <animateMotion dur="5s" repeatCount="indefinite" path="M95 145 L205 145 L380 145 L530 130 Q620 60 700 65"/>
+    <animate attributeName="opacity" values="1;1;0" keyTimes="0;0.8;1" dur="5s" repeatCount="indefinite"/>
+  </circle>
+  <circle r="7" fill="#2b5db8" opacity="0">
+    <animateMotion dur="5s" begin="2.5s" repeatCount="indefinite" path="M380 145 L530 160 Q620 230 700 235"/>
+    <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.1;0.9;1" begin="2.5s" dur="5s" repeatCount="indefinite"/>
+  </circle>
+
+  <text x="480" y="284" font-family="Vazirmatn, Helvetica, Arial, sans-serif" font-size="13" fill="#6b6459" text-anchor="middle">Fallback happens before the first byte reaches the client</text>
+</svg>

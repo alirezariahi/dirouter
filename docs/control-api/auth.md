@@ -1,3 +1,90 @@
+[English](#english) · [فارسی](#persian)
+
+<a id="english"></a>
+
+# Dashboard authentication and setup wizard
+
+Code: `apps/control-api/src/auth` · tests: `auth.unit.test.ts` and `auth.integration.test.ts` · card 3.4
+
+## Endpoints (`/api/v1/auth`)
+
+| route            | description                                                                                                                                                                                |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `GET /setup`     | `{"required": true}` as long as there are no users                                                                                                                                         |
+| `POST /setup`    | `{organizationName, name, email, password}`: creates the organization, the user and the OWNER membership, and signs in. After the first user, it always returns **409 `setup_completed`**. |
+| `POST /login`    | `{email, password}`: the response is an access token, and the refresh token is set in a cookie                                                                                             |
+| `POST /refresh`  | with the cookie: rotates the token and returns a fresh access token                                                                                                                        |
+| `POST /logout`   | revokes the session family and clears the cookie (204)                                                                                                                                     |
+| `POST /password` | with Bearer: `{currentPassword, newPassword}`; all of the user's refresh tokens are revoked (204)                                                                                          |
+| `GET /me`        | with Bearer: the user and their organizations with roles                                                                                                                                   |
+
+All of these are in Swagger (`/api/docs`) with the full schema from zod. Errors are returned in `application/problem+json` format with stable codes.
+
+## Password
+
+- **argon2id** (`@node-rs/argon2`, a prebuilt binary for linux-musl/arm64/x64) with OWASP parameters: m=19MiB, t=2 and p=1.
+- The password is at least 10 and at most 256 characters. The maximum prevents DoS against argon2.
+- Email is stored and compared in lowercase.
+- For a non-existent email, a verify is also run against a fixed hash, and the response is the same `invalid_credentials`. So neither the response time nor the message reveals whether an account exists.
+
+## Tokens
+
+|          | access token                                                                      | refresh token                                                                     |
+| -------- | --------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| format   | JWT HS256 (`jose`) with `JWT_SECRET`, iss `dirouter` and aud `dirouter-dashboard` | 32 random bytes (base64url)                                                       |
+| lifetime | 15 minutes                                                                        | 30 days                                                                           |
+| where    | response body; the dashboard keeps it in memory, not in localStorage              | cookie `dr_refresh`: `HttpOnly`, `Secure`, `SameSite=Strict`, `Path=/api/v1/auth` |
+| in DB    | —                                                                                 | only `HMAC-SHA256(JWT_SECRET, token)` in `refresh_tokens.token_hash`              |
+
+### Rotation and theft detection
+
+Each login creates a **family** (`family_id`). Each `refresh`:
+
+1. Finds the token. If it has `used_at` or `revoked_at`, the token was already used (someone has a copy of it). **The whole family is revoked**, and the response is 401 `refresh_token_reused`. So both the attacker and the real user are logged out, and the user has to sign in again.
+2. `UPDATE … SET used_at = now() WHERE id = ? AND used_at IS NULL`. The condition is inside the UPDATE, so of two simultaneous refreshes with one token, only one wins and the other is treated as reuse.
+3. A new token is issued in the same family.
+
+Changing the password revokes all refresh tokens of the user. Access tokens that were already issued remain valid for at most 15 minutes.
+
+## Login attempt limit
+
+| level                     | limit        | window and lock                                                                              |
+| ------------------------- | ------------ | -------------------------------------------------------------------------------------------- |
+| each account (email hash) | 10 failures  | 15 minutes from the first failure; until the window ends, even the correct password gets 429 |
+| each IP                   | 100 failures | 15 minutes; prevents password spraying across different accounts                             |
+
+- Lock response: **429 `login_locked`** with a `Retry-After` header in seconds.
+- A successful login resets the account counter.
+- The counters are in Valkey (`dirouter:login:*`), so they are shared between replicas. If Valkey is unavailable, the in-memory counter of the same node is used: login does not fail, and each node's protection continues separately.
+- Manually unlocking:
+
+  ```bash
+  valkey-cli --scan --pattern 'dirouter:login:acct:*' | xargs valkey-cli del
+  ```
+
+## Setup wizard
+
+- In one transaction with `pg_advisory_xact_lock`: count the users, create the organization (slug from the name; for a Persian name, `org-xxxxxxxx`), the user and the OWNER membership, and record `setup.completed` in the audit log.
+- Two simultaneous requests: exactly one gets 201 and the other gets 409 (integration test).
+
+## Check in compose (2026-11-07, through Traefik at `https://admin.localhost`)
+
+| step                                          | result                                                                                        |
+| --------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `GET /setup` on an empty DB                   | `{"required":true}`                                                                           |
+| `POST /setup`                                 | 201, and a cookie with `Path=/api/v1/auth`, `Secure` and `HttpOnly`                           |
+| second `POST /setup`                          | 409 `setup_completed`                                                                         |
+| `GET /me`                                     | the user and the organization "DiRouter Dev" with the OWNER role                              |
+| `POST /refresh`, then resending the old token | 200, then 401 `refresh_token_reused`. The user's fresh token also got 401 after that.         |
+| 10 wrong passwords                            | the tenth gets 429 `login_locked` with `Retry-After: 900`; the correct password also gets 429 |
+| deleting the lock key in Valkey               | login 200                                                                                     |
+
+The dev test user's password is in `.data/dev-owner.env` (git-ignored).
+
+---
+
+<a id="persian"></a>
+
 # احراز هویت داشبورد و ویزارد راه‌اندازی
 
 کد: `apps/control-api/src/auth` · تست: `auth.unit.test.ts` و `auth.integration.test.ts` · کارت ۳.۴

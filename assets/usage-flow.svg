@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 200" width="960" height="200" role="img" aria-labelledby="t d">
+  <title id="t">Usage event pipeline</title>
+  <desc id="d">Usage events move from the gateway through the BullMQ queue and worker into PostgreSQL aggregates.</desc>
+  <rect width="960" height="200" rx="16" fill="#fbf8f4"/>
+  <path d="M130 100 L830 100" stroke="#d8d1c7" stroke-width="4" fill="none"/>
+  <g font-family="Vazirmatn, Helvetica, Arial, sans-serif" font-size="14" text-anchor="middle" fill="#1f1d1a">
+    <rect x="40" y="75" width="150" height="50" rx="10" fill="#b8432b"/>
+    <text x="115" y="105" fill="#fff" font-weight="700">gateway</text>
+
+    <rect x="270" y="75" width="170" height="50" rx="10" fill="#fff" stroke="#2b5db8" stroke-width="2"/>
+    <text x="355" y="105">BullMQ queue</text>
+
+    <rect x="510" y="75" width="150" height="50" rx="10" fill="#fff" stroke="#1f1d1a" stroke-width="2"/>
+    <text x="585" y="105">worker</text>
+
+    <rect x="740" y="75" width="180" height="50" rx="10" fill="#fff" stroke="#1f1d1a" stroke-width="2"/>
+    <text x="830" y="98">PostgreSQL</text>
+    <text x="830" y="116" font-size="12" fill="#6b6459">ledger, logs, aggregates</text>
+  </g>
+  <circle r="7" fill="#b8432b">
+    <animateMotion dur="3.6s" repeatCount="indefinite" path="M115 100 L355 100 L585 100 L830 100"/>
+  </circle>
+  <circle r="7" fill="#2b5db8">
+    <animateMotion dur="3.6s" begin="1.2s" repeatCount="indefinite" path="M115 100 L355 100 L585 100 L830 100"/>
+  </circle>
+  <circle r="7" fill="#1f1d1a">
+    <animateMotion dur="3.6s" begin="2.4s" repeatCount="indefinite" path="M115 100 L355 100 L585 100 L830 100"/>
+  </circle>
+  <text x="480" y="180" font-family="Vazirmatn, Helvetica, Arial, sans-serif" font-size="13" fill="#6b6459" text-anchor="middle">Each event carries an idempotencyKey, so retries never charge twice</text>
+</svg>

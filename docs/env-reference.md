@@ -1,3 +1,171 @@
+[English](#english) · [فارسی](#persian)
+
+<a id="english"></a>
+
+# Environment Variable Reference
+
+This document is the complete env contract for the `code/` source. Whenever you add, remove, or change an env consumer, update this document in the same change. The command `node scripts/ci/check-env-docs.mjs` (and the CI checks job) compares direct reads of `process.env` / `import.meta.env`, Zod schema keys, and Compose interpolations with the list below, and reports an error for a missing or removed item.
+
+- **Required**: without a valid value, the boot fails or Compose cannot be rendered.
+- **Default**: the value written is the code's or Compose's default; a fixed value inside Compose is marked separately.
+- The values below are **examples, not real secrets**. Do not commit `.env`, and do not publish logs or public `config` output.
+- In the Compose project, `.env` is read from the root of `code/`. Schedules and `_MS` intervals are in milliseconds.
+
+## Base and app execution
+
+| Variable    | Consumer                                    | Required? / default                                                                                      | Format and effect                                                                                                                              |
+| ----------- | ------------------------------------------- | -------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `NODE_ENV`  | gateway, control-api, worker, mock-provider | app default `development`; Compose `production`                                                          | Only `development`, `test`, or `production`. In production the refresh cookie is created with `Secure`, and the development seed does not run. |
+| `LOG_LEVEL` | all Node apps and some tests                | `info` in Compose/app; `debug` in the dev override                                                       | `fatal`, `error`, `warn`, `info`, `debug`, or `trace`. Logs are structured JSON; do not write keys or secrets into them.                       |
+| `PORT`      | gateway, control-api, worker, mock-provider | `8787`, `3000`, `3100`, `8090` respectively; Compose injects `8080`, `3000`, `3100`, `8090` respectively | Integer from 1 to 65535; the listener port inside the process. Do not confuse the canary/mock port with Traefik's public port.                 |
+| `HOSTNAME`  | worker maintenance job log                  | Docker provides the container's hostname                                                                 | Only for identifying the instance in logs; usually not set manually.                                                                           |
+| `DATA_DIR`  | gateway                                     | `./.data`; Compose `/data`                                                                               | Path of the snapshot and the usage-event outbox. It must be on a persistent, writable volume.                                                  |
+
+## Connections and shared secrets
+
+| Variable               | Consumer                                                   | Required? / default                                              | Format and effect                                                                                                                                                                                                             |
+| ---------------------- | ---------------------------------------------------------- | ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`         | control-api, worker, Prisma/migrate                        | Required                                                         | PostgreSQL connection URL. Compose builds it from `POSTGRES_*` with the internal host `postgres:5432`; for manual host or migrate runs, provide the full URL. URL-encode credentials that contain special characters.         |
+| `VALKEY_URL`           | control-api and worker: required; gateway: optional        | No app default; Compose `redis://valkey:6379`                    | Valkey/Redis connection URL. Without it in the gateway, the usage queue, the distributed limiter, the heartbeat, and event sync are not active; always set it in production.                                                  |
+| `MASTER_KEY`           | control-api, gateway, seed/dev-snapshot                    | Required; Compose rejects an empty value for gateway/control-api | AES-256-GCM keyring: `1:<base64-32-byte>`; several keys separated by commas with ascending versions: `1:<old>,2:<new>`. The highest version is used for new encryption. Keep old keys for decryption for as long as possible. |
+| `KEY_PEPPER`           | control-api, gateway, seed/dev-snapshot                    | Required; at least 32 characters                                 | Pepper for the HMAC of virtual keys. An independent random value; changing it effectively invalidates all existing virtual keys.                                                                                              |
+| `JWT_SECRET`           | control-api                                                | Required; at least 32 characters                                 | Signing secret for dashboard access tokens. Rotating it invalidates existing access sessions.                                                                                                                                 |
+| `INTERNAL_TOKEN`       | control-api: required; gateway: optional in standalone run | At least 32 characters; required for both in Compose             | Bearer token for the internal snapshot, health, and probe paths. Both sides must be exactly identical.                                                                                                                        |
+| `CONTROL_API_URL`      | gateway                                                    | Optional; Compose `http://control-api:3000`                      | Control-api origin for receiving the snapshot; in standalone mode without it, the gateway reads only the snapshot on disk.                                                                                                    |
+| `GATEWAY_INTERNAL_URL` | control-api                                                | Default `http://gateway:8080`                                    | Internal gateway address for `/internal/health` and model/provider probes; the public `api.DOMAIN` endpoint is not needed.                                                                                                    |
+
+## PostgreSQL and Compose
+
+| Variable            | Consumer                                                    | Required? / default | Format and effect                                                                                                                                                       |
+| ------------------- | ----------------------------------------------------------- | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POSTGRES_USER`     | PostgreSQL container and building `DATABASE_URL` in Compose | `dirouter`          | Database role/user name. Changing it on a volume that was created earlier does not change the existing user.                                                            |
+| `POSTGRES_PASSWORD` | PostgreSQL and building `DATABASE_URL`                      | Required            | A strong random password; keep it in `.env`. For passwords containing `@`, `:`, or `/`, encode the final URL correctly, or use the hex password generated by bootstrap. |
+| `POSTGRES_DB`       | PostgreSQL and building `DATABASE_URL`                      | `dirouter`          | Initial database name. Changing it on an existing volume does not rename the previous database.                                                                         |
+| `POSTGRES_PORT`     | only `compose.dev.yaml`                                     | `55432`             | Publishes PostgreSQL on the host's `127.0.0.1`; in production no port is published.                                                                                     |
+| `VALKEY_PORT`       | only `compose.dev.yaml`                                     | `56379`             | Publishes Valkey on the host's `127.0.0.1`; not published in production.                                                                                                |
+
+## Dashboard and email
+
+| Variable               | Consumer                                                                 | Required? / default                                                   | Format and effect                                                                                                                                                                                                         |
+| ---------------------- | ------------------------------------------------------------------------ | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DASHBOARD_ORIGIN`     | CORS in control-api and the fallback value for the public URL in Compose | App `https://app.localhost`; Compose `https://app.${DOMAIN}`          | The full dashboard origin without a trailing `/`; multiple origins separated by commas (in dev, HTTP/HTTPS). It must be exactly the browser origin, not a path.                                                           |
+| `PUBLIC_DASHBOARD_URL` | Building invitation links in control-api                                 | App `https://app.localhost`; Compose takes it from `DASHBOARD_ORIGIN` | The public dashboard origin; links are built as `${PUBLIC_DASHBOARD_URL}/invite/<token>`. Compose takes its default from `DASHBOARD_ORIGIN`; if CORS has several origins, set it separately with a single-value override. |
+| `DIROUTER_API_URL`     | Dashboard nginx, generating `/config.js` at runtime                      | Image `/api`; Compose `https://admin.${DOMAIN}/api/v1`                | The API address for the browser. This value is not secret and is injected into public JavaScript.                                                                                                                         |
+| `VITE_API_URL`         | Dashboard build/dev                                                      | Optional                                                              | Fallback API address when `window.__DIROUTER__.apiUrl` is absent; used only at build/dev time by Vite. For production, use `DIROUTER_API_URL`.                                                                            |
+| `SMTP_URL`             | control-api                                                              | Optional / empty                                                      | SMTP URL, such as `smtps://user:pass@smtp.example.com:465` or `smtp://…:587`. Empty means the invitation email is not sent, and the link is returned in the API response.                                                 |
+| `SMTP_FROM`            | control-api                                                              | App `DiRouter <noreply@localhost>`; Compose based on `DOMAIN`         | The sender of invitation emails, with a display name and a valid address. In `.env`, quote a value that contains spaces.                                                                                                  |
+
+## Edge, DNS and TLS
+
+| Variable                  | Consumer                                  | Required? / default                                 | Format and effect                                                                                                                                                              |
+| ------------------------- | ----------------------------------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `DOMAIN`                  | Traefik and Compose                       | `localhost`                                         | Base domain without scheme or path; the routes are `api.`, `admin.`, `app.`, and `traefik.`. Use `localhost` in dev.                                                           |
+| `HTTP_PORT`               | Compose/Traefik                           | `80`                                                | Host HTTP port; HTTPS redirect and the HTTP-01 challenge. For ACME it normally must be 80.                                                                                     |
+| `HTTPS_PORT`              | Compose/Traefik                           | `443`                                               | Host HTTPS port. If you change it, account for the port in DNS, URLs, the firewall, and client access.                                                                         |
+| `ACME_EMAIL`              | Production Traefik configuration template | Operationally required in production; default empty | The Let's Encrypt account email; replaced in the static config at boot. Not a secret, but use a real, monitored address.                                                       |
+| `TRAEFIK_VERSION`         | Traefik image                             | `v3.6`                                              | Traefik image tag; pin it and test upgrades.                                                                                                                                   |
+| `TRAEFIK_DASHBOARD_USERS` | Traefik dashboard Basic Auth middleware   | Empty; effectively no valid user                    | Comma-separated htpasswd entries, such as `admin:$2y$…`. Do not write a plain password. `$` must be written as `$$` for Compose, and access should also be restricted by CIDR. |
+| `TRAEFIK_ALLOW_IPS`       | Traefik dashboard IP allowlist middleware | `127.0.0.1/32`                                      | Allowed IPs or CIDRs, comma-separated. For a public production dashboard, give the VPN or admin value, or keep the router on a private network.                                |
+
+## Monitoring
+
+| Variable                 | Consumer                          | Required? / default                  | Format and effect                                                                                                                |
+| ------------------------ | --------------------------------- | ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
+| `GRAFANA_ADMIN_USER`     | Grafana in the monitoring profile | `admin`                              | Initial admin name, for signing in to Grafana locally.                                                                           |
+| `GRAFANA_ADMIN_PASSWORD` | Grafana in the monitoring profile | Required when the profile is enabled | A strong, independent password with no default. Keep it in `.env`, and do not publish it in public Compose output or logs.       |
+| `GRAFANA_PORT`           | Grafana port publishing           | `53000`                              | UI port on the host's `127.0.0.1`. For remote access, use a tunnel or a secure proxy.                                            |
+| `GRAFANA_VERSION`        | Grafana image                     | `12.2.1`                             | Pinned tag; upgrade after checking the provisioning and dashboards.                                                              |
+| `PROMETHEUS_PORT`        | Prometheus port publishing        | `59090`                              | UI/API port on the host's `127.0.0.1`.                                                                                           |
+| `PROMETHEUS_RETENTION`   | TSDB in Prometheus                | `15d`                                | Retention period of the series, in Prometheus time units. Check the volume capacity against this value and the number of series. |
+| `PROMETHEUS_VERSION`     | Prometheus image                  | `v3.7.3`                             | Pinned tag; validate the rules after an upgrade with `promtool check`.                                                           |
+
+The run guide and security details are in [monitoring.md](monitoring.md).
+
+## Release, scale and shutdown
+
+| Variable                          | Consumer                                    | Required? / default                                     | Format and effect                                                                                                                                                                         |
+| --------------------------------- | ------------------------------------------- | ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `REGISTRY`                        | Compose image names                         | `dirouter`; `.env.example` shows the GHCR path          | Registry prefix/namespace without the app name and tag; for example `ghcr.io/acme/dirouter`. It must also cover the `migrate` image.                                                      |
+| `TAG`                             | Compose image names                         | `latest`                                                | Shared tag for the apps and migrate. For production, use `sha-<full-commit>` or a SemVer published by CI; CI does not produce `latest`.                                                   |
+| `GATEWAY_REPLICAS`                | `compose.prod.yaml`                         | `2`                                                     | Number of gateway replicas. This setting is compatible with Docker Compose/Swarm; in a plain `docker compose up`, it takes effect with `--scale` or by changing the value and recreating. |
+| `GATEWAY_SHUTDOWN_DRAIN_MS`       | Compose → gateway `SHUTDOWN_DRAIN_MS`       | `30000`                                                 | The upper limit for waiting for requests and open streams to finish on SIGTERM; a non-negative integer.                                                                                   |
+| `GATEWAY_SHUTDOWN_READY_DELAY_MS` | Compose → gateway `SHUTDOWN_READY_DELAY_MS` | `5000`                                                  | The pause after `/readyz` turns 503, until the replica is removed from Traefik; a non-negative integer and more than two health check cycles.                                             |
+| `SHUTDOWN_DRAIN_MS`               | gateway (name inside the process)           | `30000`; usually fed from the prefixed Compose variable | The drain limit in a direct run. If you change it, make `stop_grace_period` larger than the ready delay + drain + flush time.                                                             |
+| `SHUTDOWN_READY_DELAY_MS`         | gateway (name inside the process)           | `5000`; usually fed from the prefixed Compose variable  | The delay before leaving the readiness rotation in a direct run.                                                                                                                          |
+
+## Worker and data retention
+
+| Variable                       | Consumer           | Required? / default | Range and effect                                                                                                                         |
+| ------------------------------ | ------------------ | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `REQUEST_LOG_RETENTION_MONTHS` | worker and Compose | `3`                 | Integer from 1 to 120 months; fully old `request_log` partitions are removed daily at 03:17 UTC. The ledger and rollups are not deleted. |
+| `USAGE_CONCURRENCY`            | worker/BullMQ      | `200`               | Integer from 1 to 2000; concurrency of usage jobs. Increasing it adds load on Postgres and Valkey.                                       |
+| `USAGE_BATCH_SIZE`             | worker             | `500`               | Integer from 1 to 5000; the maximum number of events in one write batch.                                                                 |
+| `USAGE_FLUSH_MS`               | worker             | `200`               | Integer from 10 to 10000; the maximum pause before a batch flush, for balancing latency and throughput.                                  |
+| `ROLLUP_INTERVAL_MS`           | worker             | `30000`             | Integer, at least 1000; the interval of the hourly/daily aggregation scheduler.                                                          |
+| `DB_MAX_CONNECTIONS`           | worker/Prisma      | `10`                | Integer, at least 1; the DB connection pool limit for each worker. Control the total number of connections against the Postgres limit.   |
+
+## Development tools and mock
+
+| Variable                | Consumer                            | Required? / default           | Format and effect                                                                                                                                                                      |
+| ----------------------- | ----------------------------------- | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `MOCK_DEFAULT`          | mock-provider                       | Optional                      | The default directive of the mock scenario (for example `status=503`). Test and development only; in production, mock-provider runs outside the default run, under the `mock` profile. |
+| `MAILPIT_UI_PORT`       | dev Compose/Mailpit only            | `58025`                       | UI port on `127.0.0.1`; this is not real production email data.                                                                                                                        |
+| `SEED_MOCK_URL`         | only `apps/control-api/src/seed.ts` | `http://mock-provider:8090`   | The origin of the mock provider during the development seed.                                                                                                                           |
+| `SEED_CREDENTIALS_FILE` | development seed only               | `/repo/.data/seed-admin.env`  | Path of a 0600 file that contains the initial admin password; outside Git and on a secure disk.                                                                                        |
+| `SEED_ADMIN_PASSWORD`   | development seed only               | Random if no value is given   | The development admin password, used only when creating the user; never use it for production or the seed.                                                                             |
+| `DEV_API_KEY`           | only `scripts/dev-snapshot.mjs`     | Fixed dev value in the script | The test key for the local snapshot; not a production secret, and not a path for production bootstrap.                                                                                 |
+
+## CI and integration tests (not production settings)
+
+These names are documented for automatic and local CI runs so that the env reference remains complete. You do not need them in the production `.env`.
+
+| Variable                    | Consumer                                                                     | Required? / default                     | Purpose                                                                                                                |
+| --------------------------- | ---------------------------------------------------------------------------- | --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `CI`                        | Performance test threshold in `packages/routing` and the Actions environment | GitHub sets it to `true`                | On a shared runner, it loosens the fluctuating route-test threshold; it does not change the production app's behavior. |
+| `INTEGRATION_DATABASE_URL`  | control-api/worker integration tests                                         | Without it, the related part is skipped | The URL of an isolated test database; never the production database.                                                   |
+| `INTEGRATION_VALKEY_URL`    | gateway/control-api/worker integration tests                                 | Without it, the related part is skipped | The URL of an isolated test Valkey.                                                                                    |
+| `INTEGRATION_DATABASE_NAME` | `scripts/ci/services.integration.mjs` and the integration runner             | `dirouter_ci`                           | The test database name inside the container, for running psql correctly.                                               |
+| `POSTGRES_CONTAINER`        | CI infrastructure smoke test                                                 | Required for that script                | The ID or name of the isolated PostgreSQL container; in the workflow, it comes from the service ID.                    |
+| `VALKEY_CONTAINER`          | CI infrastructure smoke test                                                 | Required for that script                | The ID or name of the isolated Valkey container.                                                                       |
+| `GITHUB_EVENT_PATH`         | `scripts/ci/plan.mjs`                                                        | GitHub Actions                          | The path to the event JSON, used to find the base SHA.                                                                 |
+| `GITHUB_EVENT_NAME`         | `scripts/ci/plan.mjs`                                                        | GitHub Actions                          | The event type: push, PR, or manual, used to select the scope.                                                         |
+| `GITHUB_REF`                | `scripts/ci/plan.mjs`                                                        | GitHub Actions                          | The current ref; used to validate the release tag.                                                                     |
+| `GITHUB_SHA`                | `scripts/ci/plan.mjs`                                                        | GitHub Actions                          | The head SHA for the diff and package selection.                                                                       |
+| `GITHUB_OUTPUT`             | `scripts/ci/plan.mjs`                                                        | GitHub Actions                          | The step output file for the filter and matrix.                                                                        |
+| `GITHUB_STEP_SUMMARY`       | `scripts/ci/plan.mjs`                                                        | GitHub Actions                          | The file for the CI run summary.                                                                                       |
+| `TURBO_TELEMETRY_DISABLED`  | CI/Turborepo environment                                                     | The workflow sets it to `1`             | Disables the build tool's telemetry; it is not read by the app code.                                                   |
+| `HUSKY`                     | CI installation                                                              | The setup sets it to `0`                | Disables the hooks during installation on the runner; it is not read by the app code.                                  |
+| `REPOSITORY`                | CI image naming step                                                         | From the GitHub context                 | The repository name, used to build the lowercase GHCR name; a workflow-local variable.                                 |
+| `APP`                       | CI image naming step                                                         | From the GitHub matrix                  | The app name for the GHCR image; a workflow-local variable, not the app's run configuration.                           |
+| `TURBO_FILTER`              | Package check step                                                           | Output of the `plan` job                | The Turbo filter that selects the changed packages and their dependents.                                               |
+| `PLAN`                      | Final `CI passed` step                                                       | Result of the plan job                  | A status string that prevents a cumulative success when a job has failed.                                              |
+| `CHECKS`                    | Final `CI passed` step                                                       | Result of the checks job                | The status of lint/typecheck/test/build; it must be `success`.                                                         |
+| `INTEGRATION`               | Final `CI passed` step                                                       | Result of the integration job           | The integration test status; depending on the package selection, it must be `success` or `skipped`.                    |
+| `IMAGES`                    | Final `CI passed` step                                                       | Result of the images job                | The build/publish status of the images; depending on the matrix, it must be `success` or `skipped`.                    |
+| `HAS_PACKAGES`              | Final `CI passed` step                                                       | Output of plan                          | Determines whether the integration job is required or must be skipped.                                                 |
+| `HAS_IMAGES`                | Final `CI passed` step                                                       | Output of plan                          | Determines whether the image job is required or must be skipped.                                                       |
+
+### End-to-end test addresses
+
+| Variable          | Consumer                   | Default                  | Description                                                       |
+| ----------------- | -------------------------- | ------------------------ | ----------------------------------------------------------------- |
+| `E2E_GATEWAY_URL` | `scripts/e2e/sprint-1.mjs` | `http://api.localhost`   | The gateway entry behind Traefik in an isolated test environment. |
+| `E2E_ADMIN_URL`   | `scripts/e2e/sprint-1.mjs` | `http://admin.localhost` | The control-api entry, for building fixtures and checking status. |
+| `E2E_MOCK_URL`    | `scripts/e2e/sprint-1.mjs` | `http://mock.localhost`  | The mock-provider entry, for injecting errors.                    |
+
+This suite deliberately stops services. Run it only on a dedicated development or test environment, never in production.
+
+## Safe separation and least privilege
+
+- `MASTER_KEY`, `KEY_PEPPER`, `JWT_SECRET`, `INTERNAL_TOKEN`, `POSTGRES_PASSWORD`, `DATABASE_URL`, and `SMTP_URL` are secrets or contain secrets.
+- The gateway needs only `MASTER_KEY`, `KEY_PEPPER`, `INTERNAL_TOKEN`, `VALKEY_URL`, and the control-api address; **not `DATABASE_URL`**.
+- The worker needs Postgres and Valkey, and does not need the JWT, master, or internal secrets.
+- Provider secrets are encrypted in the database and entered from the dashboard; do not put them in the env. A DNS-01 secret (such as `CF_DNS_API_TOKEN`) is given to Traefik only when that challenge is enabled, and it is not part of the app contract.
+
+---
+
+<a id="persian"></a>
+
 # مرجع متغیرهای محیطی
 
 این سند قرارداد کامل env در سورس `code/` است. هر بار افزودن/حذف/تغییر مصرف‌کنندهٔ env، این سند را همان‌جا به‌روزرسانی کنید. دستور `node scripts/ci/check-env-docs.mjs` (و job بررسی‌های CI) خواندن مستقیم `process.env`/`import.meta.env`، کلیدهای اسکیمای Zod و interpolationهای Compose را با فهرست زیر مقایسه می‌کند و روی مورد جاافتاده یا حذف‌شده خطا می‌دهد.
@@ -34,7 +202,7 @@
 
 | متغیر               | مصرف‌کننده                                          | لازم؟ / پیش‌فرض | قالب و اثر                                                                                                                              |
 | ------------------- | --------------------------------------------------- | --------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `POSTGRES_USER`     | کانتینر PostgreSQL و ساخت `DATABASE_URL` در Compose | `dirouter`      | نام نقش/کاربر دیتابیس. تغییر آن روی volume از-before-sاخته‌شده کاربر موجود را عوض نمی‌کند.                                              |
+| `POSTGRES_USER`     | کانتینر PostgreSQL و ساخت `DATABASE_URL` در Compose | `dirouter`      | نام نقش/کاربر دیتابیس. تغییر آن روی volumeای که از قبل ساخته شده، کاربر موجود را عوض نمی‌کند.                                           |
 | `POSTGRES_PASSWORD` | PostgreSQL و ساخت `DATABASE_URL`                    | الزامی          | رمز قوی تصادفی؛ در `.env` نگه دارید. برای رمزهای دارای `@`/`:`/`/`، URL نهایی را درست encode کنید یا از رمز hex bootstrap استفاده کنید. |
 | `POSTGRES_DB`       | PostgreSQL و ساخت `DATABASE_URL`                    | `dirouter`      | نام دیتابیس اولیه. تغییر روی volume موجود، دیتابیس قبلی را rename نمی‌کند.                                                              |
 | `POSTGRES_PORT`     | فقط `compose.dev.yaml`                              | `55432`         | انتشار PostgreSQL روی `127.0.0.1` میزبان؛ در production پورتی منتشر نمی‌شود.                                                            |

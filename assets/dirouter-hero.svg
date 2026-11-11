@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 260" width="960" height="260" role="img" aria-labelledby="t d">
+  <title id="t">DiRouter: resilient LLM gateway</title>
+  <desc id="d">Animated request packets travel from client through the gateway to providers while usage events flow to the worker.</desc>
+  <rect width="960" height="260" rx="18" fill="#fbf8f4"/>
+  <g font-family="Vazirmatn, Helvetica, Arial, sans-serif" text-anchor="middle">
+    <rect x="30" y="95" width="150" height="70" rx="12" fill="#fff" stroke="#1f1d1a" stroke-width="2"/>
+    <text x="105" y="125" font-size="16" fill="#1f1d1a">Client</text>
+    <text x="105" y="146" font-size="12" fill="#6b6459">OpenAI / Anthropic SDK</text>
+
+    <rect x="300" y="85" width="180" height="90" rx="14" fill="#b8432b"/>
+    <text x="390" y="122" font-size="18" fill="#fff" font-weight="700">Gateway</text>
+    <text x="390" y="146" font-size="12" fill="#fbe7df">data plane</text>
+
+    <rect x="620" y="30" width="150" height="70" rx="12" fill="#fff" stroke="#2b5db8" stroke-width="2"/>
+    <text x="695" y="60" font-size="15" fill="#1f1d1a">Provider A</text>
+    <text x="695" y="80" font-size="12" fill="#6b6459">fallback target 1</text>
+
+    <rect x="620" y="150" width="150" height="70" rx="12" fill="#fff" stroke="#2b5db8" stroke-width="2"/>
+    <text x="695" y="180" font-size="15" fill="#1f1d1a">Provider B</text>
+    <text x="695" y="200" font-size="12" fill="#6b6459">fallback target 2</text>
+  </g>
+
+  <path d="M180 130 L300 130" stroke="#1f1d1a" stroke-width="2" fill="none"/>
+  <path d="M480 115 L620 65" stroke="#2b5db8" stroke-width="2" fill="none" stroke-dasharray="6 6"/>
+  <path d="M480 145 L620 185" stroke="#2b5db8" stroke-width="2" fill="none" stroke-dasharray="6 6"/>
+
+  <circle r="6" fill="#b8432b">
+    <animateMotion dur="2.4s" repeatCount="indefinite" path="M180 130 L300 130 L480 115 L620 65"/>
+  </circle>
+  <circle r="6" fill="#2b5db8">
+    <animateMotion dur="2.4s" begin="1.2s" repeatCount="indefinite" path="M180 130 L300 130 L480 145 L620 185"/>
+  </circle>
+
+  <g font-family="Vazirmatn, Helvetica, Arial, sans-serif" font-size="13" fill="#6b6459" text-anchor="middle">
+    <text x="480" y="232">Worker and PostgreSQL run off the hot path</text>
+  </g>
+  <rect x="300" y="20" width="180" height="40" rx="10" fill="none" stroke="#1f1d1a" stroke-dasharray="4 4"/>
+  <text x="390" y="45" font-family="Vazirmatn, Helvetica, Arial, sans-serif" font-size="13" fill="#1f1d1a" text-anchor="middle">Valkey: limits and budgets</text>
+</svg>

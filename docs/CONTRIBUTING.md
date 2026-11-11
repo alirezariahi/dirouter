@@ -1,68 +1,33 @@
-> نسخهٔ فارسی محلی؛ نسخهٔ انگلیسی قابل انتشار: [CONTRIBUTING.md](../code/CONTRIBUTING.md). این فایل بیرون مخزن Git است.
+[English](#english) · [فارسی](#persian)
 
-# راهنمای مشارکت
+<a id="english"></a>
 
-## محیط توسعه
+# Contributing (guide index)
 
-```bash
-corepack enable
-pnpm install   # hookهای git را هم با husky نصب می‌کند
-```
+The full contributor guide is [CONTRIBUTING.md](../CONTRIBUTING.md). This page exists so that the documentation index under `docs/` links to it.
 
-## کیفیت کد
+Quick reference:
 
-| ابزار                            | پیکربندی                 | دستور                               |
-| -------------------------------- | ------------------------ | ----------------------------------- |
-| TypeScript (strict)              | `packages/tsconfig`      | `pnpm typecheck`                    |
-| ESLint (flat config، type-aware) | `packages/eslint-config` | `pnpm lint`                         |
-| Prettier                         | `.prettierrc.json`       | `pnpm format` / `pnpm format:check` |
-| EditorConfig                     | `.editorconfig`          | تنظیم خودکار ویرایشگر               |
+| Topic               | Section in the main guide                                                        |
+| ------------------- | -------------------------------------------------------------------------------- |
+| Setup               | [3. Development environment](../CONTRIBUTING.md#3-development-environment)       |
+| Commit messages     | [7. Commit messages](../CONTRIBUTING.md#7-commit-messages)                       |
+| Pull requests       | [8. Branches and pull requests](../CONTRIBUTING.md#8-branches-and-pull-requests) |
+| Documentation rules | [Documentation policy](../CONTRIBUTING.md#documentation-policy)                  |
 
-- هر اپ و پکیج یک `eslint.config.js` دارد که پیکربندی `node` یا `react` را از `@dirouter/eslint-config` می‌گیرد.
-- `console.*` ممنوع است؛ از `createLogger` در `@dirouter/shared` استفاده کنید.
-- type import صریح (`import { type X }`) اجباری است (`verbatimModuleSyntax`).
+---
 
-### hookهای git
+<a id="persian"></a>
 
-- **pre-commit:** `lint-staged` فایل‌های stage‌شده را با Prettier قالب‌بندی و با ESLint اصلاح می‌کند.
-- **commit-msg:** `commitlint` پیام کامیت را بررسی می‌کند و پیام نامعتبر را رد می‌کند.
+# راهنمای مشارکت (فهرست راهنما)
 
-## پیام کامیت (Conventional Commits)
+راهنمای کامل مشارکت در [CONTRIBUTING.md](../CONTRIBUTING.md) است. این صفحه برای این است که فهرست مستندات داخل `docs/` به آن لینک داشته باشد.
 
-```
-<type>(<scope>): <subject>
+مرجع سریع:
 
-[body]
-
-[footer]
-```
-
-**type:** `feat`، `fix`، `docs`، `style`، `refactor`، `perf`، `test`، `build`، `ci`، `chore`، `revert`
-
-**scope** (اختیاری، اما اگر باشد باید یکی از این‌ها باشد):
-`gateway`، `control-api`، `worker`، `dashboard`، `mock-provider`، `contracts`، `shared`، `db`، `model-catalog`، `ui`، `tsconfig`، `eslint-config`، `deploy`، `docs`، `ci`، `deps`، `repo`
-
-نمونه‌ها:
-
-```
-feat(gateway): add circuit breaker per provider
-fix(shared): redact x-api-key header in logs
-docs(gateway): document timeout settings
-```
-
-تغییر ناسازگار با `!` بعد از type/scope یا `BREAKING CHANGE:` در footer مشخص می‌شود.
-
-شمارهٔ کارت دی‌تسک را در footer بیاورید: `Refs: DR-12`.
-
-## شاخه‌ها و بازبینی
-
-- شاخهٔ اصلی `main` است؛ کار روی شاخهٔ جدا با نام `<type>/<card>-<short-name>` (مثلاً `feat/4.1-gateway-skeleton`).
-- هر تغییر از طریق Pull Request و بعد از سبز شدن CI و بازبینی ادغام می‌شود.
-
-## قراردادهای کد
-
-- ماژول‌ها ESM هستند (`"type": "module"`) و importهای نسبی پسوند `.js` دارند.
-- اسکیماها و تایپ‌های مشترک فقط در `@dirouter/contracts` تعریف می‌شوند.
-- کدهای خطا پایدارند: افزودن مجاز است، حذف یا تغییر معنی ممنوع (`ERROR_CODES` در contracts).
-- مبالغ مالی در API به‌صورت رشتهٔ اعشاری دلاری، در PostgreSQL با `Decimal(18,8)` و در محاسبات با BigInt fixed-point در `@dirouter/shared` هستند؛ هر دلار برابر `10^8` واحد داخلی است و استفاده از float برای پول ممنوع است. قیمت مدل‌ها دلار به ازای یک میلیون توکن است.
-- نسخهٔ اصلی همهٔ مستندات در Git انگلیسی است؛ نسخه‌های فارسی به‌صورت محلی در پوشهٔ مستندات بیرون `code/` نگهداری می‌شوند و منتشر نمی‌شوند.
+| موضوع           | بخش در راهنمای اصلی                                                          |
+| --------------- | ---------------------------------------------------------------------------- |
+| راه‌اندازی      | [۳. محیط توسعه](../CONTRIBUTING.md#3-development-environment)                |
+| پیام‌های commit | [۷. پیام‌های commit](../CONTRIBUTING.md#7-commit-messages)                   |
+| pull requestها  | [۸. شاخه‌ها و pull request](../CONTRIBUTING.md#8-branches-and-pull-requests) |
+| قوانین مستندات  | [سیاست مستندات](../CONTRIBUTING.md#documentation-policy-fa)                  |
