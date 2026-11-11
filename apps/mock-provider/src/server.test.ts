@@ -43,6 +43,21 @@ describe('scenario parser', () => {
       dropAfter: 2,
     });
     expect(parseScenario('overloaded').status).toBe(529);
+    expect(parseScenario(undefined)).toEqual(parseScenario(''));
+    expect(
+      parseScenario(
+        'auth,context_length,no_usage,error_rate=2,latency=5,tool,text=custom,unknown=x',
+      ),
+    ).toMatchObject({
+      status: 401,
+      contextLength: true,
+      noUsage: true,
+      errorRate: 1,
+      latency: [5, 5],
+      tool: 'get_weather',
+      text: 'custom',
+    });
+    expect(parseScenario('status=bad,retry_after=bad,chunks=0,error_rate=-1').chunks).toBe(1);
   });
 });
 
@@ -147,5 +162,22 @@ describe('mock provider', () => {
     };
     expect(stats).toMatchObject({ requests: 1, byStatus: { '502': 1 } });
     await fetch(`${base}/__mock/reset`, { method: 'POST' });
+  });
+
+  it('supports Gemini generation, streaming, model listing and invalid actions', async () => {
+    const generated = (await (
+      await post('/v1beta/models/g:generateContent', { contents: [] }, { 'x-mock': 'tool=f' })
+    ).json()) as { candidates: { content: { parts: unknown[] } }[] };
+    expect(generated.candidates[0]?.content.parts).toHaveLength(1);
+    const streamed = await sse(
+      await post(
+        '/v1beta/models/g:streamGenerateContent',
+        { contents: [] },
+        { 'x-mock': 'tool=f' },
+      ),
+    );
+    expect(streamed.length).toBeGreaterThan(0);
+    expect((await post('/v1beta/models/g:unknown', {})).status).toBe(404);
+    expect(await (await fetch(`${base}/v1beta/models`)).json()).toHaveProperty('models');
   });
 });
