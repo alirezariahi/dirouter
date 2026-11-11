@@ -10,6 +10,8 @@ import { DocumentBuilder, type OpenAPIObject, SwaggerModule } from '@nestjs/swag
 import { AppModule } from './app.module.js';
 import { ProblemFilter } from './common/problem.filter.js';
 import { SnapshotService } from './snapshot/snapshot.service.js';
+import { ValkeyService } from './infra/valkey.service.js';
+import { installControlApiMetrics } from './metrics.js';
 import type { Env } from './env.js';
 import type { IncomingMessage } from 'node:http';
 
@@ -69,6 +71,7 @@ export async function createApp(
     exclude: [
       { path: 'healthz', method: RequestMethod.GET },
       { path: 'readyz', method: RequestMethod.GET },
+      { path: 'metrics', method: RequestMethod.GET },
       { path: 'internal/(.*)', method: RequestMethod.ALL },
     ],
   });
@@ -93,6 +96,10 @@ export async function createApp(
   );
   declarePathParameters(document);
   SwaggerModule.setup('api/docs', app, document, { jsonDocumentUrl: 'api/docs/openapi.json' });
+  const metrics = installControlApiMetrics(fastify, app.get(ValkeyService).client, logger);
+  fastify.addHook('onClose', async () => {
+    await metrics.close();
+  });
 
   return app;
 }

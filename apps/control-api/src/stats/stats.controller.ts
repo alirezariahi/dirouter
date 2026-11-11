@@ -36,6 +36,17 @@ export const TopQuery = Base.extend({
 export const LogsQuery = Base.extend({
   status: z.enum(['success', 'error']).optional(),
   httpStatus: z.coerce.number().int().min(100).max(599).optional(),
+  providerId: z.string().optional(),
+  minLatencyMs: z.coerce.number().int().min(0).optional(),
+  maxLatencyMs: z.coerce.number().int().min(0).optional(),
+  minCostUsd: z
+    .string()
+    .regex(/^\d{1,10}(\.\d{1,8})?$/)
+    .optional(),
+  maxCostUsd: z
+    .string()
+    .regex(/^\d{1,10}(\.\d{1,8})?$/)
+    .optional(),
   limit: z.coerce.number().int().min(1).max(200).default(50),
   cursor: z.string().max(512).optional(),
 });
@@ -216,7 +227,16 @@ export class StatsController {
     return this.stats.logs(
       org,
       range(q, 7 * 86_400_000),
-      { ...filters(q), status: q.status, httpStatus: q.httpStatus },
+      {
+        ...filters(q),
+        status: q.status,
+        httpStatus: q.httpStatus,
+        providerId: q.providerId,
+        minLatencyMs: q.minLatencyMs,
+        maxLatencyMs: q.maxLatencyMs,
+        minCostUsd: q.minCostUsd,
+        maxCostUsd: q.maxCostUsd,
+      },
       q.limit,
       q.cursor,
     );

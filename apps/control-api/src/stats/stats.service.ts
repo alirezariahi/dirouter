@@ -258,7 +258,15 @@ export class StatsService {
   async logs(
     ctx: OrgContext,
     r: Range,
-    f: Filters & { status?: 'success' | 'error' | undefined; httpStatus?: number | undefined },
+    f: Filters & {
+      status?: 'success' | 'error' | undefined;
+      httpStatus?: number | undefined;
+      providerId?: string | undefined;
+      minLatencyMs?: number | undefined;
+      maxLatencyMs?: number | undefined;
+      minCostUsd?: string | undefined;
+      maxCostUsd?: string | undefined;
+    },
     limit: number,
     cursor?: string,
   ) {
@@ -271,6 +279,11 @@ export class StatsService {
     if (f.model) parts.push(Prisma.sql`requested_model = ${f.model}`);
     if (f.status) parts.push(Prisma.sql`status = ${f.status}`);
     if (f.httpStatus) parts.push(Prisma.sql`http_status = ${f.httpStatus}`);
+    if (f.providerId) parts.push(Prisma.sql`provider_id = ${f.providerId}`);
+    if (f.minLatencyMs !== undefined) parts.push(Prisma.sql`latency_ms >= ${f.minLatencyMs}`);
+    if (f.maxLatencyMs !== undefined) parts.push(Prisma.sql`latency_ms <= ${f.maxLatencyMs}`);
+    if (f.minCostUsd) parts.push(Prisma.sql`cost_usd >= ${f.minCostUsd}`);
+    if (f.maxCostUsd) parts.push(Prisma.sql`cost_usd <= ${f.maxCostUsd}`);
     if (cursor) {
       const c = decodeCursor(cursor);
       // (created_at, id) یکتاست؛ ردیف‌های تازهٔ بالای صفحه ترتیب صفحه‌های بعد را به هم نمی‌زنند.
