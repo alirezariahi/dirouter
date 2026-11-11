@@ -1,0 +1,94 @@
+groups:
+  - name: dirouter.availability
+    interval: 30s
+    rules:
+      - alert: DiRouterTargetDown
+        expr: up{job=~"dirouter-gateway|dirouter-control-api|dirouter-worker|traefik"} == 0
+        for: 2m
+        labels: { severity: critical }
+        annotations:
+          summary: 'متریک‌های {{ $labels.job }} در دسترس نیستند'
+          description: 'Prometheus حداقل دو دقیقه است نمی‌تواند {{ $labels.instance }} را scrape کند.'
+
+      - alert: DiRouterQueueMetricsUnavailable
+        expr: dirouter_queue_metrics_up == 0
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: 'خواندن طول صف از Valkey ناموفق است'
+          description: 'جمع‌آوری متریک‌های صف در {{ $labels.job }} ناموفق است؛ مقادیر queue ممکن است قدیمی باشند.'
+
+  - name: dirouter.gateway
+    interval: 30s
+    rules:
+      - alert: DiRouterGatewayHighErrorRatio
+        expr: |
+          sum by (job, instance) (rate(dirouter_gateway_requests_total{status="error"}[5m]))
+            / clamp_min(sum by (job, instance) (rate(dirouter_gateway_requests_total[5m])), 0.01)
+            > 0.10
+            and sum by (job, instance) (rate(dirouter_gateway_requests_total[5m])) > 0.1
+        for: 5m
+        labels: { severity: critical }
+        annotations:
+          summary: 'نرخ خطای gateway بیش از ۱۰٪ است'
+          description: 'نسبت خطا در {{ $labels.instance }} در پنج دقیقه اخیر {{ $value | printf "%.2f" }} است.'
+
+      - alert: DiRouterGatewayHighLatency
+        expr: |
+          histogram_quantile(0.95,
+            sum by (job, instance, le) (rate(dirouter_gateway_request_duration_seconds_bucket[10m])))
+            > 30
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: 'p95 latency درخواست‌های LLM بیش از ۳۰ ثانیه است'
+          description: 'p95 در {{ $labels.instance }} برابر {{ $value | printf "%.1f" }} ثانیه است.'
+
+      - alert: DiRouterGatewayUsageOutboxGrowing
+        expr: |
+          dirouter_gateway_usage_outbox_events > 1000
+            and deriv(dirouter_gateway_usage_outbox_events[15m]) > 0
+        for: 15m
+        labels: { severity: critical }
+        annotations:
+          summary: 'outbox مصرف gateway رشد می‌کند'
+          description: '{{ $value | printf "%.0f" }} رویداد در {{ $labels.instance }} باقی مانده است؛ اتصال worker و Valkey را بررسی کنید.'
+
+      - alert: DiRouterGatewayCircuitBreakerOpen
+        expr: dirouter_gateway_breaker_state{state=~"open|half_open"} == 1
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: 'Circuit breaker باز است'
+          description: 'Breaker برای {{ $labels.scope }}/{{ $labels.provider }}/{{ $labels.model }} در وضعیت {{ $labels.state }} است.'
+
+  - name: dirouter.pipeline
+    interval: 30s
+    rules:
+      - alert: DiRouterQueueBacklog
+        expr: sum by (job, instance, queue) (dirouter_queue_jobs{state=~"waiting|delayed|active"}) > 1000
+        for: 15m
+        labels: { severity: warning }
+        annotations:
+          summary: 'Backlog صف {{ $labels.queue }} زیاد است'
+          description: 'صف {{ $labels.queue }} در {{ $labels.instance }} دارای {{ $value | printf "%.0f" }} job در حال انتظار/اجراست.'
+
+      - alert: DiRouterUsageDeadLetter
+        expr: increase(dirouter_usage_events_dead_total[10m]) > 0
+        for: 1m
+        labels: { severity: critical }
+        annotations:
+          summary: 'رویداد مصرف به dead-letter رفته است'
+          description: '{{ $value | printf "%.0f" }} رویداد در ده دقیقه اخیر dead-letter شده‌اند؛ لاگ worker را بررسی کنید.'
+
+      - alert: DiRouterWorkerJobFailures
+        expr: |
+          sum by (job, instance) (rate(dirouter_worker_job_duration_seconds_count{outcome="error"}[10m]))
+            / clamp_min(sum by (job, instance) (rate(dirouter_worker_job_duration_seconds_count[10m])), 0.001)
+            > 0.10
+            and sum by (job, instance) (rate(dirouter_worker_job_duration_seconds_count[10m])) > 0.01
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: 'نرخ خطای jobهای worker بیش از ۱۰٪ است'
+          description: 'نسبت خطای job در {{ $labels.instance }} برابر {{ $value | printf "%.2f" }} است.'

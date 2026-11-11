@@ -21,6 +21,8 @@ volumes:
   valkeydata:
   gateway-data:
   traefik-acme:
+  prometheus-data:
+  grafana-data:
 
 services:
   traefik:
@@ -135,9 +137,9 @@ services:
       <<: *node-env
       PORT: '8080'
       VALKEY_URL: redis://valkey:6379
-      MASTER_KEY: ${MASTER_KEY}
-      KEY_PEPPER: ${KEY_PEPPER}
-      INTERNAL_TOKEN: ${INTERNAL_TOKEN}
+      MASTER_KEY: ${MASTER_KEY:?MASTER_KEY is required}
+      KEY_PEPPER: ${KEY_PEPPER:?KEY_PEPPER is required}
+      INTERNAL_TOKEN: ${INTERNAL_TOKEN:?INTERNAL_TOKEN is required}
       CONTROL_API_URL: http://control-api:3000
       DATA_DIR: /data
       SHUTDOWN_DRAIN_MS: ${GATEWAY_SHUTDOWN_DRAIN_MS:-30000}
@@ -215,3 +217,85 @@ services:
     environment:
       PORT: '8090'
     networks: [edge]
+
+  # مانیتورینگ اختیاری؛ متریک‌ها فقط روی شبکه‌های داخلی scrape می‌شوند.
+  prometheus:
+    image: prom/prometheus:${PROMETHEUS_VERSION:-v3.7.3}
+    profiles: [monitoring]
+    restart: unless-stopped
+    user: '65534:65534'
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=${PROMETHEUS_RETENTION:-15d}'
+      - '--web.enable-lifecycle'
+      - '--web.listen-address=0.0.0.0:9090'
+    volumes:
+      - ./deploy/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./deploy/monitoring/alerts:/etc/prometheus/alerts:ro
+      - prometheus-data:/prometheus
+    networks: [edge, internal]
+    ports:
+      - '127.0.0.1:${PROMETHEUS_PORT:-59090}:9090'
+    depends_on:
+      traefik: { condition: service_healthy }
+      control-api: { condition: service_started }
+      gateway: { condition: service_started }
+      worker: { condition: service_started }
+    healthcheck:
+      test:
+        ['CMD', 'wget', '--no-verbose', '--tries=1', '--spider', 'http://127.0.0.1:9090/-/healthy']
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+  grafana:
+    image: grafana/grafana:${GRAFANA_VERSION:-12.2.1}
+    profiles: [monitoring]
+    restart: unless-stopped
+    user: '472:472'
+    # The password is only needed by the optional `monitoring` profile. Using
+    # `:?` here would force interpolation for every compose command (even
+    # `docker compose ps`), so the value is interpolated leniently and the
+    # missing-password case is rejected at container start instead.
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        if [ -z "$$GF_SECURITY_ADMIN_PASSWORD" ]; then
+          echo "GRAFANA_ADMIN_PASSWORD is required for the monitoring profile" >&2
+          exit 1
+        fi
+        exec /run.sh
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-}
+      GF_SECURITY_DISABLE_GRAVATAR: 'true'
+      GF_ANALYTICS_REPORTING_ENABLED: 'false'
+      GF_ANALYTICS_CHECK_FOR_UPDATES: 'false'
+      GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES: 'false'
+      GF_PLUGINS_PREINSTALL_DISABLED: 'true'
+      GF_PLUGINS_PREINSTALL_SYNC: 'false'
+      GF_USERS_ALLOW_SIGN_UP: 'false'
+      GF_SERVER_ROOT_URL: http://127.0.0.1:${GRAFANA_PORT:-53000}
+      GF_SERVER_SERVE_FROM_SUB_PATH: 'false'
+    volumes:
+      - ./deploy/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./deploy/monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    networks: [edge]
+    ports:
+      - '127.0.0.1:${GRAFANA_PORT:-53000}:3000'
+    depends_on:
+      prometheus: { condition: service_healthy }
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'wget --no-verbose --tries=1 --spider http://127.0.0.1:3000/api/health || exit 1',
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s

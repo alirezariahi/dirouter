@@ -71,3 +71,15 @@ services:
     logging: *logging
     deploy:
       resources: *small
+
+  prometheus:
+    logging: *logging
+    deploy:
+      resources:
+        limits: { cpus: '1.0', memory: 1G }
+        reservations: { memory: 256M }
+
+  grafana:
+    logging: *logging
+    deploy:
+      resources: *small

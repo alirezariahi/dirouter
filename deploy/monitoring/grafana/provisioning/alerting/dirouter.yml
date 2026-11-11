@@ -1,0 +1,3 @@
+apiVersion: 1
+# Alert rules are evaluated by Prometheus; no Grafana-managed rules are provisioned.
+groups: []
