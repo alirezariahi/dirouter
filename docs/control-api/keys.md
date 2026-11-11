@@ -1,6 +1,4 @@
-[English](#english) · [فارسی](#persian)
-
-<a id="english"></a>
+[English](keys.md) · [فارسی](keys.fa.md)
 
 # Virtual keys
 
@@ -46,52 +44,3 @@ MEMBER can create keys. VIEWER can only view them ([rbac.md](../rbac.md)).
 | create key, until the first 200          | 48 to 76 ms                                                                                                                                                               |
 | revoke, until the first 401 (three runs) | 140, 125 and 140 ms                                                                                                                                                       |
 | rotate with a 4-second grace             | the new key worked after 59 ms, and the old key got 200 within the grace period. 48 ms after the grace period ended, the old key got 401 while the new key still got 200. |
-
----
-
-<a id="persian"></a>
-
-# کلیدهای مجازی
-
-کد: `apps/control-api/src/keys` · تست: `keys.integration.test.ts` · کارت ۳.۷
-
-## endpointها (`/api/v1/orgs/:orgId/keys`)
-
-| مسیر                 | مجوز         | توضیح                                                                                                                                             |
-| -------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GET /` و `GET /:id` | `keys:read`  | بدون کلید خام؛ فقط `prefix` و وضعیت (`active`، `rotating`، `expired` یا `revoked`)                                                                |
-| `POST /`             | `keys:write` | `{name, projectId, allowedModels?, ipAllowlist?, rpm?, tpm?, maxConcurrency?, expiresAt?, budgets?}`. پاسخ **کلید کامل را فقط همین یک بار** دارد. |
-| `PATCH /:id`         | `keys:write` | تغییر محدودیت‌ها، انقضا و بودجه                                                                                                                   |
-| `POST /:id/revoke`   | `keys:write` | ابطال فوری                                                                                                                                        |
-| `POST /:id/rotate`   | `keys:write` | `{graceSeconds}` (پیش‌فرض ۲۴ ساعت، حداکثر ۳۰ روز). کلید تازه را برمی‌گرداند، به‌همراه `previous`.                                                 |
-
-MEMBER می‌تواند کلید بسازد. VIEWER فقط می‌بیند ([rbac.md](../rbac.md)).
-
-## قالب و ذخیره
-
-- قالب کلید `dr-<prefix>-<secret>` است: prefix هشت کاراکتر و secret چهل کاراکتر، از الفبای ۳۳ حرفی بدون `l`، `0` و `1`، یعنی حدود ۲۰۰ بیت.
-- در DB فقط `prefix` (`dr-xxxxxxxx`، برای نمایش و جستجو) و `HMAC-SHA256(key, KEY_PEPPER)` ذخیره می‌شود. **کلید خام در هیچ جدولی نیست**؛ تست این را با جستجوی بخش secret در کل جدول‌ها بررسی می‌کند.
-- گیت‌وی همان HMAC را می‌سازد و با `timingSafeEqual` مقایسه می‌کند ([gateway/auth.md](../gateway/auth.md)).
-
-## محدودیت‌ها
-
-| فیلد                            | اعمال در                                                                                     |
-| ------------------------------- | -------------------------------------------------------------------------------------------- |
-| `allowedModels`                 | گیت‌وی (403 `model_not_allowed`)؛ خالی یعنی همه                                              |
-| `ipAllowlist`                   | گیت‌وی: IP یا CIDR در IPv4 و IPv6. ورودی نامعتبر مثل `/33` پاسخ 422 می‌گیرد.                 |
-| `expiresAt`                     | گیت‌وی (401 `api_key_expired`)؛ باید در آینده باشد                                           |
-| `rpm`، `tpm` و `maxConcurrency` | rate limiter (کارت ۶.۱)                                                                      |
-| `budgets`                       | هر دوره (`daily` یا `monthly`) با `limitUsd` یا `limitTokens` و `alertThresholds` (کارت ۶.۳) |
-
-## ابطال و چرخش
-
-- **ابطال** `status=REVOKED` می‌گذارد و کلید از snapshot بعدی حذف می‌شود. گیت‌وی بلافاصله با `config:updated` آن را می‌فهمد ([config-sync.md](config-sync.md)).
-- **چرخش** کلید تازه‌ای با همان تنظیمات، محدودیت‌ها و بودجه می‌سازد. کلید قدیم `expiresAt = اکنون + graceSeconds` و `rotatedToId` می‌گیرد، پس **تا پایان مهلت کار می‌کند** و بعد از آن 401 می‌گیرد. کلید ابطال‌شده، منقضی یا قبلاً چرخیده دوباره نمی‌چرخد (409).
-
-## بررسی در compose (۲۰۲۶-۱۱-۰۷)
-
-| گام                           | زمان تا اعمال در گیت‌وی                                                                                                           |
-| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| ساخت کلید، تا اولین 200       | ۴۸ تا ۷۶ms                                                                                                                        |
-| ابطال، تا اولین 401 (سه اجرا) | ۱۴۰، ۱۲۵ و ۱۴۰ms                                                                                                                  |
-| چرخش با مهلت ۴ ثانیه          | کلید تازه بعد از ۵۹ms کار کرد و کلید قدیم در مهلت 200 گرفت. ۴۸ms بعد از پایان مهلت کلید قدیم 401 گرفت و کلید تازه همچنان 200 بود. |

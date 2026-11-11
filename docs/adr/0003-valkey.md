@@ -1,6 +1,4 @@
-[English](#english) · [فارسی](#persian)
-
-<a id="english"></a>
+[English](0003-valkey.md) · [فارسی](0003-valkey.fa.md)
 
 # ADR-0003: Valkey for counters, cache and pub/sub
 
@@ -52,58 +50,3 @@ Several gateway replicas must share a common view of: rate limit counters (RPM, 
 ### Follow-up
 
 - card 6.1 (distributed rate limiter) and card 6.3 (budget) specify the algorithm details.
-
----
-
-<a id="persian"></a>
-
-# ADR-0003: Valkey برای شمارنده، کش و pub/sub
-
-- **وضعیت:** پذیرفته‌شده
-- **تاریخ:** 2026-11-07
-- **تصمیم‌گیرندگان:** تیم DiRouter
-
-## زمینه (Context)
-
-چند replica از گیت‌وی باید یک دید مشترک از این‌ها داشته باشند: شمارندهٔ rate limit (RPM، TPM، هم‌زمانی)، مصرف لحظه‌ای بودجه، وضعیت circuit breaker، cooldown کلیدها و lockout مدل‌ها. تغییر config هم باید سریع به همهٔ گیت‌وی‌ها برسد. این عملیات باید زیر یک میلی‌ثانیه و اتمیک باشند؛ Postgres برای این کار مناسب نیست.
-
-### معیارهای تصمیم (Decision Drivers)
-
-- عملیات اتمیک چندمرحله‌ای (Lua script) برای sliding window یا GCRA
-- latency زیر ۱ms
-- pub/sub برای انتشار تغییر config
-- لایسنس باز و بدون ریسک تغییر لایسنس
-- سازگاری با کتابخانه‌های موجود (ioredis، BullMQ)
-
-### گزینه‌های بررسی‌شده (Considered Options)
-
-1. Valkey
-2. Redis 8
-3. شمارندهٔ داخل حافظهٔ هر گیت‌وی با سهمیهٔ تقسیم‌شده
-4. NATS JetStream KV
-
-## تصمیم (Decision)
-
-**Valkey** (فورک BSD-licensed Redis، سازگار با پروتکل RESP) با کلاینت `ioredis`.
-
-- rate limit و بودجه با Lua script اتمیک؛ کلیدها با TTL.
-- pub/sub کانال `config:changed` برای اعلام نسخهٔ جدید snapshot.
-- وضعیت breaker و cooldown با TTL برای اشتراک بین replicaها.
-- **fallback محلی:** اگر Valkey در دسترس نباشد، limiter داخل حافظه با سهمیهٔ تقسیم‌شده بین نودها کار می‌کند و رفتار با `failMode` (`open` یا `closed`) تعیین می‌شود.
-
-## پیامدها (Consequences)
-
-### مثبت
-
-- یک جزء برای شمارنده، کش، pub/sub و صف (ADR-005).
-- لایسنس BSD؛ سازگار با همهٔ ابزارهای Redis.
-- مسیر HA روشن: Sentinel یا Cluster (کارت ۱۷.۳).
-
-### منفی
-
-- یک وابستگی زمان اجرا برای گیت‌وی؛ fallback محلی دقت کمتری دارد (ممکن است کمی بیش از سقف مجاز شود).
-- داده‌ها در حافظه‌اند؛ شمارندهٔ بودجه باید به‌صورت دوره‌ای با ledger در Postgres تطبیق داده شود.
-
-### پیگیری
-
-- کارت ۶.۱ (rate limiter توزیع‌شده) و ۶.۳ (بودجه) جزئیات الگوریتم را مشخص می‌کنند.

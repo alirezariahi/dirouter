@@ -1,6 +1,4 @@
-[English](#english) · [فارسی](#persian)
-
-<a id="english"></a>
+[English](template.md) · [فارسی](template.fa.md)
 
 # ADR-NNNN: Short title of the decision
 
@@ -36,46 +34,5 @@ The chosen option: "…", because …
 - …
 
 ### Follow-up
-
-- …
-
----
-
-<a id="persian"></a>
-
-# ADR-NNNN: عنوان کوتاه تصمیم
-
-- **وضعیت:** پیشنهادی | پذیرفته‌شده | ردشده | منسوخ | جایگزین‌شده با ADR-NNNN
-- **تاریخ:** YYYY-MM-DD
-- **تصمیم‌گیرندگان:** …
-
-## زمینه (Context)
-
-مسئله چیست و چرا باید تصمیم گرفت؟
-
-### معیارهای تصمیم (Decision Drivers)
-
-- …
-
-### گزینه‌های بررسی‌شده (Considered Options)
-
-1. …
-2. …
-
-## تصمیم (Decision)
-
-گزینهٔ انتخاب‌شده: «…»، چون …
-
-## پیامدها (Consequences)
-
-### مثبت
-
-- …
-
-### منفی
-
-- …
-
-### پیگیری
 
 - …

@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""ساخت فایل برد دی‌تسک (فرمت dikar.board نسخهٔ ۱) و خلاصهٔ Markdown از روی cards_*.py.
+"""Build the DiTask board file (dikar.board format version 1) and a Markdown summary from cards_*.py.
 
-اجرا (از پوشهٔ docs):  python3 tools/board/build_board.py
-خروجی: board/dirouter-board.json و board/README.md
+Run (from the docs directory):  python3 tools/board/build_board.py
+Output: board/dirouter-board.json and board/README.fa.md.
+The English board/README.md is its translation and is not overwritten.
 """
 import hashlib
 import json
@@ -64,7 +65,7 @@ def fa(s: str) -> str:
 
 
 def rank(i: int, n: int) -> str:
-    """رتبهٔ رشته‌ای مرتب‌شونده (دو حرف a-z) با فاصلهٔ یکنواخت برای درج‌های بعدی."""
+    """Sortable string rank (two letters a-z) spaced evenly to leave room for later inserts."""
     v = (i + 1) * 676 // (n + 1)
     return chr(97 + v // 26) + chr(97 + v % 26)
 
@@ -171,7 +172,15 @@ def main() -> None:
     }
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     (OUT_DIR / "dirouter-board.json").write_text(json.dumps(board, ensure_ascii=False, indent=1), encoding="utf-8")
-    (OUT_DIR / "README.md").write_text(summary_md(all_cards, sprint_of), encoding="utf-8")
+    # Write the Persian summary next to the English one so regenerating the board
+    # never overwrites the English translation in README.md.
+    fa_summary = summary_md(all_cards, sprint_of).rstrip("\n")
+    (OUT_DIR / "README.fa.md").write_text(
+        '[English](README.md) · [فارسی](README.fa.md)\n\n<div dir="rtl">\n\n'
+        + fa_summary
+        + "\n\n</div>\n",
+        encoding="utf-8",
+    )
 
     for si, sp in enumerate(SPRINTS):
         cs = sp["cards"]

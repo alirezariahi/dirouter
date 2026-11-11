@@ -1,0 +1,56 @@
+[English](0005-bullmq-event-queue.fa.md) · [فارسی](0005-bullmq-event-queue.fa.md)
+
+<div dir="rtl">
+
+# ADR-0005: BullMQ برای صف رویداد
+
+- **وضعیت:** پذیرفته‌شده
+- **تاریخ:** 2026-11-07
+- **تصمیم‌گیرندگان:** تیم DiRouter
+
+## زمینه (Context)
+
+گیت‌وی بعد از هر درخواست یک `UsageEvent` تولید می‌کند (هزینه، توکن، زنجیرهٔ تلاش‌ها). نوشتن مستقیم در Postgres در مسیر درخواست latency را بالا می‌برد و گیت‌وی را به دیتابیس وابسته می‌کند (خلاف ADR-006). رویدادها باید با اطمینان (at-least-once) به worker برسند و پردازش دوباره هزینه را دوبار ثبت نکند.
+
+### معیارهای تصمیم (Decision Drivers)
+
+- انتشار غیرهمگام و ارزان از گیت‌وی
+- تحویل at-least-once، retry و dead-letter
+- بدون جزء زیرساختی جدید در MVP
+- کتابخانهٔ بالغ TypeScript
+
+### گزینه‌های بررسی‌شده (Considered Options)
+
+1. BullMQ روی Valkey
+2. Redis Streams با consumer دستی
+3. NATS JetStream
+4. Kafka / Redpanda
+
+## تصمیم (Decision)
+
+**BullMQ** روی همان Valkey (ADR-003).
+
+- صف `usage-events`؛ گیت‌وی enqueue می‌کند و منتظر نمی‌ماند.
+- worker رویدادها را دسته‌ای (batch) می‌خواند و با `ON CONFLICT (idempotency_key) DO NOTHING` می‌نویسد؛ پس تکرار رویداد بی‌ضرر است.
+- retry با backoff نمایی و صف شکست‌خورده برای بررسی دستی.
+- **outbox محلی:** اگر Valkey در دسترس نباشد، گیت‌وی رویدادها را در یک فایل append-only روی دیسک می‌نویسد و بعد از وصل شدن بازپخش می‌کند (کارت ۶.۴).
+- کارهای زمان‌بندی‌شدهٔ worker (تجمیع، ساخت پارتیشن، نگهداری) هم با repeatable jobهای BullMQ.
+
+## پیامدها (Consequences)
+
+### مثبت
+
+- جزء زیرساختی جدیدی اضافه نمی‌شود.
+- داشبورد وضعیت صف و کارهای شکست‌خورده در دسترس است.
+- idempotency در لایهٔ دیتابیس، مستقل از تضمین‌های صف.
+
+### منفی
+
+- BullMQ برای throughput خیلی بالا (صدها هزار رویداد در ثانیه) بهینه نیست.
+- صف و شمارنده‌ها روی یک Valkey‌اند؛ فشار صف می‌تواند روی latency شمارنده‌ها اثر بگذارد. در production می‌توان Valkey صف را جدا کرد.
+
+### پیگیری
+
+- اگر throughput رویداد مشکل شد، ADR جدید برای NATS JetStream یا Redpanda.
+
+</div>
