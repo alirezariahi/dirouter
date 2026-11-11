@@ -7,13 +7,13 @@ The Git repository is rooted at `code/` in the local project layout. This guide 
 
 The workflow runs on every `pull_request`, pushes to `main`, `v*` tag pushes, and manual dispatch (`workflow_dispatch`). A new run cancels an earlier run for the same PR. Main and release runs are not cancelled automatically.
 
-| Job                               | Purpose                                                                                                                                |
-| --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| Plan affected packages            | Use full Git history to select packages and construct the image matrix                                                                 |
-| Lint, types, unit tests and build | Lint root configuration, check CI-tooling formatting, test package selection, then lint, type-check, test, and build selected packages |
-| PostgreSQL and Valkey integration | Run real integration tests against isolated, health-checked PostgreSQL 17 and Valkey 8 services                                        |
-| Image (application name)          | Build selected images with Buildx; publish only on push events after successful checks                                                 |
-| CI passed                         | Require all applicable jobs to succeed; select this name as a required check in branch protection                                      |
+| Job                               | Purpose                                                                                                                                                                   |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Plan affected packages            | Use full Git history to select packages and construct the image matrix                                                                                                    |
+| Lint, types, unit tests and build | Lint root configuration, check CI-tooling formatting, test package selection and environment-reference coverage, then lint, type-check, test, and build selected packages |
+| PostgreSQL and Valkey integration | Run real integration tests against disposable, health-checked PostgreSQL 17 and Valkey 8 Testcontainers; apply all migrations                                             |
+| Image (application name)          | Build selected images with Buildx; publish only on push events after successful checks                                                                                    |
+| CI passed                         | Require all applicable jobs to succeed; select this name as a required check in branch protection                                                                         |
 
 Node.js is read from `.nvmrc`; pnpm is pinned by `packageManager` in `package.json`. Installation always uses `pnpm install --frozen-lockfile`, so a manifest/lockfile mismatch fails the job.
 
@@ -42,9 +42,27 @@ Required build dependencies are included through `dependsOn: ["^build"]`. A chan
 | Root manifest/lockfile, Turbo/Node/ESLint/Prettier configuration, `.github/`, or `scripts/ci/` | Full checks and all images                                                  |
 | Initial push, unavailable history, manual dispatch, or a release tag                           | Full checks and all images                                                  |
 
-Images: `gateway`, `control-api`, `worker`, `mock-provider`, and `dashboard`.
+Images: `gateway`, `control-api`, `worker`, `mock-provider`, `dashboard`, and `migrate`. Changes to `@dirouter/db` or `migrate.Dockerfile` select the migration image even though it has no separate workspace package.
 
 The existing Dockerfiles under `deploy/docker/` are prerequisites for the image stage and must be present in the runner's checkout. The prepared image stage builds `linux/amd64` only; multi-architecture support is separate work.
+
+The environment check scans literal Node/Vite reads, Zod application schemas, Compose interpolation, the dashboard nginx template, and GitHub Actions `env` blocks. It fails for missing or stale structured entries in `../docs/env-reference.md`. Development, test, and CI-only variables belong in separate sections of that reference, not automatically in the production `.env`.
+
+## Test coverage and Testcontainers
+
+`pnpm test` runs Vitest with V8 coverage for every package test task. `vitest.shared.ts` supplies HTML, LCOV, JSON-summary and terminal reports under each package's `coverage/` directory. The shared default threshold is 70% for statements, branches, functions and lines. `packages/translator` requires 90% globally; `packages/routing` and `apps/gateway` require 90% for `router.ts` and `rate-limiter.ts` respectively. Entrypoints, generated clients and pure re-export modules are excluded from coverage. `pnpm test:unit` runs the same suites without collecting coverage. `node scripts/ci/coverage-summary.mjs` prints a package table for the GitHub step summary. Unit and integration coverage are uploaded as separate 14-day artifacts.
+
+The integration runner starts disposable `postgres:17-alpine` and `valkey/valkey:8-alpine` containers on ephemeral host ports, waits for their health checks, applies all Prisma migrations, and runs the infrastructure, worker, control-api and gateway suites. It stops both containers on success or failure. Integration jobs are not cached by Turbo, so a previous successful run cannot replace a live service connection.
+
+```bash
+pnpm install --frozen-lockfile
+npm ci --ignore-scripts --no-audit --no-fund --prefix scripts/integration
+pnpm test:integration
+```
+
+The isolated npm lockfile under `scripts/integration/` pins the Testcontainers runtime without changing the application's pnpm dependency graph. Docker must be running. Individual integration suites still accept `INTEGRATION_DATABASE_URL` and `INTEGRATION_VALKEY_URL` for debugging against an existing disposable environment, but no pre-running local services are needed for the standard command above.
+
+`pnpm exec turbo run lint typecheck test build --filter="$TURBO_FILTER"` enforces coverage in affected package jobs. Application suites that rely on real services collect reports in both unit and integration stages; their enforced 70% gate is evaluated in the integration stage rather than against skipped tests. New feature pages and modules must retain the package-level threshold.
 
 ## Integration tests and local reproduction
 
@@ -52,13 +70,15 @@ The existing Dockerfiles under `deploy/docker/` are prerequisites for the image 
 
 The PostgreSQL test creates a temporary table inside a transaction, round-trips a cost calculated by the `money` module, a key hash, and an encrypted credential, then rolls back. The Valkey test checks `SET NX PX` locks, TTLs, and concurrent atomic `INCR` counters, then removes its keys.
 
-These tests cover the current infrastructure and shared package. Migrations and future domain-specific tests are added under their respective cards.
+These infrastructure tests check the shared package, real locks and counters, and transaction semantics. Domain integration suites then exercise migrations, the usage pipeline, dashboard APIs and distributed gateway behavior.
 
 ```bash
 pnpm install --frozen-lockfile
 pnpm exec eslint .
 pnpm exec prettier --check .github scripts/ci CI.md
 node --test scripts/ci/plan.test.mjs
+node --test scripts/ci/env-docs.test.mjs
+node scripts/ci/check-env-docs.mjs
 pnpm exec turbo run lint typecheck test build
 
 docker run -d --name dirouter-ci-postgres \
@@ -78,7 +98,7 @@ POSTGRES_CONTAINER=dirouter-ci-postgres VALKEY_CONTAINER=dirouter-ci-valkey \
 docker rm -f dirouter-ci-postgres dirouter-ci-valkey
 ```
 
-CI creates and removes the services automatically. The example password is for a disposable test database only. Integration tests run outside the Turbo cache so a cached result cannot replace a real service connection.
+CI creates and removes the Testcontainers automatically. The example password is for a disposable test database only. Integration tests run outside the Turbo cache so a cached result cannot replace a real service connection.
 
 ## Registry, tags, and permissions
 

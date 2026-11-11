@@ -60,10 +60,25 @@ jobs:
           pnpm exec eslint .
           pnpm exec prettier --check .github scripts/ci CI.md
           node --test scripts/ci/plan.test.mjs
+          node --test scripts/ci/env-docs.test.mjs
+          node scripts/ci/check-env-docs.mjs
       - name: Check affected packages and their dependents
         env:
           TURBO_FILTER: ${{ needs.plan.outputs.filter }}
         run: pnpm exec turbo run lint typecheck test build --filter="$TURBO_FILTER"
+      - name: Publish Vitest coverage reports
+        if: success()
+        uses: actions/upload-artifact@bbb2c9d7abaf7d40940928533c730489d73f9e8c # v7.0.0
+        with:
+          name: vitest-coverage
+          path: |
+            apps/*/coverage/
+            packages/*/coverage/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Summarize coverage
+        if: success()
+        run: node scripts/ci/coverage-summary.mjs >> "$GITHUB_STEP_SUMMARY"
 
   integration:
     name: PostgreSQL and Valkey integration
@@ -71,57 +86,26 @@ jobs:
     if: needs.plan.outputs.has-packages == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
-    services:
-      postgres:
-        image: postgres:17-alpine
-        env:
-          POSTGRES_USER: dirouter
-          POSTGRES_PASSWORD: ci-only-password
-          POSTGRES_DB: dirouter_ci
-        ports: ['5432:5432']
-        options: >-
-          --health-cmd "pg_isready -U dirouter -d dirouter_ci"
-          --health-interval 5s
-          --health-timeout 3s
-          --health-retries 12
-      valkey:
-        image: valkey/valkey:8-alpine
-        ports: ['6379:6379']
-        options: >-
-          --health-cmd "valkey-cli ping"
-          --health-interval 5s
-          --health-timeout 3s
-          --health-retries 12
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup
-      - name: Build integration test dependencies
-        run: pnpm exec turbo run build --filter=@dirouter/shared --filter=@dirouter/worker^... --filter=@dirouter/control-api^... --filter=@dirouter/gateway^...
-      - name: Run integration tests against real services
-        env:
-          POSTGRES_CONTAINER: ${{ job.services.postgres.id }}
-          VALKEY_CONTAINER: ${{ job.services.valkey.id }}
-        run: node --test scripts/ci/services.integration.mjs
-      - name: Apply database migrations
-        env:
-          DATABASE_URL: postgresql://dirouter:ci-only-password@localhost:5432/dirouter_ci
-        run: pnpm --filter @dirouter/db exec prisma migrate deploy
-      - name: Usage pipeline against PostgreSQL and Valkey
-        env:
-          INTEGRATION_DATABASE_URL: postgresql://dirouter:ci-only-password@localhost:5432/dirouter_ci
-          INTEGRATION_VALKEY_URL: redis://localhost:6379
-        run: pnpm --filter @dirouter/worker run test:integration
-      - name: Dashboard auth against PostgreSQL and Valkey
-        env:
-          INTEGRATION_DATABASE_URL: postgresql://dirouter:ci-only-password@localhost:5432/dirouter_ci
-          INTEGRATION_VALKEY_URL: redis://localhost:6379
-        run: pnpm --filter @dirouter/control-api run test:integration
-      - name: Gateway health sync against Valkey
-        env:
-          INTEGRATION_VALKEY_URL: redis://localhost:6379
-        run: pnpm --filter @dirouter/gateway run test:integration
+      - name: Install isolated Testcontainers runner
+        run: npm ci --ignore-scripts --no-audit --no-fund --prefix scripts/integration
+      - name: Start disposable PostgreSQL and Valkey containers
+        run: pnpm test:integration
+      - name: Publish integration coverage reports
+        if: always()
+        uses: actions/upload-artifact@bbb2c9d7abaf7d40940928533c730489d73f9e8c # v7.0.0
+        with:
+          name: integration-coverage
+          path: |
+            apps/control-api/coverage/
+            apps/gateway/coverage/
+            apps/worker/coverage/
+          if-no-files-found: error
+          retention-days: 14
 
   images:
     name: Image (${{ matrix.app }})
@@ -176,7 +160,7 @@ jobs:
           file: ${{ matrix.dockerfile }}
           build-args: |
             APP=${{ matrix.app }}
-            PORT=${{ matrix.port }}
+            ${{ matrix.port != '' && format('PORT={0}', matrix.port) || '' }}
           platforms: linux/amd64
           push: ${{ github.event_name == 'push' }}
           tags: ${{ steps.meta.outputs.tags }}

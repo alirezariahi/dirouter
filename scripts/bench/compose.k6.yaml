@@ -1,0 +1,62 @@
+name: dirouter-k6-baseline
+
+networks:
+  default:
+    external: true
+    name: dirouter-k6-baseline
+
+services:
+  # Isolated benchmark-only Traefik entry point. No labels or dev stack changes.
+  edge:
+    image: traefik:v3.6
+    command:
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --providers.docker.constraints=Label(`traefik.constraint`, `k6-baseline`)
+      - --entrypoints.web.address=:80
+      - --providers.file.filename=/etc/traefik/k6-transport.yml
+    ports:
+      - '127.0.0.1:18080:80'
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./k6-transport.yml:/etc/traefik/k6-transport.yml:ro
+    depends_on:
+      gateway-1: { condition: service_healthy }
+      gateway-2: { condition: service_healthy }
+
+  mock-provider:
+    image: dirouter-bench/mock-provider:current
+    ports:
+      - '127.0.0.1:18090:8090'
+
+  gateway-1: &gateway
+    image: dirouter-bench/gateway:keepalive
+    build:
+      context: .
+      dockerfile: gateway.Dockerfile
+    environment: &gateway-env
+      PORT: '8080'
+      DATA_DIR: /data
+      LOG_LEVEL: warn
+      MASTER_KEY: ${MASTER_KEY:?required}
+      KEY_PEPPER: ${KEY_PEPPER:?required}
+      SHUTDOWN_READY_DELAY_MS: '0'
+      SHUTDOWN_DRAIN_MS: '0'
+    volumes:
+      - ${BENCH_DATA_DIR:?required}/gateway-1:/data
+    labels:
+      traefik.enable: 'true'
+      traefik.constraint: k6-baseline
+      traefik.http.routers.k6-gateway.rule: Host(`gateway.localhost`)
+      traefik.http.routers.k6-gateway.entrypoints: web
+      traefik.http.services.k6-gateway.loadbalancer.server.port: '8080'
+      traefik.http.services.k6-gateway.loadbalancer.healthcheck.path: /readyz
+      traefik.http.services.k6-gateway.loadbalancer.healthcheck.interval: 2s
+      traefik.http.services.k6-gateway.loadbalancer.serversTransport: k6-stream@file
+    depends_on:
+      mock-provider: { condition: service_healthy }
+
+  gateway-2:
+    <<: *gateway
+    volumes:
+      - ${BENCH_DATA_DIR:?required}/gateway-2:/data

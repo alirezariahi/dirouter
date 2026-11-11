@@ -1,0 +1,7 @@
+http:
+  serversTransports:
+    k6-stream:
+      forwardingTimeouts:
+        dialTimeout: 5s
+        responseHeaderTimeout: 0s
+        idleConnTimeout: 90s

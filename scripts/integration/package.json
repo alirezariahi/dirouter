@@ -1,0 +1,9 @@
+{
+  "name": "dirouter-integration-runner",
+  "private": true,
+  "type": "module",
+  "description": "Isolated Testcontainers dependencies for local and CI integration tests",
+  "devDependencies": {
+    "testcontainers": "^12.2.1"
+  }
+}

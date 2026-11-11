@@ -46,7 +46,7 @@ test('PostgreSQL preserves shared money, key hashes and encrypted credentials in
     '-U',
     'dirouter',
     '-d',
-    'dirouter_ci',
+    process.env.INTEGRATION_DATABASE_NAME ?? 'dirouter_ci',
     '-c',
     sql,
   );

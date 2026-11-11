@@ -8,9 +8,10 @@ const applications = [
   { app: 'worker', port: 3100 },
   { app: 'mock-provider', port: 8090 },
   { app: 'dashboard', port: 8080 },
+  { app: 'migrate', port: '' },
 ].map((app) => ({
   ...app,
-  dockerfile: `deploy/docker/${app.app === 'dashboard' ? 'dashboard' : 'node'}.Dockerfile`,
+  dockerfile: `deploy/docker/${app.app === 'dashboard' ? 'dashboard' : app.app === 'migrate' ? 'migrate' : 'node'}.Dockerfile`,
 }));
 
 const globalFiles = new Set([
@@ -70,6 +71,9 @@ export function plan({ eventName, event = {}, ref = '', head }, run = execute) {
   packages.delete('//');
   const include = applications.filter(({ app }) => {
     if (full || packages.has(`@dirouter/${app}`) || changed.includes('.dockerignore')) return true;
+    if (app === 'migrate') {
+      return packages.has('@dirouter/db') || changed.includes('deploy/docker/migrate.Dockerfile');
+    }
     if (app === 'dashboard') {
       return changed.some(
         (file) =>

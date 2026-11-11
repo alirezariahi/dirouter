@@ -1,7 +1,7 @@
 {
   "name": "dirouter",
-  "private": true,
   "description": "DiRouter — گیت‌وی هوشمند و تاب‌آور LLM",
+  "private": true,
   "packageManager": "pnpm@10.13.1",
   "engines": {
     "node": ">=22.12 <23",
@@ -12,6 +12,10 @@
     "build": "turbo run build",
     "dev": "turbo run dev",
     "test": "turbo run test",
+    "test:unit": "turbo run test -- --coverage.enabled=false",
+    "test:integration": "node scripts/integration/run.mjs",
+    "test:e2e": "node scripts/e2e/sprint-1.mjs",
+    "coverage": "turbo run test",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "format": "prettier --write .",

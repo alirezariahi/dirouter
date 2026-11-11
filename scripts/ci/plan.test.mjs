@@ -77,7 +77,7 @@ test('Docker and nginx changes rebuild their respective images', () => {
     plan(push, fixture({ files: ['deploy/docker/node.Dockerfile'] }).run).matrix.include.length,
     4,
   );
-  assert.equal(plan(push, fixture({ files: ['.dockerignore'] }).run).matrix.include.length, 5);
+  assert.equal(plan(push, fixture({ files: ['.dockerignore'] }).run).matrix.include.length, 6);
 });
 
 test('shared root configuration and CI changes check and build everything', () => {
@@ -90,8 +90,23 @@ test('shared root configuration and CI changes check and build everything', () =
   ]) {
     const result = plan(push, fixture({ files: [file] }).run);
     assert.equal(result.filter, '*');
-    assert.equal(result.matrix.include.length, 5);
+    assert.equal(result.matrix.include.length, 6);
   }
+});
+
+test('migration image follows database changes and its Dockerfile', () => {
+  assert.deepEqual(
+    plan(push, fixture({ files: ['deploy/docker/migrate.Dockerfile'] }).run).matrix.include.map(
+      ({ app }) => app,
+    ),
+    ['migrate'],
+  );
+  assert.ok(
+    plan(
+      push,
+      fixture({ files: ['packages/db/prisma/schema.prisma'], packages: ['@dirouter/db'] }).run,
+    ).matrix.include.some(({ app }) => app === 'migrate'),
+  );
 });
 
 test('manual runs, initial pushes, releases and unavailable history check everything', () => {

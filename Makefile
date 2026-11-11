@@ -50,7 +50,7 @@ test: ## تست‌های واحد و یکپارچه
 	pnpm test
 
 e2e: ## تست end-to-end (کارت ۹.۳)
-	pnpm --filter @dirouter/gateway test
+	node scripts/e2e/sprint-1.mjs
 
 lint: ## lint، typecheck و بررسی قالب‌بندی
 	pnpm lint && pnpm typecheck && pnpm format:check
