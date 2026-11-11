@@ -66,8 +66,17 @@ jobs:
         env:
           TURBO_FILTER: ${{ needs.plan.outputs.filter }}
         run: pnpm exec turbo run lint typecheck test build --filter="$TURBO_FILTER"
+      - name: Detect Vitest coverage reports
+        id: coverage
+        run: |
+          if [ -n "$(find apps packages -path '*/coverage/*' -type f -print -quit 2>/dev/null)" ]; then
+            echo 'found=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'found=false' >> "$GITHUB_OUTPUT"
+            echo 'No Vitest coverage reports were generated for this change.' >> "$GITHUB_STEP_SUMMARY"
+          fi
       - name: Publish Vitest coverage reports
-        if: success()
+        if: success() && steps.coverage.outputs.found == 'true'
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: vitest-coverage
@@ -77,7 +86,7 @@ jobs:
           if-no-files-found: error
           retention-days: 14
       - name: Summarize coverage
-        if: success()
+        if: success() && steps.coverage.outputs.found == 'true'
         run: node scripts/ci/coverage-summary.mjs >> "$GITHUB_STEP_SUMMARY"
 
   integration:
