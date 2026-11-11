@@ -1,4 +1,6 @@
 import type { Messages } from './fa';
+import { keyMessages } from './key-messages';
+import { modelMessages } from './model-messages';
 
 type Widen<T> = { [K in keyof T]: T[K] extends string ? string : Widen<T[K]> };
 
@@ -67,21 +69,46 @@ export const en: Widen<Messages> = {
     ms: 'ms',
   },
   logs: {
-    title: 'Request log',
-    empty: 'No requests match these filters.',
-    clear: 'Remove filter',
-    more: 'Load more',
-    filter: { model: 'Model', apiKeyId: 'Key', projectId: 'Project', status: 'Status' },
-    status: { success: 'Success', error: 'Error' },
+    title: 'لاگ درخواست‌ها',
+    empty: 'درخواستی با این فیلترها نیست.',
+    clear: 'حذف فیلتر',
+    more: 'بیشتر',
+    filter: {
+      model: 'مدل',
+      apiKeyId: 'کلید',
+      projectId: 'پروژه',
+      providerId: 'Provider',
+      status: 'وضعیت',
+      minLatencyMs: 'حداقل تأخیر',
+      maxLatencyMs: 'حداکثر تأخیر',
+      minCostUsd: 'حداقل هزینه',
+      maxCostUsd: 'حداکثر هزینه',
+    },
+    status: { success: 'موفق', error: 'خطا' },
     col: {
-      time: 'Time',
-      model: 'Model',
-      status: 'Status',
-      tokens: 'Tokens',
-      cost: 'Cost',
-      latency: 'Latency',
+      time: 'زمان',
+      model: 'مدل',
+      status: 'وضعیت',
+      tokens: 'توکن',
+      cost: 'هزینه',
+      latency: 'تأخیر',
+    },
+    all: 'همه',
+    detail: 'جزئیات درخواست',
+    copyLink: 'کپی لینک',
+    close: 'بستن',
+    cache: 'کش خواندن / نوشتن',
+    config: 'Config / gateway',
+    timeline: 'خط زمان تلاش‌ها',
+    attempt: {
+      success: 'موفق',
+      error: 'ناموفق',
+      timeout: 'Timeout',
+      rate_limited: 'Rate limit',
+      skipped: 'رد شده',
     },
   },
+
   health: {
     title: 'Health',
     refreshing: 'Refreshes every 5 seconds — last update {{time}}',
@@ -168,4 +195,6 @@ export const en: Widen<Messages> = {
     internal_error: 'The server hit an internal error.',
     network: 'Could not reach the server. Check the network or the API address.',
   },
+  keys: keyMessages,
+  models: modelMessages,
 };

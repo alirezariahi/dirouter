@@ -83,7 +83,44 @@ const logs = createRoute({
   validateSearch: validateLogSearch,
   component: lazyRouteComponent(() => import('./pages/logs')),
 });
-const sections = NAV.filter((n) => !['/', '/health', '/logs'].includes(n.to)).map((n) =>
+const providers = createRoute({
+  getParentRoute: () => app,
+  path: '/providers',
+  component: lazyRouteComponent(() => import('./pages/providers')),
+});
+const keys = createRoute({
+  getParentRoute: () => app,
+  path: '/keys',
+  component: lazyRouteComponent(() => import('./pages/keys')),
+});
+const models = createRoute({
+  getParentRoute: () => app,
+  path: '/models',
+  component: lazyRouteComponent(() => import('./pages/models')),
+});
+const organization = createRoute({
+  getParentRoute: () => app,
+  path: '/organization',
+  component: lazyRouteComponent(() => import('./pages/organization')),
+});
+const guides = createRoute({
+  getParentRoute: () => app,
+  path: '/guides',
+  component: lazyRouteComponent(() => import('./pages/guides')),
+});
+const sections = NAV.filter(
+  (n) =>
+    ![
+      '/',
+      '/health',
+      '/logs',
+      '/providers',
+      '/keys',
+      '/models',
+      '/organization',
+      '/guides',
+    ].includes(n.to),
+).map((n) =>
   createRoute({
     getParentRoute: () => app,
     path: n.to,
@@ -94,7 +131,18 @@ const sections = NAV.filter((n) => !['/', '/health', '/logs'].includes(n.to)).ma
 export const routeTree = root.addChildren([
   login,
   setup,
-  app.addChildren([overview, account, health, logs, ...sections]),
+  app.addChildren([
+    overview,
+    account,
+    health,
+    logs,
+    providers,
+    keys,
+    models,
+    organization,
+    guides,
+    ...sections,
+  ]),
 ]);
 
 export function makeRouter(history?: Parameters<typeof createRouter>[0]['history']) {

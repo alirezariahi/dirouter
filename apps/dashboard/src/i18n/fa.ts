@@ -1,3 +1,5 @@
+import { keyMessages } from './key-messages';
+import { modelMessages } from './model-messages';
 export const fa = {
   app: { name: 'دی‌روتر', tagline: 'درگاه هوشمند مدل‌های زبانی' },
   nav: {
@@ -67,7 +69,17 @@ export const fa = {
     empty: 'درخواستی با این فیلترها نیست.',
     clear: 'حذف فیلتر',
     more: 'بیشتر',
-    filter: { model: 'مدل', apiKeyId: 'کلید', projectId: 'پروژه', status: 'وضعیت' },
+    filter: {
+      model: 'مدل',
+      apiKeyId: 'کلید',
+      projectId: 'پروژه',
+      providerId: 'Provider',
+      status: 'وضعیت',
+      minLatencyMs: 'حداقل تأخیر',
+      maxLatencyMs: 'حداکثر تأخیر',
+      minCostUsd: 'حداقل هزینه',
+      maxCostUsd: 'حداکثر هزینه',
+    },
     status: { success: 'موفق', error: 'خطا' },
     col: {
       time: 'زمان',
@@ -77,7 +89,22 @@ export const fa = {
       cost: 'هزینه',
       latency: 'تأخیر',
     },
+    all: 'همه',
+    detail: 'جزئیات درخواست',
+    copyLink: 'کپی لینک',
+    close: 'بستن',
+    cache: 'کش خواندن / نوشتن',
+    config: 'Config / gateway',
+    timeline: 'خط زمان تلاش‌ها',
+    attempt: {
+      success: 'موفق',
+      error: 'ناموفق',
+      timeout: 'Timeout',
+      rate_limited: 'Rate limit',
+      skipped: 'رد شده',
+    },
   },
+
   health: {
     title: 'سلامت',
     refreshing: 'هر ۵ ثانیه تازه می‌شود — آخرین به‌روزرسانی {{time}}',
@@ -164,6 +191,8 @@ export const fa = {
     internal_error: 'خطای داخلی سرور رخ داد.',
     network: 'ارتباط با سرور برقرار نشد. اتصال شبکه یا آدرس API را بررسی کنید.',
   },
+  keys: keyMessages,
+  models: modelMessages,
 } as const;
 
 export type Messages = typeof fa;

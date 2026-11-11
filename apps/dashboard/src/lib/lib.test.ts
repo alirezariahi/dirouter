@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { api, ApiError, isSignedIn, setAccessToken } from './api';
 import { formatDate } from './date';
+import { errorMessage, fieldError } from './errors';
 
 describe('dates', () => {
   const d = new Date('2026-11-07T12:00:00Z');
@@ -17,6 +18,33 @@ const json = (status: number, body: unknown) =>
     status,
     headers: { 'content-type': 'application/problem+json' },
   });
+
+describe('localized errors', () => {
+  const t = ((key: string, options?: { defaultValue?: string }) =>
+    ({
+      'errors.forbidden': 'Forbidden',
+      'errors.network': 'Network error',
+      'fields.email': 'Email',
+    })[key] ??
+    options?.defaultValue ??
+    '') as never;
+  it('uses stable codes, validation paths, network errors and fallbacks', () => {
+    const error = new ApiError({
+      status: 422,
+      code: 'validation_failed',
+      errors: [{ path: 'email', message: 'Invalid' }],
+    });
+    expect(errorMessage(error, t)).toBe('Email: Invalid');
+    expect(fieldError(error, 'email')).toBe('Invalid');
+    expect(fieldError(error, 'other')).toBeUndefined();
+    expect(fieldError(new Error('no'), 'email')).toBeUndefined();
+    expect(errorMessage(new ApiError({ status: 403, code: 'forbidden' }), t)).toBe('Forbidden');
+    expect(errorMessage(new ApiError({ status: 500, title: 'Failure' }), t)).toBe('Failure');
+    expect(errorMessage(new TypeError('fetch failed'), t)).toBe('Network error');
+    expect(errorMessage(new Error('plain'), t)).toBe('plain');
+    expect(errorMessage('unknown', t)).toBe('unknown');
+  });
+});
 
 describe('api client', () => {
   it('refreshes once on 401 and retries with the new token', async () => {
