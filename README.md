@@ -1,5 +1,25 @@
 [English](README.md) · [فارسی](README.fa.md)
 
+<p align="center">
+  <img src="assets/dirouter-hero.svg" alt="DiRouter animated architecture banner" width="100%" />
+</p>
+
+<p align="center">
+  <strong>DiRouter</strong> · LLM gateway for resilient routing, fallback, limits, budgets, and usage accounting
+</p>
+
+<p align="center">
+  <a href="https://dirouter.ir/">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://dirouter.ir/brand/logo-dark.svg" />
+      <source media="(prefers-color-scheme: light)" srcset="https://dirouter.ir/brand/logo.svg" />
+      <img src="https://dirouter.ir/brand/logo.svg" alt="DiRouter sponsor logo" width="320" />
+    </picture>
+  </a>
+  <br/>
+  <strong>Sponsor:</strong> <a href="https://dirouter.ir/">https://dirouter.ir/</a>
+</p>
+
 # DiRouter
 
 DiRouter is a resilient gateway for Large Language Models. It exposes OpenAI- and Anthropic-compatible endpoints and adds the operational features production traffic needs: provider and credential fallback, circuit breakers, distributed rate limits, budgets, and usage accounting.

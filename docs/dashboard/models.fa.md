@@ -1,4 +1,4 @@
-[English](models.fa.md) · [فارسی](models.fa.md)
+[English](models.md) · [فارسی](models.fa.md)
 
 <div dir="rtl">
 

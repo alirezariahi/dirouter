@@ -1,4 +1,4 @@
-[English](auth.fa.md) · [فارسی](auth.fa.md)
+[English](auth.md) · [فارسی](auth.fa.md)
 
 <div dir="rtl">
 

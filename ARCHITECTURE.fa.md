@@ -1,4 +1,4 @@
-[English](ARCHITECTURE.fa.md) · [فارسی](ARCHITECTURE.fa.md)
+[English](ARCHITECTURE.md) · [فارسی](ARCHITECTURE.fa.md)
 
 <div dir="rtl">
 

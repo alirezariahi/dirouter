@@ -1,5 +1,9 @@
 [English](CONTRIBUTING.md) · [فارسی](CONTRIBUTING.fa.md)
 
+<p align="center">
+  <img src="assets/contributing-flow.svg" alt="Contribution flow" width="100%" />
+</p>
+
 # Contributing to DiRouter
 
 This guide explains how to set up a development environment, write code that matches the repository, commit changes, open a pull request, and pass review. It is the single source of truth for contributor rules. Architecture decisions live in the [ADRs](adr/README.md), domain terms in the [glossary](GLOSSARY.md), and the CI pipeline in [CI.md](CI.md).

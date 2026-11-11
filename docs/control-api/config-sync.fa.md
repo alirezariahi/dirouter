@@ -1,4 +1,4 @@
-[English](config-sync.fa.md) · [فارسی](config-sync.fa.md)
+[English](config-sync.md) · [فارسی](config-sync.fa.md)
 
 <div dir="rtl">
 

@@ -1,4 +1,4 @@
-[English](dev.fa.md) · [فارسی](dev.fa.md)
+[English](dev.md) · [فارسی](dev.fa.md)
 
 <div dir="rtl">
 

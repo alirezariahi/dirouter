@@ -1,4 +1,4 @@
-[English](CONTRIBUTING.fa.md) · [فارسی](CONTRIBUTING.fa.md)
+[English](CONTRIBUTING.md) · [فارسی](CONTRIBUTING.fa.md)
 
 <div dir="rtl">
 

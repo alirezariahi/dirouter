@@ -1,4 +1,4 @@
-[English](fireworks.fa.md) · [فارسی](fireworks.fa.md)
+[English](fireworks.md) · [فارسی](fireworks.fa.md)
 
 <div dir="rtl">
 

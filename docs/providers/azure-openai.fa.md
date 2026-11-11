@@ -1,4 +1,4 @@
-[English](azure-openai.fa.md) · [فارسی](azure-openai.fa.md)
+[English](azure-openai.md) · [فارسی](azure-openai.fa.md)
 
 <div dir="rtl">
 

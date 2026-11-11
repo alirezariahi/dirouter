@@ -1,4 +1,4 @@
-[English](usage-pipeline.fa.md) · [فارسی](usage-pipeline.fa.md)
+[English](usage-pipeline.md) · [فارسی](usage-pipeline.fa.md)
 
 <div dir="rtl">
 

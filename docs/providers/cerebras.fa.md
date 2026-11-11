@@ -1,4 +1,4 @@
-[English](cerebras.fa.md) · [فارسی](cerebras.fa.md)
+[English](cerebras.md) · [فارسی](cerebras.fa.md)
 
 <div dir="rtl">
 

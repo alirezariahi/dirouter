@@ -1,4 +1,4 @@
-[English](0003-valkey.fa.md) · [فارسی](0003-valkey.fa.md)
+[English](0003-valkey.md) · [فارسی](0003-valkey.fa.md)
 
 <div dir="rtl">
 

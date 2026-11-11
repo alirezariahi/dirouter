@@ -1,4 +1,4 @@
-[English](together.fa.md) · [فارسی](together.fa.md)
+[English](together.md) · [فارسی](together.fa.md)
 
 <div dir="rtl">
 

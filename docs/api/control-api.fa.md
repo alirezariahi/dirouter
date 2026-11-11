@@ -1,4 +1,4 @@
-[English](control-api.fa.md) · [فارسی](control-api.fa.md)
+[English](control-api.md) · [فارسی](control-api.fa.md)
 
 <div dir="rtl">
 

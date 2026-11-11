@@ -1,4 +1,4 @@
-[English](deepseek.fa.md) · [فارسی](deepseek.fa.md)
+[English](deepseek.md) · [فارسی](deepseek.fa.md)
 
 <div dir="rtl">
 

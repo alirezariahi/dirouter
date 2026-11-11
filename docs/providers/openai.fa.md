@@ -1,4 +1,4 @@
-[English](openai.fa.md) · [فارسی](openai.fa.md)
+[English](openai.md) · [فارسی](openai.fa.md)
 
 <div dir="rtl">
 

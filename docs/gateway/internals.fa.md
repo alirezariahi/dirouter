@@ -1,4 +1,4 @@
-[English](internals.fa.md) · [فارسی](internals.fa.md)
+[English](internals.md) · [فارسی](internals.fa.md)
 
 <div dir="rtl">
 

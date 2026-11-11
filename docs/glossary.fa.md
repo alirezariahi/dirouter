@@ -1,4 +1,4 @@
-[English](glossary.fa.md) · [فارسی](glossary.fa.md)
+[English](glossary.md) · [فارسی](glossary.fa.md)
 
 <div dir="rtl">
 

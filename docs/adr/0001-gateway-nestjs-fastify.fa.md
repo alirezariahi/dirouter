@@ -1,4 +1,4 @@
-[English](0001-gateway-nestjs-fastify.fa.md) · [فارسی](0001-gateway-nestjs-fastify.fa.md)
+[English](0001-gateway-nestjs-fastify.md) · [فارسی](0001-gateway-nestjs-fastify.fa.md)
 
 <div dir="rtl">
 

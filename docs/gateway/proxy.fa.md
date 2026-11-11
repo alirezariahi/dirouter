@@ -1,4 +1,4 @@
-[English](proxy.fa.md) · [فارسی](proxy.fa.md)
+[English](proxy.md) · [فارسی](proxy.fa.md)
 
 <div dir="rtl">
 

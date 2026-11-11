@@ -1,4 +1,4 @@
-[English](env-reference.fa.md) · [فارسی](env-reference.fa.md)
+[English](env-reference.md) · [فارسی](env-reference.fa.md)
 
 <div dir="rtl">
 

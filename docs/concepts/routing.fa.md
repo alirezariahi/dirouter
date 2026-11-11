@@ -1,4 +1,4 @@
-[English](routing.fa.md) · [فارسی](routing.fa.md)
+[English](routing.md) · [فارسی](routing.fa.md)
 
 <div dir="rtl">
 

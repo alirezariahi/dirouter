@@ -1,4 +1,4 @@
-[English](ollama.fa.md) · [فارسی](ollama.fa.md)
+[English](ollama.md) · [فارسی](ollama.fa.md)
 
 <div dir="rtl">
 

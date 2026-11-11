@@ -1,4 +1,4 @@
-[English](feature-comparison.fa.md) · [فارسی](feature-comparison.fa.md)
+[English](feature-comparison.md) · [فارسی](feature-comparison.fa.md)
 
 <div dir="rtl">
 

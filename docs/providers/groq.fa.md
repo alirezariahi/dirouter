@@ -1,4 +1,4 @@
-[English](groq.fa.md) · [فارسی](groq.fa.md)
+[English](groq.md) · [فارسی](groq.fa.md)
 
 <div dir="rtl">
 

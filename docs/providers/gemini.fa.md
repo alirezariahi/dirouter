@@ -1,4 +1,4 @@
-[English](gemini.fa.md) · [فارسی](gemini.fa.md)
+[English](gemini.md) · [فارسی](gemini.fa.md)
 
 <div dir="rtl">
 

@@ -1,4 +1,4 @@
-[English](0004-traefik-reverse-proxy.fa.md) · [فارسی](0004-traefik-reverse-proxy.fa.md)
+[English](0004-traefik-reverse-proxy.md) · [فارسی](0004-traefik-reverse-proxy.fa.md)
 
 <div dir="rtl">
 

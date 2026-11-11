@@ -1,6 +1,10 @@
-[English](CONTRIBUTING.fa.md) · [فارسی](CONTRIBUTING.fa.md)
+[English](CONTRIBUTING.md) · [فارسی](CONTRIBUTING.fa.md)
 
 <div dir="rtl">
+
+<p align="center">
+  <img src="assets/contributing-flow.svg" alt="جریان مشارکت" width="100%" />
+</p>
 
 # راهنمای مشارکت در DiRouter
 

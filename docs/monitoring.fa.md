@@ -1,4 +1,4 @@
-[English](monitoring.fa.md) · [فارسی](monitoring.fa.md)
+[English](monitoring.md) · [فارسی](monitoring.fa.md)
 
 <div dir="rtl">
 

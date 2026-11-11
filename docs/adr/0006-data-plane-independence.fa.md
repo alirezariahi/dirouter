@@ -1,4 +1,4 @@
-[English](0006-data-plane-independence.fa.md) · [فارسی](0006-data-plane-independence.fa.md)
+[English](0006-data-plane-independence.md) · [فارسی](0006-data-plane-independence.fa.md)
 
 <div dir="rtl">
 

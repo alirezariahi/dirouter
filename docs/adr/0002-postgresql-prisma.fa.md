@@ -1,4 +1,4 @@
-[English](0002-postgresql-prisma.fa.md) · [فارسی](0002-postgresql-prisma.fa.md)
+[English](0002-postgresql-prisma.md) · [فارسی](0002-postgresql-prisma.fa.md)
 
 <div dir="rtl">
 

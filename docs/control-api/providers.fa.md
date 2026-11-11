@@ -1,4 +1,4 @@
-[English](providers.fa.md) · [فارسی](providers.fa.md)
+[English](providers.md) · [فارسی](providers.fa.md)
 
 <div dir="rtl">
 

@@ -1,4 +1,4 @@
-[English](ci-verification.fa.md) · [فارسی](ci-verification.fa.md)
+[English](ci-verification.md) · [فارسی](ci-verification.fa.md)
 
 <div dir="rtl">
 

@@ -1,4 +1,4 @@
-[English](xai.fa.md) · [فارسی](xai.fa.md)
+[English](xai.md) · [فارسی](xai.fa.md)
 
 <div dir="rtl">
 

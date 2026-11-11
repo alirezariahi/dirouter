@@ -1,4 +1,4 @@
-[English](openrouter.fa.md) · [فارسی](openrouter.fa.md)
+[English](openrouter.md) · [فارسی](openrouter.fa.md)
 
 <div dir="rtl">
 

@@ -1,4 +1,4 @@
-[English](keys.fa.md) · [فارسی](keys.fa.md)
+[English](keys.md) · [فارسی](keys.fa.md)
 
 <div dir="rtl">
 

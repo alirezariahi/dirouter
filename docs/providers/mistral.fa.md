@@ -1,4 +1,4 @@
-[English](mistral.fa.md) · [فارسی](mistral.fa.md)
+[English](mistral.md) · [فارسی](mistral.fa.md)
 
 <div dir="rtl">
 

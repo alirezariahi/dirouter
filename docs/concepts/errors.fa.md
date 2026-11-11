@@ -1,4 +1,4 @@
-[English](errors.fa.md) · [فارسی](errors.fa.md)
+[English](errors.md) · [فارسی](errors.fa.md)
 
 <div dir="rtl">
 

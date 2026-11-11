@@ -1,4 +1,4 @@
-[English](rbac.fa.md) · [فارسی](rbac.fa.md)
+[English](rbac.md) · [فارسی](rbac.fa.md)
 
 <div dir="rtl">
 

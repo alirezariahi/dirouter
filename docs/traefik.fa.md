@@ -1,4 +1,4 @@
-[English](traefik.fa.md) · [فارسی](traefik.fa.md)
+[English](traefik.md) · [فارسی](traefik.fa.md)
 
 <div dir="rtl">
 

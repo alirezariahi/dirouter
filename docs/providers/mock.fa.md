@@ -1,4 +1,4 @@
-[English](mock.fa.md) · [فارسی](mock.fa.md)
+[English](mock.md) · [فارسی](mock.fa.md)
 
 <div dir="rtl">
 

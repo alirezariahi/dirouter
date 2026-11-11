@@ -1,4 +1,4 @@
-[English](template.fa.md) · [فارسی](template.fa.md)
+[English](template.md) · [فارسی](template.fa.md)
 
 <div dir="rtl">
 

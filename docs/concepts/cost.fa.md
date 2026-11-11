@@ -1,4 +1,4 @@
-[English](cost.fa.md) · [فارسی](cost.fa.md)
+[English](cost.md) · [فارسی](cost.fa.md)
 
 <div dir="rtl">
 

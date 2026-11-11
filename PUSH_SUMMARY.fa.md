@@ -1,4 +1,4 @@
-[English](PUSH_SUMMARY.fa.md) · [فارسی](PUSH_SUMMARY.fa.md)
+[English](PUSH_SUMMARY.md) · [فارسی](PUSH_SUMMARY.fa.md)
 
 <div dir="rtl">
 

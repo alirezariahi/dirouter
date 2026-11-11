@@ -1,4 +1,4 @@
-[English](ci.fa.md) · [فارسی](ci.fa.md)
+[English](ci.md) · [فارسی](ci.fa.md)
 
 <div dir="rtl">
 

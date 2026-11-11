@@ -1,4 +1,4 @@
-[English](sprint-1.fa.md) · [فارسی](sprint-1.fa.md)
+[English](sprint-1.md) · [فارسی](sprint-1.fa.md)
 
 <div dir="rtl">
 

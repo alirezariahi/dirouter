@@ -1,4 +1,4 @@
-[English](0005-bullmq-event-queue.fa.md) · [فارسی](0005-bullmq-event-queue.fa.md)
+[English](0005-bullmq-event-queue.md) · [فارسی](0005-bullmq-event-queue.fa.md)
 
 <div dir="rtl">
 

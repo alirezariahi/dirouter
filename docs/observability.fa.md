@@ -1,4 +1,4 @@
-[English](observability.fa.md) · [فارسی](observability.fa.md)
+[English](observability.md) · [فارسی](observability.fa.md)
 
 <div dir="rtl">
 

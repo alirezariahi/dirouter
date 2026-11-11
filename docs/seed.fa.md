@@ -1,4 +1,4 @@
-[English](seed.fa.md) · [فارسی](seed.fa.md)
+[English](seed.md) · [فارسی](seed.fa.md)
 
 <div dir="rtl">
 

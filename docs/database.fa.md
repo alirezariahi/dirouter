@@ -1,4 +1,4 @@
-[English](database.fa.md) · [فارسی](database.fa.md)
+[English](database.md) · [فارسی](database.fa.md)
 
 <div dir="rtl">
 

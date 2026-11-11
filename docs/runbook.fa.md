@@ -1,4 +1,4 @@
-[English](runbook.fa.md) · [فارسی](runbook.fa.md)
+[English](runbook.md) · [فارسی](runbook.fa.md)
 
 <div dir="rtl">
 

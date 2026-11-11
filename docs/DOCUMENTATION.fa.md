@@ -1,4 +1,4 @@
-[English](DOCUMENTATION.fa.md) · [فارسی](DOCUMENTATION.fa.md)
+[English](DOCUMENTATION.md) · [فارسی](DOCUMENTATION.fa.md)
 
 <div dir="rtl">
 

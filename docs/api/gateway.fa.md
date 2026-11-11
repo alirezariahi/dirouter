@@ -1,4 +1,4 @@
-[English](gateway.fa.md) · [فارسی](gateway.fa.md)
+[English](gateway.md) · [فارسی](gateway.fa.md)
 
 <div dir="rtl">
 

@@ -1,4 +1,4 @@
-[English](deploy-production.fa.md) · [فارسی](deploy-production.fa.md)
+[English](deploy-production.md) · [فارسی](deploy-production.fa.md)
 
 <div dir="rtl">
 

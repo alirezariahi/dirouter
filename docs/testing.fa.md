@@ -1,4 +1,4 @@
-[English](testing.fa.md) · [فارسی](testing.fa.md)
+[English](testing.md) · [فارسی](testing.fa.md)
 
 <div dir="rtl">
 

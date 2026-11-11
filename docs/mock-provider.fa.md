@@ -1,4 +1,4 @@
-[English](mock-provider.fa.md) · [فارسی](mock-provider.fa.md)
+[English](mock-provider.md) · [فارسی](mock-provider.fa.md)
 
 <div dir="rtl">
 

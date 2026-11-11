@@ -1,4 +1,4 @@
-[English](anthropic.fa.md) · [فارسی](anthropic.fa.md)
+[English](anthropic.md) · [فارسی](anthropic.fa.md)
 
 <div dir="rtl">
 

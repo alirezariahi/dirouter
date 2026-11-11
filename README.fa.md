@@ -1,6 +1,26 @@
-[English](README.fa.md) · [فارسی](README.fa.md)
+[English](README.md) · [فارسی](README.fa.md)
 
 <div dir="rtl">
+
+<p align="center">
+  <img src="assets/dirouter-hero.svg" alt="بنر متحرک معماری DiRouter" width="100%" />
+</p>
+
+<p align="center">
+  <strong>DiRouter</strong> · گیت‌وی LLM برای مسیریابی تاب‌آور، فال‌بک، محدودیت‌ها، بودجه و حسابداری مصرف
+</p>
+
+<p align="center">
+  <a href="https://dirouter.ir/">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://dirouter.ir/brand/logo-dark.svg" />
+      <source media="(prefers-color-scheme: light)" srcset="https://dirouter.ir/brand/logo.svg" />
+      <img src="https://dirouter.ir/brand/logo.svg" alt="لوگوی اسپانسر DiRouter" width="320" />
+    </picture>
+  </a>
+  <br/>
+  <strong>اسپانسر پروژه:</strong> <a href="https://dirouter.ir/">https://dirouter.ir/</a>
+</p>
 
 # DiRouter
 

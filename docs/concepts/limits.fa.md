@@ -1,4 +1,4 @@
-[English](limits.fa.md) · [فارسی](limits.fa.md)
+[English](limits.md) · [فارسی](limits.fa.md)
 
 <div dir="rtl">
 

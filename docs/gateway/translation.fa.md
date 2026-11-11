@@ -1,4 +1,4 @@
-[English](translation.fa.md) · [فارسی](translation.fa.md)
+[English](translation.md) · [فارسی](translation.fa.md)
 
 <div dir="rtl">
 
