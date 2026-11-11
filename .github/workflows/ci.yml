@@ -68,7 +68,7 @@ jobs:
         run: pnpm exec turbo run lint typecheck test build --filter="$TURBO_FILTER"
       - name: Publish Vitest coverage reports
         if: success()
-        uses: actions/upload-artifact@bbb2c9d7abaf7d40940928533c730489d73f9e8c # v7.0.0
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: vitest-coverage
           path: |
@@ -97,7 +97,7 @@ jobs:
         run: pnpm test:integration
       - name: Publish integration coverage reports
         if: always()
-        uses: actions/upload-artifact@bbb2c9d7abaf7d40940928533c730489d73f9e8c # v7.0.0
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: integration-coverage
           path: |
