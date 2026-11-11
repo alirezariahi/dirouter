@@ -107,6 +107,7 @@ describe('usage sink', () => {
       .trim()
       .split('\n');
     expect(lines).toHaveLength(100);
+    expect(await sink.backlogSize()).toBe(100);
 
     queue.up = true;
     sink.emit(event(101));
@@ -115,6 +116,7 @@ describe('usage sink', () => {
     expect(queue.order).toEqual(Array.from({ length: 102 }, (_, i) => `req_${String(i)}`));
     expect(await outboxFiles(dir)).toHaveLength(0);
     expect(sink.stats).toMatchObject({ spooled: 100, replayed: 100 });
+    expect(await sink.backlogSize()).toBe(0);
     await sink.close();
   });
 

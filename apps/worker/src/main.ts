@@ -49,8 +49,7 @@ const writer = new UsageBatchWriter({
   logger,
   batchSize: env.USAGE_BATCH_SIZE,
   flushMs: env.USAGE_FLUSH_MS,
-  onWritten: async (hours, count) => {
-    metrics.usageWritten.inc(count);
+  onWritten: async (hours) => {
     await connection.sadd(DIRTY_HOURS_KEY, ...hours);
   },
 });
@@ -58,14 +57,33 @@ const writer = new UsageBatchWriter({
 const usageWorker = new Worker(
   QUEUES.usage,
   async (job: Job) => {
+    const end = metrics.jobDuration.startTimer({ job: 'usage' });
     const parsed = UsageEvent.safeParse(job.data);
     // رویداد نامعتبر با retry درست نمی‌شود: مستقیم به dead-letter.
-    if (!parsed.success)
+    if (!parsed.success) {
+      end();
       throw new UnrecoverableError(`invalid usage event: ${parsed.error.message}`);
+    }
     try {
       await writer.add(parsed.data);
+      metrics.usageWritten.inc();
+      end({ outcome: 'success' });
+      logger.info(
+        {
+          requestId: parsed.data.requestId,
+          jobId: job.id,
+          status: 'written',
+          latencyMs: parsed.data.latencyMs,
+        },
+        'usage event written',
+      );
     } catch (error) {
       metrics.usageFailed.inc();
+      end({ outcome: 'error' });
+      logger.error(
+        { requestId: parsed.data.requestId, jobId: job.id, err: error },
+        'usage event write failed',
+      );
       throw error;
     }
   },
@@ -77,7 +95,16 @@ usageWorker.on('failed', (job, error) => {
   const final = error instanceof UnrecoverableError || job.attemptsMade >= (job.opts.attempts ?? 1);
   if (!final) return;
   metrics.usageDead.inc();
-  logger.error({ err: error, jobId: job.id }, 'usage event moved to dead-letter queue');
+  logger.error(
+    {
+      err: error,
+      jobId: job.id,
+      ...((job.data as { requestId?: unknown }).requestId
+        ? { requestId: (job.data as { requestId: string }).requestId }
+        : {}),
+    },
+    'usage event moved to dead-letter queue',
+  );
   void deadQueue
     .add(
       'dead',

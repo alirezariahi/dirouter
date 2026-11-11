@@ -16,6 +16,7 @@ const KEY = 'dr-test-0123456789abcdef';
 const LIMITED_KEY = 'dr-test-limited';
 const INTERNAL = 'i'.repeat(32);
 const events: UsageEvent[] = [];
+const completed: UsageEvent[] = [];
 
 const mock = buildMock();
 let mockUrl = '';
@@ -119,6 +120,7 @@ beforeAll(async () => {
         enabled: true,
         expiresAt: null,
         allowedModels: ['gpt'],
+        rateLimit: { requestsPerMinute: 2 },
       },
     ],
     settings: { defaultRetry: { maxAttempts: 2, baseDelayMs: 1, maxDelayMs: 5 } },
@@ -131,6 +133,7 @@ beforeAll(async () => {
     pepper,
     dataDir,
     emitUsage: (e) => events.push(e),
+    onRequestComplete: (e) => completed.push(e),
     heartbeatMs: 50,
     internalToken: INTERNAL,
   });
@@ -147,6 +150,7 @@ afterAll(async () => {
 
 beforeEach(() => {
   events.length = 0;
+  completed.length = 0;
 });
 
 const chat = (body: Record<string, unknown>, key = KEY) =>
@@ -179,6 +183,49 @@ const waitForEvent = async () => {
 };
 
 describe('gateway end-to-end against the mock provider', () => {
+  it('serves an OpenAI request, correlates it, and exposes bounded metrics', async () => {
+    const res = await fetch(`${base}/v1/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        authorization: `Bearer ${KEY}`,
+        'x-request-id': 'req_observability_test',
+      },
+      body: JSON.stringify({
+        model: 'gpt',
+        messages: [{ role: 'user', content: 'secret prompt' }],
+      }),
+    });
+    expect(res.status).toBe(200);
+    expect(res.headers.get('x-request-id')).toBe('req_observability_test');
+    const event = await waitForEvent();
+    expect(event?.requestId).toBe('req_observability_test');
+    expect(completed.map((e) => e.requestId)).toEqual(['req_observability_test']);
+    const metrics = await (await fetch(`${base}/metrics`)).text();
+    expect(metrics).toContain(
+      'dirouter_gateway_requests_total{provider="good",model="good-m",status="success"}',
+    );
+    expect(metrics).toContain('dirouter_gateway_request_duration_seconds_count');
+    expect(metrics).toContain('dirouter_gateway_upstream_attempt_duration_seconds_count');
+    expect(metrics).toContain('dirouter_gateway_breaker_state');
+    expect(metrics).not.toContain('req_observability_test');
+    expect(metrics).not.toContain('secret prompt');
+  });
+
+  it('counts early validation failures and emits no sensitive metric labels', async () => {
+    const invalid = await chat({ model: 'gpt', messages: [] });
+    expect(invalid.status).toBe(422);
+    expect(completed.map((e) => e.requestId)).toEqual([
+      String(invalid.headers.get('x-request-id')),
+    ]);
+    expect((await chat({ model: 'gpt' }, LIMITED_KEY)).status).toBe(200);
+    const text = await (await fetch(`${base}/metrics`)).text();
+    expect(text).toContain('provider="none",model="gpt",status="error"');
+    expect(text).toContain('dirouter_gateway_admission_rejected_total');
+    expect(text).not.toContain('organizationId');
+    expect(text).not.toContain('virtualKeyId');
+  });
+
   it('serves an OpenAI request and emits a priced usage event', async () => {
     const res = await chat({ model: 'gpt' });
     expect(res.status).toBe(200);

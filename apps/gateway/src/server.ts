@@ -21,6 +21,7 @@ import Fastify, { type FastifyRequest } from 'fastify';
 
 import { authenticate, extractApiKey } from './auth.js';
 import { ConfigStore } from './config-store.js';
+import { createGatewayMetrics } from './metrics.js';
 import { probeProvider } from './probe.js';
 import { handleCountTokens, handleProxy } from './proxy.js';
 import { BudgetGuard } from './budget-guard.js';
@@ -40,6 +41,10 @@ export interface GatewayOptions {
   heartbeatMs?: number;
   /** اتصال Valkey برای rate limiter (کارت ۶.۱)؛ بدون آن limiter محلی تک‌نودی است. */
   limiterRedis?: Redis;
+  /** کارت ۸.۲: لاگ ساخت‌یافته پایان هر درخواست در کنار رویداد مصرف. */
+  onRequestComplete?: (event: UsageEvent) => void;
+  /** outbox محلی usage برای gauge اندازهٔ backlog. */
+  outbox?: { backlogSize(): Promise<number> };
   /** فقط برای تست: طول پنجرهٔ limiter. */
   limiterWindowMs?: number;
 }
@@ -58,9 +63,38 @@ export function buildGateway(opts: GatewayOptions) {
     ...(opts.controlApiUrl ? { controlApiUrl: opts.controlApiUrl } : {}),
     ...(opts.internalToken ? { internalToken: opts.internalToken } : {}),
   });
+  const metrics = createGatewayMetrics({
+    ...(opts.outbox ? { outbox: { size: opts.outbox.backlogSize.bind(opts.outbox) } } : {}),
+    breakerStates: () => {
+      const report = health.report();
+      const providerModel = new Map<string, string>();
+      for (const model of store.current?.snapshot.models ?? [])
+        providerModel.set(model.id, model.providerId);
+      return [
+        ...report.providers.map((b) => ({
+          scope: 'provider' as const,
+          provider: b.id,
+          model: '',
+          state: b.state,
+        })),
+        ...report.models.map((b) => ({
+          scope: 'model' as const,
+          provider: providerModel.get(b.id) ?? 'unknown',
+          model: b.id,
+          state: b.state,
+        })),
+      ];
+    },
+  });
   // چرخهٔ خاموشی (کارت ۵.۸): draining و سیگنال قطع اجباری درخواست‌های باقی‌مانده.
   const shutdown = new AbortController();
   const lifecycle = { draining: false, signal: shutdown.signal };
+  const deliverUsage =
+    opts.emitUsage ??
+    ((event: UsageEvent) => {
+      // لاگ پیش‌فرض فقط metadata است؛ usage شامل prompt/response و secret نیست.
+      opts.logger.info({ requestId: event.requestId }, 'usage event emitted locally');
+    });
   const deps = {
     store,
     budget: new RetryBudget(),
@@ -79,13 +113,11 @@ export function buildGateway(opts: GatewayOptions) {
     bulkheads: new BulkheadRegistry({ queueSize: 16, queueTimeoutMs: 2_000 }),
     pepper: opts.pepper,
     logger: opts.logger,
+    metrics,
+    onRequestComplete: opts.onRequestComplete,
     // در داکر hostname همان شناسهٔ کانتینر است؛ برای ردیابی replica در لاگ و هدر.
     instance: opts.instance ?? hostname(),
-    emitUsage:
-      opts.emitUsage ??
-      ((event: UsageEvent) => {
-        opts.logger.info({ usage: event }, 'usage');
-      }),
+    emitUsage: deliverUsage,
     ...(opts.heartbeatMs !== undefined ? { heartbeatMs: opts.heartbeatMs } : {}),
   };
 
@@ -155,6 +187,9 @@ export function buildGateway(opts: GatewayOptions) {
   });
 
   app.get('/healthz', () => ({ status: 'ok' }));
+  app.get('/metrics', async (_req, reply) =>
+    reply.type(metrics.contentType).send(await metrics.registry.metrics()),
+  );
   app.get('/readyz', async (_req, reply) => {
     const ok = store.ready && !lifecycle.draining;
     return reply.status(ok ? 200 : 503).send({
@@ -201,6 +236,7 @@ export function buildGateway(opts: GatewayOptions) {
     app,
     store,
     health,
+    metrics,
     limiter: deps.limiter,
     budgets: deps.budgets,
     async start() {

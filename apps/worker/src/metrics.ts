@@ -1,32 +1,11 @@
-/** متریک‌های Prometheus worker (کارت ۶.۵): طول صف‌ها، نوشتن مصرف و کارهای نگهداری. */
-import { Counter, collectDefaultMetrics, Gauge, Histogram, Registry } from 'prom-client';
-
-export interface QueueCounts {
-  name: string;
-  counts(): Promise<Record<string, number>>;
-}
+/** متریک‌های Prometheus worker (کارت ۶.۵): نوشتن مصرف و کارهای نگهداری. */
+import { createQueueMetrics, type QueueCounts } from '@dirouter/shared';
+import { Counter, collectDefaultMetrics, Histogram, Registry } from 'prom-client';
 
 export function createMetrics(queues: QueueCounts[]) {
   const registry = new Registry();
   collectDefaultMetrics({ register: registry, prefix: 'dirouter_worker_' });
-
-  new Gauge({
-    name: 'dirouter_queue_jobs',
-    help: 'Jobs per BullMQ queue and state',
-    labelNames: ['queue', 'state'],
-    registers: [registry],
-    async collect() {
-      for (const q of queues) {
-        try {
-          for (const [state, n] of Object.entries(await q.counts())) {
-            this.set({ queue: q.name, state }, n);
-          }
-        } catch {
-          // Valkey در دسترس نیست؛ مقدار قبلی می‌ماند و dirouter_worker_up نشان می‌دهد.
-        }
-      }
-    },
-  });
+  createQueueMetrics(registry, queues);
 
   return {
     registry,
@@ -46,8 +25,8 @@ export function createMetrics(queues: QueueCounts[]) {
       registers: [registry],
     }),
     jobDuration: new Histogram({
-      name: 'dirouter_maintenance_job_seconds',
-      help: 'Maintenance job duration',
+      name: 'dirouter_worker_job_duration_seconds',
+      help: 'BullMQ usage and maintenance job duration',
       labelNames: ['job', 'outcome'],
       buckets: [0.01, 0.05, 0.1, 0.5, 1, 5, 30, 120],
       registers: [registry],

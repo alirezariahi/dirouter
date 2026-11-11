@@ -7,6 +7,7 @@
  * - jobId همان idempotencyKey است؛ ارسال تکراری در صف یکی می‌شود و worker هم با
  *   ON CONFLICT DO NOTHING رکورد تکراری نمی‌سازد.
  */
+import { randomUUID } from 'node:crypto';
 import { appendFile, mkdir, readdir, readFile, rename, stat, unlink } from 'node:fs/promises';
 import { hostname } from 'node:os';
 import { join } from 'node:path';
@@ -75,7 +76,7 @@ export class UsageSink {
   readonly #batchSize: number;
   readonly #claimGraceMs: number;
   readonly #timer: NodeJS.Timeout;
-  readonly #owner = `${hostname()}-${String(process.pid)}`;
+  readonly #owner = `${hostname()}-${String(process.pid)}-${randomUUID()}`;
   #pending: UsageEvent[] = [];
   #chain: Promise<void> = Promise.resolve();
   #outboxFile: string | undefined;
@@ -133,6 +134,28 @@ export class UsageSink {
     await this.flush();
     await this.#queue.close().catch(() => undefined);
     if (this.#redis) this.#redis.disconnect();
+  }
+
+  /** رویدادهای بافر حافظه + خطوط NDJSON باقی‌مانده در outbox؛ فقط برای scrape. */
+  async backlogSize(): Promise<number> {
+    let files: string[];
+    try {
+      files = await readdir(this.#dir);
+    } catch {
+      return this.#pending.length;
+    }
+    let persisted = 0;
+    for (const name of files) {
+      if (!OUTBOX_RE.test(name) && !CLAIMED_RE.test(name)) continue;
+      try {
+        persisted += (await readFile(join(this.#dir, name), 'utf8'))
+          .split('\n')
+          .filter(Boolean).length;
+      } catch {
+        // فایل ممکن است هم‌زمان claim/replay شود؛ scrape بعد مقدار تازه را می‌گیرد.
+      }
+    }
+    return this.#pending.length + persisted;
   }
 
   async #flushOnce(): Promise<void> {
@@ -212,6 +235,7 @@ export class UsageSink {
       }
     }
     // نویسندهٔ فایل خودمان همین زنجیرهٔ سریالی است؛ فقط برای فایل replica دیگر صبر لازم است.
+    await sleep(0);
     if (foreign && this.#claimGraceMs > 0) await sleep(this.#claimGraceMs);
     return claimed.sort((a, b) => a.order.localeCompare(b.order)).map((c) => c.path);
   }

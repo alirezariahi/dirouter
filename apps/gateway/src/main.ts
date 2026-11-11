@@ -48,6 +48,25 @@ const healthSync = env.VALKEY_URL
 
 const gateway = buildGateway({
   logger,
+  ...(usageSink ? { outbox: usageSink } : {}),
+  onRequestComplete: (event) => {
+    // سفیدلیست: بدون organization/project/key/endUser، خطای متنی، prompt یا secret.
+    logger.info(
+      {
+        requestId: event.requestId,
+        status: event.status,
+        httpStatus: event.httpStatus,
+        provider: event.providerId,
+        model: event.resolvedModelId ?? event.requestedModel,
+        stream: event.stream,
+        latencyMs: event.latencyMs,
+        ttftMs: event.ttftMs,
+        attempts: event.attempts.length,
+        ...(event.errorCode ? { errorCode: event.errorCode } : {}),
+      },
+      'request completed',
+    );
+  },
   ...(healthSync
     ? {
         onHealthChange: (change) => {

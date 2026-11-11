@@ -59,6 +59,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 
 import { authenticate, extractApiKey } from './auth.js';
 import type { ConfigStore, LoadedConfig } from './config-store.js';
+import type { GatewayMetrics } from './metrics.js';
 import type { BudgetGuard, ScopedBudget } from './budget-guard.js';
 import type { LimitScope, RateLimiter } from './rate-limiter.js';
 import { callUpstream, mergeTimeouts, readErrorBody, UpstreamTimeout } from './upstream.js';
@@ -79,6 +80,10 @@ export interface ProxyDeps {
   instance: string;
   /** مقصد رویداد مصرف (صف یا outbox)؛ هرگز await نمی‌شود. */
   emitUsage: (event: UsageEvent) => void;
+  /** متریک‌های مسیر داغ؛ در تست‌های واحد قابل حذف است. */
+  metrics?: GatewayMetrics;
+  /** لاگ پایان هر درخواست، حتی رد پیش از usage event. */
+  onRequestComplete?: (event: UsageEvent) => void;
   heartbeatMs?: number;
 }
 
@@ -203,6 +208,48 @@ export async function handleProxy(
 ): Promise<void> {
   const requestId = req.id;
   const started = Date.now();
+  let model = 'unknown';
+  // درخواست‌های ردشده پیش از usage event هم شمارش می‌شوند. درخواست موفق/ناموفق
+  // upstream در runRoute ثبت می‌شود؛ finally برای خروج‌های غیرمنتظره تضمین است.
+  let observed = false;
+  const observeEarly = (status: number) => {
+    if (observed) return;
+    observed = true;
+    const event: UsageEvent = {
+      schemaVersion: USAGE_EVENT_SCHEMA_VERSION,
+      eventId: ulid(),
+      idempotencyKey: requestId,
+      requestId,
+      occurredAt: new Date(started).toISOString(),
+      gatewayInstance: deps.instance,
+      configVersion: deps.store.current?.version ?? 0,
+      organizationId: '',
+      teamId: null,
+      projectId: '',
+      virtualKeyId: '',
+      inboundApi: api,
+      requestedModel: model,
+      resolvedModelId: null,
+      providerId: null,
+      credentialId: null,
+      stream: false,
+      status: status >= 200 && status < 400 ? 'success' : 'error',
+      httpStatus: status,
+      usage: {
+        inputTokens: 0,
+        outputTokens: 0,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+        reasoningTokens: 0,
+      },
+      costUsd: '0.00000000',
+      usageEstimated: false,
+      latencyMs: Date.now() - started,
+      attempts: [],
+    };
+    deps.metrics?.observe(event);
+    deps.onRequestComplete?.(event);
+  };
   const config = deps.store.current;
   if (!config) {
     sendError(
@@ -211,6 +258,7 @@ export async function handleProxy(
       new DiRouterError('service_unavailable', { message: 'Gateway has no configuration yet' }),
       requestId,
     );
+    observeEarly(503);
     return;
   }
 
@@ -218,6 +266,8 @@ export async function handleProxy(
   let key;
   try {
     key = authenticate(config, extractApiKey(req.headers), deps.pepper, req.ip);
+    const body = req.body as { model?: unknown } | undefined;
+    if (typeof body?.model === 'string' && body.model.length <= 256) model = body.model;
     canonical = parseInbound(api, req.body, deps.logger);
   } catch (error) {
     sendError(
@@ -226,10 +276,12 @@ export async function handleProxy(
       error instanceof DiRouterError ? error : new DiRouterError('invalid_request'),
       requestId,
     );
+    observeEarly(reply.statusCode);
     return;
   }
 
   const estimatedInputTokens = estimateRequestTokens(canonical, roughTokens);
+  model = canonical.model;
   const route = config.router.resolve(key, canonical.model, {
     estimatedInputTokens,
     ...(canonical.maxOutputTokens !== undefined
@@ -252,6 +304,7 @@ export async function handleProxy(
             : new UpstreamError('no_available_provider');
     deps.logger.debug({ requestId, skipped: route.skipped }, 'route failed');
     sendError(reply, api, error, requestId);
+    observeEarly(reply.statusCode);
     return;
   }
 
@@ -288,6 +341,8 @@ export async function handleProxy(
       }),
       requestId,
     );
+    deps.metrics?.reject('rate_limit', admission.unavailable ? 'unavailable' : admission.kind);
+    observeEarly(reply.statusCode);
     return;
   }
   if (admission)
@@ -315,6 +370,8 @@ export async function handleProxy(
       }),
       requestId,
     );
+    deps.metrics?.reject('budget', budgetCheck.unavailable ? 'unavailable' : budgetCheck.kind);
+    observeEarly(reply.statusCode);
     return;
   }
 
@@ -333,11 +390,11 @@ export async function handleProxy(
   if (!releaseKey) {
     admission?.settle(0);
     admission?.release();
-    if (clientGone.signal.aborted) return;
-    deps.logger.info(
-      { requestId, key: key.id, limit: keyBulkhead?.limit },
-      'key concurrency limit',
-    );
+    if (clientGone.signal.aborted) {
+      observeEarly(499);
+      return;
+    }
+    deps.logger.info({ requestId, limit: keyBulkhead?.limit }, 'key concurrency limit');
     sendError(
       reply,
       api,
@@ -347,21 +404,38 @@ export async function handleProxy(
       }),
       requestId,
     );
+    deps.metrics?.reject('concurrency', 'key');
+    observeEarly(reply.statusCode);
     return;
   }
   let spent = { tokens: 0, costUsd: '0' };
+  if (canonical.stream) deps.metrics?.streamStarted();
   try {
-    spent = await runRoute(api, req, reply, deps, {
-      config,
-      key,
-      canonical,
-      route,
-      requestId,
-      started,
-      clientGone,
-      queueOverrides,
-    });
+    spent = await runRoute(
+      api,
+      req,
+      reply,
+      {
+        ...deps,
+        emitUsage: (event) => {
+          observed = true;
+          deps.emitUsage(event);
+        },
+      },
+      {
+        config,
+        key,
+        canonical,
+        route,
+        requestId,
+        started,
+        clientGone,
+        queueOverrides,
+      },
+    );
   } finally {
+    if (canonical.stream) deps.metrics?.streamEnded();
+    observeEarly(reply.raw.headersSent ? 200 : reply.statusCode);
     releaseKey();
     admission?.settle(spent.tokens);
     admission?.release();
@@ -544,6 +618,18 @@ async function runRoute(
     signal: clientGone.signal,
     ...(deps.bulkheads ? { admit: admitProvider(deps.bulkheads, ctx.queueOverrides) } : {}),
   });
+  // هر تلاش provider/model خودش را دارد؛ attribution نهایی request از event می‌آید.
+  for (const item of result.attempts) {
+    if (item.outcome === 'skipped') continue;
+    const provider = config.snapshot.providers.find((p) => p.id === item.providerId);
+    const model = config.snapshot.models.find((m) => m.id === item.modelId);
+    deps.metrics?.observeAttempt({
+      provider: provider?.slug ?? item.providerId,
+      model: model?.slug ?? item.modelId,
+      outcome: item.outcome,
+      latencyMs: item.latencyMs,
+    });
+  }
 
   const candidate = result.candidate;
   if (result.ok) {
@@ -585,6 +671,8 @@ async function runRoute(
       ? result.value.usageEstimated
       : result.value.result.usageEstimated
     : false;
+  const resolvedModel = config.snapshot.models.find((m) => m.id === candidate?.model.id);
+  const resolvedProvider = config.snapshot.providers.find((p) => p.id === candidate?.provider.id);
   const costUsd = emitUsageEvent(deps, config, {
     api,
     requestId,
@@ -599,6 +687,8 @@ async function runRoute(
     ttftMs: result.ok && result.value.kind === 'stream' ? result.value.result.ttftMs : undefined,
     errorCode: result.ok ? undefined : (result.error?.class ?? result.reason),
     attempts: result.attempts,
+    metricProvider: resolvedProvider?.slug ?? candidate?.provider.slug,
+    metricModel: resolvedModel?.slug ?? candidate?.model.slug,
   });
   return { tokens: usage ? usage.inputTokens + usage.outputTokens : 0, costUsd };
 }
@@ -777,6 +867,8 @@ function emitUsageEvent(
     ttftMs: number | undefined;
     errorCode: string | undefined;
     attempts: Awaited<ReturnType<typeof executeWithFallback>>['attempts'];
+    metricProvider?: string;
+    metricModel?: string;
   },
 ): string {
   try {
@@ -789,7 +881,7 @@ function emitUsageEvent(
       reasoningTokens: 0,
     };
     const costUsd = e.candidate && e.ok ? computeCostUsd(usage, e.candidate.model.pricing) : '0';
-    deps.emitUsage({
+    const event: UsageEvent = {
       schemaVersion: USAGE_EVENT_SCHEMA_VERSION,
       eventId: ulid(),
       idempotencyKey: e.requestId,
@@ -835,7 +927,14 @@ function emitUsageEvent(
           latencyMs: a.latencyMs,
           startedAt: new Date(a.startedAt).toISOString(),
         })),
+    };
+    deps.metrics?.observe({
+      ...event,
+      providerId: e.metricProvider ?? event.providerId,
+      resolvedModelId: e.metricModel ?? event.resolvedModelId,
     });
+    deps.onRequestComplete?.(event);
+    deps.emitUsage(event);
     return costUsd;
   } catch (error) {
     deps.logger.error({ err: error, requestId: e.requestId }, 'failed to build usage event');

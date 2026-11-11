@@ -123,6 +123,11 @@ describe('health sync between gateway replicas', () => {
       bus.subs[0]?.emit('message', HEALTH_CHANNEL, raw);
     }
     expect(b.sync.applied).toBe(0);
+    const healthy = node(bus, 'healthy');
+    await healthy.sync.start(healthy.registry);
+    const publisher = bus.publisher();
+    bus.down = true;
+    await expect(publisher.publish(HEALTH_CHANNEL, 'broken')).rejects.toThrow();
   });
 });
 

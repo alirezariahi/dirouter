@@ -10,8 +10,8 @@
     "start": "node dist/main.js",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
-    "test": "vitest run --passWithNoTests",
-    "test:integration": "vitest run --no-file-parallelism src/pipeline.integration.test.ts src/budgets.integration.test.ts",
+    "test": "vitest run --coverage --coverage.thresholds.lines=0 --coverage.thresholds.statements=0 --coverage.thresholds.branches=0 --coverage.thresholds.functions=0 --passWithNoTests",
+    "test:integration": "vitest run --coverage --no-file-parallelism src/pipeline.integration.test.ts src/budgets.integration.test.ts",
     "clean": "rm -rf dist .turbo"
   },
   "devDependencies": {
