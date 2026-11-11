@@ -157,6 +157,74 @@ describe('router: resolution', () => {
     expect(ids(router.resolve(key(), 'c/m3'))).toEqual(['m3:c-k1']);
   });
 
+  it('index exposes public names, enabled models and immutable lookup boundaries', () => {
+    const snap = snapshot();
+    const index = new RouteIndex(snap);
+    expect(index.names('org')).toEqual([
+      'smart',
+      'gpt',
+      'best',
+      'weighted',
+      'rr',
+      'a/m1',
+      'b/m2',
+      'c/m3',
+    ]);
+    snap.models[0]!.enabled = false;
+    expect(new RouteIndex(snap).names('org')).not.toContain('a/m1');
+    expect(index.names('missing')).toEqual([]);
+    expect(index.lookup('org', 'missing')).toBeUndefined();
+    expect(index.lookup('missing', 'smart')).toBeUndefined();
+    expect(index.lookup('org', 'c/m3')).toEqual({ model: snap.models[2] });
+    const { router } = setup(snap);
+    expect(router.index).toBe(router.index);
+  });
+
+  it('skips missing combo models and model breakers, including empty combos', () => {
+    const snap = snapshot();
+    snap.combos[0]!.targets.push({ modelId: 'deleted', order: -1, weight: 1 });
+    const { router, health } = setup(snap);
+    health.modelBreaker('m1').force('open');
+    expect(ids(router.resolve(key(), 'smart', { random: () => 0 }))).toEqual([
+      'm2:b-k1',
+      'm3:c-k1',
+    ]);
+    const empty = snapshot({
+      combos: [
+        {
+          id: 'empty',
+          organizationId: 'org',
+          slug: 'empty',
+          strategy: 'round-robin',
+          targets: [{ modelId: 'deleted', order: 0, weight: 1 }],
+          fallbackOn: ['server'],
+        },
+      ],
+    });
+    expect(ids(setup(empty).router.resolve(key(), 'empty'))).toBe('no_available_provider');
+  });
+
+  it('rejects aliases with dangling targets as not found', () => {
+    const snap = snapshot();
+    snap.aliases.push(
+      { organizationId: 'org', slug: 'gone-model', target: { kind: 'model', modelId: 'gone' } },
+      { organizationId: 'org', slug: 'gone-combo', target: { kind: 'combo', comboId: 'gone' } },
+    );
+    const index = new RouteIndex(snap);
+    expect(index.lookup('org', 'gone-model')).toBeUndefined();
+    expect(index.lookup('org', 'gone-combo')).toBeUndefined();
+  });
+
+  it('falls back to the first item when weighted targets have no positive weight', () => {
+    const snap = snapshot();
+    snap.combos[1]!.targets[0]!.weight = 0;
+    expect(ids(setup(snap).router.resolve(key(), 'weighted', { random: () => 0 }))).toEqual([
+      'm1:a-k1',
+      'm1:a-k2',
+      'm2:b-k1',
+    ]);
+  });
+
   it('rejects unknown names and names outside the key allow-list', () => {
     expect(ids(router.resolve(key(), 'nope'))).toBe('model_not_found');
     expect(ids(router.resolve(key({ allowedModels: ['gpt'] }), 'smart'))).toBe('model_not_allowed');

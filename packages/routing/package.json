@@ -19,7 +19,7 @@
     "dev": "tsc -p tsconfig.build.json --incremental --tsBuildInfoFile dist/.tsbuildinfo --watch --preserveWatchOutput",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
-    "test": "vitest run",
+    "test": "vitest run --coverage",
     "clean": "rm -rf dist .turbo",
     "coverage": "vitest run --coverage"
   },
