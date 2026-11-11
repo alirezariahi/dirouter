@@ -140,5 +140,73 @@ describe('rate limiter lifecycle and fallbacks', () => {
     const fallback = new RateLimiter({ redis: redis.asRedis(), logger, failMode: () => 'open' });
     expect((await fallback.acquire(scope, 0, 'fallback')).ok).toBe(true);
     expect(fallback.stats.degraded).toBe(true);
+    const second = await fallback.acquire(scope, 0, 'degraded-window');
+    expect(second.ok).toBe(true);
+    expect(fallback.stats.local).toBeGreaterThan(0);
+  });
+
+  it('converts non-Error rejections and parses short remote replies', async () => {
+    const redis = new RedisStub();
+    redis.defineCommand = () => undefined;
+    redis.rlAcquire = async () => {
+      // eslint-disable-next-line @typescript-eslint/only-throw-error
+      throw 'boom';
+    };
+    const limiter = new RateLimiter({ redis: redis.asRedis(), logger, failMode: () => 'open' });
+    expect((await limiter.acquire(scope, 0, 'string-throw')).ok).toBe(true);
+
+    const short = new RedisStub();
+    short.rlAcquire = async () => [1, 0, '', 0, 1_000];
+    const remote = new RateLimiter({ redis: short.asRedis(), logger, failMode: () => 'open' });
+    const admitted = await remote.acquire(scope, 0, 'short-raw');
+    expect(admitted.ok).toBe(true);
+    if (admitted.ok) {
+      expect(admitted.headers['x-ratelimit-reset-requests']).toBe('60s');
+      admitted.release();
+    }
+  });
+
+  it('runs single-node and node-count paths without Valkey', async () => {
+    const noRedis = new RateLimiter({ logger, failMode: () => 'open' });
+    const limited = [{ name: 'solo', limit: { requestsPerMinute: 1 } }];
+    expect((await noRedis.acquire(limited, 0, 'a')).ok).toBe(true);
+    expect((await noRedis.acquire(limited, 0, 'b')).ok).toBe(false);
+    noRedis.startNodeCount(10);
+    expect(noRedis.nodes).toBe(1);
+    noRedis.stop();
+  });
+
+  it('expires windows, settles fresh buckets and releases local scopes', () => {
+    let now = 1_000;
+    const local = new LocalLimiter(2_000, 1_000, () => now);
+    const rpm = [{ name: 'rpm', limit: { requestsPerMinute: 2 } }];
+    const first = local.acquire(rpm, 0, 1);
+    expect(first.ok).toBe(true);
+    if (first.ok) {
+      expect(first.headers['x-ratelimit-reset-requests']).toBe('0s');
+      first.settle(1);
+      first.release();
+    }
+    now = 1_500;
+    expect(local.acquire(rpm, 0, 1).ok).toBe(true);
+    now = 2_500;
+    expect(local.acquire(rpm, 0, 1).ok).toBe(false);
+
+    const tokens = [{ name: 'tokens', limit: { tokensPerMinute: 100 } }];
+    const fresh = local.acquire(tokens, 0, 1);
+    expect(fresh.ok).toBe(true);
+    if (fresh.ok) fresh.settle(5);
+    now = 4_000;
+    expect(local.acquire(tokens, 5, 1).ok).toBe(true);
+
+    const conc = [{ name: 'conc', limit: { maxConcurrency: 1 } }];
+    const held = local.acquire(conc, 0, 1);
+    expect(held.ok).toBe(true);
+    expect(local.acquire(conc, 0, 1).ok).toBe(false);
+    if (held.ok) {
+      held.release();
+      held.release();
+    }
+    expect(local.acquire(conc, 0, 1).ok).toBe(true);
   });
 });
