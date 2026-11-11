@@ -1,4 +1,4 @@
-> راهنمای کامل فارسی و محلی: [../docs/README.md](../docs/README.md) · مستندات فارسی بیرون مخزن Git نگهداری می‌شوند.
+> راهنمای کامل فارسی و محلی: [docs/README.md](docs/README.md) · مستندات فارسی بیرون مخزن Git نگهداری می‌شوند.
 
 # DiRouter
 
@@ -70,7 +70,7 @@ curl -sS -D - -o /dev/null http://api.localhost/v1/chat/completions \
 5. کلید کامل فقط یک بار نمایش داده می‌شود. آن را در مدیر راز بگذارید و در URL، Git یا لاگ وارد نکنید.
 6. نام مدل/alias ساخته‌شده و endpoint واقعی (`https://api.example.com/v1`) را با همان curl بالا امتحان کنید؛ `localhost` را با دامنهٔ خود عوض کنید.
 
-جزئیات صفحه‌ها و سناریوهای «اول اشتراک و بعد API ارزان» و «فال‌بک بین چند credential» در [راهنمای کاربر داشبورد](../docs/user-guide/README.md) است.
+جزئیات صفحه‌ها و سناریوهای «اول اشتراک و بعد API ارزان» و «فال‌بک بین چند credential» در [راهنمای کاربر داشبورد](docs/user-guide/README.md) است.
 
 ## اجرای مستقیم برای توسعه
 
@@ -111,7 +111,7 @@ DiRouter exposes OpenAI- and Anthropic-compatible LLM endpoints with provider/cr
 
 **Local Docker quick start:** install Docker Engine + Compose, then run `./scripts/bootstrap.sh`, `docker compose -f compose.yaml -f compose.dev.yaml up -d --build --wait`, and `make seed` from `code/`. Open `http://app.localhost`. The seeded development key `dr-dev-local-0000000000000000` works only with the local mock provider; send `POST http://api.localhost/v1/chat/completions` with a bearer token, model `gpt-4.1`, and a chat `messages` array. For a real deployment, create your own provider credential and one-time virtual key—never use seed data in production.
 
-Detailed local Persian guides: [Quick Start](../docs/README.md), [dashboard user guide](../docs/user-guide/README.md), [production deployment](../docs/deploy-production.md), and [operations runbook](../docs/runbook.md).
+Detailed local Persian guides: [Quick Start](docs/README.md), [dashboard user guide](docs/user-guide/README.md), [production deployment](docs/deploy-production.md), and [operations runbook](docs/runbook.md).
 
 ## CI
 
@@ -138,7 +138,7 @@ code/
 ## مستندات و مشارکت
 
 - [فهرست مستندات عمومی](DOCUMENTATION.md) و [قراردادهای مشارکت](CONTRIBUTING.md)
-- [استقرار production](../docs/deploy-production.md)، [مرجع env](../docs/env-reference.md) و [Runbook](../docs/runbook.md)
-- [مشاهده‌پذیری](../docs/observability.md)، [مسیر usage](../docs/usage-pipeline.md) و [دادهٔ seed](../docs/seed.md)
+- [استقرار production](docs/deploy-production.md)، [مرجع env](docs/env-reference.md) و [Runbook](docs/runbook.md)
+- [مشاهده‌پذیری](docs/observability.md)، [مسیر usage](docs/usage-pipeline.md) و [دادهٔ seed](docs/seed.md)
 
-انگلیسی زبان canonical اسناد versioned داخل مخزن است. راهنماهای فارسی در `../docs/` بیرون Git نگهداری می‌شوند و در clone یا Docker build context قرار ندارند.
+انگلیسی زبان canonical اسناد versioned داخل مخزن است. راهنماهای فارسی در `docs/` بیرون Git نگهداری می‌شوند و در clone یا Docker build context قرار ندارند.

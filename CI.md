@@ -46,7 +46,7 @@ Images: `gateway`, `control-api`, `worker`, `mock-provider`, `dashboard`, and `m
 
 The existing Dockerfiles under `deploy/docker/` are prerequisites for the image stage and must be present in the runner's checkout. The prepared image stage builds `linux/amd64` only; multi-architecture support is separate work.
 
-The environment check scans literal Node/Vite reads, Zod application schemas, Compose interpolation, the dashboard nginx template, and GitHub Actions `env` blocks. It fails for missing or stale structured entries in `../docs/env-reference.md`. Development, test, and CI-only variables belong in separate sections of that reference, not automatically in the production `.env`.
+The environment check scans literal Node/Vite reads, Zod application schemas, Compose interpolation, the dashboard nginx template, and GitHub Actions `env` blocks. It fails for missing or stale structured entries in `docs/env-reference.md`. Development, test, and CI-only variables belong in separate sections of that reference, not automatically in the production `.env`.
 
 ## Test coverage and Testcontainers
 

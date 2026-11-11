@@ -68,6 +68,6 @@ Include the DiTask card reference in the footer, for example `Refs: DR-12`.
 
 - Write all versioned documentation in English, including README files, this guide, technical guides, ADRs, diagrams, tables, and command comments in documentation.
 - Keep public technical guides in the repository root or `adr/`. Do not create a `docs/` directory inside this code repository.
-- Keep Persian counterparts and personal development material in the existing sibling `../docs/` directory, outside this Git repository. Root Markdown files map there by topic, and ADRs retain the `adr/` subdirectory.
+- Keep Persian counterparts and personal development material in the existing sibling `docs/` directory, outside this Git repository. Root Markdown files map there by topic, and ADRs retain the `adr/` subdirectory.
 - Private competitor research, sprint plans, board exports, generator scripts, and local verification notes belong in that external directory and must not be copied into public documentation.
 - Keep Persian counterparts aligned with material changes to their English sources. Product UI localization and runtime messages follow their own requirements.

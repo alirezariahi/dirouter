@@ -152,7 +152,7 @@ export function run(result = check()) {
       );
     }
     process.stderr.write(
-      'Update ../docs/env-reference.md in the same change as the environment consumer.\n',
+      'Update docs/env-reference.md in the same change as the environment consumer.\n',
     );
     process.exitCode = 1;
     return;

@@ -18,4 +18,4 @@ Decisions follow the [MADR](https://adr.github.io/madr/) format. Each ADR contai
 3. Once approved, change the status to `Accepted` and add it to the table.
 4. To change an accepted decision, write a new ADR and mark the old record `Superseded by ADR-NNNN`; preserve the decision history.
 
-Keep the versioned record in English. Local Persian counterparts belong under the sibling `../docs/adr/` directory and are excluded from Git.
+Keep the versioned record in English. Local Persian counterparts belong under the sibling `docs/adr/` directory and are excluded from Git.

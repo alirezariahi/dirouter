@@ -15,6 +15,6 @@ The architecture describes the target system. Its presence does not imply that a
 
 ## Local material
 
-The local project layout keeps `code/` (this Git repository) next to `docs/` (private documentation). Persian counterparts, competitor research, sprint plans, board exports, generator scripts, and verification notes live in that sibling `../docs/` directory. They are outside the Git root and Docker build context, and are not included in a clone.
+The local project layout keeps `code/` (this Git repository) next to `docs/` (private documentation). Persian counterparts, competitor research, sprint plans, board exports, generator scripts, and verification notes live in that sibling `docs/` directory. They are outside the Git root and Docker build context, and are not included in a clone.
 
 Keep public Markdown guides at the repository root or in `adr/`; do not create a `docs/` directory inside `code/`.

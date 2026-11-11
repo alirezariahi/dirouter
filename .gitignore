@@ -10,8 +10,6 @@ coverage/
 __pycache__/
 *.log
 
-# Documentation here is English and public; private docs live in ../docs/.
-/docs/
 packages/db/generated/
 .data/
 .pnpm-store/
