@@ -5,7 +5,7 @@
   "description": "داشبورد مدیریتی (React + Vite)",
   "type": "module",
   "scripts": {
-    "build": "tsc --noEmit && vite build",
+    "build": "tsc -p tsconfig.build.json && vite build",
     "dev": "vite",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
