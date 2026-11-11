@@ -1,4 +1,4 @@
-// خروجی JSON Schema همهٔ اسکیماها در dist/json-schema (بعد از tsc اجرا می‌شود).
+// Emits the JSON Schema of all schemas to dist/json-schema (runs after tsc).
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 

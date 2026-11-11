@@ -1,5 +1,5 @@
 /**
- * اعتبارسنجی متغیرهای محیطی با zod و کرش سریع هنگام بوت.
+ * Validates environment variables with zod and fails fast on boot.
  */
 import { z } from 'zod';
 
@@ -8,9 +8,9 @@ import { LOG_LEVELS } from './logger.js';
 
 export interface EnvIssue {
   variable: string;
-  /** پیام فارسی. */
+  /** Persian message. */
   fa: string;
-  /** پیام انگلیسی (از zod). */
+  /** English message (from zod). */
   en: string;
 }
 
@@ -50,8 +50,8 @@ function persianMessage(issue: z.core.$ZodIssue, value: unknown): string {
 }
 
 /**
- * env را با اسکیما parse می‌کند. در صورت خطا `EnvValidationError` با فهرست کامل
- * متغیرهای مشکل‌دار پرتاب می‌شود (نه فقط اولی).
+ * Parses env with the schema. On error, throws `EnvValidationError` with the full list
+ * of invalid variables (not just the first one).
  */
 export function parseEnv<S extends z.ZodType>(
   schema: S,
@@ -68,8 +68,8 @@ export function parseEnv<S extends z.ZodType>(
 }
 
 /**
- * مثل `parseEnv` اما در صورت خطا پیام را روی stderr می‌نویسد و پروسه را با کد ۱
- * متوقف می‌کند. برای نقطهٔ ورود اپ‌ها.
+ * Like `parseEnv`, but on error it writes the message to stderr and exits the process with code 1
+ * for app entry points.
  */
 export function loadEnvOrExit<S extends z.ZodType>(
   schema: S,
@@ -88,7 +88,7 @@ export function loadEnvOrExit<S extends z.ZodType>(
 
 // ───────────── Helpers ─────────────
 
-/** boolean از رشته: `true/1/yes/on` و `false/0/no/off`. */
+/** Boolean from a string: `true/1/yes/on` and `false/0/no/off`. */
 export const envBoolean = (defaultValue?: boolean) => {
   const schema = z
     .string()
@@ -104,7 +104,7 @@ export const envPort = (defaultValue?: number) => {
   return defaultValue === undefined ? schema : schema.default(defaultValue);
 };
 
-/** keyring رمزنگاری از env (قالب `parseKeyring`)؛ کلید نامعتبر هنگام بوت رد می‌شود. */
+/** Encryption keyring from env (`parseKeyring` format); an invalid key is rejected at boot. */
 export const envKeyring = () =>
   z.string().transform((value, ctx): Keyring => {
     try {
@@ -115,7 +115,7 @@ export const envKeyring = () =>
     }
   });
 
-/** متغیرهای مشترک همهٔ سرویس‌ها. */
+/** Variables shared by all services. */
 export const baseEnvSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   LOG_LEVEL: z.enum(LOG_LEVELS).default('info'),

@@ -1,14 +1,14 @@
 /**
- * بودجه در worker (کارت ۶.۳):
- * - `processBudgetAlerts`: رویدادهای عبور از آستانه که گیت‌وی در Valkey گذاشته در audit_logs
- *   ثبت می‌شوند (action `budget.threshold_crossed`).
- * - `reconcileBudgets`: شمارندهٔ Valkey هر بودجه با ledger دورهٔ جاری تطبیق داده می‌شود.
- *   ledger منبع حقیقت است ولی چند ثانیه عقب‌تر از شمارنده است (صف مصرف). پس:
- *   - شمارندهٔ «آرام» (بدون افزایش در `quietMs` اخیر) یا گم‌شده دقیقاً برابر ledger می‌شود،
- *     چه بیشتر بوده چه کمتر.
- *   - شمارندهٔ فعال فقط بالا کشیده می‌شود (هرگز کمتر از ledger نمی‌ماند)، تا رویدادهای
- *     در راه دوبار کم نشوند.
- *   همه در یک اسکریپت Lua اتمیک انجام می‌شود تا افزایش هم‌زمان گیت‌وی گم نشود.
+ * Budgets in the worker (card 6.3):
+ * - `processBudgetAlerts`: threshold-crossing events the gateway left in Valkey are recorded in audit_logs
+ *   (action `budget.threshold_crossed`).
+ * - `reconcileBudgets`: each budget's Valkey counter is reconciled with the ledger for the current period.
+ *   The ledger is the source of truth but lags the counter by a few seconds (usage queue). So:
+ *   - a "quiet" counter (no increase in the last `quietMs`) or a missing one is set exactly equal to the ledger,
+ *     whether it was higher or lower.
+ *   - an active counter is only raised (it never stays below the ledger), so events
+ *     in flight are not double-counted.
+ *   All of this runs in one atomic Lua script so concurrent gateway increments are not lost.
  */
 import {
   BUDGET_ALERTS_KEY,
@@ -32,7 +32,7 @@ const SCOPE_COLUMN: Record<string, string> = {
   team: 'team_id',
 };
 
-/** KEYS[1]: شمارنده؛ ARGV: ledgerUsd, ledgerTokens, nowMs, quietMs, expireAtMs */
+/** KEYS[1]: counter; ARGV: ledgerUsd, ledgerTokens, nowMs, quietMs, expireAtMs */
 const RECONCILE = `
 local cur = redis.call('HMGET', KEYS[1], 'usd', 'tokens', 'ts')
 local usd = tonumber(cur[1] or '0')
@@ -170,7 +170,7 @@ export async function processBudgetAlerts(
   try {
     await db.auditLog.createMany({ data: rows });
   } catch (error) {
-    // برگرداندن به صف تا در tick بعد دوباره ثبت شود.
+    // put back on the queue so it is retried on the next tick.
     await redis.rpush(BUDGET_ALERTS_KEY, ...raw);
     throw error;
   }

@@ -1,6 +1,6 @@
 /**
- * graceful shutdown (کارت ۵.۸): readyz=503 در drain، ادامهٔ سرویس تا خروج از چرخش Traefik،
- * انتظار برای streamهای باز و قطع کنترل‌شده بعد از سقف.
+ * Graceful shutdown (card 5.8): readyz=503 during drain, service continues until removed from Traefik rotation,
+ * waiting for open streams, and controlled disconnect after the cap.
  */
 import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -114,11 +114,11 @@ describe('graceful shutdown', () => {
     const body = sseData(stream);
 
     const drained = gw.drain({ readyDelayMs: 300, drainMs: 5_000 });
-    // readyz فوراً 503 می‌شود تا Traefik replica را کنار بگذارد...
+    // readyz returns 503 immediately so Traefik takes the replica out of rotation...
     const ready = await fetch(`${base}/readyz`);
     expect(ready.status).toBe(503);
     expect(await ready.json()).toMatchObject({ status: 'draining' });
-    // ...ولی تا خروج از چرخش، درخواست تازه هنوز سرویس می‌گیرد و اتصالش بسته می‌شود.
+    // ...but until it leaves rotation, a new request is still served and its connection is closed.
     const late = await chat(base, 'fast', false);
     expect(late.status).toBe(200);
     expect(late.headers.get('connection')).toBe('close');

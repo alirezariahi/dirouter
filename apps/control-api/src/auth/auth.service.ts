@@ -1,6 +1,6 @@
 /**
- * احراز هویت داشبورد (کارت ۳.۴): ویزارد setup، ورود، چرخش refresh token با تشخیص
- * استفادهٔ دوباره، خروج و تغییر رمز.
+ * Dashboard authentication (card 3.4): setup wizard, login, refresh token rotation with reuse detection,
+ * logout, and password change.
  */
 import { AuthenticationError, DiRouterError, prefixedId } from '@dirouter/shared';
 import { Inject, Injectable } from '@nestjs/common';
@@ -51,8 +51,8 @@ export class AuthService {
   }
 
   /**
-   * فقط وقتی هیچ کاربری نیست. advisory lock جلوی دو setup هم‌زمان را می‌گیرد؛ بعد از
-   * اولین کاربر همیشه `setup_completed` برمی‌گردد.
+   * Only when there are no users. An advisory lock prevents two concurrent setups; after
+   * the first user, `setup_completed` is always returned.
    */
   async setup(
     input: { organizationName: string; name: string; email: string; password: string },
@@ -100,7 +100,7 @@ export class AuthService {
     const ok = await verifyPassword(user?.passwordHash, password);
     if (!user || !ok || !user.isActive || user.deletedAt) {
       await this.limiter.failure(normalized, client.ip);
-      // دهمین شکست خودش قفل را فعال می‌کند.
+      // The tenth failure itself activates the lock.
       const now = await this.limiter.lockedFor(normalized, client.ip);
       if (now !== undefined) throw lockedError(now);
       throw new AuthenticationError('invalid_credentials');
@@ -114,9 +114,9 @@ export class AuthService {
   }
 
   /**
-   * چرخش: توکن فعلی «مصرف‌شده» علامت می‌خورد و توکن تازه در همان خانواده صادر می‌شود.
-   * ارائهٔ توکنِ قبلاً مصرف‌شده یعنی کسی آن را دزدیده: کل خانواده (همهٔ دستگاه‌های آن
-   * نشست) باطل می‌شود و هر دو طرف باید دوباره وارد شوند.
+   * Rotation: the current token is marked "used" and a new token is issued in the same family.
+   * Presenting an already-used token means it was stolen: the whole family (all devices of that
+   * session) is revoked and both sides must sign in again.
    */
   async refresh(token: string | undefined, client: ClientInfo): Promise<Session> {
     if (!token) throw new AuthenticationError('unauthenticated');
@@ -130,7 +130,7 @@ export class AuthService {
       throw new AuthenticationError('refresh_token_reused');
     }
     if (row.expiresAt.getTime() <= Date.now()) throw new AuthenticationError('unauthenticated');
-    // شرط usedAt=null در خود UPDATE: دو refresh هم‌زمان با یک توکن فقط یکی را برنده می‌کند.
+    // The usedAt=null condition in the UPDATE itself: of two concurrent refreshes with one token, only one wins.
     const claimed = await db.refreshToken.updateMany({
       where: { id: row.id, usedAt: null, revokedAt: null },
       data: { usedAt: new Date() },
@@ -148,8 +148,8 @@ export class AuthService {
   }
 
   /**
-   * پذیرش دعوت: اگر کاربری با همان ایمیل هست، رمز همان کاربر لازم است (حساب کسی با لینک
-   * تصاحب نمی‌شود)؛ وگرنه کاربر تازه با نام و رمز ساخته می‌شود. لینک یک‌بارمصرف است.
+   * Accepting an invitation: if a user with the same email exists, that user's password is required (an account must not be taken over via the link
+   * ); otherwise a new user is created with a name and password. The link is single-use.
    */
   async acceptInvitation(
     input: { token: string; name?: string | undefined; password: string },
@@ -232,7 +232,7 @@ export class AuthService {
       throw new AuthenticationError('invalid_credentials');
     await db.$transaction([
       db.user.update({ where: { id: userId }, data: { passwordHash: await hashPassword(next) } }),
-      // همهٔ نشست‌ها (دستگاه‌های دیگر) باطل می‌شوند؛ access tokenها حداکثر ۱۵ دقیقه می‌مانند.
+      // All sessions (other devices) are revoked; access tokens remain valid for at most 15 minutes.
       db.refreshToken.updateMany({
         where: { userId, revokedAt: null },
         data: { revokedAt: new Date() },
@@ -292,7 +292,7 @@ export class AuthService {
   }
 }
 
-/** 429 با کد login_locked؛ ProblemFilter از retryAfterMs هدر Retry-After می‌سازد. */
+/** 429 with code login_locked; ProblemFilter builds the Retry-After header from retryAfterMs. */
 export class LoginLockedError extends DiRouterError {
   override readonly name = 'LoginLockedError';
   constructor(readonly retryAfterMs: number) {

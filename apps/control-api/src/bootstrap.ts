@@ -44,7 +44,7 @@ export async function createApp(
   fastify.addHook('onSend', async (request, reply) => {
     void reply.header('x-request-id', request.id);
   });
-  // هر تغییر موفق در پیکربندی سازمان، snapshot گیت‌وی را دوباره می‌سازد (کارت ۳.۹).
+  // Every successful change to the organization configuration rebuilds the gateway snapshot (card 3.9).
   const snapshots = app.get(SnapshotService);
   fastify.addHook('onResponse', async (request, reply) => {
     if (
@@ -105,8 +105,8 @@ export async function createApp(
 }
 
 /**
- * پارامترهای مسیر (`{orgId}`، `{id}` و …) از الگوی مسیر به هر عملیات اضافه می‌شوند تا سند
- * برای تولید کلاینت (orval) معتبر باشد، بدون ApiParam تکراری روی هر route.
+ * Path parameters (`{orgId}`, `{id}`, etc.) are added to each operation from the route pattern so the document
+ * is valid for client generation (orval), without duplicate ApiParam on each route.
  */
 function declarePathParameters(document: OpenAPIObject) {
   for (const [path, item] of Object.entries(document.paths)) {

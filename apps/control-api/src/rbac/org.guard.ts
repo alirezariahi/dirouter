@@ -1,6 +1,6 @@
 /**
- * Guard سازمان: کاربر احراز هویت‌شده باید عضو `:orgId` باشد، و نقشش مجوز مسیر را داشته باشد.
- * عضو نبودن 404 است (نه 403) تا وجود سازمان دیگر لو نرود.
+ * Organization Guard: the authenticated user must be a member of `:orgId`, and their role must grant the route's permission.
+ * Not being a member returns 404 (not 403) so the existence of other organizations is not leaked.
  */
 import { DiRouterError, ForbiddenError } from '@dirouter/shared';
 import {
@@ -50,7 +50,7 @@ export class OrgGuard implements CanActivate {
       PERMISSION_KEY,
       context.getHandler(),
     );
-    // هر مسیر باید مجوزش را اعلام کند؛ فراموشی یعنی بسته، نه باز.
+    // Every route must declare its permission; forgetting it means closed, not open.
     if (!permission || !can(membership.role, permission))
       throw new ForbiddenError('forbidden', {
         message: `Requires ${permission ?? 'a declared permission'}`,

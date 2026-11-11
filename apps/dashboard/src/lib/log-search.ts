@@ -1,4 +1,4 @@
-/** search params صفحهٔ Request Log (جدا از صفحه تا router آن را lazy نگه دارد). */
+/** Request Log page search params (kept apart from the page so the router can lazy-load it). */
 export interface LogSearch {
   from?: string;
   to?: string;
@@ -25,7 +25,7 @@ export const LOG_FILTERS = [
   'maxCostUsd',
 ] as const;
 
-/** اعتبارسنجی search params (فقط رشته‌های معتبر می‌مانند). */
+/** Validates search params (only valid strings are kept). */
 export function validateLogSearch(raw: Record<string, unknown>): LogSearch {
   const str = (v: unknown) =>
     typeof v === 'string' && v !== '' && v.length <= 256 ? v : undefined;

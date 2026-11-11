@@ -1,6 +1,6 @@
 /**
- * سازمان، اعضا، دعوت، تیم و پروژه (کارت ۳.۵). همهٔ کوئری‌ها با organizationId همان
- * سازمانی محدود می‌شوند که Guard عضویت را در آن تأیید کرده است.
+ * Organization, members, invitations, teams, and projects (card 3.5). All queries are limited to the same organizationId
+ * that the Guard has verified membership in.
  */
 import { randomBytes } from 'node:crypto';
 
@@ -60,7 +60,7 @@ export class OrgsService {
     return this.getOrg(ctx);
   }
 
-  // ───── اعضا ─────
+  // ───── Members ─────
   async members(ctx: OrgContext) {
     const rows = await this.db.membership.findMany({
       where: { organizationId: ctx.organizationId, user: { deletedAt: null } },
@@ -76,7 +76,7 @@ export class OrgsService {
     }));
   }
 
-  /** قانون‌ها: نقشی بالاتر از خودت نمی‌دهی؛ فقط OWNER با OWNERها کار دارد؛ آخرین OWNER می‌ماند. */
+  /** Rules: you cannot grant a role higher than your own; only OWNER deals with OWNERs; the last OWNER remains. */
   async #checkMemberChange(ctx: OrgContext, userId: string, newRole?: Role) {
     const target = await this.db.membership.findUnique({
       where: { userId_organizationId: { userId, organizationId: ctx.organizationId } },
@@ -112,7 +112,7 @@ export class OrgsService {
     await this.#audit(ctx, 'member.removed', 'user', userId);
   }
 
-  // ───── دعوت ─────
+  // ───── Invitations ─────
   async invitations(ctx: OrgContext) {
     const rows = await this.db.invitation.findMany({
       where: {
@@ -141,7 +141,7 @@ export class OrgsService {
       where: { organizationId: ctx.organizationId, user: { email: normalized } },
     });
     if (already) throw new DiRouterError('conflict', { message: 'User is already a member' });
-    // توکن فقط یک بار به دعوت‌کننده نشان داده می‌شود؛ در DB فقط hash آن است.
+    // The token is shown to the inviter only once; the DB stores only its hash.
     const token = randomBytes(24).toString('base64url');
     const invitation = await this.db.invitation.create({
       data: {
@@ -177,7 +177,7 @@ export class OrgsService {
     await this.#audit(ctx, 'invitation.revoked', 'invitation', id);
   }
 
-  // ───── تیم و پروژه ─────
+  // ───── Teams and Projects ─────
   async teams(ctx: OrgContext) {
     return this.db.team.findMany({
       where: { organizationId: ctx.organizationId, deletedAt: null },
@@ -220,7 +220,7 @@ export class OrgsService {
 
   async deleteTeam(ctx: OrgContext, id: string) {
     await this.#own('team', ctx, id);
-    // soft-delete؛ پروژه‌های تیم بدون تیم می‌مانند.
+    // soft-delete; team projects remain without a team.
     await this.db.$transaction([
       this.db.team.update({
         where: { id },
@@ -291,7 +291,7 @@ export class OrgsService {
     await this.#audit(ctx, 'project.deleted', 'project', id);
   }
 
-  /** رکورد باید مال همین سازمان و حذف‌نشده باشد؛ وگرنه 404 (نه 403). */
+  /** The record must belong to this organization and not be deleted; otherwise 404 (not 403). */
   async #own(kind: 'team' | 'project', ctx: OrgContext, id: string) {
     const where = { id, organizationId: ctx.organizationId, deletedAt: null };
     const found =

@@ -1,4 +1,4 @@
-/** حالت‌های یکسان بارگذاری، خالی و خطا در همهٔ صفحه‌ها (کارت ۷.۱). */
+/** Consistent loading, empty and error states across all pages (card 7.1). */
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 

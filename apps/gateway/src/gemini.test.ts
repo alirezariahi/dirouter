@@ -1,6 +1,6 @@
 /**
- * Gemini پشت DiRouter (کارت ۴.۸): کلاینت‌های رسمی OpenAI و Anthropic بدون تغییر به
- * یک upstream از نوع gemini می‌رسند؛ متن، stream و رفت‌وبرگشت کامل tool calling.
+ * Gemini behind DiRouter (card 4.8): the official OpenAI and Anthropic clients, unchanged, reach
+ * a gemini-type upstream; text, stream and a full tool calling round trip.
  */
 import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -104,7 +104,7 @@ interface UpstreamBody {
   safetySettings?: unknown[];
 }
 
-/** آخرین بدنه‌ای که mock از گیت‌وی گرفت. */
+/** The last body the mock received from the gateway. */
 async function lastUpstream(): Promise<UpstreamBody> {
   const stats = (await (await fetch(`${mockRoot}/__mock/stats`)).json()) as {
     last: UpstreamBody[];
@@ -202,7 +202,7 @@ describe('OpenAI client → Gemini upstream', () => {
     expect(second.choices[0]?.finish_reason).toBe('stop');
     const up = await lastUpstream();
     expect(up.contents.map((c) => c.role)).toEqual(['user', 'model', 'user']);
-    // امضای thought که Gemini داده بود در شناسهٔ tool call برگشته و دوباره فرستاده می‌شود.
+    // The thought signature Gemini gave is returned in the tool call ID and sent again.
     expect(up.contents[1]?.parts[0]).toEqual({
       functionCall: { name: 'get_weather', args: { city: 'Tehran' } },
       thoughtSignature: 'c2lnLW1vY2s=',

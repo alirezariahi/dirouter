@@ -1,4 +1,4 @@
-// پیکربندی مشترک ESLint برای همهٔ اپ‌ها و پکیج‌ها (flat config).
+// Shared ESLint configuration for all apps and packages (flat config).
 import js from '@eslint/js';
 import prettier from 'eslint-config-prettier';
 import reactHooks from 'eslint-plugin-react-hooks';
@@ -10,7 +10,7 @@ const ignores = {
   ignores: ['**/dist/**', '**/coverage/**', '**/.turbo/**', '**/node_modules/**'],
 };
 
-/** قواعد پایهٔ TypeScript با type-aware linting. */
+/** Base TypeScript rules with type-aware linting. */
 const typescript = tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.strictTypeChecked,
@@ -27,7 +27,7 @@ const typescript = tseslint.config(
         { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
       ],
       '@typescript-eslint/restrict-template-expressions': ['error', { allowNumber: true }],
-      // ماژول‌های NestJS کلاس خالیِ دکوریت‌شده‌اند.
+      // NestJS modules are decorated empty classes.
       '@typescript-eslint/no-extraneous-class': ['error', { allowWithDecorator: true }],
       eqeqeq: ['error', 'always'],
       'no-console': 'error',
@@ -41,13 +41,13 @@ const typescript = tseslint.config(
     files: ['**/*.test.ts', '**/*.test.tsx'],
     rules: {
       '@typescript-eslint/no-non-null-assertion': 'off',
-      // mockهای async بدون await در تست طبیعی‌اند.
+      // Async mocks without await are normal in tests.
       '@typescript-eslint/require-await': 'off',
     },
   },
 );
 
-/** پیکربندی اپ‌ها و پکیج‌های Node. */
+/** Configuration for Node apps and packages. */
 export const node = [
   ignores,
   ...typescript,
@@ -55,7 +55,7 @@ export const node = [
   prettier,
 ];
 
-/** پیکربندی اپ‌ها و پکیج‌های React. */
+/** Configuration for React apps and packages. */
 export const react = [
   ignores,
   ...typescript,

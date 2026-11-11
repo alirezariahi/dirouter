@@ -1,5 +1,5 @@
 /**
- * RBAC و ایزولاسیون سازمان‌ها روی Postgres و Valkey واقعی، از طریق HTTP (کارت ۳.۵).
+ * RBAC and organization isolation against real Postgres and Valkey, over HTTP (card 3.5).
  */
 import { generateKey } from '@dirouter/shared';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
@@ -39,7 +39,7 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('organization RBAC over HTTP', () 
         ...(body !== undefined ? { payload: body as Record<string, unknown> } : {}),
       });
 
-  /** دعوت با نقش و پذیرش آن توسط کاربر تازه؛ access token کاربر را برمی‌گرداند. */
+  /** Invitation with a role and its acceptance by a new user; returns the user's access token. */
   async function join(by: string, org: string, email: string, role: string) {
     const inv = await call('POST', `orgs/${org}/invitations`, by, { email, role });
     expect(inv.statusCode).toBe(201);
@@ -87,7 +87,7 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('organization RBAC over HTTP', () 
     const me = await call('GET', 'auth/me', tokens.ownerA);
     orgA = me.json<{ organizations: { id: string }[] }>().organizations[0]?.id ?? '';
 
-    // سازمان دوم با مالک جدا، مستقیم در DB (setup فقط یک بار است).
+    // Second organization with a separate owner, directly in the DB (setup happens only once).
     const db = app.get(PrismaService).client;
     orgB = 'org_b_test';
     await db.organization.create({ data: { id: orgB, name: 'Org B', slug: 'org-b' } });
@@ -174,7 +174,7 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('organization RBAC over HTTP', () 
     expect(
       (await call('POST', `orgs/${orgB}/teams`, tokens.ownerA, { name: 'X' })).statusCode,
     ).toBe(404);
-    // شناسهٔ تیم سازمان B از مسیر سازمان A هم پیدا نمی‌شود.
+    // Organization B's team ID is also not found through organization A's route.
     expect(
       (await call('PATCH', `orgs/${orgA}/teams/${teamB}`, tokens.ownerA, { name: 'X' })).statusCode,
     ).toBe(404);
@@ -284,7 +284,7 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('organization RBAC over HTTP', () 
       ).statusCode,
     ).toBe(404);
 
-    // owner-b حساب دارد؛ دعوت به سازمان A بدون رمز خودش پذیرفته نمی‌شود.
+    // owner-b has an account; an invitation to organization A is not accepted without its own password.
     const forB = await call('POST', `orgs/${orgA}/invitations`, tokens.ownerA, {
       email: 'owner-b@example.com',
       role: 'VIEWER',

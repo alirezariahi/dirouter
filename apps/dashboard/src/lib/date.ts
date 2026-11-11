@@ -1,4 +1,4 @@
-/** تاریخ شمسی/میلادی با Intl بومی (بدون کتابخانه، تا bundle کوچک بماند). */
+/** Jalali/Gregorian dates via native Intl (no library, to keep the bundle small). */
 export type Calendar = 'persian' | 'gregory';
 
 export function formatDate(

@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 import { Empty, ErrorState, Loading } from './states';
 
-/** هر ستون با یک کلید ثابت و تابع رندر؛ پنجره‌سازی روی ردیف‌هاست نه صفحه‌بندی DOM. */
+/** Each column has a stable key and a render function; windowing applies to rows, not DOM pagination. */
 export function VirtualTable<T>({
   rows,
   columns,

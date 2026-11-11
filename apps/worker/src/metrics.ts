@@ -1,4 +1,4 @@
-/** متریک‌های Prometheus worker (کارت ۶.۵): نوشتن مصرف و کارهای نگهداری. */
+/** Prometheus metrics for the worker (card 6.5): usage writes and maintenance jobs. */
 import { createQueueMetrics, type QueueCounts } from '@dirouter/shared';
 import { Counter, collectDefaultMetrics, Histogram, Registry } from 'prom-client';
 

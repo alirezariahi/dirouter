@@ -1,8 +1,8 @@
 /**
- * آمار و لاگ برای داشبورد (کارت ۳.۱۰). KPI، سری زمانی و «پرمصرف‌ها» از جداول تجمیعی
- * (usage_hourly و usage_daily) خوانده می‌شوند؛ لاگ‌ها از request_log با صفحه‌بندی cursor پایدار
- * روی (created_at, id) و همیشه با بازهٔ زمانی تا پارتیشن‌ها هرس شوند. همه‌چیز به سازمانِ
- * تأییدشده در Guard محدود است.
+ * Stats and logs for the dashboard (card 3.10). KPIs, time series, and "top consumers" are read from aggregate tables
+ * (usage_hourly and usage_daily); logs come from request_log with stable cursor pagination
+ * on (created_at, id), and always with a time range so partitions are pruned. Everything is scoped to the
+ * organization verified by the Guard.
  */
 import { DiRouterError, prefixedId } from '@dirouter/shared';
 import { Prisma } from '@dirouter/db';
@@ -13,7 +13,7 @@ import { PrismaService } from '../infra/prisma.service.js';
 import { ValkeyService } from '../infra/valkey.service.js';
 import type { OrgContext } from '../rbac/org.guard.js';
 
-/** مرزهای بالای سطل‌های latency_hist (ms)؛ سطل آخر یعنی بیشتر از 60s (migration usage_rollups). */
+/** Upper bounds of the latency_hist buckets (ms); the last bucket means over 60s (usage_rollups migration). */
 const HIST_BOUNDS = [100, 250, 500, 1000, 2500, 5000, 10000, 30000, 60000, 120000];
 
 export interface Range {
@@ -66,7 +66,7 @@ export class StatsService {
     @Inject(ValkeyService) private readonly valkey: ValkeyService,
   ) {}
 
-  /** نودهای گیت‌وی از heartbeat روی Valkey (هر ۵ ثانیه، انقضای ۱۵ ثانیه). */
+  /** Gateway nodes from heartbeats on Valkey (every 5 seconds, 15-second expiry). */
   async gatewayNodes() {
     try {
       const keys: string[] = [];
@@ -101,7 +101,7 @@ export class StatsService {
     }
   }
 
-  /** ریست دستی (فقط OWNER و ADMIN): روی کانال سلامت منتشر و در audit log ثبت می‌شود. */
+  /** Manual reset (OWNER and ADMIN only): published on the health channel and recorded in the audit log. */
   async reset(ctx: OrgContext, scope: 'provider' | 'model' | 'credential', id: string) {
     const org = ctx.organizationId;
     const owned =
@@ -154,7 +154,7 @@ export class StatsService {
     return Prisma.join(parts, ' AND ');
   }
 
-  /** بازه‌های بیش از ۷ روز از جدول روزانه خوانده می‌شوند. */
+  /** Ranges over 7 days are read from the daily table. */
   #table(r: Range): 'h' | 'd' {
     return r.to.getTime() - r.from.getTime() > 7 * 86_400_000 ? 'd' : 'h';
   }
@@ -286,7 +286,7 @@ export class StatsService {
     if (f.maxCostUsd) parts.push(Prisma.sql`cost_usd <= ${f.maxCostUsd}`);
     if (cursor) {
       const c = decodeCursor(cursor);
-      // (created_at, id) یکتاست؛ ردیف‌های تازهٔ بالای صفحه ترتیب صفحه‌های بعد را به هم نمی‌زنند.
+      // (created_at, id) is unique; new rows at the top of the page do not disturb the order of later pages.
       parts.push(Prisma.sql`(created_at, id) < (${c.createdAt}, ${c.id})`);
     }
     const rows = await this.db.$queryRaw<Record<string, unknown>[]>`
@@ -363,7 +363,7 @@ export class StatsService {
     };
   }
 
-  /** وضعیت breaker، cooldown و lockout از گیت‌وی (همگام بین replicaها)، فقط برای همین سازمان. */
+  /** Breaker, cooldown, and lockout status from the gateway (synced across replicas), for this organization only. */
   async runtimeHealth(ctx: OrgContext) {
     const [providers, models] = await Promise.all([
       this.db.provider.findMany({

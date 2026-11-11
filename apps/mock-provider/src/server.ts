@@ -1,5 +1,5 @@
 /**
- * provider ساختگی سازگار با OpenAI، Anthropic و Gemini با تزریق خطا (کارت‌های ۹.۱ و ۴.۸).
+ * Fake provider compatible with OpenAI, Anthropic and Gemini, with error injection (cards 9.1 and 4.8).
  */
 import { setTimeout as sleep } from 'node:timers/promises';
 
@@ -19,9 +19,9 @@ interface Stats {
   requests: number;
   byKey: Record<string, number>;
   byStatus: Record<string, number>;
-  /** آخرین بدنه‌های دریافتی (برای assert در تست e2e). */
+  /** Last received bodies (for assertions in e2e tests). */
   last: unknown[];
-  /** درخواست‌های باز همین حالا و بیشینهٔ آن (برای تست bulkhead). */
+  /** Currently open requests and their peak (for bulkhead tests). */
   inFlight: number;
   maxInFlight: number;
 }
@@ -35,7 +35,7 @@ const newStats = (): Stats => ({
   maxInFlight: 0,
 });
 
-/** تخمین ساده: هر ۴ کاراکتر یک توکن. */
+/** Simple estimate: every 4 characters is one token. */
 const tokens = (value: unknown) => Math.max(1, Math.ceil(JSON.stringify(value ?? '').length / 4));
 
 const GOOGLE_STATUS: Record<number, string> = {
@@ -128,7 +128,7 @@ export function buildServer(options: MockServerOptions = {}) {
     if (stats.last.length > 20) stats.last.shift();
   }
 
-  /** خطای ثابت یا تصادفی؛ اگر خطایی ارسال شد true برمی‌گرداند. */
+  /** Fixed or random error; returns true if an error was sent. */
   async function maybeFail(
     api: Api,
     s: Scenario,
@@ -399,7 +399,7 @@ export function buildServer(options: MockServerOptions = {}) {
   });
 
   // ───────────── Gemini ─────────────
-  // POST /v1beta/models/{model}:generateContent و :streamGenerateContent?alt=sse
+  // POST /v1beta/models/{model}:generateContent and :streamGenerateContent?alt=sse
 
   app.post<{ Params: { '*': string } }>('/v1beta/models/*', async (req, reply) => {
     const [rawModel = 'mock', action = ''] = req.params['*'].split(':');
@@ -466,7 +466,7 @@ export function buildServer(options: MockServerOptions = {}) {
       await sleep(s.chunkDelayMs);
       if (res.destroyed) return;
       const last = i === pieces.length - 1;
-      // مثل Gemini واقعی usageMetadata در هر chunk تجمعی است.
+      // As in real Gemini, usageMetadata is cumulative in every chunk.
       send(
         frame([{ text: piece }], last ? 'STOP' : undefined, {
           ...usageMetadata,
@@ -494,7 +494,7 @@ export function buildServer(options: MockServerOptions = {}) {
     };
   });
 
-  // ───────────── models، کنترل و آمار ─────────────
+  // ───────────── models, control and stats ─────────────
 
   app.get('/v1/models', async (req, reply) => {
     const s = scenarioFor(req);

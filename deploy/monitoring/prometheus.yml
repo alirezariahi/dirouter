@@ -30,6 +30,6 @@ scrape_configs:
   - job_name: traefik
     metrics_path: /metrics
     static_configs:
-      # در Traefik متریک روی entryPoint داخلی traefik (=8082) است، نه gateway.
+      # In Traefik the metrics are on the internal traefik entryPoint (=8082), not the gateway.
       - targets: ['traefik:8082']
         labels: { service: traefik }

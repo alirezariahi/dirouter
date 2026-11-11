@@ -1,5 +1,5 @@
 /**
- * احراز هویت کلید مجازی (کارت ۴.۳): HMAC کلید و جستجو در snapshot حافظه، بدون I/O.
+ * Virtual key authentication (card 4.3): HMAC of the key and lookup in the in-memory snapshot, no I/O.
  */
 import { BlockList, isIP } from 'node:net';
 
@@ -53,7 +53,7 @@ export function authenticate(
     });
   const hash = hashApiKey(rawKey, pepper);
   const key = config.keysByHash.get(hash);
-  // جستجوی Map فقط کاندیدا را پیدا می‌کند؛ تأیید نهایی با مقایسهٔ زمان‌ثابت است.
+  // The Map lookup only finds the candidate; final verification is a constant-time comparison.
   if (!key?.enabled || !timingSafeEqualHex(hash, key.hash))
     throw new AuthenticationError('invalid_api_key');
   if (key.expiresAt && Date.parse(key.expiresAt) <= now)

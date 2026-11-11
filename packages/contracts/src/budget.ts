@@ -1,27 +1,27 @@
 /**
- * قرارداد مشترک شمارندهٔ بودجه بین گیت‌وی و worker (کارت ۶.۳).
+ * Shared budget counter contract between the gateway and the worker (card 6.3).
  *
- * شمارندهٔ هر بودجه یک HASH در Valkey است که کلیدش دوره را دارد (روز یا ماه UTC). شروع
- * دورهٔ تازه یعنی کلید تازه، پس ریست خودکار است و کلید قدیمی با TTL پاک می‌شود.
- * فیلدها:
- * - `usd`: هزینه به واحد 1e-8 دلار، عدد صحیح (همان دقت Decimal(18,8) ledger، بدون خطای float)
- * - `tokens`: توکن ورودی + خروجی
- * - `ts`: زمان آخرین افزایش (ms)
+ * Each budget counter is a HASH in Valkey whose key includes the period (day or month, UTC). Starting
+ * a new period means a new key, so the reset is automatic and the old key is removed by its TTL.
+ * Fields:
+ * - `usd`: cost in units of 1e-8 dollars, integer (same precision as the Decimal(18,8) ledger, no float error)
+ * - `tokens`: input + output tokens
+ * - `ts`: time of the last increment (ms)
  */
 import type { BudgetPeriod } from './config-snapshot.js';
 
 export const BUDGET_UNITS_PER_USD = 100_000_000;
 
-/** فهرست Valkey رویدادهای عبور از آستانه (گیت‌وی LPUSH، worker مصرف). */
+/** Valkey list of threshold-crossing events (gateway LPUSH, worker consumes). */
 export const BUDGET_ALERTS_KEY = 'dirouter:budget:alerts';
 
-/** شناسهٔ دوره: `d:2026-11-08` یا `m:2026-11` (UTC). */
+/** Period ID: `d:2026-11-08` or `m:2026-11` (UTC). */
 export function budgetPeriodKey(period: BudgetPeriod, at: Date = new Date()): string {
   const iso = at.toISOString();
   return period === 'daily' ? `d:${iso.slice(0, 10)}` : `m:${iso.slice(0, 7)}`;
 }
 
-/** شروع و پایان دورهٔ جاری (UTC). */
+/** Start and end of the current period (UTC). */
 export function budgetPeriodRange(
   period: BudgetPeriod,
   at: Date = new Date(),
@@ -38,7 +38,7 @@ export function budgetPeriodRange(
 export const budgetCounterKey = (budgetId: string, periodKey: string): string =>
   `dirouter:budget:${budgetId}:${periodKey}`;
 
-/** رشتهٔ دهدهی دلار (مثلاً `"0.00012345"`) → واحد صحیح 1e-8، بدون float. */
+/** Decimal dollar string (e.g. `"0.00012345"`) → integer units of 1e-8, without float. */
 export function usdToUnits(usd: string): number {
   const match = /^(-?)(\d*)(?:\.(\d*))?$/.exec(usd.trim());
   if (!match) return 0;
@@ -50,7 +50,7 @@ export function usdToUnits(usd: string): number {
 
 export const unitsToUsd = (units: number): string => (units / BUDGET_UNITS_PER_USD).toFixed(8);
 
-/** رویداد عبور از آستانه که worker در audit_log ثبت می‌کند. */
+/** Threshold-crossing event that the worker records in audit_log. */
 export interface BudgetAlertEvent {
   budgetId: string;
   organizationId: string;

@@ -1,6 +1,6 @@
 /**
- * کلاینت تایپ‌دار API از روی سند OpenAPI control-api (کارت ۷.۱).
- * بازتولید: pnpm --filter @dirouter/control-api openapi:export && pnpm --filter @dirouter/dashboard api:generate
+ * Typed API client generated from the control-api OpenAPI document (card 7.1).
+ * Regenerate: pnpm --filter @dirouter/control-api openapi:export && pnpm --filter @dirouter/dashboard api:generate
  */
 import { defineConfig } from 'orval';
 

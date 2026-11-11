@@ -1,4 +1,4 @@
-/** کلیدهای مجازی روی Postgres و Valkey واقعی، از طریق HTTP (کارت ۳.۷). */
+/** Virtual keys against real Postgres and Valkey, over HTTP (card 3.7). */
 import { generateKey, hashApiKey } from '@dirouter/shared';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -125,7 +125,7 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('virtual keys over HTTP', () => {
     const row = await db.apiKey.findUniqueOrThrow({ where: { id: key.id } });
     expect(row.hash).toBe(hashApiKey(key.key, PEPPER));
     expect(key.key.startsWith(`${row.prefix}-`)).toBe(true);
-    // کلید خام در هیچ جدولی نیست.
+    // The raw key is not in any table.
     const dump = JSON.stringify(
       [await db.apiKey.findMany(), await db.auditLog.findMany(), await db.budget.findMany()],
       (_k, v: unknown) => (typeof v === 'bigint' ? v.toString() : v),

@@ -1,4 +1,4 @@
-// Conventional Commits؛ scope باید نام یکی از اپ‌ها یا پکیج‌ها یا یک حوزهٔ کلی باشد.
+// Conventional Commits; the scope must be the name of an app or package, or a general area.
 const scopes = [
   'gateway',
   'control-api',

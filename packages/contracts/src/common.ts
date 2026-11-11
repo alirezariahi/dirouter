@@ -1,16 +1,16 @@
 import { z } from 'zod';
 
-/** یک شیء JSON دلخواه (مثلاً JSON Schema پارامترهای ابزار). */
+/** An arbitrary JSON object (e.g. the JSON Schema of tool parameters). */
 export const JsonObject = z.record(z.string(), z.unknown());
 export type JsonObject = z.infer<typeof JsonObject>;
 
-/** شناسهٔ ULID (۲۶ کاراکتر Crockford base32). */
+/** ULID identifier (26 characters, Crockford base32). */
 export const Ulid = z.string().regex(/^[0-9A-HJKMNP-TV-Z]{26}$/, 'invalid ULID');
 
-/** زمان ISO-8601 با منطقهٔ زمانی. */
+/** ISO-8601 timestamp with time zone. */
 export const IsoDateTime = z.iso.datetime({ offset: true });
 
-/** شناسهٔ کوتاه و امن برای نام‌ها، aliasها و slugها. */
+/** Short, safe identifier for names, aliases, and slugs. */
 export const Slug = z
   .string()
   .min(1)
@@ -20,8 +20,8 @@ export const Slug = z
 export const NonNegativeInt = z.int().nonnegative();
 
 /**
- * مبلغ دلاری به‌صورت رشتهٔ اعشاری با حداکثر ۸ رقم اعشار (معادل Decimal(18,8)).
- * پول هرگز float نیست؛ محاسبه با `@dirouter/shared` (BigInt fixed-point).
+ * Dollar amount as a decimal string with at most 8 decimal places (equivalent to Decimal(18,8)).
+ * Money is never a float; calculations use `@dirouter/shared` (BigInt fixed-point).
  */
 export const UsdAmount = z
   .string()

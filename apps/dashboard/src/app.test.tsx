@@ -9,7 +9,7 @@ import { resetSessionForTests } from './lib/session';
 import { makeRouter } from './router';
 import { SettingsProvider } from './settings';
 
-// jsdom این دو را ندارد (cmdk به ResizeObserver نیاز دارد).
+// jsdom lacks these two (cmdk needs ResizeObserver).
 Object.defineProperty(globalThis, 'ResizeObserver', {
   writable: true,
   value: class {
@@ -39,7 +39,7 @@ const USER = {
   name: 'Owner',
   organizations: [{ id: 'org_1', name: 'Acme', slug: 'acme', role: 'OWNER' }],
 };
-/** API ساختگی؛ پیش‌فرض: کاربر واردشده. */
+/** Fake API; default: a signed-in user. */
 function mockApi(handler: Handler = () => undefined) {
   const calls: { path: string; init: RequestInit }[] = [];
   vi.stubGlobal(
@@ -333,7 +333,7 @@ describe('health page', () => {
     });
     expect(count()).toBeGreaterThan(before);
     const resetButtons = screen.getAllByRole('button', { name: 'ریست' });
-    expect(resetButtons.length).toBe(2); // provider و credential در cooldown
+    expect(resetButtons.length).toBe(2); // provider and credential in cooldown
     await act(async () => {
       fireEvent.click(resetButtons[0] as HTMLElement);
     });

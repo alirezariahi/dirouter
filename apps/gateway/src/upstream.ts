@@ -1,11 +1,11 @@
 /**
- * فراخوانی upstream با timeoutهای چندلایه (کارت ۵.۴) و proxy خروجی (کارت ۴.۱۰).
+ * Upstream calls with multi-layer timeouts (card 5.4) and outbound proxy (card 4.10).
  *
- * - connect: در undici Agent هر provider
- * - firstByte (TTFT): تا رسیدن هدر پاسخ (و برای stream تا اولین chunk)
- * - idle: سکوت بین دو chunk در stream
- * - total: deadline کل تلاش
- * همهٔ timeoutها با AbortController به upstream منتقل می‌شوند.
+ * - connect: per provider in the undici Agent
+ * - firstByte (TTFT): until the response headers arrive (and for streams, until the first chunk)
+ * - idle: silence between two chunks in the stream
+ * - total: overall deadline for the attempt
+ * All timeouts are passed to upstream via AbortController.
  */
 import { lookup } from 'node:dns/promises';
 import { connect as tlsConnect } from 'node:tls';
@@ -45,8 +45,8 @@ export function mergeTimeouts(...layers: (TimeoutConfig | undefined)[]): Require
 
 const dispatchers = new Map<string, Dispatcher>();
 
-/** یک dispatcher (connection pool) به ازای provider؛ bulkhead اتصال‌ها جداست. */
-/** رمز پروکسی هرگز در لاگ و خطا نمی‌آید: `socks5://user:***@host:1080`. */
+/** One dispatcher (connection pool) per provider; connection bulkheads are separate. */
+/** The proxy password never appears in logs or errors: `socks5://user:***@host:1080`. */
 export function maskProxyUrl(url: string): string {
   try {
     const u = new URL(url);
@@ -58,8 +58,8 @@ export function maskProxyUrl(url: string): string {
 }
 
 /**
- * اتصال از طریق SOCKS5. در `socks5h://` نام میزبان به خود پروکسی داده می‌شود (DNS
- * سمت پروکسی، مناسب وقتی DNS محلی فیلتر است). در `socks5://` نام اول محلی resolve می‌شود.
+ * Connects via SOCKS5. With `socks5h://` the hostname is handed to the proxy itself (DNS
+ * resolved on the proxy side, useful when local DNS is filtered). With `socks5://` the name is resolved locally first.
  */
 function socksConnector(proxyUrl: string, timeoutMs: number): buildConnector.connector {
   const proxy = new URL(proxyUrl);
@@ -102,7 +102,7 @@ function socksConnector(proxyUrl: string, timeoutMs: number): buildConnector.con
         });
       })
       .catch((error: unknown) => {
-        // پیام خطای socks گاهی آدرس پروکسی را دارد؛ فقط نسخهٔ ماسک‌شده بیرون می‌رود.
+        // The socks error message sometimes contains the proxy address; only the masked version is emitted.
         const message = error instanceof Error ? error.message : String(error);
         const wrapped = Object.assign(
           new Error(
@@ -116,9 +116,9 @@ function socksConnector(proxyUrl: string, timeoutMs: number): buildConnector.con
 }
 
 /**
- * یک dispatcher برای هر (provider، پروکسی، connect timeout)؛ اتصال‌های keep-alive جدا
- * می‌مانند و provider کند بقیه را گرسنه نمی‌گذارد. پروکسی: HTTP(S) با ProxyAgent
- * (CONNECT)، و SOCKS5/SOCKS5h با connector سفارشی.
+ * One dispatcher per (provider, proxy, connect timeout); keep-alive connections stay separate
+ * so a slow provider cannot starve the others. Proxy: HTTP(S) with ProxyAgent
+ * (CONNECT), and SOCKS5/SOCKS5h with a custom connector.
  */
 export function dispatcherFor(
   provider: ProviderConfig,
@@ -145,16 +145,16 @@ export function dispatcherFor(
 
 export interface UpstreamCall {
   response: Awaited<ReturnType<typeof fetch>>;
-  /** پاک کردن timerها بعد از پایان کار. */
+  /** Clears timers after the work finishes. */
   done(): void;
-  /** شروع دوبارهٔ timer سکوت (هر chunk). */
+  /** Restarts the silence timer (on every chunk). */
   touch(): void;
   signal: AbortSignal;
 }
 
 /**
- * ارسال درخواست. `stream` تعیین می‌کند timer TTFT پس از هدر هم تا اولین chunk
- * ادامه یابد و idle فعال شود.
+ * Sends the request. `stream` determines whether the TTFT timer continues past the headers until the first chunk
+ * and whether idle is enabled.
  */
 export async function callUpstream(
   provider: ProviderConfig,
@@ -162,7 +162,7 @@ export async function callUpstream(
   timeouts: Required<TimeoutConfig>,
   parent: AbortSignal,
   stream: boolean,
-  /** پروکسی نهایی (credential، بعد provider، بعد سراسری)؛ پیش‌فرض پروکسی provider. */
+  /** Final proxy (credential, then provider, then global); defaults to the provider's proxy. */
   proxyUrl: string | undefined = provider.proxy?.url,
 ): Promise<UpstreamCall> {
   const controller = new AbortController();
@@ -178,7 +178,7 @@ export async function callUpstream(
   parent.addEventListener('abort', onParent, { once: true });
 
   const total = setTimeout(abortFor('total'), timeouts.totalMs);
-  // برای non-stream مدل کل پاسخ را می‌سازد؛ TTFT فقط برای stream معنی دارد.
+  // For non-stream, the model builds the whole response; TTFT only makes sense for streams.
   let firstByte: NodeJS.Timeout | undefined = stream
     ? setTimeout(abortFor('first_byte'), timeouts.firstByteMs)
     : undefined;
@@ -218,7 +218,7 @@ export async function callUpstream(
   }
 }
 
-/** متن بدنهٔ خطا با سقف اندازه (پاسخ خطای بزرگ حافظه را پر نکند). */
+/** Error body text with a size cap (so a large error response does not fill memory). */
 export async function readErrorBody(
   response: Awaited<ReturnType<typeof fetch>>,
   limit = 16_384,

@@ -1,7 +1,7 @@
 /**
- * تخمین توکن وقتی provider usage برنمی‌گرداند (کارت ۶.۲) و برای فیلتر context
- * window در router. encoder یک بار و lazy بارگذاری می‌شود (o200k_base؛ برای مدل‌های
- * غیر OpenAI تقریبی است و رویداد با `usageEstimated=true` علامت می‌خورد).
+ * Token estimation when the provider does not return usage (card 6.2), and for filtering by context
+ * window in the router. The encoder is loaded once, lazily (o200k_base; for models
+ * other than OpenAI it is approximate and the event is marked with `usageEstimated=true`).
  */
 import type { CanonicalPart, CanonicalRequest, CanonicalUsage } from '@dirouter/contracts';
 import { Tiktoken } from 'js-tiktoken/lite';
@@ -10,9 +10,9 @@ import o200k from 'js-tiktoken/ranks/o200k_base';
 let encoder: Tiktoken | undefined;
 const enc = () => (encoder ??= new Tiktoken(o200k));
 
-/** هزینهٔ تقریبی هر تصویر (معادل detail=low در OpenAI). */
+/** Approximate cost of each image (equivalent to detail=low in OpenAI). */
 const IMAGE_TOKENS = 85;
-/** سربار هر پیام (نقش و جداکننده‌ها). */
+/** Overhead per message (role and separators). */
 const MESSAGE_OVERHEAD = 4;
 
 export function countTokens(text: string): number {
@@ -20,7 +20,7 @@ export function countTokens(text: string): number {
   return enc().encode(text).length;
 }
 
-/** تخمین ارزان بدون tokenizer (برای مسیر داغ): ~۴ کاراکتر لاتین یا ~۲ کاراکتر غیرلاتین در هر توکن. */
+/** Cheap estimate without a tokenizer (for the hot path): ~4 Latin characters or ~2 non-Latin characters per token. */
 export function roughTokens(text: string): number {
   let ascii = 0;
   for (let i = 0; i < text.length; i++) if (text.charCodeAt(i) < 128) ascii++;
@@ -42,7 +42,7 @@ function partText(part: CanonicalPart): string {
   }
 }
 
-/** تخمین توکن خروجی از محتوای پاسخ (متن، استدلال و فراخوانی ابزار). */
+/** Estimates output tokens from the response content (text, reasoning, and tool calls). */
 export function estimateOutputTokens(
   parts: readonly CanonicalPart[],
   count: (text: string) => number = countTokens,
@@ -51,8 +51,8 @@ export function estimateOutputTokens(
 }
 
 /**
- * usage تخمینی برای وقتی provider چیزی نداده؛ ورودی از درخواست و خروجی از محتوای
- * پاسخ (یا متن جمع‌شدهٔ stream).
+ * Estimated usage for when the provider returned nothing; input from the request and output from the content
+ * of the response (or the accumulated stream text).
  */
 export function estimateUsage(
   req: CanonicalRequest,

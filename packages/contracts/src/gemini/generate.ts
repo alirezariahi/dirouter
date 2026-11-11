@@ -1,7 +1,7 @@
 /**
- * اسکیمای پاسخ Gemini (`generateContent` و هر chunk از `streamGenerateContent?alt=sse`).
+ * Gemini response schema (`generateContent` and each chunk from `streamGenerateContent?alt=sse`).
  *
- * فقط فیلدهایی که گیت‌وی می‌خواند تعریف شده‌اند؛ بقیه با looseObject حفظ می‌شوند.
+ * Only fields the gateway reads are defined; the rest are preserved with looseObject.
  */
 import { z } from 'zod';
 
@@ -9,7 +9,7 @@ import { NonNegativeInt } from '../common.js';
 
 export const GeminiPart = z.looseObject({
   text: z.string().optional(),
-  /** true یعنی این part خلاصهٔ استدلال (thought) است، نه پاسخ. */
+  /** true means this part is a reasoning (thought) summary, not the answer. */
   thought: z.boolean().optional(),
   thoughtSignature: z.string().optional(),
   functionCall: z
@@ -35,9 +35,9 @@ export const GeminiCandidate = z.looseObject({
 export type GeminiCandidate = z.infer<typeof GeminiCandidate>;
 
 export const GeminiUsageMetadata = z.looseObject({
-  /** شامل cachedContentTokenCount است. */
+  /** Includes cachedContentTokenCount. */
   promptTokenCount: NonNegativeInt.optional(),
-  /** شامل thoughtsTokenCount نیست. */
+  /** Does not include thoughtsTokenCount. */
   candidatesTokenCount: NonNegativeInt.optional(),
   thoughtsTokenCount: NonNegativeInt.optional(),
   cachedContentTokenCount: NonNegativeInt.optional(),

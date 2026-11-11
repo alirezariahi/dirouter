@@ -1,4 +1,4 @@
-/** متریک‌های control-api: وضعیت صف‌های BullMQ و زمان درخواست مدیریتی. */
+/** control-api metrics: BullMQ queue status and admin request duration. */
 import { Queue } from 'bullmq';
 import { collectDefaultMetrics, Histogram, Registry } from 'prom-client';
 

@@ -48,7 +48,7 @@ function captureLogger() {
       done();
     },
   });
-  // pino در حالت stream به‌صورت همگام می‌نویسد.
+  // pino writes synchronously in stream mode.
   const logger = createLogger({ service: 'test', level: 'debug', destination });
   return { logger, lines };
 }
@@ -222,7 +222,7 @@ describe('crypto', () => {
     const ring = parseKeyring(k1);
     const [version, body] = encrypt(ring, 'secret').split('.') as [string, string];
     const bytes = Buffer.from(body, 'base64url');
-    bytes[14]! ^= 0x01; // یک بیت از بدنهٔ ciphertext
+    bytes[14]! ^= 0x01; // flip one bit of the ciphertext body
     expect(() => decrypt(ring, `${version}.${bytes.toString('base64url')}`)).toThrow(
       /wrong key or tampered/,
     );

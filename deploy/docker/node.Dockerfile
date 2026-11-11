@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1.7
-# ایمیج مشترک اپ‌های Node (gateway، control-api، worker، mock-provider).
+# Shared image for the Node apps (gateway, control-api, worker, mock-provider).
 # build:  docker build -f deploy/docker/node.Dockerfile --build-arg APP=gateway .
 ARG NODE_VERSION=22.17
 
@@ -10,13 +10,13 @@ ENV PNPM_HOME=/pnpm \
 RUN corepack enable
 WORKDIR /repo
 
-# ۱) فقط فایل‌های لازم برای این اپ و وابستگی‌هایش.
+# 1) Only the files needed for this app and its dependencies.
 FROM base AS prune
 ARG APP
 COPY . .
 RUN pnpm dlx turbo@2.11.10 prune @dirouter/${APP} --docker
 
-# ۲) نصب وابستگی‌ها (لایهٔ کش‌شونده) و build.
+# 2) Install dependencies (cacheable layer) and build.
 FROM base AS build
 ARG APP
 COPY --from=prune /repo/out/json/ .
@@ -26,12 +26,12 @@ COPY --from=prune /repo/out/full/ .
 RUN pnpm turbo run build --filter=@dirouter/${APP}
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
     pnpm --filter=@dirouter/${APP} deploy --prod --legacy /out
-# حذف چیزهایی که در زمان اجرا لازم نیستند (پنجرهٔ ۲۵۰MB):
-# - peerهای اختیاری Prisma که pnpm نصب می‌کند (CLI، engines، typescript)
-# - runtimeهای Prisma برای دیتابیس‌های دیگر، edge و source map (engineType=client فقط client.js + compiler postgresql)
-# - همهٔ encodingهای js-tiktoken جز o200k_base؛ و کل js-tiktoken جز برای گیت‌وی (peer اختیاری
-#   model-catalog است و بقیهٔ اپ‌ها فقط `@dirouter/model-catalog/catalog` را import می‌کنند)
-# - source mapهای همهٔ وابستگی‌ها (در production استفاده نمی‌شوند؛ swagger-ui به‌تنهایی چند MB دارد)
+# Remove what is not needed at runtime (~250MB window):
+# - Prisma optional peers that pnpm installs (CLI, engines, typescript)
+# - Prisma runtimes for other databases, edge and source maps (engineType=client needs only client.js + the postgresql compiler)
+# - all js-tiktoken encodings except o200k_base; and all of js-tiktoken except for the gateway (optional peer
+#   model-catalog; the other apps only import `@dirouter/model-catalog/catalog`)
+# - source maps of all dependencies (not used in production; swagger-ui alone is several MB)
 RUN cd /out/node_modules/.pnpm \
     && if [ "${APP}" != gateway ]; then rm -rf js-tiktoken@* base64-js@*; fi \
     && find /out/node_modules -name '*.map' -type f -delete \
@@ -47,7 +47,7 @@ RUN cd /out/node_modules/.pnpm \
          find "$d/ranks" -type f ! -name 'o200k_base*' -delete; \
        done
 
-# ۳) ایمیج نهایی: alpine خالص + باینری node (بدون npm/yarn/corepack)، کاربر غیر root.
+# 3) Final image: plain alpine + node binary (no npm/yarn/corepack), non-root user.
 FROM node:${NODE_VERSION}-alpine AS node
 
 FROM alpine:3.22 AS runtime

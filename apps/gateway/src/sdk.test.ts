@@ -1,6 +1,6 @@
 /**
- * SDKهای رسمی openai و @anthropic-ai/sdk بدون هیچ تغییری فقط با baseURL به DiRouter
- * کار می‌کنند (کارت ۴.۹): non-stream، stream، tool call و count_tokens.
+ * The official openai and @anthropic-ai/sdk SDKs work with DiRouter without any changes, only by setting baseURL
+ * (card 4.9): non-stream, stream, tool call and count_tokens.
  */
 import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';

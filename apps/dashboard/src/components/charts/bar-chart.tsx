@@ -1,12 +1,12 @@
 /**
- * نمودار ستونی سبک با SVG (بدون کتابخانه، تا bundle و زمان بارگذاری کوچک بماند).
- * هر ستون قابل کلیک است (drill-down) و با کیبورد هم انتخاب می‌شود. جهت محور زمان در RTL
- * برعکس می‌شود تا «اکنون» سمت چپ باشد، مثل متن.
+ * Lightweight SVG bar chart (no library, to keep the bundle and load time small).
+ * Each column is clickable (drill-down) and can be selected with the keyboard. The time-axis direction in RTL
+ * is reversed so "now" is on the left, like text.
  */
 export interface Bar {
   label: string;
   value: number;
-  /** بخش برجسته (مثلاً خطاها) از همان ستون */
+  /** Highlighted segment (e.g. errors) of the same column */
   highlight?: number;
 }
 

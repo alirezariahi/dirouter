@@ -1,7 +1,7 @@
 /**
- * پیش‌تنظیم providerهای سازگار با OpenAI. افزودن provider جدید فقط با config:
- * نوع `openai-compatible` + `baseUrl` (+ اختیاری `options.maxTokensField`،
- * `options.supportsStreamOptions`، `options.headers`).
+ * Presets for OpenAI-compatible providers. Adding a new provider only needs config:
+ * type `openai-compatible` + `baseUrl` (+ optional `options.maxTokensField`,
+ * `options.supportsStreamOptions`, `options.headers`).
  */
 import type { ProviderConfig } from '@dirouter/contracts';
 
@@ -11,7 +11,7 @@ export interface Preset {
   maxTokensField: 'max_tokens' | 'max_completion_tokens';
   supportsStreamOptions: boolean;
   headers: Record<string, string>;
-  /** نیاز به API key ندارد (سرور محلی). */
+  /** Does not require an API key (local server). */
   keyless?: boolean;
 }
 
@@ -57,7 +57,7 @@ export const PRESETS: Record<string, Preset> = {
   mock: preset({ name: 'DiRouter mock', baseUrl: 'http://mock-provider:8090/v1' }),
 };
 
-/** preset مؤثر یک provider: preset نام‌برده در options.preset، سپس override‌های options. */
+/** Effective preset of a provider: the preset named in options.preset, then options overrides. */
 export function presetFor(provider: ProviderConfig): Preset {
   const named =
     typeof provider.options.preset === 'string' ? PRESETS[provider.options.preset] : undefined;

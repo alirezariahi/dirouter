@@ -1,11 +1,11 @@
 /**
- * رمزنگاری AES-256-GCM با key versioning، فقط با node:crypto.
+ * AES-256-GCM encryption with key versioning, using only node:crypto.
  *
- * قالب ciphertext: `v<version>.<base64url(iv ‖ ciphertext ‖ authTag)>`
- * - iv: ۱۲ بایت تصادفی برای هر رمزنگاری
- * - authTag: ۱۶ بایت
- * نسخهٔ کلید در خود ciphertext است تا بعد از چرخش کلید، داده‌های قدیمی هم
- * قابل رمزگشایی بمانند.
+ * Ciphertext format: `v<version>.<base64url(iv ‖ ciphertext ‖ authTag)>`
+ * - iv: 12 random bytes per encryption
+ * - authTag: 16 bytes
+ * The key version is inside the ciphertext so that old data remains
+ * decryptable after a key rotation.
  */
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
 
@@ -20,12 +20,12 @@ export class CryptoError extends Error {
 }
 
 export interface Keyring {
-  /** نسخهٔ کلیدی که برای رمزنگاری جدید استفاده می‌شود. */
+  /** Version of the key used for new encryption. */
   readonly currentVersion: number;
   readonly keys: ReadonlyMap<number, Buffer>;
 }
 
-/** یک کلید تصادفی ۳۲ بایتی به‌صورت base64. */
+/** A random 32-byte key encoded as base64. */
 export function generateKey(): string {
   return randomBytes(KEY_BYTES).toString('base64');
 }
@@ -41,10 +41,10 @@ function decodeKey(encoded: string, version: number): Buffer {
 }
 
 /**
- * ساخت keyring از مقدار env.
+ * Builds the keyring from the env value.
  *
- * قالب: `1:<base64>,2:<base64>`؛ بالاترین نسخه کلید جاری است. یک کلید تنها
- * بدون پیشوند نسخه هم پذیرفته می‌شود و نسخهٔ ۱ در نظر گرفته می‌شود.
+ * Format: `1:<base64>,2:<base64>`; the highest version is the current key. A single key
+ * without a version prefix is also accepted and treated as version 1.
  */
 export function parseKeyring(value: string): Keyring {
   const entries = value
@@ -72,8 +72,8 @@ export function parseKeyring(value: string): Keyring {
 }
 
 /**
- * رمزنگاری رشته. `aad` (اختیاری) ciphertext را به یک زمینه گره می‌زند (مثلاً
- * شناسهٔ credential) تا نتوان آن را در رکورد دیگری جایگزین کرد.
+ * Encrypts a string. `aad` (optional) binds the ciphertext to a context (e.g.
+ * a credential ID) so it cannot be swapped into another record.
  */
 export function encrypt(keyring: Keyring, plaintext: string, aad?: string): string {
   const key = keyring.keys.get(keyring.currentVersion);
@@ -105,19 +105,19 @@ export function decrypt(keyring: Keyring, ciphertext: string, aad?: string): str
     decipher.setAuthTag(tag);
     return Buffer.concat([decipher.update(body), decipher.final()]).toString('utf8');
   } catch (error) {
-    // خطای GCM عمداً جزئیات ندارد: کلید اشتباه، داده یا aad دستکاری‌شده.
+    // The GCM error intentionally has no details: wrong key, or tampered data or aad.
     throw new CryptoError('decryption failed: wrong key or tampered data', { cause: error });
   }
 }
 
-/** نسخهٔ کلید یک ciphertext. */
+/** Key version of a ciphertext. */
 export function keyVersionOf(ciphertext: string): number {
   const match = CIPHERTEXT_PATTERN.exec(ciphertext);
   if (!match) throw new CryptoError('malformed ciphertext');
   return Number(match[1]);
 }
 
-/** true اگر ciphertext با کلیدی غیر از کلید جاری رمز شده و باید دوباره رمز شود. */
+/** true if the ciphertext was encrypted with a key other than the current one and must be re-encrypted. */
 export function needsReencryption(keyring: Keyring, ciphertext: string): boolean {
   return keyVersionOf(ciphertext) !== keyring.currentVersion;
 }

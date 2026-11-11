@@ -1,24 +1,24 @@
 /**
- * Rate limiter توزیع‌شده روی Valkey (کارت ۶.۱).
+ * Distributed rate limiter on Valkey (card 6.1).
  *
- * سه نوع سقف برای هر scope (کلید، پروژه، تیم):
- * - RPM: پنجرهٔ لغزان دقیق (sliding log در ZSET). در هر ۶۰ ثانیهٔ دلخواه حداکثر `rpm` درخواست.
- * - TPM: سطل‌های یک‌ثانیه‌ای در HASH. پیش از درخواست تخمین رزرو و بعد از usage واقعی
- *   اختلاف تسویه می‌شود.
- * - همزمانی: semaphore در ZSET با TTL، تا درخواستِ نودِ مرده جا را برای همیشه نگیرد.
+ * Three kinds of cap for each scope (key, project, team):
+ * - RPM: exact sliding window (sliding log in a ZSET). At most `rpm` requests in any 60-second span.
+ * - TPM: one-second buckets in a HASH. Before the request the estimate is reserved, and after the actual usage
+ *   the difference is settled.
+ * - Concurrency: a semaphore in a ZSET with a TTL, so a dead node's request does not hold a slot forever.
  *
- * همهٔ scopeها با یک اسکریپت Lua اتمیک بررسی و سپس اعمال می‌شوند (یا هیچ‌کدام) و
- * ساعت مرجع `TIME` خود Valkey است، پس نودها ساعت هماهنگ لازم ندارند.
+ * All scopes are checked and then applied by a single atomic Lua script (or none are), and
+ * the reference clock is Valkey's own `TIME`, so nodes do not need synchronized clocks.
  *
- * قطعی Valkey: limiter محلی با سهم `ceil(limit / تعداد نودها)` (fail-open، پیش‌فرض)، یا
- * 429 برای scopeهای محدود (fail-closed). در هیچ حالتی 5xx نمی‌دهد.
+ * Valkey outage: a local limiter with a share of `ceil(limit / number of nodes)` (fail-open, default), or
+ * 429 for limited scopes (fail-closed). It never returns 5xx in any mode.
  */
 import type { RateLimitConfig } from '@dirouter/contracts';
 import type { Logger } from '@dirouter/shared';
 import type { Redis } from 'ioredis';
 
 export interface LimitScope {
-  /** مثلاً `key:<id>`، `project:<id>`، `team:<id>` */
+  /** e.g. `key:<id>`, `project:<id>`, `team:<id>` */
   name: string;
   limit: RateLimitConfig;
 }
@@ -33,9 +33,9 @@ export type Admission =
   | {
       ok: true;
       headers: LimitHeaders;
-      /** تسویهٔ TPM با مصرف واقعی (ورودی + خروجی). */
+      /** Settles TPM with actual usage (input + output). */
       settle: (actualTokens: number) => void;
-      /** آزادسازی جای همزمانی. */
+      /** Releases the concurrency slot. */
       release: () => void;
     }
   | {
@@ -44,7 +44,7 @@ export type Admission =
       kind: LimitKind;
       retryAfterMs: number;
       headers: LimitHeaders;
-      /** limiter در دسترس نبود و failMode=closed است. */
+      /** The limiter was unavailable and failMode=closed. */
       unavailable?: boolean;
     };
 
@@ -52,11 +52,11 @@ export interface RateLimiterOptions {
   redis?: Redis;
   logger: Logger;
   failMode: () => 'open' | 'closed';
-  /** طول پنجره؛ فقط برای تست کوتاه‌تر می‌شود. */
+  /** Window length; only shortened for tests. */
   windowMs?: number;
-  /** TTL هر جای همزمانی (باید از طولانی‌ترین درخواست بیشتر باشد). */
+  /** TTL of each concurrency slot (must exceed the longest request). */
   concurrencyTtlMs?: number;
-  /** مهلت هر فراخوانی Valkey؛ کندتر یعنی fallback محلی. */
+  /** Timeout for each Valkey call; slower means local fallback. */
   commandTimeoutMs?: number;
   prefix?: string;
 }
@@ -64,9 +64,9 @@ export interface RateLimiterOptions {
 const PREFIX = 'dirouter:rl';
 
 /**
- * KEYS: برای هر scope سه کلید [rpm, tpm, conc]
- * ARGV: windowMs, bucketMs, requestId, estimate, concTtlMs, سپس برای هر scope [rpm, tpm, conc]
- * خروجی: {ok, failIndex, failKind, retryAfterMs, nowMs, ...برای هر scope [rpmUsed, rpmResetMs, tpmUsed]}
+ * KEYS: three keys per scope [rpm, tpm, conc]
+ * ARGV: windowMs, bucketMs, requestId, estimate, concTtlMs, then [rpm, tpm, conc] for each scope
+ * Output: {ok, failIndex, failKind, retryAfterMs, nowMs, ...[rpmUsed, rpmResetMs, tpmUsed] for each scope}
  */
 const ACQUIRE = `
 local t = redis.call('TIME')
@@ -104,7 +104,7 @@ for i = 1, n do
       if b <= bucket - buckets then redis.call('HDEL', tpmKey, all[j])
       else tpmUsed = tpmUsed + tonumber(all[j+1]) end
     end
-    -- درخواستِ بزرگ‌تر از کل سقف فقط وقتی پنجره خالی است رد نمی‌شود.
+    -- a request larger than the whole cap is only rejected when the window is empty.
     if tpmUsed > 0 and tpmUsed + est > tpm then
       return {0, i, 'tokens', bucketMs, now}
     end
@@ -139,7 +139,7 @@ for j = 1, #info do out[#out+1] = info[j] end
 return out
 `;
 
-/** KEYS: tpm keys؛ ARGV: bucket, delta, windowMs */
+/** KEYS: tpm keys; ARGV: bucket, delta, windowMs */
 const SETTLE = `
 for i = 1, #KEYS do
   if redis.call('EXISTS', KEYS[i]) == 1 then
@@ -157,7 +157,7 @@ type RedisWithScripts = Redis & {
 const formatReset = (ms: number) =>
   ms <= 0 ? '0s' : ms < 1000 ? `${String(Math.ceil(ms))}ms` : `${String(Math.ceil(ms / 1000))}s`;
 
-// ───────────── limiter محلی (fallback) ─────────────
+// ───────────── local limiter (fallback) ─────────────
 
 interface LocalScope {
   requests: number[];
@@ -165,7 +165,7 @@ interface LocalScope {
   inFlight: number;
 }
 
-/** همان الگوریتم‌ها در حافظهٔ یک نود، با سقف تقسیم‌شده بین نودها. */
+/** The same algorithms in one node's memory, with the cap split across nodes. */
 export class LocalLimiter {
   readonly #scopes = new Map<string, LocalScope>();
 
@@ -259,7 +259,7 @@ function reject(scope: string, kind: LimitKind, retryAfterMs: number): Admission
   };
 }
 
-// ───────────── limiter توزیع‌شده ─────────────
+// ───────────── distributed limiter ─────────────
 
 export class RateLimiter {
   readonly #redis: RedisWithScripts | undefined;
@@ -269,7 +269,7 @@ export class RateLimiter {
   readonly #concTtlMs: number;
   readonly #timeoutMs: number;
   readonly #prefix: string;
-  /** تا این زمان Valkey را امتحان نکن (بعد از خطا). */
+  /** Don't try Valkey until this time (after an error). */
   #degradedUntil = 0;
   #nodes = 1;
   #nodesTimer: NodeJS.Timeout | undefined;
@@ -289,7 +289,7 @@ export class RateLimiter {
     }
   }
 
-  /** شمارش دوره‌ای نودهای زنده (heartbeat کارت ۷.۸) برای سهم limiter محلی. */
+  /** Periodic count of live nodes (card 7.8 heartbeat) for the local limiter's share. */
   startNodeCount(intervalMs = 5_000): void {
     const count = async () => {
       if (!this.#redis) return;
@@ -309,7 +309,7 @@ export class RateLimiter {
         } while (cursor !== '0');
         this.#nodes = Math.max(1, nodes);
       } catch {
-        // آخرین مقدار معتبر می‌ماند
+        // the last valid value is kept
       }
     };
     void count();
@@ -362,7 +362,7 @@ export class RateLimiter {
       };
     }
     this.stats.local++;
-    // بدون Valkey (اجرای تک‌نودی) سهم کامل؛ در قطعی، سهم تقسیم‌شده بین نودهای شناخته‌شده.
+    // Without Valkey (single-node run) the full share; during an outage, the share split across known nodes.
     const result = this.#local.acquire(limited, est, this.#redis ? this.#nodes : 1);
     if (!result.ok) this.stats.rejected++;
     return result;
@@ -400,7 +400,7 @@ export class RateLimiter {
       const scope = scopes[Number(failIndex) - 1];
       return reject(scope?.name ?? '', String(kind) as LimitKind, Number(retryAfter));
     }
-    // هدرها از scope با کمترین درخواست باقی‌مانده.
+    // headers come from the scope with the fewest remaining requests.
     let headers: LimitHeaders = {};
     let bestRemaining = Number.POSITIVE_INFINITY;
     scopes.forEach((s, i) => {

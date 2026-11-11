@@ -79,7 +79,7 @@ function reconstructAnthropic(sse: string) {
   const open = new Set<number>();
   for (const e of events) {
     if (e.type === 'content_block_start') {
-      expect(open.size).toBe(0); // هر بار فقط یک بلوک باز
+      expect(open.size).toBe(0); // only one open block at a time
       open.add(e.index);
       const b = e.content_block as { type: string; id?: string; name?: string };
       if (b.type === 'tool_use') tools.push({ id: b.id ?? '', name: b.name ?? '', json: '' });
@@ -373,7 +373,7 @@ describe('errors and edge cases', () => {
     gc();
     const retained = process.memoryUsage().heapUsed - before;
     expect(bytes).toBeGreaterThan(10_000 * 50);
-    // حدود ۲MB خروجی تولید شد ولی چیزی نگه داشته نمی‌شود.
+    // About 2MB of output was produced, but nothing is retained.
     expect(retained).toBeLessThan(256 * 1024);
   });
 });

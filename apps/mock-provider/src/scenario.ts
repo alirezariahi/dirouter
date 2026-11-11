@@ -1,30 +1,30 @@
 /**
- * سناریوی رفتار mock از یک رشته directive، مثلاً
- * `status=429,retry_after=2` یا `latency=100-300,error_rate=0.2` یا `stream_drop_after=3`.
+ * Mock behavior scenario from a directive string, e.g.
+ * `status=429,retry_after=2` or `latency=100-300,error_rate=0.2` or `stream_drop_after=3`.
  *
- * منبع directive به ترتیب اولویت: هدر `x-mock`، کلید API به شکل `mock:<directives>`،
- * و پیش‌فرض سراسری (`MOCK_DEFAULT` یا `PUT /__mock/config`).
+ * Directive sources in priority order: the `x-mock` header, the API key in the form `mock:<directives>`,
+ * and the global default (`MOCK_DEFAULT` or `PUT /__mock/config`).
  */
 export interface Scenario {
-  /** وضعیت خطای ثابت (مثلاً 429، 500، 503، 529، 401، 400). */
+  /** Fixed error status (e.g. 429, 500, 503, 529, 401, 400). */
   status?: number;
-  /** احتمال خطای 503 (۰ تا ۱). */
+  /** Probability of a 503 error (0 to 1). */
   errorRate: number;
   retryAfter?: number;
   latency: [number, number];
-  /** تأخیر پیش از ارسال هدر و اولین chunk. */
+  /** Delay before sending the header and first chunk. */
   ttftMs: number;
-  /** فاصلهٔ بین chunkهای stream. */
+  /** Interval between stream chunks. */
   chunkDelayMs: number;
   chunks: number;
-  /** قطع اتصال بعد از n chunk. */
+  /** Drop the connection after n chunks. */
   dropAfter?: number;
-  /** پاسخ با فراخوانی این ابزار. */
+  /** Respond with a call to this tool. */
   tool?: string;
   text: string;
-  /** خطای طول کانتکست (400). */
+  /** Context length error (400). */
   contextLength: boolean;
-  /** بدون usage در پاسخ (برای تست تخمین توکن). */
+  /** No usage in the response (to test token estimation). */
   noUsage: boolean;
 }
 
@@ -113,7 +113,7 @@ export function parseScenario(
   return s;
 }
 
-/** directive از کلید API: `Bearer mock:status=503` یا هدر `x-api-key: mock:...`. */
+/** Directive from the API key: `Bearer mock:status=503` or the `x-api-key: mock:...` header. */
 export function directivesFromKey(key: string | undefined): string | undefined {
   if (!key) return undefined;
   const token = key.replace(/^Bearer\s+/i, '');

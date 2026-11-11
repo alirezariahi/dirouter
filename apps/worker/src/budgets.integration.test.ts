@@ -1,6 +1,6 @@
 /**
- * reconcile شمارندهٔ بودجه با ledger و ثبت هشدار آستانه (کارت ۶.۳).
- * با INTEGRATION_DATABASE_URL و INTEGRATION_VALKEY_URL اجرا می‌شود.
+ * reconcile the budget counter against the ledger and record threshold alerts (card 6.3).
+ * Runs with INTEGRATION_DATABASE_URL and INTEGRATION_VALKEY_URL set.
  */
 import {
   BUDGET_ALERTS_KEY,
@@ -37,7 +37,7 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('budget reconcile on real services
     });
     await db.budget.deleteMany({ where: { organizationId: ORG } });
     await db.usageLedger.deleteMany({ where: { organizationId: ORG } });
-    // سه پروژه، هر کدام یک بودجهٔ روزانه.
+    // three projects, each with a daily budget.
     for (const [name, id] of Object.entries(ids))
       await db.budget.create({
         data: {
@@ -49,8 +49,8 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('budget reconcile on real services
           limitUsd: '10',
         },
       });
-    // ledger: هر پروژه ۴ درخواست × ۰٫۲۵ دلار و ۱۰۰ توکن = ۱ دلار و ۴۰۰ توکن امروز،
-    // به‌علاوهٔ یک ردیف دیروز که نباید شمرده شود.
+    // ledger: each project has 4 requests × $0.25 and 100 tokens = $1 and 400 tokens today,
+    // plus one row from yesterday that must not be counted.
     const rows = Object.keys(ids).flatMap((name) => [
       ...[0, 1, 2, 3].map((n) => ({
         id: `led_${name}_${String(n)}_${RUN}`,
@@ -75,7 +75,7 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('budget reconcile on real services
     ]);
     await db.usageLedger.createMany({ data: rows });
     await redis.del(key(ids.lost), key(ids.over), key(ids.active), BUDGET_ALERTS_KEY);
-    // over: شمارندهٔ آرام و بیشتر از ledger (مثلاً رویدادی که به DLQ رفت).
+    // over: quiet counter above the ledger (e.g. an event that went to the DLQ).
     await redis.hset(
       key(ids.over),
       'usd',
@@ -85,7 +85,7 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('budget reconcile on real services
       'ts',
       now.getTime() - 600_000,
     );
-    // active: افزایش همین الان، بیشتر از ledger (رویدادهای در راه) → باید بماند.
+    // active: just increased, above the ledger (events in flight) → must stay.
     await redis.hset(key(ids.active), 'usd', 150_000_000, 'tokens', 600, 'ts', now.getTime());
   });
 
@@ -100,7 +100,7 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('budget reconcile on real services
   it('lost counters come back from the ledger, quiet drift is corrected, in-flight is kept', async () => {
     const result = await reconcileBudgets(db as unknown as BudgetDb, redis, logger, { now });
     expect(result.budgets).toBeGreaterThanOrEqual(3);
-    // ۱ دلار = 1e8 واحد
+    // $1 = 1e8 units
     expect(await redis.hmget(key(ids.lost), 'usd', 'tokens')).toEqual(['100000000', '400']);
     expect(await redis.hmget(key(ids.over), 'usd', 'tokens')).toEqual(['100000000', '400']);
     expect(await redis.hmget(key(ids.active), 'usd', 'tokens')).toEqual(['150000000', '600']);

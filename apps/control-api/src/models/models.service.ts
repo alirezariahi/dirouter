@@ -1,9 +1,9 @@
 /**
- * کاتالوگ مدل، alias و combo (کارت ۳.۸).
+ * Model, alias, and combo catalog (card 3.8).
  *
- * - قیمت پیش‌فرض از `@dirouter/model-catalog/catalog` (فایل JSON نسخه‌دار) می‌آید. مدلی که با
- *   catalogKey ساخته شده با `sync-catalog` به قیمت نسخهٔ تازه به‌روز می‌شود، بدون migration.
- * - نام‌ها (slug مدل، alias و combo) در یک فضای نام مشترک‌اند تا resolve نام در گیت‌وی یکتا بماند.
+ * - Default pricing comes from `@dirouter/model-catalog/catalog` (a versioned JSON file). A model created with
+ *   a catalogKey is updated to the new catalog price by `sync-catalog`, without a migration.
+ * - Names (model slug, alias, and combo) share one namespace so name resolution in the gateway stays unique.
  */
 import {
   DEFAULT_FALLBACK_ON,
@@ -67,7 +67,7 @@ export class ModelsService {
     return { version: catalog.version, currency: catalog.currency, models: catalog.models };
   }
 
-  // ───── مدل ─────
+  // ───── Model ─────
   modelView(m: Awaited<ReturnType<ModelsService['loadModel']>>) {
     return {
       id: m.id,
@@ -106,7 +106,7 @@ export class ModelsService {
     return rows.map((m) => this.modelView(m));
   }
 
-  /** نام در کل سازمان یکتاست: مدل، alias و combo با هم تداخل ندارند. */
+  /** Names are unique across the organization: models, aliases, and combos do not collide. */
   async #nameFree(
     ctx: OrgContext,
     slug: string,
@@ -211,7 +211,7 @@ export class ModelsService {
               },
             }
           : {}),
-        // قیمت دستی یعنی دیگر از کاتالوگ پیروی نمی‌کند، مگر catalogKey دوباره داده شود.
+        // A manual price means it no longer follows the catalog, unless a catalogKey is provided again.
         ...(input.catalogKey !== undefined
           ? { catalogKey: input.catalogKey }
           : p.inputPerMTok || p.outputPerMTok
@@ -238,7 +238,7 @@ export class ModelsService {
     await this.#audit(ctx, 'model.deleted', 'model', id);
   }
 
-  /** قیمت و context مدل‌های کاتالوگی را با نسخهٔ فعلی کاتالوگ هم‌گام می‌کند. */
+  /** Syncs the price and context of catalog models with the current catalog version. */
   async syncCatalog(ctx: OrgContext) {
     const rows = await this.db.model.findMany({
       where: { organizationId: ctx.organizationId, deletedAt: null, catalogKey: { not: null } },
@@ -384,7 +384,7 @@ export class ModelsService {
     return rows.map((c) => this.comboView(c));
   }
 
-  /** target تکراری، مدل ناموجود یا مدل سازمان دیگر رد می‌شود. */
+  /** A duplicate target, a nonexistent model, or another organization's model is rejected. */
   async #checkTargets(ctx: OrgContext, targets: ComboInput['targets']) {
     if (targets.length === 0) throw invalid('a combo needs at least one target');
     const ids = targets.map((t) => t.modelId);

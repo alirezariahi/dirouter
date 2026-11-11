@@ -1,6 +1,6 @@
-// snapshot آزمایشی برای گیت‌وی (تا آماده شدن seed و انتشار snapshot در control-api، کارت‌های ۳.۹ و ۳.۱۱).
-// provider ساختگی، یک combo و یک کلید dev می‌سازد؛ کلید را روی stderr چاپ می‌کند.
-// استفاده: node scripts/dev-snapshot.mjs <خروجی> [آدرس mock]   (MASTER_KEY و KEY_PEPPER از env)
+// Temporary snapshot for the gateway (until the seed and snapshot publishing in control-api are ready, cards 3.9 and 3.11).
+// Creates a mock provider, one combo and one dev key; prints the key on stderr.
+// Usage: node scripts/dev-snapshot.mjs <output> [mock address]   (MASTER_KEY and KEY_PEPPER from env)
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 
@@ -9,7 +9,7 @@ import { encrypt, hashApiKey, parseKeyring } from '../packages/shared/dist/index
 const [out = '.data/gateway/snapshot.json', mockUrl = 'http://mock-provider:8090/v1'] =
   process.argv.slice(2);
 const { MASTER_KEY, KEY_PEPPER, DEV_API_KEY = 'dr-dev-local-0000000000000000' } = process.env;
-// کلیدهای کمکی برای تست احراز هویت در dev (کارت ۴.۳): محدود به یک مدل، و منقضی.
+// Helper keys for testing authentication in dev (card 4.3): restricted to one model, and expiring.
 const LIMITED_API_KEY = 'dr-dev-limited-000000000000';
 const EXPIRED_API_KEY = 'dr-dev-expired-000000000000';
 const IP_API_KEY = 'dr-dev-ipallow-000000000000';
@@ -57,15 +57,15 @@ const snapshot = {
   providers: [
     provider('mock', 'sk-mock'),
     provider('mock-down', 'mock:status=503'),
-    // stream ده‌دقیقه‌ای: ۶۰۰ chunk با فاصلهٔ یک ثانیه (تست Traefik، کارت ۲.۳)
-    // سناریوهای خطا برای تست طبقه‌بندی و fallback (کارت‌های ۵.۱ و ۵.۲)
+    // Ten-minute stream: 600 chunks one second apart (Traefik test, card 2.3)
+    // Error scenarios for testing classification and fallback (cards 5.1 and 5.2)
     provider('mock-bad', 'mock:status=400'),
     provider('mock-429', 'mock:rate_limit'),
     provider('mock-tool', 'mock:tool'),
-    // بدون usage در پاسخ: گیت‌وی باید توکن را تخمین بزند (کارت ۶.۲)
+    // No usage in the response: the gateway must estimate the tokens (card 6.2)
     provider('mock-nousage', 'mock:no_usage'),
-    // پروکسی خروجی (کارت ۴.۱۰): credential از SOCKS5 داخل کانتینر گیت‌وی عبور می‌کند
-    // (`node scripts/dev/socks5-proxy.mjs`)، و provider با پروکسی مرده باید فال‌بک بدهد.
+    // Outbound proxy (card 4.10): the credential goes through SOCKS5 from inside the gateway container
+    // (`node scripts/dev/socks5-proxy.mjs`), and a provider with a dead proxy must fall back.
     provider('mock-socks', 'sk-mock', {
       credentials: [
         { ...cred('mock-socks-key', 'sk-mock'), proxy: { url: 'socks5h://127.0.0.1:1080' } },
@@ -139,7 +139,7 @@ const snapshot = {
   ],
   aliases: [
     { organizationId: 'org_dev', slug: 'gpt-4.1', target: { kind: 'combo', comboId: 'cmb_dev' } },
-    // Claude Code فقط نام مدل‌های واقعی Claude را می‌پذیرد (کارت ۴.۹)؛ این‌ها به mock می‌روند.
+    // Claude Code only accepts real Claude model names (card 4.9); these are routed to the mock.
     {
       organizationId: 'org_dev',
       slug: 'claude-sonnet-4-5',
@@ -184,7 +184,7 @@ const snapshot = {
       expiresAt: '2020-01-01T00:00:00.000Z',
     },
     {
-      // فقط از 203.0.113.7 (TEST-NET-3)؛ برای تست جعل X-Forwarded-For.
+      // Only from 203.0.113.7 (TEST-NET-3); for testing X-Forwarded-For spoofing.
       id: 'vk_dev_ip',
       hash: hashApiKey(IP_API_KEY, KEY_PEPPER),
       prefix: IP_API_KEY.slice(0, 10),

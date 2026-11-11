@@ -1,5 +1,5 @@
-# پیکربندی dynamic مشترک: middlewareها، transport استریم و داشبورد Traefik.
-# این فایل با Go template و env کانتینر Traefik پردازش می‌شود.
+# Shared dynamic configuration: middlewares, stream transport, and the Traefik dashboard.
+# This file is processed with Go template and the Traefik container's env.
 http:
   middlewares:
     security-headers:
@@ -16,7 +16,7 @@ http:
           Server: ''
           X-Powered-By: ''
 
-    # SSE هرگز فشرده/بافر نمی‌شود.
+    # SSE is never compressed or buffered.
     compress:
       compress:
         excludedContentTypes:
@@ -35,7 +35,7 @@ http:
         accessControlMaxAge: 600
         addVaryHeader: true
 
-    # محدودیت لبه برای control-api؛ rate limit اصلی LLM در خود گیت‌وی است.
+    # Edge limit for control-api; the main LLM rate limit is inside the gateway itself.
     control-api-ratelimit:
       rateLimit:
         average: 50
@@ -60,7 +60,7 @@ http:
 {{- end }}
 
   serversTransports:
-    # streamهای طولانی گیت‌وی: بدون timeout برای هدر پاسخ (TTFT را خود گیت‌وی کنترل می‌کند).
+    # Long gateway streams: no timeout for the response header (the gateway controls TTFT itself).
     long-stream:
       forwardingTimeouts:
         dialTimeout: 5s

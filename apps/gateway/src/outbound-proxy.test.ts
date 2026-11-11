@@ -1,7 +1,7 @@
 /**
- * پروکسی خروجی (کارت ۴.۱۰): SOCKS5 با/بدون احراز هویت، socks5h (DNS سمت پروکسی)،
- * HTTP proxy، پروکسی خراب به‌عنوان خطای شبکه با فال‌بک، اولویت credential بر provider،
- * و ماسک رمز پروکسی.
+ * Outbound proxy (card 4.10): SOCKS5 with/without auth, socks5h (DNS on the proxy side),
+ * HTTP proxy, a broken proxy treated as a network error with fallback, credential precedence over provider,
+ * and masking of the proxy password.
  */
 import { mkdtemp, writeFile } from 'node:fs/promises';
 import { createServer as createHttpServer, request as httpRequest, type Server } from 'node:http';
@@ -28,7 +28,7 @@ const listen = async (s: Server | TcpServer) => {
   return typeof a === 'object' && a ? a.port : 0;
 };
 
-/** سرور SOCKS5 حداقلی (RFC 1928/1929): no-auth یا user/pass، فقط CONNECT. */
+/** Minimal SOCKS5 server (RFC 1928/1929): no-auth or user/pass, CONNECT only. */
 function socksServer(auth?: { user: string; pass: string }) {
   const seen: string[] = [];
   const server = createTcpServer((client) => {
@@ -55,7 +55,7 @@ function socksServer(auth?: { user: string; pass: string }) {
         }
         const port = req.readUInt16BE(i);
         seen.push(`${host}:${String(port)}`);
-        // مقصد تست فقط روی IPv4 گوش می‌دهد.
+        // The test destination only listens on IPv4.
         const dial = host === 'localhost' || host.includes(':') ? '127.0.0.1' : host;
         const upstream = netConnect(port, dial, () => {
           client.write(Buffer.from([5, 0, 0, 1, 0, 0, 0, 0, 0, 0]));
@@ -79,7 +79,7 @@ function socksServer(auth?: { user: string; pass: string }) {
   return { server, seen };
 }
 
-/** HTTP proxy حداقلی برای مقصد http (درخواست absolute-form). */
+/** Minimal HTTP proxy for http destinations (absolute-form requests). */
 function httpProxy() {
   const seen: string[] = [];
   const server = createHttpServer((req, res) => {
@@ -119,7 +119,7 @@ beforeAll(async () => {
   plainUrl = `socks5h://127.0.0.1:${String(await listen(plain.server))}`;
   authedUrl = `socks5://u:s3cr3t@127.0.0.1:${String(await listen(authed.server))}`;
   httpProxyUrl = `http://127.0.0.1:${String(await listen(hp.server))}`;
-  // پورتی که قطعاً بسته است.
+  // A port that is definitely closed.
   const p = await listen(closedPort);
   await new Promise((r) => closedPort.close(r));
   deadProxyUrl = `socks5://user:topsecret@127.0.0.1:${String(p)}`;
@@ -252,7 +252,7 @@ describe('proxy selection in the gateway', () => {
       version: 1,
       generatedAt: new Date().toISOString(),
       providers: [
-        // proxy خراب روی provider، ولی credential پروکسی سالم خودش را دارد.
+        // Broken proxy on the provider, but the proxy credential has its own healthy one.
         prov('override', [cred('override-k', plainUrl)], deadProxyUrl),
         prov('broken', [cred('broken-k')], deadProxyUrl),
         prov('direct', [cred('direct-k')]),

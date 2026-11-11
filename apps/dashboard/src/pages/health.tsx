@@ -1,7 +1,7 @@
 /**
- * صفحهٔ Health (کارت ۷.۸): breaker هر provider و مدل، cooldown، lockout و غیرفعالی هر credential،
- * و نودهای گیت‌وی با نسخهٔ config. هر ۵ ثانیه تازه می‌شود. ریست دستی برای OWNER و ADMIN است و
- * در audit log ثبت می‌شود.
+ * Health page (card 7.8): breaker, cooldown, lockout and each credential's disabled state per provider and model,
+ * and gateway nodes with their config version. Refreshes every 5 seconds. Manual reset is for OWNER and ADMIN and
+ * is recorded in the audit log.
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';

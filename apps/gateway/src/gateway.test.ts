@@ -266,7 +266,7 @@ describe('gateway end-to-end against the mock provider', () => {
     const body = (await res.json()) as {
       usage: { prompt_tokens: number; completion_tokens: number };
     };
-    // «Hello from the DiRouter mock provider.» با o200k هشت توکن است.
+    // «Hello from the DiRouter mock provider.» is eight tokens with o200k.
     expect(body.usage.completion_tokens).toBe(8);
     expect(body.usage.prompt_tokens).toBeGreaterThan(0);
     const event = await waitForEvent();
@@ -274,7 +274,7 @@ describe('gateway end-to-end against the mock provider', () => {
     expect(event?.usage.outputTokens).toBe(8);
     expect(event?.usage.inputTokens).toBe(body.usage.prompt_tokens);
     expect(Number(event?.costUsd)).toBeGreaterThan(0);
-  }, 30_000); // بارگذاری اول o200k روی CPU شلوغ چند ثانیه طول می‌کشد.
+  }, 30_000); // The first o200k load on a busy CPU takes several seconds.
 
   it('estimates usage when a stream carries no usage chunk', async () => {
     const res = await chat({
@@ -359,7 +359,7 @@ describe('gateway end-to-end against the mock provider', () => {
   it('cools down a rate-limited key and keeps serving with the other one', async () => {
     const ok = await chat({ model: 'limited-m' });
     expect(ok.status).toBe(200);
-    // بدون توکن داخلی، مسیر وجود ندارد.
+    // Without the internal token, the route does not exist.
     expect((await fetch(`${base}/internal/health`)).status).toBe(404);
     expect(
       (await fetch(`${base}/internal/health`, { headers: { authorization: 'Bearer wrong' } }))

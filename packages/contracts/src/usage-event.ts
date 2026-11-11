@@ -1,6 +1,6 @@
 /**
- * UsageEvent: رویداد مصرف که گیت‌وی بعد از هر درخواست منتشر می‌کند (outbox → BullMQ
- * → worker → Postgres). مسیر درخواست هرگز منتظر نوشتن این رویداد نمی‌ماند.
+ * UsageEvent: usage event the gateway publishes after each request (outbox → BullMQ
+ * → worker → Postgres). The request path never waits for this event to be written.
  */
 import { z } from 'zod';
 
@@ -19,7 +19,7 @@ export const AttemptOutcome = z.enum([
 ]);
 export type AttemptOutcome = z.infer<typeof AttemptOutcome>;
 
-/** یک تلاش در زنجیرهٔ retry/فال‌بک. */
+/** One attempt in the retry/fallback chain. */
 export const UsageAttempt = z.object({
   providerId: z.string(),
   modelId: z.string(),
@@ -35,12 +35,12 @@ export type UsageAttempt = z.infer<typeof UsageAttempt>;
 export const UsageEvent = z.object({
   schemaVersion: z.literal(USAGE_EVENT_SCHEMA_VERSION),
   eventId: Ulid,
-  /** کلید یکتا برای جلوگیری از دوبار شمردن هزینه (معمولاً همان requestId). */
+  /** Unique key to prevent counting cost twice (usually the same as requestId). */
   idempotencyKey: z.string().min(1),
   requestId: z.string().min(1),
   occurredAt: IsoDateTime,
   gatewayInstance: z.string(),
-  /** نسخهٔ snapshot؛ ۰ یعنی هنوز snapshot بارگذاری نشده بود. */
+  /** Snapshot version; 0 means no snapshot had been loaded yet. */
   configVersion: z.int().nonnegative(),
 
   organizationId: z.string(),
@@ -51,7 +51,7 @@ export const UsageEvent = z.object({
 
   inboundApi: InboundApi,
   requestedModel: z.string(),
-  /** مدل، provider و credential تلاشِ نهایی (موفق یا آخرین ناموفق). */
+  /** Model, provider, and credential of the final attempt (successful or last failed). */
   resolvedModelId: z.string().nullable(),
   providerId: z.string().nullable(),
   credentialId: z.string().nullable(),
@@ -62,9 +62,9 @@ export const UsageEvent = z.object({
   errorCode: z.string().optional(),
 
   usage: CanonicalUsage,
-  /** هزینه به دلار (رشتهٔ اعشاری، ۸ رقم). */
+  /** Cost in dollars (decimal string, 8 digits). */
   costUsd: UsdAmount,
-  /** true وقتی توکن‌ها تخمینی‌اند (provider usage برنگردانده). */
+  /** true when tokens are estimated (the provider did not return usage). */
   usageEstimated: z.boolean().default(false),
 
   latencyMs: NonNegativeInt,
@@ -73,12 +73,12 @@ export const UsageEvent = z.object({
 });
 export type UsageEvent = z.infer<typeof UsageEvent>;
 
-/** نام صف‌های BullMQ بین گیت‌وی و worker (کارت‌های ۶.۴ و ۶.۵). */
+/** BullMQ queue names between the gateway and the worker (cards 6.4 and 6.5). */
 export const QUEUES = {
-  /** رویدادهای مصرف؛ jobId همان idempotencyKey است. */
+  /** Usage events; jobId is the same as idempotencyKey. */
   usage: 'usage',
-  /** jobهای مصرفی که بعد از همهٔ تلاش‌ها شکست خوردند. */
+  /** Usage jobs that failed after all attempts. */
   usageDead: 'usage-dead',
-  /** کارهای زمان‌بندی‌شده: rollup، پارتیشن، retention، reconcile. */
+  /** Scheduled jobs: rollup, partition, retention, reconcile. */
   maintenance: 'maintenance',
 } as const;

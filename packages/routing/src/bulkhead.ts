@@ -1,15 +1,15 @@
 /**
- * Bulkhead (کارت ۵.۷): سقف همزمانی با صف کوتاه و timeout.
+ * Bulkhead (card 5.7): concurrency cap with a short queue and timeout.
  *
- * هر provider و هر کلید مجازی semaphore خودش را دارد تا یک provider کند یا یک کلید
- * پرمصرف نتواند همهٔ اتصال‌ها و حافظهٔ گیت‌وی را بگیرد. وقتی سقف پر است، درخواست تا
- * `queueTimeoutMs` در صف کوتاه منتظر می‌ماند. اگر صف پر بود یا زمان گذشت، فوراً رد
- * می‌شود (گیت‌وی 429 می‌دهد یا به کاندیدای بعدی می‌رود). شمارش محلی و به ازای هر node است.
+ * Each provider and each virtual key has its own semaphore so that one slow provider or one
+ * heavy key cannot take all connections and memory of the gateway. When the cap is full, a request
+ * waits in the short queue for up to `queueTimeoutMs`. If the queue is full or time has passed, it is
+ * rejected immediately (the gateway returns 429 or moves to the next candidate). Counting is local and per node.
  */
 
 export interface BulkheadOptions {
   limit: number;
-  /** حداکثر درخواست منتظر؛ ۰ یعنی بدون صف. */
+  /** Maximum number of waiting requests; 0 means no queue. */
   queueSize: number;
   queueTimeoutMs: number;
 }
@@ -47,15 +47,15 @@ export class Bulkhead {
     return this.#options;
   }
 
-  /** به‌روزرسانی سقف با config جدید؛ اگر سقف بالا رفت منتظرها راه می‌افتند. */
+  /** Update the cap with new config; if the cap was raised, waiting requests are started. */
   configure(options: BulkheadOptions): void {
     this.#options = { ...options };
     this.#drain();
   }
 
   /**
-   * گرفتن یک جای خالی. `undefined` یعنی رد شد (صف پر، timeout یا abort).
-   * release فقط یک بار اثر دارد.
+   * Acquire a free slot. `undefined` means rejected (queue full, timeout, or abort).
+   * release takes effect only once.
    */
   acquire(signal?: AbortSignal): Promise<Release | undefined> {
     if (signal?.aborted) return Promise.resolve(undefined);
@@ -112,13 +112,13 @@ export class Bulkhead {
   }
 }
 
-/** مجموعهٔ bulkheadها با کلید رشته‌ای (`provider:<id>`، `key:<id>`). */
+/** Collection of bulkheads keyed by string (`provider:<id>`, `key:<id>`). */
 export class BulkheadRegistry {
   readonly #items = new Map<string, Bulkhead>();
 
   constructor(private readonly defaults: Omit<BulkheadOptions, 'limit'>) {}
 
-  /** bulkhead این نام با سقف داده‌شده؛ بدون سقف یعنی نامحدود (undefined). */
+  /** The bulkhead with this name and the given cap; no cap means unlimited (undefined). */
   get(
     name: string,
     limit: number | undefined,
@@ -126,7 +126,7 @@ export class BulkheadRegistry {
   ): Bulkhead | undefined {
     if (limit === undefined) {
       const existing = this.#items.get(name);
-      // سقف برداشته شد: منتظرها آزاد می‌شوند و bulkhead وقتی خالی شد کنار می‌رود.
+      // Cap removed: waiters are released, and the bulkhead is dropped once it is empty.
       if (existing) {
         existing.configure({ ...this.defaults, limit: Number.MAX_SAFE_INTEGER });
         if (existing.active === 0) this.#items.delete(name);
@@ -150,7 +150,7 @@ export class BulkheadRegistry {
     return bulkhead;
   }
 
-  /** وضعیت فعلی برای health و متریک. */
+  /** Current state for health and metrics. */
   snapshot(): { name: string; active: number; queued: number; limit: number }[] {
     return [...this.#items].map(([name, b]) => ({
       name,

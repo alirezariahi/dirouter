@@ -1,6 +1,6 @@
 /**
- * rate limit در مسیر درخواست (کارت ۶.۱): 429 با Retry-After و هدرهای x-ratelimit-* در هر
- * دو فرمت، سقف پروژه، و هدرها در stream. limiter اینجا محلی است (بدون Valkey).
+ * Rate limit on the request path (card 6.1): 429 with Retry-After and x-ratelimit-* headers in each
+ * of the two formats, the project cap, and headers in streams. The limiter here is local (no Valkey).
  */
 import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -120,7 +120,7 @@ describe('rate limits on the request path', () => {
     expect(first.headers.get('x-ratelimit-limit-requests')).toBe('2');
     expect(first.headers.get('x-ratelimit-remaining-requests')).toBe('1');
     expect(first.headers.get('x-ratelimit-reset-requests')).toMatch(/^\d+(ms|s)$/);
-    // stream هم هدرها را دارد.
+    // streams also have the headers.
     const streamed = await chat(RPM2, true);
     expect(streamed.headers.get('x-ratelimit-remaining-requests')).toBe('0');
     await streamed.text();

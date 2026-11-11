@@ -1,11 +1,11 @@
 /**
- * retry با backoff و زنجیرهٔ فال‌بک (کارت ۵.۳).
+ * Retry with backoff and fallback chain (card 5.3).
  *
- * - retry روی همان کاندیدا با backoff نمایی + full jitter (یا Retry-After)
- * - سپس کاندیدای بعدی، اگر کلاس خطا فال‌بک را مجاز کند
- * - retry budget سراسری تا در قطعی کامل، ترافیک چند برابر نشود
- * - deadline کل درخواست
- * - هر تلاش ثبت می‌شود
+ * - Retry on the same candidate with exponential backoff + full jitter (or Retry-After)
+ * - Then the next candidate, if the error class allows fallback
+ * - Global retry budget so traffic does not multiply during a full outage
+ * - Overall request deadline
+ * - Every attempt is recorded
  */
 import type { RetryPolicy, UpstreamErrorClass } from '@dirouter/contracts';
 import type { ClassifiedError } from '@dirouter/providers';
@@ -17,7 +17,7 @@ export interface AttemptRecord {
   providerId: string;
   modelId: string;
   credentialId: string;
-  /** شمارهٔ تلاش روی همین کاندیدا (۱ = اولین). */
+  /** Attempt number on this same candidate (1 = first). */
   attempt: number;
   outcome: 'success' | 'error' | 'skipped';
   errorClass?: UpstreamErrorClass;
@@ -33,7 +33,7 @@ export type AttemptResult<T> =
       ok: false;
       error: ClassifiedError;
       /**
-       * بخشی از پاسخ به کلاینت رفته (stream)؛ هیچ تلاش دیگری مجاز نیست.
+       * Part of the response has already been sent to the client (stream); no further attempts are allowed.
        */
       committed?: boolean;
     };
@@ -45,8 +45,8 @@ export type AttemptFn<T> = (
 ) => Promise<AttemptResult<T>>;
 
 /**
- * retry budget: در هر پنجره، retryها حداکثر `ratio` برابر درخواست‌های اولیه به
- * علاوهٔ `minPerWindow`.
+ * Retry budget: within each window, retries are capped at `ratio` times the initial requests
+ * plus `minPerWindow`.
  */
 export class RetryBudget {
   readonly #ratio: number;
@@ -76,7 +76,7 @@ export class RetryBudget {
     this.#requests++;
   }
 
-  /** اجازهٔ یک retry (یا فال‌بک) اضافه؛ در صورت مجاز بودن مصرف می‌شود. */
+  /** Acquire permission for one extra retry (or fallback); consumed if allowed. */
   tryAcquire(): boolean {
     this.#roll();
     if (this.#retries >= this.#requests * this.#ratio + this.#minPerWindow) return false;
@@ -97,19 +97,19 @@ export class RetryBudget {
 export interface ExecuteOptions {
   retry: RetryPolicy;
   fallbackOn: readonly UpstreamErrorClass[];
-  /** زمان مطلق پایان مهلت کل درخواست (ms). */
+  /** Absolute time at which the overall request deadline ends (ms). */
   deadline: number;
   budget: RetryBudget;
   health?: HealthRegistry;
-  /** سیگنال قطع کلاینت. */
+  /** Client disconnect signal. */
   signal?: AbortSignal;
   clock?: () => number;
   random?: () => number;
   sleep?: (ms: number, signal?: AbortSignal) => Promise<void>;
   /**
-   * پذیرش محلی پیش از هر تلاش (bulkhead، کارت ۵.۷). رد شدن یعنی کاندیدا بدون تماس با
-   * upstream و بدون اثر روی breaker و cooldown کنار می‌رود و نوبت کاندیدای بعدی است.
-   * release بعد از پایان تلاش (و stream) صدا زده می‌شود.
+   * Local admission before each attempt (bulkhead, card 5.7). On rejection the candidate is skipped
+   * without contacting upstream and without affecting the breaker or cooldown; the next candidate is tried.
+   * release is called after the attempt (and stream) finishes.
    */
   admit?: (
     candidate: Candidate,
@@ -144,7 +144,7 @@ const defaultSleep = (ms: number, signal?: AbortSignal) =>
     );
   });
 
-/** کلاس‌های خطای سطح provider؛ بعد از آن‌ها بقیهٔ کاندیداهای همان provider رد می‌شوند. */
+/** Provider-level error classes; after these, the remaining candidates of the same provider are skipped. */
 const PROVIDER_LEVEL = new Set<UpstreamErrorClass>([
   'server',
   'overloaded',
@@ -297,7 +297,7 @@ export async function executeWithFallback<T>(
       if (options.signal?.aborted)
         return { ok: false, error, reason: 'aborted', attempts, candidate };
 
-      // retry روی همان کاندیدا؟
+      // Retry on the same candidate?
       const retryHere =
         error.retryable && error.class !== 'rate_limit' && attempt < options.retry.maxAttempts;
       if (retryHere) {
@@ -309,9 +309,9 @@ export async function executeWithFallback<T>(
       break;
     }
 
-    // رد شده در bulkhead: بدون شرط fallbackOn به کاندیدای بعدی.
+    // Rejected by bulkhead: move to the next candidate regardless of fallbackOn.
     if (rejected) continue;
-    // فال‌بک به کاندیدای بعدی؟
+    // Fall back to the next candidate?
     if (!lastError) continue;
     if (!lastError.fallbackAllowed || !options.fallbackOn.includes(lastError.class)) {
       return { ok: false, error: lastError, reason: 'no_fallback', attempts, candidate };

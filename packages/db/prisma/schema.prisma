@@ -1,9 +1,9 @@
-// شِمای دیتابیس control plane (PostgreSQL 17).
-// قواعد:
-// - همهٔ کلیدهای خارجی ایندکس دارند.
-// - موجودیت‌های قابل‌مدیریت soft-delete دارند (deleted_at)؛ وابسته‌های مالکیتی cascade.
-// - پول Decimal(18,8) است، هرگز float.
-// - request_log و جداول تجمیعی در migration خام SQL پارتیشن/مدیریت می‌شوند.
+// Database schema of the control plane (PostgreSQL 17).
+// Rules:
+// - All foreign keys have indexes.
+// - Manageable entities have soft-delete (deleted_at); owned dependents cascade.
+// - Money is Decimal(18,8), never float.
+// - request_log and the rollup tables are partitioned/managed in raw SQL migrations.
 
 generator client {
   provider   = "prisma-client-js"
@@ -105,8 +105,8 @@ model Invitation {
   @@map("invitations")
 }
 
-/// refresh tokenهای چرخشی؛ هر زنجیره یک familyId دارد. استفادهٔ دوباره از توکن
-/// مصرف‌شده کل خانواده را باطل می‌کند (تشخیص سرقت).
+/// Rotating refresh tokens; each chain has a familyId. Reusing an already-consumed token
+/// invalidates the whole family (theft detection).
 model RefreshToken {
   id         String    @id
   userId     String    @map("user_id")
@@ -173,9 +173,9 @@ model ApiKey {
   organizationId String       @map("organization_id")
   projectId      String       @map("project_id")
   name           String
-  /// بخش قابل‌نمایش کلید (`dr-<prefix>`) برای جستجو در UI.
+  /// Displayable part of the key (`dr-<prefix>`) for lookup in the UI.
   prefix         String       @unique
-  /// HMAC-SHA256 کلید کامل با pepper سرور؛ کلید خام ذخیره نمی‌شود.
+  /// HMAC-SHA256 of the full key with the server pepper; the raw key is not stored.
   hash           String       @unique
   status         ApiKeyStatus @default(ACTIVE)
   allowedModels  String[]     @default([]) @map("allowed_models")
@@ -185,7 +185,7 @@ model ApiKey {
   maxConcurrency Int?         @map("max_concurrency")
   expiresAt      DateTime?    @map("expires_at") @db.Timestamptz(3)
   revokedAt      DateTime?    @map("revoked_at") @db.Timestamptz(3)
-  /// کلیدی که با چرخش جایگزین این کلید شد.
+  /// The key that replaced this key during rotation.
   rotatedToId    String?      @unique @map("rotated_to_id")
   lastUsedAt     DateTime?    @map("last_used_at") @db.Timestamptz(3)
   createdById    String?      @map("created_by_id")
@@ -226,7 +226,7 @@ model Provider {
   proxyUrl       String?      @map("proxy_url")
   /// { connectMs, firstByteMs, idleMs, totalMs }
   timeouts       Json?
-  /// تنظیمات مخصوص نوع (مثلاً apiVersion در Azure).
+  /// Settings specific to the type (e.g. apiVersion in Azure).
   options        Json         @default("{}")
   maxConcurrency Int?         @map("max_concurrency")
   createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
@@ -250,16 +250,16 @@ model Credential {
   id            String           @id
   providerId    String           @map("provider_id")
   name          String
-  /// AES-256-GCM با AAD = id؛ قالب v<keyVersion>.<base64url>.
+  /// AES-256-GCM with AAD = id; format v<keyVersion>.<base64url>.
   secretEnc     String           @map("secret_enc")
   keyVersion    Int              @map("key_version")
-  /// چهار کاراکتر آخر برای نمایش ماسک‌شده.
+  /// Last four characters, for masked display.
   last4         String
   weight        Int              @default(1)
   status        CredentialStatus @default(ACTIVE)
   cooldownUntil DateTime?        @map("cooldown_until") @db.Timestamptz(3)
   headers       Json             @default("{}")
-  /// پروکسی خروجی همین credential (اولویت بر proxy_url provider؛ کارت ۴.۱۰).
+  /// Outbound proxy for this credential (takes precedence over the provider's proxy_url; card 4.10).
   proxyUrl      String?          @map("proxy_url")
   createdAt     DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt     DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
@@ -274,14 +274,14 @@ model Model {
   id               String    @id
   organizationId   String    @map("organization_id")
   providerId       String    @map("provider_id")
-  /// نام عمومی، مثلاً openai/gpt-4.1
+  /// Public name, e.g. openai/gpt-4.1
   slug             String
   upstreamModel    String    @map("upstream_model")
   displayName      String?   @map("display_name")
   enabled          Boolean   @default(true)
   contextWindow    Int?      @map("context_window")
   maxOutputTokens  Int?      @map("max_output_tokens")
-  /// دلار به ازای یک میلیون توکن
+  /// Dollars per million tokens
   inputPrice       Decimal   @map("input_price") @db.Decimal(18, 8)
   outputPrice      Decimal   @map("output_price") @db.Decimal(18, 8)
   cacheReadPrice   Decimal?  @map("cache_read_price") @db.Decimal(18, 8)
@@ -289,7 +289,7 @@ model Model {
   reasoningPrice   Decimal?  @map("reasoning_price") @db.Decimal(18, 8)
   /// { streaming, tools, vision, reasoning, jsonMode }
   capabilities     Json      @default("{}")
-  /// کلید ورودی کاتالوگ (packages/model-catalog) اگر از کاتالوگ آمده باشد.
+  /// Catalog entry key (packages/model-catalog), if it came from the catalog.
   catalogKey       String?   @map("catalog_key")
   createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
@@ -335,7 +335,7 @@ model Combo {
   organizationId   String        @map("organization_id")
   slug             String
   strategy         ComboStrategy @default(PRIORITY)
-  /// کلاس‌های خطا که باعث فال‌بک می‌شوند (UpstreamErrorClass).
+  /// Error classes that trigger fallback (UpstreamErrorClass).
   fallbackOn       String[]      @default([]) @map("fallback_on")
   retryMaxAttempts Int           @default(2) @map("retry_max_attempts")
   timeouts         Json?
@@ -383,7 +383,7 @@ model Budget {
   id              String       @id
   organizationId  String       @map("organization_id")
   scope           LimitScope
-  /// شناسهٔ کلید، پروژه یا تیم
+  /// Key, project, or team ID
   scopeId         String       @map("scope_id")
   period          BudgetPeriod
   limitUsd        Decimal?     @map("limit_usd") @db.Decimal(18, 8)
@@ -399,7 +399,7 @@ model Budget {
   @@map("budgets")
 }
 
-/// محدودیت سطح پروژه و تیم؛ محدودیت سطح کلید روی خود ApiKey است.
+/// Project- and team-level limits; key-level limits are on the ApiKey itself.
 model RateLimitPolicy {
   id             String     @id
   organizationId String     @map("organization_id")
@@ -420,8 +420,8 @@ model RateLimitPolicy {
 
 // ───────────── Usage & logs ─────────────
 
-/// جدول پارتیشن‌بندی‌شدهٔ ماهانه (migration خام SQL). کلید اصلی شامل ستون پارتیشن است.
-/// شناسهٔ ارجاعات عمداً FK ندارد: لاگ باید پس از حذف کلید/پروژه باقی بماند.
+/// Monthly partitioned table (raw SQL migration). The primary key includes the partition column.
+/// Reference IDs intentionally have no FK: the log must remain after a key/project is deleted.
 model RequestLog {
   id               String   @map("id")
   createdAt        DateTime @map("created_at") @db.Timestamptz(3)
@@ -460,7 +460,7 @@ model RequestLog {
   @@map("request_log")
 }
 
-/// دفتر مالی؛ یک ردیف به ازای هر درخواست (idempotent با request_id).
+/// Financial ledger; one row per request (idempotent by request_id).
 model UsageLedger {
   id             String   @id
   requestId      String   @unique @map("request_id")
@@ -482,7 +482,7 @@ model UsageLedger {
   @@map("usage_ledger")
 }
 
-/// تجمیع ساعتی (upsert توسط worker).
+/// Hourly rollup (upserted by the worker).
 model UsageHourly {
   bucket           DateTime @db.Timestamptz(3)
   organizationId   String   @map("organization_id")
@@ -500,7 +500,7 @@ model UsageHourly {
   latencyMsSum     BigInt   @default(0) @map("latency_ms_sum")
   ttftMsSum        BigInt   @default(0) @map("ttft_ms_sum")
   ttftCount        Int      @default(0) @map("ttft_count")
-  /// هیستوگرام latency (سطل‌های ثابت) برای p50/p95/p99 تقریبی.
+  /// Latency histogram (fixed buckets) for approximate p50/p95/p99.
   latencyHist      Int[]    @default([]) @map("latency_hist")
 
   @@id([bucket, organizationId, projectId, apiKeyId, modelSlug, providerId])
@@ -508,7 +508,7 @@ model UsageHourly {
   @@map("usage_hourly")
 }
 
-/// تجمیع روزانه (upsert توسط worker).
+/// Daily rollup (upserted by the worker).
 model UsageDaily {
   bucket           DateTime @db.Date
   organizationId   String   @map("organization_id")
@@ -535,7 +535,7 @@ model UsageDaily {
 
 // ───────────── Config & audit ─────────────
 
-/// هر انتشار snapshot یک ردیف با شمارهٔ افزایشی.
+/// Each snapshot publish is one row with an incrementing number.
 model ConfigVersion {
   version   Int      @id @default(autoincrement())
   checksum  String

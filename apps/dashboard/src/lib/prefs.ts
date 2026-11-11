@@ -1,6 +1,6 @@
 /**
- * ترجیحات کاربر (زبان، تم، تقویم) در localStorage، با try/catch چون ممکن است در دسترس نباشد.
- * اعمال روی <html>: lang و dir (rtl برای فارسی) و کلاس dark.
+ * User preferences (language, theme, calendar) in localStorage, wrapped in try/catch since it may be unavailable.
+ * Applied to <html>: lang and dir (rtl for Persian) and the dark class.
  */
 import type { Calendar } from './date';
 
@@ -19,7 +19,7 @@ const write = (key: string, value: string) => {
   try {
     localStorage.setItem(`dirouter.${key}`, value);
   } catch {
-    // ترجیح فقط برای همین نشست می‌ماند.
+    // the preference only lasts for this session.
   }
 };
 

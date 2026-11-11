@@ -1,6 +1,6 @@
 /**
- * کلاینت Prisma و تایپ‌های دیتابیس. فقط control-api و worker از این پکیج استفاده
- * می‌کنند؛ gateway هرگز به دیتابیس وصل نمی‌شود.
+ * Prisma client and database types. Only control-api and the worker use this package;
+ * the gateway never connects to the database.
  */
 import { PrismaPg } from '@prisma/adapter-pg';
 
@@ -11,7 +11,7 @@ export { Prisma } from '../generated/client/index.js';
 
 export interface CreatePrismaOptions {
   databaseUrl: string;
-  /** سقف connection pool (پیش‌فرض ۱۰). */
+  /** Connection pool limit (default 10). */
   maxConnections?: number;
 }
 

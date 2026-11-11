@@ -1,15 +1,15 @@
-# محیط توسعه: hot-reload با bind mount، پورت دیتابیس‌ها فقط روی localhost،
-# mailpit و mock-provider. اجرا: make up
+# Development environment: hot-reload with bind mounts, database ports on localhost only,
+# mailpit and mock-provider. Run: make up
 
 x-dev-node:
-  &dev-node # ایمیج را فقط dev-deps می‌سازد؛ بقیه همان را استفاده می‌کنند (build موازی یک تگ تداخل دارد).
+  &dev-node # Only dev-deps builds the image; the rest reuse it (a parallel build of one tag would conflict).
   image: dirouter/dev:local
   pull_policy: never
   restart: unless-stopped
   working_dir: /repo
   volumes:
     - .:/repo
-    # node_modules داخل کانتینر (لینوکس) از node_modules میزبان (macOS) جداست.
+    # node_modules inside the container (Linux) is separate from the host's node_modules (macOS).
     - nm-root:/repo/node_modules
     - nm-gateway:/repo/apps/gateway/node_modules
     - nm-control-api:/repo/apps/control-api/node_modules
@@ -50,7 +50,7 @@ services:
       - ./deploy/traefik/traefik.dev.yml:/etc/traefik/traefik.yml:ro
 
   postgres:
-    # در dev روی edge هم هست تا پورت منتشرشده کار کند (شبکهٔ internal پورت منتشر نمی‌کند).
+    # In dev it is also on edge so the published port works (the internal network does not publish ports).
     networks: [internal, edge]
     ports:
       - '127.0.0.1:${POSTGRES_PORT:-55432}:5432'
@@ -60,11 +60,11 @@ services:
     ports:
       - '127.0.0.1:${VALKEY_PORT:-56379}:6379'
 
-  # در dev، migration را dev-deps اجرا می‌کند.
+  # In dev, migration is run by dev-deps.
   migrate:
     profiles: [never]
 
-  # نصب وابستگی‌ها، prisma generate و migrate، و tsc watch برای همهٔ پکیج‌ها.
+  # Install dependencies, run prisma generate and migrate, and tsc watch for all packages.
   dev-deps:
     <<: *dev-node
     build:
@@ -76,8 +76,8 @@ services:
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-dirouter}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-dirouter}
     networks: [internal, edge]
-    # فقط watch (یک emit اولیه)، و healthy وقتی همهٔ پکیج‌ها emit کرده‌اند؛ اپ‌ها بعد از آن
-    # بالا می‌آیند تا emit اولیه باعث ری‌استارت پشت‌سرهم‌شان نشود.
+    # watch only (one initial emit), and healthy once all packages have emitted; apps
+    # start after that so the initial emit does not cause back-to-back restarts.
     command:
       - sh
       - -c
@@ -110,14 +110,14 @@ services:
       KEY_PEPPER: ${KEY_PEPPER}
       JWT_SECRET: ${JWT_SECRET}
       INTERNAL_TOKEN: ${INTERNAL_TOKEN}
-      # در dev داشبورد هم از http و هم از https (گواهی self-signed) باز می‌شود.
+      # In dev the dashboard is reachable over both http and https (self-signed certificate).
       DASHBOARD_ORIGIN: https://app.${DOMAIN:-localhost},http://app.${DOMAIN:-localhost}
       PUBLIC_DASHBOARD_URL: https://app.${DOMAIN:-localhost}
       GATEWAY_INTERNAL_URL: http://gateway:8080
       SMTP_URL: smtp://mailpit:1025
     command: ['pnpm', '--filter', '@dirouter/control-api', 'dev']
     labels:
-      # در dev روتر TLS فقط HTTPS را می‌گیرد؛ روتر جدا برای HTTP ساده.
+      # In dev the router takes HTTPS only; a separate router handles plain HTTP.
       traefik.http.routers.control-api-http.rule: Host(`admin.${DOMAIN:-localhost}`)
       traefik.http.routers.control-api-http.entrypoints: web
       traefik.http.routers.control-api-http.service: control-api
@@ -167,7 +167,7 @@ services:
   dashboard:
     <<: *dev-node
     build: !reset null
-    # آدرس API از آدرس خود صفحه ساخته می‌شود (app. → admin.)، پس http و https هر دو کار می‌کنند.
+    # The API address is built from the page's own address (app. → admin.), so both http and https work.
     command:
       ['pnpm', '--filter', '@dirouter/dashboard', 'dev', '--host', '0.0.0.0', '--port', '8080']
     labels:

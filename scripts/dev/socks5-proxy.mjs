@@ -1,6 +1,6 @@
-// پروکسی SOCKS5 حداقلی برای آزمودن پروکسی خروجی گیت‌وی در dev (کارت ۴.۱۰)؛ فقط CONNECT
-// و بدون احراز هویت. هر اتصال را با مقصدش روی stdout چاپ می‌کند. هرگز در production نیست.
-// استفاده: node scripts/dev/socks5-proxy.mjs [پورت=1080]
+// Minimal SOCKS5 proxy for testing the gateway's outbound proxy in dev (card 4.10); CONNECT only
+// and no authentication. Prints each connection's destination on stdout. Never used in production.
+// Usage: node scripts/dev/socks5-proxy.mjs [port=1080]
 import { connect, createServer } from 'node:net';
 
 const port = Number(process.argv[2] ?? 1080);

@@ -1,7 +1,7 @@
 /**
- * کلیدهای مجازی (کارت ۳.۷). قالب `dr-<prefix>-<secret>`: کلید کامل فقط یک بار در پاسخ ساخت یا
- * چرخش می‌آید. در DB فقط `prefix` (برای نمایش و جستجو) و HMAC-SHA256 با `KEY_PEPPER` ذخیره
- * می‌شود؛ گیت‌وی همین hash را در snapshot می‌بیند. ابطال و انقضا با snapshot بعدی اعمال می‌شود.
+ * Virtual keys (card 3.7). Format `dr-<prefix>-<secret>`: the full key is returned only once, in the create or
+ * rotate response. The DB stores only `prefix` (for display and lookup) and the HMAC-SHA256 computed with `KEY_PEPPER`
+ * ; the gateway sees this same hash in the snapshot. Revocation and expiry take effect with the next snapshot.
  */
 import { randomBytes } from 'node:crypto';
 import { isIP } from 'node:net';
@@ -13,7 +13,7 @@ import { ENV, type Env } from '../env.js';
 import { PrismaService } from '../infra/prisma.service.js';
 import type { OrgContext } from '../rbac/org.guard.js';
 
-const ALPHABET = 'abcdefghijkmnopqrstuvwxyz23456789'; // بدون l، 0 و 1 برای خوانایی
+const ALPHABET = 'abcdefghijkmnopqrstuvwxyz23456789'; // no l, 0, or 1, for readability
 const randomString = (n: number) => {
   const bytes = randomBytes(n);
   let out = '';
@@ -23,7 +23,7 @@ const randomString = (n: number) => {
 
 export function newApiKey(): { key: string; prefix: string } {
   const prefix = `dr-${randomString(8)}`;
-  // ۴۰ کاراکتر از ۳۳ نماد ≈ ۲۰۰ بیت؛ سوگیری modulo برای این طول بی‌اهمیت است.
+  // 40 characters from 33 symbols ≈ 200 bits; modulo bias is negligible at this length.
   return { key: `${prefix}-${randomString(40)}`, prefix };
 }
 
@@ -188,7 +188,7 @@ export class KeysService {
         projectId: input.projectId,
       });
     });
-    // کلید کامل فقط همین‌جا برمی‌گردد.
+    // The full key is returned only here.
     return { ...(await this.get(ctx, id)), key };
   }
 
@@ -232,8 +232,8 @@ export class KeysService {
   }
 
   /**
-   * چرخش: کلید تازه با همان تنظیمات و بودجه ساخته می‌شود؛ کلید قدیم تا پایان مهلت معتبر
-   * می‌ماند (expiresAt = اکنون + مهلت) و به کلید تازه اشاره می‌کند.
+   * Rotation: the new key is created with the same settings and budget; the old key remains valid until the end of the grace period
+   * (expiresAt = now + grace period) and points to the new key.
    */
   async rotate(ctx: OrgContext, id: string, graceSeconds: number) {
     const old = await this.load(ctx, id);

@@ -1,8 +1,8 @@
 /**
  * OpenAI Chat Completions ⇄ canonical.
  *
- * - ورودی: درخواست کلاینت OpenAI → canonical، و پاسخ canonical → پاسخ OpenAI.
- * - خروجی: canonical → درخواست به provider سازگار با OpenAI، و پاسخ آن → canonical.
+ * - Inbound: OpenAI client request → canonical, and canonical response → OpenAI response.
+ * - Outbound: canonical → request to an OpenAI-compatible provider, and its response → canonical.
  */
 import type {
   CanonicalFinishReason,
@@ -32,7 +32,7 @@ import {
   type TranslateOptions,
 } from './common.js';
 
-/** فیلدهایی از درخواست OpenAI که مستقیم ترجمه می‌شوند؛ بقیه passthrough هستند. */
+/** OpenAI request fields that are translated directly; the rest are passed through. */
 const CONSUMED_REQUEST_FIELDS = new Set([
   'model',
   'messages',
@@ -222,11 +222,11 @@ export function openAIRequestToCanonical(
 // ───────────── canonical → OpenAI request (provider) ─────────────
 
 export interface ToOpenAIRequestOptions extends TranslateOptions {
-  /** نام مدل نزد provider. */
+  /** Model name at the provider. */
   upstreamModel: string;
   /**
-   * OpenAI اصلی `max_completion_tokens` می‌خواهد؛ بسیاری از سرورهای سازگار فقط
-   * `max_tokens` را می‌شناسند.
+   * Native OpenAI requires `max_completion_tokens`; many compatible servers only
+   * understand `max_tokens`.
    */
   maxTokensField?: 'max_tokens' | 'max_completion_tokens';
 }
@@ -310,7 +310,7 @@ export function canonicalToOpenAIRequest(
   }
 
   const body: Record<string, unknown> = {};
-  // passthrough فقط وقتی ورودی هم OpenAI بوده معنا دارد.
+  // Passthrough only makes sense when the input was also OpenAI.
   if (req.inboundApi === 'openai.chat' && req.passthrough) Object.assign(body, req.passthrough);
   Object.assign(body, { model: options.upstreamModel, messages });
 
@@ -397,7 +397,7 @@ export function openAIResponseToCanonical(res: OpenAIChatCompletionResponse): Ca
   const content: CanonicalPart[] = [];
   let finishReason = openAIFinishToCanonical(choice?.finish_reason);
   if (choice) {
-    // بعضی providerهای سازگار متن استدلال را در reasoning_content می‌دهند.
+    // Some compatible providers return reasoning text in reasoning_content.
     const reasoning = (choice.message as { reasoning_content?: unknown }).reasoning_content;
     if (typeof reasoning === 'string' && reasoning !== '')
       content.push({ type: 'reasoning', text: reasoning });

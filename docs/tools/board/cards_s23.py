@@ -1,8 +1,8 @@
-# کارت‌های اسپرینت ۲ (v1: تاب‌آوری پیشرفته، امنیت سازمانی، کش و آنالیتیکس)
-# و اسپرینت ۳ (صورت‌حساب، ایجنت/MCP، چندرسانه‌ای و انتشار v1.0)
+# Sprint 2 cards (v1: advanced resilience, enterprise security, caching and analytics)
+# and sprint 3 (billing, agent/MCP, multimedia and the v1.0 release)
 
 S2 = [
-    # ── ۱۱. API و providerهای بیشتر ────────────────────────────────
+    # ── 11. More APIs and providers ────────────────────────────────
     dict(key="11.1", title="ورودی Gemini API (generateContent و stream)", type="STORY", prio="HIGH", sp=5,
          labels=["گیت‌وی"],
          goal="کلاینت‌های Gemini (مثل Gemini CLI) هم به DiRouter وصل شوند.",
@@ -28,7 +28,7 @@ S2 = [
          accept=["SDK OpenAI برای embeddings بدون تغییر کار می‌کند"],
          tech="", deps=["4.9"]),
 
-    # ── ۱۲. مسیریابی و تاب‌آوری پیشرفته ───────────────────────────────
+    # ── 12. Advanced routing and resilience ───────────────────────────────
     dict(key="12.1", title="استراتژی‌های latency، cost، least-used و headroom", type="TASK", prio="HIGH", sp=8,
          labels=["گیت‌وی", "تاب‌آوری", "ارزش بالا"],
          goal="انتخاب هوشمند کاندیدا بر اساس دادهٔ زنده.",
@@ -60,7 +60,7 @@ S2 = [
          accept=["دلیل حذف هر کاندیدا (breaker، cooldown، مجوز، context) نمایش داده می‌شود"],
          tech="", deps=["12.1", "7.6"]),
 
-    # ── ۱۳. کش و صرفه‌جویی ──────────────────────────────────────────
+    # ── 13. Caching and savings ──────────────────────────────────────────
     dict(key="13.1", title="Exact Cache روی Valkey", type="STORY", prio="HIGH", sp=5,
          labels=["گیت‌وی", "ارزش بالا"],
          goal="کاهش هزینه و latency برای درخواست‌های تکراری.",
@@ -80,7 +80,7 @@ S2 = [
          accept=["مجموعهٔ ارزیابی آفلاین با نمونه‌های واقعی Claude Code", "فشرده‌سازی هرگز tool_use/tool_result را ناهماهنگ نمی‌کند"],
          tech="", deps=["4.4"]),
 
-    # ── ۱۴. امنیت سازمانی ─────────────────────────────────────────
+    # ── 14. Enterprise security ─────────────────────────────────────────
     dict(key="14.1", title="MFA با TOTP و Passkey", type="STORY", prio="HIGH", sp=5,
          labels=["کنترل‌پنل-API", "داشبورد", "امنیت"],
          goal="حفاظت حساب‌های مدیریتی.",
@@ -112,7 +112,7 @@ S2 = [
          accept=["چرخش زیر بار بدون خطا انجام می‌شود"],
          tech="", deps=["6.5"]),
 
-    # ── ۱۵. Guardrail ───────────────────────────────────────────────
+    # ── 15. Guardrail ───────────────────────────────────────────────
     dict(key="15.1", title="موتور Guardrail", type="STORY", prio="HIGH", sp=8,
          labels=["گیت‌وی", "امنیت", "ارزش بالا"],
          goal="جلوگیری از نشت داده و محتوای نامطلوب.",
@@ -126,7 +126,7 @@ S2 = [
          accept=["تست زنده نتیجه را پیش از ذخیره نشان می‌دهد"],
          tech="", deps=["15.1", "7.1"]),
 
-    # ── ۱۶. داشبورد پیشرفته و هشدار ────────────────────────────────
+    # ── 16. Advanced dashboard and alerting ────────────────────────────────
     dict(key="16.1", title="صفحهٔ هزینه و بودجه", type="STORY", prio="HIGH", sp=5,
          labels=["داشبورد", "ارزش بالا"],
          goal="کنترل مالی دقیق.",
@@ -158,7 +158,7 @@ S2 = [
          accept=["هزینهٔ playground به کلید کاربر جاری ثبت می‌شود"],
          tech="", deps=["7.6"]),
 
-    # ── ۱۷. پیکربندی و عملیات ─────────────────────────────────────
+    # ── 17. Configuration and operations ─────────────────────────────────────
     dict(key="17.1", title="Config نسخه‌دار: diff، rollback و export/import YAML", type="STORY", prio="HIGH", sp=5,
          labels=["کنترل‌پنل-API", "داشبورد", "تاب‌آوری"],
          goal="هر تغییر قابل مقایسه و بازگشت باشد.",
@@ -192,7 +192,7 @@ S2 = [
 ]
 
 S3 = [
-    # ── ۱۹. صورت‌حساب و فروش ──────────────────────────────────────
+    # ── 19. Billing and sales ──────────────────────────────────────
     dict(key="19.1", title="کیف پول و دفتر کل مالی (double-entry)", type="STORY", prio="HIGH", sp=8,
          labels=["صورت‌حساب", "دیتابیس", "ارزش بالا"],
          goal="امکان فروش اعتبار API با حسابداری دقیق.",
@@ -230,7 +230,7 @@ S3 = [
          accept=["ارقام فاکتور با ledger یکسان است"],
          tech="", deps=["19.4"]),
 
-    # ── ۲۰. ایجنت، MCP و مسیریابی هوشمند ──────────────────────────
+    # ── 20. Agents, MCP and smart routing ──────────────────────────
     dict(key="20.1", title="MCP Gateway", type="STORY", prio="HIGH", sp=8,
          labels=["ایجنت-MCP", "گیت‌وی", "ارزش بالا"],
          goal="ابزارهای MCP با همان کلید، مجوز و لاگ.",
@@ -262,7 +262,7 @@ S3 = [
          accept=["پروفایل Claude Code و Codex به‌صورت واقعی تست شده"],
          tech="", deps=["7.10"]),
 
-    # ── ۲۱. چندرسانه‌ای و افزونه‌ها ──────────────────────────────────
+    # ── 21. Multimedia and plugins ──────────────────────────────────
     dict(key="21.1", title="تصویر، TTS و STT", type="STORY", prio="MEDIUM", sp=8,
          labels=["گیت‌وی"],
          goal="پوشش سرویس‌های غیرمتنی با همان گیت‌وی.",
@@ -276,7 +276,7 @@ S3 = [
          accept=["افزونهٔ خراب گیت‌وی را از کار نمی‌اندازد", "هشدار ToS پیش از فعال‌سازی تأیید گرفته می‌شود"],
          tech="", deps=["4.6"]),
 
-    # ── ۲۲. سازمانی، امنیت و انتشار ───────────────────────────────
+    # ── 22. Enterprise, security and release ───────────────────────────────
     dict(key="22.1", title="SAML و SCIM", type="STORY", prio="MEDIUM", sp=8,
          labels=["کنترل‌پنل-API", "امنیت"],
          goal="سازگاری با سازمان‌های بزرگ.",

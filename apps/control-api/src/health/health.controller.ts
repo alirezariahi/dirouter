@@ -31,13 +31,13 @@ export class HealthController {
     @Inject(ValkeyService) private readonly valkey: ValkeyService,
   ) {}
 
-  /** liveness: فقط زنده بودن پروسه. */
+  /** liveness: only checks that the process is alive. */
   @Get('healthz')
   healthz() {
     return { status: 'ok' };
   }
 
-  /** readiness: وضعیت Postgres و Valkey. */
+  /** readiness: Postgres and Valkey status. */
   @Get('readyz')
   async readyz(@Res() reply: FastifyReply) {
     const [database, valkey] = await Promise.all([

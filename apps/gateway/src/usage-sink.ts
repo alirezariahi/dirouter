@@ -1,11 +1,11 @@
 /**
- * ارسال رویداد مصرف به صف BullMQ با outbox محلی (کارت ۶.۴).
+ * Sends usage events to a BullMQ queue with a local outbox (card 6.4).
  *
- * - مسیر درخواست فقط `emit` را صدا می‌زند (همگام، بدون I/O)؛ ارسال دسته‌ای در پس‌زمینه است.
- * - اگر Valkey در دسترس نباشد، دسته به فایل append-only در `<dataDir>/outbox` نوشته می‌شود
- *   و پس از برگشت Valkey به ترتیب دوباره فرستاده می‌شود.
- * - jobId همان idempotencyKey است؛ ارسال تکراری در صف یکی می‌شود و worker هم با
- *   ON CONFLICT DO NOTHING رکورد تکراری نمی‌سازد.
+ * - The request path only calls `emit` (synchronous, no I/O); batch sending runs in the background.
+ * - If Valkey is unavailable, the batch is written to an append-only file in `<dataDir>/outbox`
+ *   and resent in order once Valkey is back.
+ * - jobId is the same as idempotencyKey; duplicate sends collapse into one in the queue, and the worker also
+ *   does not create duplicate records with ON CONFLICT DO NOTHING.
  */
 import { randomUUID } from 'node:crypto';
 import { appendFile, mkdir, readdir, readFile, rename, stat, unlink } from 'node:fs/promises';
@@ -26,13 +26,13 @@ export interface UsageQueue {
 export interface UsageSinkOptions {
   logger: Logger;
   dataDir: string;
-  /** صف آماده (برای تست)؛ در غیر این صورت از valkeyUrl ساخته می‌شود. */
+  /** Ready queue (for tests); otherwise it is built from valkeyUrl. */
   queue?: UsageQueue;
   valkeyUrl?: string;
   flushIntervalMs?: number;
-  /** سقف هر دسته در addBulk. */
+  /** Max size of each batch in addBulk. */
   batchSize?: number;
-  /** مکث بین claim فایل و خواندنش، تا append درحال‌اجرای replica دیگر تمام شود. */
+  /** Pause between claiming a file and reading it, so another replica's in-progress append can finish. */
   claimGraceMs?: number;
 }
 
@@ -53,8 +53,8 @@ export interface UsageJobOptions {
 }
 
 /**
- * ۸ تلاش با backoff نمایی (حدود ۴ دقیقه در مجموع) قبل از dead-letter. jobهای تمام‌شده
- * تا ۱۰٬۰۰۰ مورد نگه داشته می‌شوند تا jobId تکراریِ اخیر در خود صف یکی شود.
+ * 8 attempts with exponential backoff (about 4 minutes total) before dead-letter. Completed jobs
+ * are kept up to 10,000 entries so a recent duplicate jobId still collapses in the queue.
  */
 const JOB_OPTIONS: Omit<UsageJobOptions, 'jobId'> = {
   attempts: 8,
@@ -65,7 +65,7 @@ const JOB_OPTIONS: Omit<UsageJobOptions, 'jobId'> = {
 
 const OUTBOX_RE = /^usage-.*\.ndjson$/;
 const CLAIMED_RE = /^(usage-.*\.ndjson)\.replaying-(.+)$/;
-/** فایل claim‌شدهٔ replica دیگری که این‌قدر دست‌نخورده بماند یعنی آن replica مرده است. */
+/** A file claimed by another replica that stays untouched this long means that replica is dead. */
 const STALE_CLAIM_MS = 60_000;
 
 export class UsageSink {
@@ -80,7 +80,7 @@ export class UsageSink {
   #pending: UsageEvent[] = [];
   #chain: Promise<void> = Promise.resolve();
   #outboxFile: string | undefined;
-  #hasOutbox = true; // در شروع ممکن است از اجرای قبلی فایل مانده باشد.
+  #hasOutbox = true; // At startup a file may be left over from a previous run.
   readonly stats: UsageSinkStats = { emitted: 0, enqueued: 0, spooled: 0, replayed: 0, pending: 0 };
 
   constructor(opts: UsageSinkOptions) {
@@ -92,7 +92,7 @@ export class UsageSink {
       this.#queue = opts.queue;
     } else {
       if (!opts.valkeyUrl) throw new Error('valkeyUrl or queue is required');
-      // بدون offline queue: وقتی Valkey قطع است فرمان فوراً شکست می‌خورد و به outbox می‌رویم.
+      // No offline queue: when Valkey is down, commands fail immediately and we fall back to the outbox.
       this.#redis = new Redis(opts.valkeyUrl, {
         enableOfflineQueue: false,
         maxRetriesPerRequest: 1,
@@ -111,7 +111,7 @@ export class UsageSink {
     this.#timer.unref();
   }
 
-  /** همگام و بدون I/O؛ هرگز throw نمی‌کند. */
+  /** Synchronous, no I/O; never throws. */
   emit(event: UsageEvent): void {
     this.stats.emitted++;
     this.#pending.push(event);
@@ -119,7 +119,7 @@ export class UsageSink {
     if (this.#pending.length >= this.#batchSize) void this.flush();
   }
 
-  /** ارسال بافر و (در صورت امکان) outbox؛ فراخوانی‌ها پشت سر هم اجرا می‌شوند. */
+  /** Sends the buffer and (if possible) the outbox; calls run one after another. */
   flush(): Promise<void> {
     this.#chain = this.#chain
       .then(() => this.#flushOnce())
@@ -136,7 +136,7 @@ export class UsageSink {
     if (this.#redis) this.#redis.disconnect();
   }
 
-  /** رویدادهای بافر حافظه + خطوط NDJSON باقی‌مانده در outbox؛ فقط برای scrape. */
+  /** Memory buffer events plus remaining NDJSON lines in the outbox; for scraping only. */
   async backlogSize(): Promise<number> {
     let files: string[];
     try {
@@ -152,7 +152,7 @@ export class UsageSink {
           .split('\n')
           .filter(Boolean).length;
       } catch {
-        // فایل ممکن است هم‌زمان claim/replay شود؛ scrape بعد مقدار تازه را می‌گیرد.
+        // The file may be claimed/replayed concurrently; the scrape then reads the fresh value.
       }
     }
     return this.#pending.length + persisted;
@@ -164,7 +164,7 @@ export class UsageSink {
     while (this.#pending.length > 0) {
       const batch = this.#pending.splice(0, this.#batchSize);
       this.stats.pending = this.#pending.length;
-      // تا وقتی outbox خالی نشده، رویداد تازه هم به outbox می‌رود تا ترتیب حفظ شود.
+      // Until the outbox is empty, new events also go to the outbox to preserve order.
       if (ready && !this.#hasOutbox && (await this.#enqueue(batch))) {
         this.stats.enqueued += batch.length;
       } else {
@@ -200,9 +200,9 @@ export class UsageSink {
   }
 
   /**
-   * replicaها ممکن است volume مشترک داشته باشند. هر فایل اول با rename اتمیک claim
-   * می‌شود (فقط یک replica موفق می‌شود) و append بعدیِ نویسنده‌اش فایل تازه می‌سازد.
-   * فایل‌های claim‌شدهٔ خودمان (replay نیمه‌کاره) و claimهای کهنهٔ replicaهای مرده هم برداشته می‌شوند.
+   * Replicas may share a volume. Each file is first claimed with an atomic rename
+   * (only one replica succeeds), and its writer's next append creates a fresh file.
+   * Our own claimed files (half-finished replay) and stale claims from dead replicas are also picked up.
    */
   async #claimOutbox(): Promise<string[]> {
     let names: string[];
@@ -227,14 +227,14 @@ export class UsageSink {
       try {
         if (path !== target) await rename(path, target);
         claimed.push({ path: target, order: original });
-        // تنها نویسندهٔ فایل خودمان همین زنجیرهٔ سریالی است؛ append ادامه پیدا می‌کند.
+        // Only the writer of our own file uses this serial chain; the append continues.
         if (this.#outboxFile === path) this.#outboxFile = target;
         if (!original.endsWith(`-${this.#owner}.ndjson`)) foreign = true;
       } catch {
-        // replica دیگری زودتر claim کرد.
+        // another replica claimed it first.
       }
     }
-    // نویسندهٔ فایل خودمان همین زنجیرهٔ سریالی است؛ فقط برای فایل replica دیگر صبر لازم است.
+    // The writer of our own file uses this serial chain; only another replica's file needs waiting.
     await sleep(0);
     if (foreign && this.#claimGraceMs > 0) await sleep(this.#claimGraceMs);
     return claimed.sort((a, b) => a.order.localeCompare(b.order)).map((c) => c.path);
@@ -248,12 +248,12 @@ export class UsageSink {
         try {
           events.push(JSON.parse(line) as UsageEvent);
         } catch {
-          // خط ناقص (مثلاً crash وسط نوشتن) قابل بازیابی نیست؛ لاگ و رد.
+          // A partial line (e.g. a crash mid-write) is not recoverable; log and skip it.
           this.#logger.error({ file: path }, 'dropping corrupt outbox line');
         }
       }
       for (let i = 0; i < events.length; i += this.#batchSize) {
-        // نیمه‌کاره ماندن مشکلی ندارد: دفعهٔ بعد از اول فایل ارسال می‌شود و jobId تکراری یکی می‌شود.
+        // Being left half-done is fine: next time the file is sent from the start and the duplicate jobId collapses.
         if (!(await this.#enqueue(events.slice(i, i + this.#batchSize)))) return;
       }
       await unlink(path);
@@ -265,7 +265,7 @@ export class UsageSink {
   }
 }
 
-/** برای تست و ابزارها: فایل‌های outbox باقی‌مانده (شامل claim‌شده‌ها). */
+/** For tests and tooling: remaining outbox files (including claimed ones). */
 export async function outboxFiles(dataDir: string): Promise<string[]> {
   try {
     return (await readdir(join(dataDir, 'outbox'))).filter(

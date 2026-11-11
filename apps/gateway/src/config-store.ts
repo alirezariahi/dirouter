@@ -1,9 +1,9 @@
 /**
- * نگه‌داری ConfigSnapshot در حافظه و روی دیسک، و همگام‌سازی با control-api (کارت ۴.۲).
+ * Keeps ConfigSnapshot in memory and on disk, and syncs it with control-api (card 4.2).
  *
- * - بوت: اول نسخهٔ دیسک (اگر control-api در دسترس نباشد هم گیت‌وی کار می‌کند).
- * - سپس long-poll دوره‌ای با ETag؛ نسخهٔ قدیمی‌تر یا schemaVersion ناشناخته رد می‌شود.
- * - جایگزینی اتمیک: هر درخواست یک snapshot ثابت را می‌بیند.
+ * - Boot: load the disk copy first (the gateway still works if control-api is unavailable).
+ * - Then periodic long-poll with ETag; an older version or unknown schemaVersion is rejected.
+ * - Atomic swap: each request sees one fixed snapshot.
  */
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -30,7 +30,7 @@ export class LoadedConfig {
     return this.snapshot.version;
   }
 
-  /** کلید رمزگشایی‌شدهٔ credential (lazy و در حافظه). */
+  /** Decrypted credential key (lazy, in memory). */
   secret(credentialId: string, ciphertext: string): string {
     let value = this.#secrets.get(credentialId);
     if (value === undefined) {
@@ -79,7 +79,7 @@ export class ConfigStore {
     return join(this.opts.dataDir, 'snapshot.json');
   }
 
-  /** بارگذاری از دیسک، سپس یک همگام‌سازی و شروع poll. */
+  /** Load from disk, then run one sync and start polling. */
   async start(): Promise<void> {
     try {
       this.apply(JSON.parse(await readFile(this.#file, 'utf8')), 'disk');
@@ -98,7 +98,7 @@ export class ConfigStore {
     if (this.#timer) clearInterval(this.#timer);
   }
 
-  /** اعمال snapshot جدید؛ نسخهٔ قدیمی‌تر رد می‌شود. true یعنی جایگزین شد. */
+  /** Apply a new snapshot; an older version is rejected. true means it was replaced. */
   apply(raw: unknown, source: string): boolean {
     const parsed = ConfigSnapshot.safeParse(raw);
     if (!parsed.success) {
@@ -108,8 +108,8 @@ export class ConfigStore {
       );
       return false;
     }
-    // control-api منبع حقیقت است: هر نسخهٔ متفاوتی از آن پذیرفته می‌شود (مثلاً بعد از بازیابی
-    // DB یا جایگزینی snapshot آزمایشی dev). نسخهٔ دیسک فقط اگر تازه‌تر باشد.
+    // control-api is the source of truth: any differing version from it is accepted (e.g. after a DB restore
+    // or a dev test-snapshot replacement). The disk version is used only if it is newer.
     if (this.#current) {
       const same =
         parsed.data.version === this.#current.version &&
@@ -117,7 +117,7 @@ export class ConfigStore {
       if (same || (source !== 'control-api' && parsed.data.version <= this.#current.version))
         return false;
     }
-    // credentialهایی که در snapshot جدید فعال‌اند دوباره قابل استفاده می‌شوند.
+    // Credentials that are active in the new snapshot become usable again.
     const previous = this.#current;
     this.#current = new LoadedConfig(parsed.data, this.opts.health, this.opts.keyring);
     if (previous) {

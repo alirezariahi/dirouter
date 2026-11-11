@@ -1,7 +1,7 @@
 /**
- * کاتالوگ نسخه‌دار قیمت و قابلیت مدل‌ها. به‌روزرسانی قیمت فقط ویرایش catalog.json
- * است (بدون migration)؛ control-api هنگام افزودن مدل یا با «همگام‌سازی کاتالوگ»
- * از آن استفاده می‌کند.
+ * Versioned catalog of model prices and capabilities. Updating prices only means editing catalog.json
+ * (no migration); control-api uses it when adding a model or via "catalog sync"
+ * to read it.
  */
 import { ModelCapabilities, ModelPricing } from '@dirouter/contracts';
 import { z } from 'zod';
@@ -37,7 +37,7 @@ export function findCatalogEntry(key: string): CatalogEntry | undefined {
   return byKey.get(key);
 }
 
-/** جستجو با نوع/preset provider و نام مدل upstream (برای کشف مدل‌ها). */
+/** Search by provider type/preset and upstream model name (for model discovery). */
 export function findByUpstream(provider: string, upstreamModel: string): CatalogEntry | undefined {
   return byUpstream.get(`${provider}:${upstreamModel}`);
 }

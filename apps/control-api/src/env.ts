@@ -11,7 +11,7 @@ export const envSchema = baseEnvSchema.extend({
   INTERNAL_TOKEN: z.string().min(32),
   DASHBOARD_ORIGIN: z.string().default('https://app.localhost'),
   PUBLIC_DASHBOARD_URL: z.string().default('https://app.localhost'),
-  /** گیت‌وی برای تست اتصال و کشف مدل provider (کارت ۳.۶). */
+  /** Gateway for testing the connection and discovering provider models (card 3.6). */
   GATEWAY_INTERNAL_URL: z.string().default('http://gateway:8080'),
   SMTP_URL: z.string().optional(),
   SMTP_FROM: z.string().default('DiRouter <noreply@localhost>'),
@@ -19,5 +19,5 @@ export const envSchema = baseEnvSchema.extend({
 
 export type Env = z.infer<typeof envSchema>;
 
-/** توکن DI برای env اعتبارسنجی‌شده. */
+/** DI token for the validated env. */
 export const ENV = Symbol('ENV');

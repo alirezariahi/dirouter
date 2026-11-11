@@ -1,4 +1,4 @@
-/** تست اتصال و کشف مدل در گیت‌وی روی mock-provider واقعی (کارت ۳.۶). */
+/** Connection and model discovery test in the gateway against a real mock-provider (card 3.6). */
 import type { ProviderConfig } from '@dirouter/contracts';
 import { buildServer as buildMock } from '@dirouter/mock-provider/server';
 import { encrypt, generateKey, parseKeyring } from '@dirouter/shared';

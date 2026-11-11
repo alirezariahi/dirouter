@@ -1,4 +1,4 @@
-/** ساخت و انتشار Config Snapshot روی Postgres و Valkey واقعی (کارت ۳.۹). */
+/** Building and publishing the Config Snapshot against real Postgres and Valkey (card 3.9). */
 import { ConfigSnapshot } from '@dirouter/contracts';
 import { generateKey } from '@dirouter/shared';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
@@ -38,7 +38,7 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('config snapshot', () => {
       url: '/internal/config/snapshot',
       headers: { authorization: auth, ...(etag ? { 'if-none-match': etag } : {}) },
     });
-  /** تا ساخت نسخهٔ تازه (debounce) صبر می‌کند. */
+  /** Waits until the new version is built (debounce). */
   const nextVersion = async (after: number) => {
     for (let i = 0; i < 100; i++) {
       const v = (await app.get(SnapshotService).latest())?.version ?? 0;

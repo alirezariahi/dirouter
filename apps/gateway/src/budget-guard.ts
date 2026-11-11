@@ -1,13 +1,13 @@
 /**
- * بودجهٔ کلید، پروژه و تیم (کارت ۶.۳).
+ * Budget for key, project and team (card 6.3).
  *
- * - پیش از درخواست: اگر شمارندهٔ دورهٔ جاری به سقف (دلار یا توکن) رسیده باشد، 429
- *   `budget_exceeded`. هزینهٔ خود درخواست پیش از اجرا معلوم نیست، پس درخواستی که شروع
- *   شده تمام می‌شود و «درخواست بعدی» رد می‌شود.
- * - بعد از درخواست: افزایش اتمیک شمارنده‌ها با هزینه و توکن واقعی. عبور از هر آستانه
- *   (پیش‌فرض ۵۰/۸۰/۱۰۰٪) دقیقاً یک بار رویداد می‌سازد، حتی با چند replica (SET NX).
- * - قطعی Valkey: failMode=open یعنی عبور (کسری با reconcile از ledger جبران می‌شود) و
- *   failMode=closed یعنی 429.
+ * - Before the request: if the current period's counter has reached the cap (dollars or tokens), 429
+ *   `budget_exceeded`. The request's own cost is unknown before it runs, so a request that has started
+ *   finishes, and the "next request" is rejected.
+ * - After the request: atomically increment the counters with the real cost and tokens. Crossing each threshold
+ *   (default 50/80/100%) creates exactly one event, even with multiple replicas (SET NX).
+ * - Valkey outage: failMode=open means pass through (the shortfall is corrected by reconciling from the ledger), and
+ *   failMode=closed means 429.
  */
 import {
   BUDGET_ALERTS_KEY,
@@ -37,12 +37,12 @@ export type BudgetCheck =
       period: BudgetConfig['period'];
       kind: 'usd' | 'tokens';
       limit: string;
-      /** شروع دورهٔ بعد (برای Retry-After). */
+      /** Start of the next period (for Retry-After). */
       resetAt: Date;
       unavailable?: boolean;
     };
 
-/** KEYS: کلید شمارنده‌ها؛ ARGV: usdDelta, tokenDelta, nowMs, سپس expireAt هر کلید */
+/** KEYS: counter keys; ARGV: usdDelta, tokenDelta, nowMs, then expireAt for each key */
 const RECORD = `
 local out = {}
 for i = 1, #KEYS do
@@ -60,7 +60,7 @@ type RedisWithBudget = Redis & {
   budgetRecord(numKeys: number, ...args: (string | number)[]): Promise<number[]>;
 };
 
-/** شمارنده تا یک هفته بعد از پایان دوره نگه داشته می‌شود (برای گزارش و reconcile). */
+/** Counters are kept for one week after the period ends (for reporting and reconciliation). */
 const KEEP_AFTER_PERIOD_MS = 7 * 86_400_000;
 
 export class BudgetGuard {
@@ -92,7 +92,7 @@ export class BudgetGuard {
   async check(budgets: ScopedBudget[]): Promise<BudgetCheck> {
     if (budgets.length === 0) return { ok: true };
     const redis = this.#redis;
-    // بدون Valkey (تک‌نودی بدون صف) بودجه قابل شمارش نیست.
+    // Without Valkey (single node, no queue) the budget cannot be counted.
     if (!redis) return { ok: true };
     this.stats.checks++;
     const now = this.#now();
@@ -154,7 +154,7 @@ export class BudgetGuard {
     }
   }
 
-  /** افزایش شمارنده‌ها بعد از پاسخ؛ هرگز await نمی‌شود و خطا نمی‌دهد. */
+  /** Increments the counters after the response; never awaited and never throws. */
   record(budgets: ScopedBudget[], costUsd: string, tokens: number): void {
     const redis = this.#redis;
     if (!redis || budgets.length === 0) return;
@@ -207,7 +207,7 @@ export class BudgetGuard {
     for (const threshold of b.budget.alertThresholds) {
       const at = (limit * threshold) / 100;
       if (!(before < at && after >= at)) continue;
-      // فقط replicaای که اول برسد رویداد می‌سازد.
+      // Only the replica that arrives first creates the event.
       const first = await redis.set(
         `dirouter:budget:alerted:${b.budget.id}:${periodKey}:${kind}:${String(threshold)}`,
         '1',

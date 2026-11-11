@@ -1,4 +1,4 @@
-# SPA fallback، gzip و کش بلندمدت assetهای hash‌دار.
+# SPA fallback, gzip, and long-term caching of hashed assets.
 server {
     listen 8080;
     server_name _;
@@ -16,7 +16,7 @@ server {
         return 200 '{"status":"ok"}';
     }
 
-    # پیکربندی زمان اجرا؛ مقدار از env کانتینر.
+    # Runtime configuration; value comes from the container's env.
     location = /config.js {
         default_type application/javascript;
         add_header Cache-Control "no-store" always;

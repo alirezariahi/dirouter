@@ -1,4 +1,4 @@
-/** کاتالوگ، مدل، alias و combo روی Postgres و Valkey واقعی، از طریق HTTP (کارت ۳.۸). */
+/** Catalog, model, alias, and combo against real Postgres and Valkey, over HTTP (card 3.8). */
 import { generateKey } from '@dirouter/shared';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -196,14 +196,14 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('models, aliases and combos over H
     expect(
       (await call('POST', 'combos', { slug: 'gpt-best', targets: [{ modelId: m.a }] })).statusCode,
     ).toBe(409);
-    // مدلِ در حال استفاده و combo دارای alias حذف نمی‌شوند.
+    // A model in use and a combo with an alias are not deleted.
     expect((await call('DELETE', `models/${m.mini}`)).statusCode).toBe(409);
     expect((await call('DELETE', `combos/${combo}`)).statusCode).toBe(409);
   });
 
   it('price catalog updates apply without a migration', async () => {
     const db = app.get(PrismaService).client;
-    // قیمت قدیمی در DB؛ کاتالوگ جدید (فایل JSON نسخه‌دار) آن را اصلاح می‌کند.
+    // Old price in the DB; the new catalog (a versioned JSON file) corrects it.
     await db.model.update({
       where: { id: m.a },
       data: { inputPrice: '9.99', contextWindow: 1000 },
@@ -215,7 +215,7 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('models, aliases and combos over H
       contextWindow: 1047576,
     });
     expect((await call('POST', 'models/sync-catalog')).json()).toMatchObject({ updated: 0 });
-    // قیمت دستی دیگر از کاتالوگ پیروی نمی‌کند.
+    // A manual price no longer follows the catalog.
     const manual = await call('PATCH', `models/${m.a}`, { pricing: { inputPerMTok: '1.5' } });
     expect(manual.json()).toMatchObject({ catalogKey: null, pricing: { inputPerMTok: '1.5' } });
   });

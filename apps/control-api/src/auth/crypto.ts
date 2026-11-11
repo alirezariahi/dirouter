@@ -1,16 +1,16 @@
 /**
- * رمز عبور (argon2id) و توکن‌ها (کارت ۳.۴).
+ * Passwords (argon2id) and tokens (card 3.4).
  *
- * - رمز: argon2id با پارامترهای OWASP 2024 (m=19MiB، t=2، p=1).
- * - access token: JWT HS256 کوتاه‌عمر (۱۵ دقیقه) با `JWT_SECRET`.
- * - refresh token: ۳۲ بایت تصادفی؛ در DB فقط HMAC-SHA256 آن ذخیره می‌شود.
+ * - Password: argon2id with OWASP 2024 parameters (m=19MiB, t=2, p=1).
+ * - access token: short-lived JWT HS256 (15 minutes) signed with `JWT_SECRET`.
+ * - refresh token: 32 random bytes; only its HMAC-SHA256 is stored in the DB.
  */
 import { createHmac, randomBytes } from 'node:crypto';
 
 import { hash, verify } from '@node-rs/argon2';
 import { jwtVerify, SignJWT } from 'jose';
 
-// الگوریتم پیش‌فرض @node-rs/argon2 همان Argon2id است (تست پیشوند `$argon2id$` را چک می‌کند).
+// The default algorithm of @node-rs/argon2 is Argon2id (the test checks the `$argon2id$` prefix).
 const ARGON = {
   memoryCost: 19_456,
   timeCost: 2,
@@ -24,7 +24,7 @@ export function hashPassword(password: string): Promise<string> {
   return hash(password, ARGON);
 }
 
-/** hash ثابت برای وقتی کاربر وجود ندارد: زمان پاسخ نام کاربری معتبر را لو نمی‌دهد. */
+/** Fixed hash for when the user does not exist: response timing does not reveal a valid username. */
 let dummy: Promise<string> | undefined;
 export async function verifyPassword(
   stored: string | undefined,
@@ -60,7 +60,7 @@ export class TokenService {
       .sign(this.#key);
   }
 
-  /** undefined یعنی توکن نامعتبر یا منقضی؛ دلیل دقیق عمداً به کلاینت گفته نمی‌شود. */
+  /** undefined means the token is invalid or expired; the exact reason is intentionally not disclosed to the client. */
   async verifyAccess(token: string): Promise<AccessClaims | undefined> {
     try {
       const { payload } = await jwtVerify(token, this.#key, {

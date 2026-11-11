@@ -5,7 +5,7 @@ export const workerEnvSchema = baseEnvSchema.extend({
   PORT: envPort(3100),
   DATABASE_URL: z.string().min(1),
   VALKEY_URL: z.string().min(1),
-  /** نگهداری لاگ خام request_log به ماه؛ جداول تجمیعی و ledger حذف نمی‌شوند. */
+  /** Raw request_log retention in months; aggregate tables and the ledger are not deleted. */
   REQUEST_LOG_RETENTION_MONTHS: z.coerce.number().int().min(1).max(120).default(3),
   USAGE_CONCURRENCY: z.coerce.number().int().min(1).max(2000).default(200),
   USAGE_BATCH_SIZE: z.coerce.number().int().min(1).max(5000).default(500),

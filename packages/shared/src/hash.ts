@@ -1,6 +1,6 @@
 /**
- * هش کلیدها با HMAC-SHA256. کلید مجازی خام هرگز ذخیره نمی‌شود؛ فقط
- * HMAC آن با یک pepper سمت سرور نگه داشته می‌شود.
+ * Key hashing with HMAC-SHA256. The raw virtual key is never stored; only
+ * its HMAC with a server-side pepper is kept.
  */
 import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 
@@ -12,7 +12,7 @@ export function sha256Hex(value: string | Buffer): string {
   return createHash('sha256').update(value).digest('hex');
 }
 
-/** مقایسهٔ زمان‌ثابت دو رشتهٔ hex. */
+/** Constant-time comparison of two hex strings. */
 export function timingSafeEqualHex(a: string, b: string): boolean {
   const left = Buffer.from(a, 'hex');
   const right = Buffer.from(b, 'hex');
@@ -20,7 +20,7 @@ export function timingSafeEqualHex(a: string, b: string): boolean {
   return timingSafeEqual(left, right);
 }
 
-/** هش یک کلید مجازی برای ذخیره و جستجو. */
+/** Hash of a virtual key for storage and lookup. */
 export function hashApiKey(apiKey: string, pepper: string | Buffer): string {
   return hmacSha256Hex(pepper, apiKey);
 }

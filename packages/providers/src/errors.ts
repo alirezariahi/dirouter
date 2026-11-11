@@ -1,23 +1,23 @@
 /**
- * طبقه‌بندی خطاهای upstream (کارت ۵.۲).
+ * Upstream error classification (card 5.2).
  *
- * قاعدهٔ اصلی: `bad_request` (و خطاهای محتوا) هرگز به provider دیگر فرستاده
- * نمی‌شود؛ این تصمیم این‌جا گرفته می‌شود، نه در config، تا قابل دور زدن نباشد.
+ * Core rule: `bad_request` (and content errors) are never sent to another provider;
+ * this decision is made here, not in config, so it cannot be bypassed.
  */
 import type { UpstreamErrorClass } from '@dirouter/contracts';
 
 export interface ClassifiedError {
   class: UpstreamErrorClass;
-  /** تلاش دوباره روی همان هدف منطقی است. */
+  /** Retrying the same logical target is allowed. */
   retryable: boolean;
-  /** رفتن به هدف بعدی combo مجاز است (اگر fallbackOn هم اجازه دهد). */
+  /** Moving to the next combo target is allowed (if fallbackOn also permits it). */
   fallbackAllowed: boolean;
-  /** credential باید غیرفعال/cooldown شود (کلید نامعتبر یا به سقف رسیده). */
+  /** The credential must be disabled or put in cooldown (invalid key or quota reached). */
   credentialAction?: 'disable' | 'cooldown';
   retryAfterMs?: number;
   status?: number;
   message: string;
-  /** نوع/کد خام provider برای لاگ. */
+  /** Raw provider type/code for logging. */
   upstreamType?: string;
 }
 
@@ -54,7 +54,7 @@ const CONTEXT_PATTERNS = [
 ];
 const POLICY_PATTERNS = [/content[_ ]policy/i, /content[_ ]filter/i, /safety/i, /flagged/i];
 
-/** مدت Retry-After از هدرها (ثانیه، تاریخ HTTP، یا ms). */
+/** Retry-After duration from headers (seconds, HTTP date, or ms). */
 export function retryAfterFrom(headers: Headers): number | undefined {
   const ms = headers.get('retry-after-ms');
   if (ms && /^\d+(\.\d+)?$/.test(ms)) return Math.round(Number(ms));
@@ -82,11 +82,11 @@ export function retryAfterFrom(headers: Headers): number | undefined {
 export interface HttpErrorInput {
   status: number;
   headers: Headers;
-  /** بدنهٔ خام پاسخ (حداکثر چند کیلوبایت). */
+  /** Raw response body (up to a few kilobytes). */
   body: string;
 }
 
-/** استخراج پیام و نوع از بدنهٔ خطای OpenAI یا Anthropic یا متن ساده. */
+/** Extract message and type from an OpenAI or Anthropic error body, or plain text. */
 export function errorDetails(body: string): { message: string; type?: string; code?: string } {
   try {
     const json = JSON.parse(body) as {
@@ -104,19 +104,19 @@ export function errorDetails(body: string): { message: string; type?: string; co
     }
     if (typeof json.message === 'string') return { message: json.message };
   } catch {
-    // متن غیر JSON
+    // Non-JSON text
   }
   return { message: body.slice(0, 500) || 'upstream error' };
 }
 
-/** طبقه‌بندی عمومی یک پاسخ HTTP خطا؛ آداپترها می‌توانند آن را دقیق‌تر کنند. */
+/** Generic classification of an HTTP error response; adapters may refine it. */
 export function classifyHttpError({ status, headers, body }: HttpErrorInput): ClassifiedError {
   const { message, type, code } = errorDetails(body);
   const hint = `${type ?? ''} ${code ?? ''} ${message}`;
   const base = { status, message, ...(type || code ? { upstreamType: code ?? type } : {}) };
 
   if (status === 429) {
-    // insufficient_quota یعنی اعتبار کلید تمام شده، نه محدودیت لحظه‌ای.
+    // insufficient_quota means the key's credit is exhausted, not a momentary rate limit.
     if (/insufficient_quota|billing/i.test(hint))
       return { ...classified('rate_limit', base), credentialAction: 'disable' };
     const retryAfterMs = retryAfterFrom(headers);
@@ -142,7 +142,7 @@ export function classifyHttpError({ status, headers, body }: HttpErrorInput): Cl
   return classified('bad_request', base);
 }
 
-/** خطای سطح شبکه (fetch/undici) یا abort. */
+/** Network-level error (fetch/undici) or abort. */
 export function classifyNetworkError(error: unknown, timedOut: boolean): ClassifiedError {
   if (timedOut) return classified('timeout', { message: 'upstream timeout' });
   const err = error as {

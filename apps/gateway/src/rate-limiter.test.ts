@@ -1,5 +1,5 @@
 /**
- * rate limiter (کارت ۶.۱). بخش Valkey با INTEGRATION_VALKEY_URL اجرا می‌شود.
+ * Rate limiter (card 6.1). The Valkey part runs with INTEGRATION_VALKEY_URL.
  */
 import { randomUUID } from 'node:crypto';
 
@@ -38,7 +38,7 @@ describe('local limiter', () => {
     const first = l.acquire(scope, 800, 1);
     expect(first.ok).toBe(true);
     expect(l.acquire(scope, 300, 1)).toMatchObject({ ok: false, kind: 'tokens' });
-    if (first.ok) first.settle(100); // مصرف واقعی کمتر بود
+    if (first.ok) first.settle(100); // actual usage was lower
     expect(l.acquire(scope, 300, 1).ok).toBe(true);
   });
 
@@ -69,7 +69,7 @@ describe('local limiter', () => {
     expect(l.acquire([key, project], 0, 1).ok).toBe(true);
     expect(l.acquire([key, project], 0, 1)).toMatchObject({ ok: false, scope: 'project:p' });
     now += 1;
-    // کلید هنوز ۹ جای خالی دارد چون درخواست رد‌شده چیزی مصرف نکرد.
+    // The key still has 9 free slots because the rejected request consumed nothing.
     expect(Array.from({ length: 9 }, () => l.acquire([key], 0, 1).ok).every(Boolean)).toBe(true);
     expect(l.acquire([key], 0, 1).ok).toBe(false);
   });
@@ -107,7 +107,7 @@ describe('Valkey outage', () => {
         'r',
       );
       expect(limited).toMatchObject({ ok: false, unavailable: true });
-      // scope بدون سقف هیچ‌وقت به Valkey نیاز ندارد.
+      // A scope without a cap never needs Valkey.
       expect((await limiter.acquire([{ name: 'key:y', limit: {} }], 0, 'r')).ok).toBe(true);
     } finally {
       redis.disconnect();
@@ -138,7 +138,7 @@ describe.skipIf(!VALKEY_URL)('distributed limiter on real Valkey', () => {
   };
 
   it('three nodes share one rpm limit exactly over a sliding window', async () => {
-    // پنجرهٔ ۳ ثانیه با سقف ۶۰ = همان نرخ ۶۰ RPM فشرده‌شده برای CI.
+    // A 3-second window with a cap of 60 = the same 60 RPM rate, compressed for CI.
     const prefix = `test:rl:${randomUUID()}`;
     const nodes = [1, 2, 3].map(() => {
       const redis = new Redis(VALKEY_URL ?? '', { enableOfflineQueue: false });
@@ -159,7 +159,7 @@ describe.skipIf(!VALKEY_URL)('distributed limiter on real Valkey', () => {
         }
       }),
     );
-    // پنجره‌های [0,3) [3,6) [6,7.5): سه بار ۶۰ = ۱۸۰، با ±۵٪.
+    // Windows [0,3) [3,6) [6,7.5): three times 60 = 180, within ±5%.
     expect(accepted).toBeGreaterThanOrEqual(171);
     expect(accepted).toBeLessThanOrEqual(189);
     expect(nodes.every((l) => l.stats.remote > 0 && l.stats.local === 0)).toBe(true);
@@ -231,7 +231,7 @@ describe.skipIf(!VALKEY_URL)('distributed limiter on real Valkey', () => {
     });
     await ready();
     const scope = [{ name: 'key:ttl', limit: { maxConcurrency: 1 } }];
-    expect((await limiter.acquire(scope, 0, 'lost')).ok).toBe(true); // هرگز release نمی‌شود
+    expect((await limiter.acquire(scope, 0, 'lost')).ok).toBe(true); // is never released
     expect((await limiter.acquire(scope, 0, 'next')).ok).toBe(false);
     await new Promise((r) => setTimeout(r, 250));
     expect((await limiter.acquire(scope, 0, 'later')).ok).toBe(true);

@@ -1,4 +1,4 @@
-# ایمیج توسعه: کد با bind mount و hot-reload اجرا می‌شود (compose.dev.yaml).
+# Development image: code runs with a bind mount and hot-reload (compose.dev.yaml).
 ARG NODE_VERSION=22.17
 FROM node:${NODE_VERSION}-alpine
 ENV PNPM_HOME=/pnpm \

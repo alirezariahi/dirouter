@@ -1,4 +1,4 @@
-/** layout اصلی: sidebar در سمت «شروع» (راست در RTL، چپ در LTR) و نوار بالا. */
+/** Main layout: sidebar on the «start» side (right in RTL, left in LTR) and top bar. */
 import { Link, Outlet, useNavigate } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
 

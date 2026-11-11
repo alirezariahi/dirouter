@@ -1,6 +1,6 @@
 /**
- * آدرس API: runtime از /config.js (nginx)، سپس VITE_API_URL، سپس همان دامنه با پیشوند admin.
- * (app.example.com → admin.example.com) و همان پروتکل صفحه.
+ * API address: runtime value from /config.js (nginx), then VITE_API_URL, then the same domain with the admin prefix.
+ * (app.example.com → admin.example.com) and the same page protocol.
  */
 declare global {
   interface Window {

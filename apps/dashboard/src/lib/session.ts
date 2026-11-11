@@ -1,6 +1,6 @@
 /**
- * نشست کاربر داشبورد (کارت ۷.۲): بازیابی با refresh کوکی در شروع، ورود، راه‌اندازی، خروج.
- * سازمان فعلی اولین عضویت است (انتخاب سازمان در ۷.۹).
+ * Dashboard user session (card 7.2): restored from the refresh cookie on startup, sign-in, setup and sign-out.
+ * The current organization is the first membership (organization selection in 7.9).
  */
 import { useSyncExternalStore } from 'react';
 
@@ -44,7 +44,7 @@ async function loadMe() {
   return user;
 }
 
-/** یک بار در شروع: اگر کوکی refresh معتبر باشد نشست برمی‌گردد. */
+/** Once on startup: the session is returned if the refresh cookie is valid. */
 export function restoreSession(): Promise<SessionUser | undefined> {
   restored ??= api<{ accessToken: string }>('/auth/refresh', { method: 'POST' })
     .then((r) => {
@@ -91,11 +91,11 @@ export async function logout() {
 
 export async function changePassword(currentPassword: string, newPassword: string) {
   await api('/auth/password', { method: 'POST', body: { currentPassword, newPassword } });
-  // همهٔ نشست‌ها باطل شدند؛ با رمز تازه دوباره وارد شوید.
+  // all sessions were revoked; sign in again with the new password.
   await logout();
 }
 
-/** فقط برای تست. */
+/** For tests only. */
 export function resetSessionForTests() {
   user = undefined;
   restored = undefined;

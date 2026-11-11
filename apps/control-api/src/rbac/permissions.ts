@@ -1,6 +1,6 @@
 /**
- * ماتریس دسترسی نقش‌ها در سطح سازمان (کارت ۳.۵). منبع واحد برای Guard، تست و docs/rbac.md.
- * مجوزهای کارت‌های بعدی (provider، کلید، مدل، مصرف) هم این‌جا تعریف شده‌اند تا ماتریس کامل باشد.
+ * Organization-level role access matrix (card 3.5). Single source for the Guard, tests, and docs/rbac.md.
+ * Permissions for later cards (provider, key, model, usage) are also defined here so the matrix is complete.
  */
 export const PERMISSIONS = [
   'org:read',
@@ -20,7 +20,7 @@ export const PERMISSIONS = [
   'models:write',
   'usage:read',
   'audit:read',
-  /** ریست دستی breaker و cooldown در صفحهٔ Health (کارت ۷.۸)؛ فقط OWNER و ADMIN. */
+  /** Manual reset of the breaker and cooldown on the Health page (card 7.8); OWNER and ADMIN only. */
   'health:write',
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
@@ -30,17 +30,17 @@ const READ = PERMISSIONS.filter((p) => p.endsWith(':read'));
 
 export const ROLE_PERMISSIONS: Record<Role, ReadonlySet<Permission>> = {
   OWNER: new Set(PERMISSIONS),
-  // ادمین همه‌کار می‌کند جز آنچه فقط مالک می‌تواند (در سرویس: نقش OWNER را فقط OWNER می‌دهد یا می‌گیرد).
+  // ADMIN can do everything except what only the owner can do (in the service: only OWNER can grant or revoke the OWNER role).
   ADMIN: new Set(PERMISSIONS),
-  // عضو همه‌چیز را می‌بیند و کلید و پروژهٔ خودش را می‌سازد، ولی پیکربندی سازمان را نه.
+  // MEMBER can see everything and create their own keys and projects, but not the organization configuration.
   MEMBER: new Set<Permission>([...READ, 'projects:write', 'keys:write']),
   VIEWER: new Set<Permission>(READ),
 };
 
-/** credentialها و secretها هیچ‌وقت خوانده نمی‌شوند؛ provider:read فقط فراداده است. */
+/** Credentials and secrets are never read; provider:read is metadata only. */
 export function can(role: Role, permission: Permission): boolean {
   return ROLE_PERMISSIONS[role].has(permission);
 }
 
-/** ترتیب قدرت نقش‌ها برای «نمی‌توانی نقشی بالاتر از خودت بدهی». */
+/** Role power order for "you cannot grant a role higher than your own". */
 export const ROLE_RANK: Record<Role, number> = { VIEWER: 0, MEMBER: 1, ADMIN: 2, OWNER: 3 };

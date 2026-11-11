@@ -1,8 +1,8 @@
 /**
- * اسکیمای Anthropic Messages API (`POST /v1/messages`).
+ * Anthropic Messages API schema (`POST /v1/messages`).
  *
- * مثل اسکیماهای OpenAI، فیلدهای ناشناخته حفظ می‌شوند تا قابلیت‌های جدید
- * (server toolها، بلوک‌های جدید) بدون تغییر گیت‌وی عبور کنند.
+ * As with the OpenAI schemas, unknown fields are preserved so that new capabilities
+ * (server tools, new blocks) pass through without a gateway change.
  */
 import { z } from 'zod';
 
@@ -70,7 +70,7 @@ export const AnthropicRedactedThinkingBlock = z.looseObject({
   data: z.string(),
 });
 
-/** بلوک‌هایی که کلاینت در `messages[].content` می‌فرستد. */
+/** Blocks the client sends in `messages[].content`. */
 export const AnthropicInputContentBlock = z.discriminatedUnion('type', [
   AnthropicTextBlock,
   AnthropicImageBlock,
@@ -82,7 +82,7 @@ export const AnthropicInputContentBlock = z.discriminatedUnion('type', [
 ]);
 export type AnthropicInputContentBlock = z.infer<typeof AnthropicInputContentBlock>;
 
-/** بلوک‌هایی که مدل در پاسخ برمی‌گرداند. بلوک‌های ناشناخته (server toolها) هم مجازند. */
+/** Blocks the model returns in its response. Unknown blocks (server tools) are also allowed. */
 export const AnthropicOutputContentBlock = z.union([
   z.discriminatedUnion('type', [
     AnthropicTextBlock,
@@ -110,7 +110,7 @@ export const AnthropicTool = z.union([
     type: z.literal('custom').optional(),
     cache_control: CacheControl.nullish(),
   }),
-  /** server toolها (web_search، bash، …) با `type` نسخه‌دار. */
+  /** Server tools (web_search, bash, …) with a versioned `type`. */
   z.looseObject({ type: z.string(), name: z.string() }),
 ]);
 export type AnthropicTool = z.infer<typeof AnthropicTool>;
@@ -217,7 +217,7 @@ export const AnthropicStreamEvent = z.discriminatedUnion('type', [
       stop_reason: AnthropicStopReason.nullish(),
       stop_sequence: z.string().nullish(),
     }),
-    /** در stream فقط output_tokens تجمعی تضمین شده است. */
+    /** In a stream, only the cumulative output_tokens is guaranteed. */
     usage: z.looseObject({
       output_tokens: NonNegativeInt,
       input_tokens: NonNegativeInt.nullish(),

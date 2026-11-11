@@ -1,12 +1,12 @@
 /**
- * ConfigSnapshot: تصویر کامل و نسخه‌دار پیکربندی که control-api منتشر می‌کند و
- * گیت‌وی در حافظه و روی دیسک نگه می‌دارد؛ گیت‌وی هرگز به control plane وابسته نیست.
+ * ConfigSnapshot: the complete, versioned configuration image that control-api publishes and
+ * the gateway keeps in memory and on disk; the gateway never depends on the control plane.
  *
- * - `schemaVersion` نسخهٔ قالب این اسکیما است و با تغییر ناسازگار بالا می‌رود.
- * - `version` شمارندهٔ یکنواخت انتشار است؛ گیت‌وی snapshot قدیمی‌تر را نمی‌پذیرد.
- * - رازها (کلید provider) فقط به‌صورت رمزشده با MASTER_KEY در snapshot هستند.
- * - یک snapshot همهٔ سازمان‌ها را دارد؛ هر شیء `organizationId` دارد و گیت‌وی
- *   نام مدل را فقط در محدودهٔ سازمانِ کلید resolve می‌کند.
+ * - `schemaVersion` is the format version of this schema and is bumped on breaking changes.
+ * - `version` is a monotonic publish counter; the gateway rejects older snapshots.
+ * - Secrets (provider keys) are stored in the snapshot only in encrypted form, using MASTER_KEY.
+ * - One snapshot covers all organizations; each object has an `organizationId` and the gateway
+ *   resolves model names only within the key's organization scope.
  */
 import { z } from 'zod';
 
@@ -24,7 +24,7 @@ export const ProviderType = z.enum([
 ]);
 export type ProviderType = z.infer<typeof ProviderType>;
 
-/** کلاس‌های خطای upstream (کارت ۵.۲)؛ شرط فال‌بک combo بر اساس همین‌هاست. */
+/** Upstream error classes (card 5.2); combo fallback conditions are based on these. */
 export const UpstreamErrorClass = z.enum([
   'rate_limit',
   'overloaded',
@@ -39,7 +39,7 @@ export const UpstreamErrorClass = z.enum([
 ]);
 export type UpstreamErrorClass = z.infer<typeof UpstreamErrorClass>;
 
-/** کلاس‌هایی که به‌صورت پیش‌فرض باعث فال‌بک به هدف بعدی می‌شوند. */
+/** Classes that trigger fallback to the next target by default. */
 export const DEFAULT_FALLBACK_ON: UpstreamErrorClass[] = [
   'rate_limit',
   'overloaded',
@@ -57,15 +57,15 @@ export const ProxyConfig = z.object({
 
 export const TimeoutConfig = z.object({
   connectMs: z.int().positive().optional(),
-  /** زمان تا اولین بایت پاسخ (TTFT). */
+  /** Time to first byte of the response (TTFT). */
   firstByteMs: z.int().positive().optional(),
-  /** حداکثر سکوت بین دو chunk در stream. */
+  /** Maximum silence between two chunks in a stream. */
   idleMs: z.int().positive().optional(),
   totalMs: z.int().positive().optional(),
 });
 export type TimeoutConfig = z.infer<typeof TimeoutConfig>;
 
-/** رازی که با AES-256-GCM و key versioning رمز شده (قالب `@dirouter/shared`). */
+/** A secret encrypted with AES-256-GCM and key versioning (`@dirouter/shared` format). */
 export const EncryptedSecret = z.string().regex(/^v\d+\.[A-Za-z0-9_-]+$/, 'invalid ciphertext');
 
 export const CredentialConfig = z.object({
@@ -74,9 +74,9 @@ export const CredentialConfig = z.object({
   secret: EncryptedSecret,
   enabled: z.boolean(),
   weight: z.int().min(0).default(1),
-  /** هدرهای اضافه (مثلاً `OpenAI-Organization`). */
+  /** Extra headers (e.g. `OpenAI-Organization`). */
   headers: z.record(z.string(), z.string()).default({}),
-  /** پروکسی خروجی همین credential؛ اولویت: credential، بعد provider، بعد سراسری (کارت ۴.۱۰). */
+  /** Outbound proxy for this credential; precedence: credential, then provider, then global (card 4.10). */
   proxy: ProxyConfig.optional(),
 });
 export type CredentialConfig = z.infer<typeof CredentialConfig>;
@@ -89,23 +89,23 @@ export const ProviderConfig = z.object({
   name: z.string(),
   baseUrl: z.url(),
   enabled: z.boolean(),
-  /** تنظیمات مخصوص نوع provider (مثلاً `apiVersion` در Azure). */
+  /** Settings specific to the provider type (e.g. `apiVersion` in Azure). */
   options: z.record(z.string(), z.unknown()).default({}),
   proxy: ProxyConfig.optional(),
   timeouts: TimeoutConfig.optional(),
-  /** سقف درخواست هم‌زمان (bulkhead). */
+  /** Concurrent request limit (bulkhead). */
   maxConcurrency: z.int().positive().optional(),
   credentials: z.array(CredentialConfig),
 });
 export type ProviderConfig = z.infer<typeof ProviderConfig>;
 
-/** قیمت به دلار به ازای یک میلیون توکن (رشتهٔ اعشاری، حداکثر ۸ رقم اعشار). */
+/** Price in dollars per million tokens (decimal string, at most 8 decimal places). */
 export const ModelPricing = z.object({
   inputPerMTok: UsdAmount,
   outputPerMTok: UsdAmount,
   cacheReadPerMTok: UsdAmount.optional(),
   cacheWritePerMTok: UsdAmount.optional(),
-  /** اگر نباشد، توکن‌های reasoning با قیمت output حساب می‌شوند. */
+  /** If absent, reasoning tokens are priced at the output rate. */
   reasoningPerMTok: UsdAmount.optional(),
 });
 export type ModelPricing = z.infer<typeof ModelPricing>;
@@ -122,10 +122,10 @@ export type ModelCapabilities = z.infer<typeof ModelCapabilities>;
 export const ModelConfig = z.object({
   id: z.string(),
   organizationId: z.string(),
-  /** نام عمومی مدل در DiRouter، مثلاً `openai/gpt-4.1`. */
+  /** Public model name in DiRouter, e.g. `openai/gpt-4.1`. */
   slug: Slug,
   providerId: z.string(),
-  /** نام مدل نزد provider. */
+  /** Model name at the provider. */
   upstreamModel: z.string(),
   enabled: z.boolean(),
   contextWindow: z.int().positive().optional(),
@@ -136,7 +136,7 @@ export const ModelConfig = z.object({
 export type ModelConfig = z.infer<typeof ModelConfig>;
 
 export const RetryPolicy = z.object({
-  /** تعداد کل تلاش روی هر هدف (۱ یعنی بدون retry). */
+  /** Total attempts per target (1 means no retry). */
   maxAttempts: z.int().min(1).max(10).default(2),
   baseDelayMs: z.int().min(0).default(200),
   maxDelayMs: z.int().min(0).default(2_000),
@@ -160,7 +160,7 @@ export const ComboConfig = z.object({
       }),
     )
     .min(1),
-  /** کلاس‌های خطایی که باعث رفتن به هدف بعدی می‌شوند. */
+  /** Error classes that cause a move to the next target. */
   fallbackOn: z.array(UpstreamErrorClass).default(DEFAULT_FALLBACK_ON),
   retry: RetryPolicy.optional(),
   timeouts: TimeoutConfig.optional(),
@@ -193,7 +193,7 @@ export const BudgetConfig = z
     period: BudgetPeriod,
     limitUsd: UsdAmount.optional(),
     limitTokens: z.int().positive().optional(),
-    /** درصدهایی که عبور از آن‌ها رویداد هشدار می‌سازد. */
+    /** Percentages whose crossing creates an alert event. */
     alertThresholds: z.array(z.int().min(1).max(100)).default([50, 80, 100]),
   })
   .refine((b) => b.limitUsd !== undefined || b.limitTokens !== undefined, {
@@ -203,18 +203,18 @@ export type BudgetConfig = z.infer<typeof BudgetConfig>;
 
 export const VirtualKeyConfig = z.object({
   id: z.string(),
-  /** HMAC-SHA256 کلید؛ خود کلید هرگز ذخیره نمی‌شود. */
+  /** HMAC-SHA256 of the key; the key itself is never stored. */
   hash: z.string().regex(/^[0-9a-f]{64}$/),
-  /** پیشوند قابل‌نمایش، مثلاً `dr-AbCd1234`. */
+  /** Displayable prefix, e.g. `dr-AbCd1234`. */
   prefix: z.string(),
   organizationId: z.string(),
   teamId: z.string().nullable(),
   projectId: z.string(),
   enabled: z.boolean(),
   expiresAt: IsoDateTime.nullable(),
-  /** خالی یعنی همهٔ مدل‌ها؛ در غیر این صورت slug مدل/alias/combo. */
+  /** Empty means all models; otherwise the model/alias/combo slug. */
   allowedModels: z.array(z.string()).default([]),
-  /** خالی یعنی همهٔ IPها؛ IP یا CIDR (IPv4/IPv6). */
+  /** Empty means all IPs; otherwise an IP or CIDR (IPv4/IPv6). */
   ipAllowlist: z.array(z.string()).default([]),
   rateLimit: RateLimitConfig.optional(),
   budgets: z.array(BudgetConfig).default([]),
@@ -231,14 +231,14 @@ export const ScopeLimitConfig = z.object({
 export type ScopeLimitConfig = z.infer<typeof ScopeLimitConfig>;
 
 export const GatewaySettings = z.object({
-  /** رفتار limiter/budget وقتی Valkey در دسترس نیست. */
+  /** Limiter/budget behavior when Valkey is unavailable. */
   failMode: z.enum(['open', 'closed']).default('open'),
   defaultTimeouts: TimeoutConfig.default({}),
-  /** پروکسی خروجی سراسری؛ provider یا credential می‌توانند جایگزینش کنند. */
+  /** Global outbound proxy; a provider or credential can override it. */
   proxy: ProxyConfig.optional(),
   defaultRetry: RetryPolicy.default({ maxAttempts: 2, baseDelayMs: 200, maxDelayMs: 2_000 }),
   logBodies: z.boolean().default(false),
-  /** صف کوتاه bulkhead (کارت ۵.۷)؛ پیش‌فرض گیت‌وی: ۱۶ منتظر و ۲ ثانیه. */
+  /** Short bulkhead queue (card 5.7); gateway defaults: 16 waiting and 2 seconds. */
   bulkhead: z
     .object({
       queueSize: z.int().nonnegative().optional(),
@@ -252,7 +252,7 @@ export const ConfigSnapshot = z.object({
   schemaVersion: z.literal(CONFIG_SNAPSHOT_SCHEMA_VERSION),
   version: z.int().positive(),
   generatedAt: IsoDateTime,
-  /** SHA-256 محتوای snapshot (بدون این فیلد) برای تشخیص خرابی. */
+  /** SHA-256 of the snapshot content (excluding this field), for corruption detection. */
   checksum: z
     .string()
     .regex(/^[0-9a-f]{64}$/)
@@ -267,5 +267,5 @@ export const ConfigSnapshot = z.object({
 });
 export type ConfigSnapshot = z.infer<typeof ConfigSnapshot>;
 
-/** نسخهٔ ورودی (قبل از اعمال defaultها) برای سازندهٔ snapshot. */
+/** Input version (before defaults are applied) for the snapshot builder. */
 export type ConfigSnapshotInput = z.input<typeof ConfigSnapshot>;

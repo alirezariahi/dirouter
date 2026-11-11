@@ -1,7 +1,7 @@
-# پایهٔ مشترک همهٔ محیط‌ها. همیشه همراه یکی از overrideها اجرا شود:
+# Shared base for all environments. Always run together with one of the overrides:
 #   dev:  docker compose -f compose.yaml -f compose.dev.yaml up
 #   prod: docker compose -f compose.yaml -f compose.prod.yaml up -d
-# (یا از طریق Makefile: make up / make prod-up)
+# (or via Makefile: make up / make prod-up)
 
 name: dirouter
 
@@ -10,9 +10,9 @@ x-node-env: &node-env
   LOG_LEVEL: ${LOG_LEVEL:-info}
 
 networks:
-  # Traefik و اپ‌ها
+  # Traefik and apps
   edge:
-  # دیتابیس و Valkey؛ بدون دسترسی بیرونی
+  # Database and Valkey; no external access
   internal:
     internal: true
 
@@ -75,7 +75,7 @@ services:
       timeout: 3s
       retries: 10
 
-  # اجرای migrationها پیش از بالا آمدن control-api و worker.
+  # Run migrations before control-api and worker start.
   migrate:
     image: ${REGISTRY:-dirouter}/migrate:${TAG:-latest}
     build:
@@ -143,11 +143,11 @@ services:
       CONTROL_API_URL: http://control-api:3000
       DATA_DIR: /data
       SHUTDOWN_DRAIN_MS: ${GATEWAY_SHUTDOWN_DRAIN_MS:-30000}
-      # بیشتر از دو دور health check Traefik (۲ ثانیه) تا replica پیش از بستن از چرخش خارج شود.
+      # More than two Traefik health check rounds (2 seconds), so the replica leaves rotation before it closes.
       SHUTDOWN_READY_DELAY_MS: ${GATEWAY_SHUTDOWN_READY_DELAY_MS:-5000}
-    # gateway به Postgres دسترسی ندارد (ADR-006): فقط Valkey روی شبکهٔ internal.
+    # gateway has no access to Postgres (ADR-006): only Valkey, on the internal network.
     networks: [edge, internal]
-    # ready delay (۵s) + drain (۳۰s) + flush مصرف؛ باید از مجموع بیشتر باشد وگرنه SIGKILL streamها را می‌بُرد.
+    # ready delay (5s) + drain (30s) + consumer flush; must be longer than their sum, otherwise SIGKILL cuts the streams.
     stop_grace_period: 45s
     volumes:
       - gateway-data:/data
@@ -159,7 +159,7 @@ services:
       traefik.http.routers.gateway.rule: Host(`api.${DOMAIN:-localhost}`)
       traefik.http.routers.gateway.entrypoints: websecure
       traefik.http.routers.gateway.tls: 'true'
-      # compress با استثنای text/event-stream تا SSE بافر نشود.
+      # compress except text/event-stream, so SSE is not buffered.
       traefik.http.routers.gateway.middlewares: security-headers@file,compress@file
       traefik.http.services.gateway.loadbalancer.server.port: '8080'
       traefik.http.services.gateway.loadbalancer.serversTransport: long-stream@file
@@ -205,7 +205,7 @@ services:
       traefik.http.routers.dashboard.middlewares: security-headers@file,compress@file
       traefik.http.services.dashboard.loadbalancer.server.port: '8080'
 
-  # provider ساختگی برای تست e2e و بار (پروفایل mock؛ در dev همیشه بالاست).
+  # Mock provider for e2e and load testing (mock profile; always running in dev).
   mock-provider:
     image: ${REGISTRY:-dirouter}/mock-provider:${TAG:-latest}
     profiles: [mock]
@@ -218,7 +218,7 @@ services:
       PORT: '8090'
     networks: [edge]
 
-  # مانیتورینگ اختیاری؛ متریک‌ها فقط روی شبکه‌های داخلی scrape می‌شوند.
+  # Optional monitoring; metrics are scraped only on internal networks.
   prometheus:
     image: prom/prometheus:${PROMETHEUS_VERSION:-v3.7.3}
     profiles: [monitoring]

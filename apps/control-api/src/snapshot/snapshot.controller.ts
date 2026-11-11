@@ -8,7 +8,7 @@ import type { FastifyReply } from 'fastify';
 import { ENV, type Env } from '../env.js';
 import { SnapshotService } from './snapshot.service.js';
 
-/** endpoint داخلی گیت‌وی: فقط با INTERNAL_TOKEN، با ETag و 304 (کارت ۳.۹). */
+/** Internal gateway endpoint: INTERNAL_TOKEN only, with ETag and 304 (card 3.9). */
 @ApiExcludeController()
 @Controller('internal/config')
 export class SnapshotController {
@@ -25,7 +25,7 @@ export class SnapshotController {
   ) {
     const expected = Buffer.from(`Bearer ${this.env.INTERNAL_TOKEN}`);
     const given = Buffer.from(authorization ?? '');
-    // بدون توکن درست، مسیر وجود ندارد.
+    // Without the correct token, the route does not exist.
     if (given.length !== expected.length || !timingSafeEqual(given, expected))
       throw new DiRouterError('not_found');
     const latest = await this.snapshots.latest();

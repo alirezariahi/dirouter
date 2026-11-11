@@ -4,7 +4,7 @@ coverage
 node_modules
 pnpm-lock.yaml
 packages/db/generated
-# Go template (پردازش توسط Traefik)، YAML معتبر نیست
+# Go template (processed by Traefik), not valid YAML
 deploy/traefik/dynamic/middlewares.yml
 apps/dashboard/src/api/generated.ts
 apps/dashboard/openapi.json

@@ -108,7 +108,7 @@ def validate(all_cards: list, sprint_of: dict) -> None:
             assert d in by_key, f"{c['key']}: وابستگی ناموجود {d}"
             assert sprint_of[d] <= sprint_of[c["key"]], \
                 f"{c['key']} به {d} از اسپرینت بعدی وابسته است"
-    # تشخیص چرخه
+    # cycle detection
     state = {}
 
     def visit(k, path):

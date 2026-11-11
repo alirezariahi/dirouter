@@ -1,5 +1,5 @@
 /**
- * فیلتر سراسری: هر خطا به application/problem+json با کد پایدار تبدیل می‌شود.
+ * Global filter: every error is converted to application/problem+json with a stable code.
  */
 import { type FieldError, DiRouterError, type Logger, ValidationError } from '@dirouter/shared';
 import {
@@ -29,7 +29,7 @@ function fromHttpException(error: HttpException): DiRouterError {
   return new DiRouterError(code, { message: error.message, status, cause: error });
 }
 
-/** خطای unique/foreign-key پریزما را به کد پایدار تبدیل می‌کند. */
+/** Converts Prisma unique/foreign-key errors to a stable code. */
 function fromPrisma(error: { code?: unknown; meta?: unknown }): DiRouterError | undefined {
   if (error.code === 'P2002') {
     return new DiRouterError('conflict', {
@@ -67,7 +67,7 @@ export class ProblemFilter implements ExceptionFilter {
     }
 
     const problem = error.toProblem(request.id);
-    // پیام خطای داخلی به کلاینت نشت نمی‌کند.
+    // Internal error messages are not leaked to the client.
     if (error.code === 'internal_error') problem.detail = 'Internal error';
     if (error instanceof ValidationError) problem.errors = error.errors satisfies FieldError[];
     const retryAfterMs = (error as { retryAfterMs?: unknown }).retryAfterMs;

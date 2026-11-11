@@ -1,6 +1,6 @@
 /**
- * بازهٔ زمانی سراسری داشبورد (کارت ۷.۳): در localStorage می‌ماند و همهٔ صفحه‌ها
- * (Overview و Request Log) از همین می‌خوانند.
+ * Global dashboard time range (card 7.3): persisted in localStorage and read by all pages
+ * (Overview and Request Log) read from it.
  */
 import { useSyncExternalStore } from 'react';
 
@@ -29,7 +29,7 @@ export function setRange(r: RangeKey): void {
   try {
     localStorage.setItem('dirouter.range', r);
   } catch {
-    // فقط برای همین نشست
+    // only for this session
   }
   for (const l of listeners) l();
 }
@@ -50,11 +50,11 @@ export interface Bounds {
   prevFrom: string;
   prevTo: string;
   granularity: 'hour' | 'day';
-  /** طول هر سطل نمودار به ms */
+  /** Length of each chart bucket in ms */
   bucketMs: number;
 }
 
-/** مرزها گرد به ساعت تا کلید کش پایدار بماند (رفرش خودکار کلید را عوض نمی‌کند تا ساعت بعد). */
+/** Bounds rounded to the hour so the cache key stays stable (auto-refresh does not change the key until the next hour). */
 export function rangeBounds(range: RangeKey, now = Date.now()): Bounds {
   const span = SPAN[range];
   const to = Math.ceil(now / HOUR) * HOUR;

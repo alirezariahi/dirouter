@@ -1,7 +1,7 @@
 /**
- * تست یکپارچهٔ خط لولهٔ مصرف روی Postgres و Valkey واقعی (کارت‌های ۳.۲، ۶.۴ و ۶.۵).
- * فقط با INTEGRATION_DATABASE_URL و INTEGRATION_VALKEY_URL اجرا می‌شود (job integration در CI
- * یا دستی: `make test-integration`).
+ * Integration test of the usage pipeline against real Postgres and Valkey (cards 3.2, 6.4 and 6.5).
+ * Runs only with INTEGRATION_DATABASE_URL and INTEGRATION_VALKEY_URL set (the integration job in CI
+ * or manually: `make test-integration`).
  */
 import { QUEUES, USAGE_EVENT_SCHEMA_VERSION, type UsageEvent } from '@dirouter/contracts';
 import { createPrismaClient } from '@dirouter/db';
@@ -113,12 +113,12 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('usage pipeline on real services',
     const jobs = (list: UsageEvent[]) =>
       list.map((data) => ({ name: 'usage', data, opts: { jobId: data.idempotencyKey } }));
     await queue.addBulk(jobs(events));
-    await queue.addBulk(jobs(events.slice(0, 50))); // تکراری در صف
+    await queue.addBulk(jobs(events.slice(0, 50))); // duplicate in the queue
     for (let i = 0; i < 100; i++) {
       if ((await db.requestLog.count()) >= 300) break;
       await new Promise((r) => setTimeout(r, 100));
     }
-    // تکراری بعد از تکمیل job (مثلاً replay دیرهنگام outbox) هم رکورد تازه نمی‌سازد.
+    // a duplicate after job completion (e.g. a late outbox replay) also does not create a new record.
     await Promise.all(events.slice(0, 20).map((e) => writer.add(e)));
     expect(await db.requestLog.count()).toBe(300);
     expect(await db.usageLedger.count()).toBe(300);

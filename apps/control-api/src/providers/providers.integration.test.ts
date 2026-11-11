@@ -1,6 +1,6 @@
 /**
- * provider و credential روی Postgres و Valkey واقعی، از طریق HTTP (کارت ۳.۶). گیت‌وی با یک
- * سرور ساختگی جایگزین شده که درخواست probe را ضبط می‌کند (probe واقعی در تست گیت‌وی است).
+ * Provider and credential against real Postgres and Valkey, over HTTP (card 3.6). The gateway is replaced with a
+ * fake server that records the probe request (the real probe is tested in the gateway tests).
  */
 import { createServer, type Server } from 'node:http';
 import { Writable } from 'node:stream';
@@ -87,7 +87,7 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('providers and credentials over HT
       INTERNAL_TOKEN: 'i'.repeat(32),
       GATEWAY_INTERNAL_URL: `http://127.0.0.1:${String(typeof ga === 'object' && ga ? ga.port : 0)}`,
     });
-    // همهٔ لاگ‌ها ضبط می‌شوند تا نشت secret بررسی شود.
+    // All logs are captured to check for secret leaks.
     const sink = new Writable({
       write(chunk: Buffer, _enc, cb) {
         logs.push(chunk.toString());

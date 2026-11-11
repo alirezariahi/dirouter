@@ -1,11 +1,11 @@
 /**
- * وضعیت سلامت در حافظهٔ هر نود (کارت‌های ۵.۵ و ۵.۶):
- * - circuit breaker برای provider و برای مدل (پنجرهٔ لغزان نرخ خطا + حداقل حجم)
- * - cooldown هر credential (429)، lockout مدل روی credential، غیرفعال‌سازی credential (auth)
+ * In-memory health state per node (cards 5.5 and 5.6):
+ * - Circuit breaker for the provider and for the model (sliding error-rate window + minimum volume)
+ * - Cooldown per credential (429), model lockout on a credential, credential disabling (auth)
  *
- * همگام‌سازی بین نودها (Valkey) بیرون از این کلاس است: تغییرات با `onChange`
- * منتشر و وضعیت راه دور با `applyRemote` اعمال می‌شود. قطعی Valkey فقط همگام‌سازی
- * را متوقف می‌کند؛ breaker محلی همچنان کار می‌کند.
+ * Synchronization between nodes (Valkey) is outside this class: changes are published via `onChange`
+ * and remote state is applied via `applyRemote`. A Valkey outage only stops synchronization;
+ * the local breaker keeps working.
  */
 import type { ClassifiedError } from '@dirouter/providers';
 
@@ -14,19 +14,19 @@ export type Clock = () => number;
 export type BreakerState = 'closed' | 'open' | 'half_open';
 
 export interface BreakerOptions {
-  /** طول پنجرهٔ لغزان. */
+  /** Length of the sliding window. */
   windowMs: number;
   buckets: number;
-  /** حداقل تعداد درخواست در پنجره پیش از تصمیم. */
+  /** Minimum number of requests in the window before a decision is made. */
   minRequests: number;
-  /** نرخ خطا (۰ تا ۱) که breaker را باز می‌کند. */
+  /** Error rate (0 to 1) that opens the breaker. */
   errorThreshold: number;
-  /** مدت باز ماندن اولیه؛ هر باز شدن پشت‌سرهم دو برابر می‌شود تا سقف. */
+  /** Initial open duration; each consecutive open doubles it, up to the cap. */
   openMs: number;
   maxOpenMs: number;
-  /** تعداد probe هم‌زمان در half-open. */
+  /** Number of concurrent probes in half-open. */
   halfOpenProbes: number;
-  /** موفقیت لازم در half-open برای بسته شدن. */
+  /** Successes required in half-open to close. */
   closeAfterSuccesses: number;
 }
 
@@ -41,14 +41,14 @@ export const DEFAULT_BREAKER: BreakerOptions = {
   closeAfterSuccesses: 2,
 };
 
-/** خطاهایی که نشانهٔ ناسالم بودن provider/مدل‌اند (نه خطای کاربر یا کلید). */
+/** Errors that indicate the provider/model is unhealthy (not user or key errors). */
 const BREAKER_CLASSES = new Set(['server', 'overloaded', 'timeout', 'connection']);
 
 export class CircuitBreaker {
   readonly #opts: BreakerOptions;
   readonly #clock: Clock;
   readonly #bucketMs: number;
-  /** [شروع سطل، کل، خطا] */
+  /** [bucket start, total, errors] */
   readonly #ring: { start: number; total: number; errors: number }[];
   #state: BreakerState = 'closed';
   #openedAt = 0;
@@ -73,12 +73,12 @@ export class CircuitBreaker {
     return this.#state;
   }
 
-  /** زمان باز شدن دوباره (برای Health)؛ فقط در حالت open. */
+  /** Time when the breaker reopens (for Health); only in the open state. */
   get reopensAt(): number | undefined {
     return this.#state === 'open' ? this.#openedAt + this.#openFor : undefined;
   }
 
-  /** آیا درخواست جدید مجاز است؟ در half-open فقط تعداد محدود probe. */
+  /** Is a new request allowed? In half-open, only a limited number of probes. */
   allow(): boolean {
     const state = this.state;
     if (state === 'closed') return true;
@@ -86,7 +86,7 @@ export class CircuitBreaker {
     return this.#inFlightProbes < this.#opts.halfOpenProbes;
   }
 
-  /** ثبت شروع درخواست (برای شمارش probe در half-open). */
+  /** Record the start of a request (to count probes in half-open). */
   begin(): void {
     if (this.state === 'half_open') this.#inFlightProbes++;
   }
@@ -117,7 +117,7 @@ export class CircuitBreaker {
     return this.#state;
   }
 
-  /** تحمیل وضعیت از نود دیگر (همگام‌سازی). */
+  /** Force state from another node (synchronization). */
   force(state: BreakerState, reopensAt?: number): void {
     if (state === 'open') {
       this.#state = 'open';
@@ -188,15 +188,15 @@ export type HealthChange =
   | { kind: 'cooldown'; credentialId: string; until: number }
   | { kind: 'lockout'; credentialId: string; modelId: string; until: number }
   | { kind: 'credential_disabled'; credentialId: string; reason: string }
-  /** ریست دستی از داشبورد (کارت ۷.۸): breaker بسته، یا cooldown، lockout و غیرفعالی پاک. */
+  /** Manual reset from the dashboard (card 7.8): closes the breaker, or clears cooldown, lockout and disabling. */
   | { kind: 'reset'; scope: 'provider' | 'model' | 'credential'; id: string };
 
 export interface HealthOptions {
   breaker?: Partial<BreakerOptions>;
-  /** cooldown پیش‌فرض 429 بدون Retry-After؛ با تکرار دو برابر می‌شود. */
+  /** Default 429 cooldown without Retry-After; doubles on repeated hits. */
   cooldownMs?: number;
   maxCooldownMs?: number;
-  /** مدت غیرفعال بودن credential بعد از خطای auth (تا بررسی/تست دستی یا تغییر کلید). */
+  /** How long a credential stays disabled after an auth error (until manual review/test or key change). */
   disableMs?: number;
   clock?: Clock;
   onChange?: (change: HealthChange) => void;
@@ -248,7 +248,7 @@ export class HealthRegistry {
     return b;
   }
 
-  /** credential برای این مدل قابل استفاده است؟ */
+  /** Is the credential usable for this model? */
   credentialAvailable(credentialId: string, modelId: string): boolean {
     const now = this.#clock();
     const disabled = this.#disabled.get(credentialId);
@@ -261,7 +261,7 @@ export class HealthRegistry {
 
   recordSuccess(target: { providerId: string; modelId: string; credentialId: string }): void {
     this.#recordBreakers(target, true);
-    // موفقیت بعد از cooldown شمارندهٔ backoff را صفر می‌کند.
+    // A success after cooldown resets the backoff counter.
     const cooldown = this.#cooldowns.get(target.credentialId);
     if (cooldown && cooldown.until <= this.#clock()) this.#cooldowns.delete(target.credentialId);
   }
@@ -271,7 +271,7 @@ export class HealthRegistry {
     error: ClassifiedError,
   ): void {
     if (BREAKER_CLASSES.has(error.class)) this.#recordBreakers(target, false);
-    else this.#recordBreakers(target, true); // خطای کاربر/کلید نشانهٔ سلامت سرویس است
+    else this.#recordBreakers(target, true); // A user/key error is a sign the service is healthy
 
     const now = this.#clock();
     if (error.credentialAction === 'disable') {
@@ -281,7 +281,7 @@ export class HealthRegistry {
       return;
     }
     if (error.class === 'rate_limit') {
-      // محدودیت مخصوص مدل (مثلاً «rate limit for model X») فقط همان مدل را قفل می‌کند.
+      // A model-specific limit (e.g. "rate limit for model X") locks only that model.
       const modelScoped =
         /model|tokens per min|TPM/i.test(error.message) &&
         !/organization|account/i.test(error.message);
@@ -305,7 +305,7 @@ export class HealthRegistry {
     }
   }
 
-  /** اعمال تغییر دریافتی از نود دیگر. */
+  /** Apply a change received from another node. */
   applyRemote(change: HealthChange): void {
     switch (change.kind) {
       case 'breaker':
@@ -337,8 +337,8 @@ export class HealthRegistry {
     }
   }
 
-  /** فعال‌سازی دوبارهٔ credential (مثلاً بعد از تغییر کلید در snapshot جدید). */
-  /** ریست دستی؛ بدون onChange (منبعش خودش منتشر می‌کند). */
+  /** Re-enable a credential (e.g. after a key change in a new snapshot). */
+  /** Manual reset; without onChange (the source publishes it itself). */
   reset(scope: 'provider' | 'model' | 'credential', id: string): void {
     if (scope === 'provider') this.providerBreaker(id).force('closed');
     else if (scope === 'model') this.modelBreaker(id).force('closed');
@@ -354,7 +354,7 @@ export class HealthRegistry {
     this.#cooldowns.delete(credentialId);
   }
 
-  /** نمای وضعیت برای /health/runtime و صفحهٔ Health. */
+  /** Status view for /health/runtime and the Health page. */
   report() {
     const now = this.#clock();
     const breakers = (map: Map<string, CircuitBreaker>) =>

@@ -1,6 +1,6 @@
 /**
- * کامل بودن مستندات Swagger (کارت ۳.۳): هر عملیات اسکیمای پاسخ دارد و هر عملیات نوشتنیِ
- * دارای بدنه، اسکیمای درخواست. بدون DB اجرا می‌شود (ساخت سند به اتصال نیاز ندارد).
+ * Swagger docs completeness (card 3.3): every operation has a response schema, and every write operation
+ * has a body and a request schema. Runs without a DB (building the document needs no connection).
  */
 import 'reflect-metadata';
 
@@ -66,7 +66,7 @@ describe('OpenAPI document', () => {
     }
     expect(operations).toBeGreaterThanOrEqual(60);
     expect(missing).toEqual([]);
-    // endpointهای داخلی در سند عمومی نیستند.
+    // Internal endpoints are not in the public document.
     expect(Object.keys(doc.paths).some((p) => p.startsWith('/internal'))).toBe(false);
     await app.close();
   }, 30_000);

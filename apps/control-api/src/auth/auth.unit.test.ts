@@ -46,7 +46,7 @@ describe('tokens', () => {
   });
 });
 
-/** store حافظه‌ای با همان معنای Valkey. */
+/** In-memory store with the same semantics as Valkey. */
 function memoryStore(): LimiterStore & { broken: boolean } {
   const m = new Map<string, { n: number; until: number }>();
   const live = (k: string) => {

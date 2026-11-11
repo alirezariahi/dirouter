@@ -1,15 +1,15 @@
 /**
- * پول با BigInt fixed-point (۸ رقم اعشار، معادل Decimal(18,8)).
+ * Money as BigInt fixed-point (8 decimal places, equivalent to Decimal(18,8)).
  *
- * واحد داخلی «نانو-سنت»ی است که ۱ دلار = ۱۰^۸ واحد. هیچ عددی از نوع float در
- * محاسبهٔ پول استفاده نمی‌شود؛ ورودی و خروجی رشتهٔ اعشاری است.
+ * The internal unit is a "nano-cent" where $1 = 10^8 units. No float number is used in
+ * money calculations; input and output are decimal strings.
  */
 
 export const USD_SCALE = 8;
 const FACTOR = 10n ** BigInt(USD_SCALE);
 const PATTERN = /^(-)?(\d+)(?:\.(\d{1,8}))?$/;
 
-/** مبلغ دلاری به واحد داخلی (۱ دلار = ۱۰^۸). */
+/** Dollar amount in internal units (1 dollar = 10^8). */
 export type UsdUnits = bigint;
 
 export function parseUsd(amount: string): UsdUnits {
@@ -28,12 +28,12 @@ export function formatUsd(units: UsdUnits): string {
   return `${negative ? '-' : ''}${whole.toString()}.${fraction}`;
 }
 
-/** تقسیم با گرد کردن half-up (برای مقادیر نامنفی). */
+/** Division with half-up rounding (for non-negative values). */
 function divRound(numerator: bigint, denominator: bigint): bigint {
   return (numerator + denominator / 2n) / denominator;
 }
 
-/** هزینهٔ `tokens` توکن با قیمت دلاری به ازای یک میلیون توکن. */
+/** Cost of `tokens` tokens at a dollar price per million tokens. */
 export function costForTokens(tokens: number, pricePerMTok: string): UsdUnits {
   if (!Number.isSafeInteger(tokens) || tokens < 0)
     throw new RangeError(`invalid tokens: ${tokens}`);
@@ -47,7 +47,7 @@ export function sumUsd(values: Iterable<UsdUnits>): UsdUnits {
   return total;
 }
 
-/** درصد مصرف (عدد صحیح، رو به پایین) برای آستانه‌های هشدار. */
+/** Usage percentage (integer, rounded down) for alert thresholds. */
 export function percentOf(used: UsdUnits, limit: UsdUnits): number {
   if (limit <= 0n) return 100;
   return Number((used * 100n) / limit);

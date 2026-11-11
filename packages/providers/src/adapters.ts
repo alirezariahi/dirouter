@@ -1,8 +1,8 @@
 /**
- * آداپترهای provider (کارت‌های ۴.۶ و ۴.۷).
+ * Provider adapters (cards 4.6 and 4.7).
  *
- * هر آداپتر فقط «شکل» درخواست و پاسخ را می‌داند؛ اجرای HTTP، retry، timeout و
- * proxy در گیت‌وی است. پس آداپترها کاملاً قابل تست بدون شبکه‌اند.
+ * Each adapter only knows the "shape" of the request and response; HTTP execution, retry, timeout and
+ * proxying live in the gateway. So adapters can be fully tested without a network.
  */
 import {
   AnthropicMessagesResponse,
@@ -49,31 +49,31 @@ export interface UpstreamRequest {
 export interface BuildContext {
   provider: ProviderConfig;
   model: ModelConfig;
-  /** کلید رمزگشایی‌شدهٔ credential (فقط در حافظه). */
+  /** Decrypted credential key (in memory only). */
   apiKey: string;
-  /** هدرهای اضافهٔ credential. */
+  /** Extra credential headers. */
   credentialHeaders?: Record<string, string>;
   request: CanonicalRequest;
-  /** هدرهای ورودی کلاینت (فقط برای pass-through کنترل‌شده، مثل anthropic-beta). */
+  /** Client inbound headers (only for controlled pass-through, such as anthropic-beta). */
   clientHeaders?: Record<string, string | undefined>;
   onDrop?: DropReporter;
 }
 
 export interface StreamDecoder {
-  /** رویداد SSE خام → رویدادهای canonical. `[DONE]` و ping نادیده گرفته می‌شوند. */
+  /** Raw SSE event → canonical events. `[DONE]` and ping are ignored. */
   push(event: SseEvent): CanonicalStreamEvent[];
 }
 
 export interface ProviderAdapter {
   readonly type: ProviderType;
   buildRequest(ctx: BuildContext): UpstreamRequest;
-  /** `model` نام upstream است، برای providerهایی که آن را در پاسخ نمی‌دهند. */
+  /** `model` is the upstream name, for providers that do not return it in the response. */
   parseResponse(json: unknown, model?: string): CanonicalResponse;
   createStreamDecoder(model?: string): StreamDecoder;
   classifyError(input: HttpErrorInput): ClassifiedError;
-  /** درخواست فهرست مدل‌ها برای کشف مدل (control-api). */
+  /** Model list request for model discovery (control-api). */
   listModelsRequest(provider: ProviderConfig, apiKey: string): UpstreamRequest;
-  /** استخراج شناسهٔ مدل‌ها از پاسخ list models. */
+  /** Extract model IDs from a list models response. */
   parseModelList(json: unknown): string[];
 }
 
@@ -116,7 +116,7 @@ class AnthropicDecoder implements StreamDecoder {
   }
 }
 
-// ───────────── OpenAI و OpenAI-compatible ─────────────
+// ───────────── OpenAI and OpenAI-compatible ─────────────
 
 class OpenAICompatibleAdapter implements ProviderAdapter {
   constructor(readonly type: ProviderType) {}
@@ -188,7 +188,7 @@ class AzureOpenAIAdapter extends OpenAICompatibleAdapter {
       maxTokensField: 'max_completion_tokens',
       ...(ctx.onDrop ? { onDrop: ctx.onDrop } : {}),
     });
-    // در Azure نام deployment در مسیر است.
+    // In Azure, the deployment name is part of the path.
     delete body.model;
     return {
       url: `${trimSlash(ctx.provider.baseUrl)}/openai/deployments/${encodeURIComponent(ctx.model.upstreamModel)}/chat/completions?api-version=${encodeURIComponent(apiVersion)}`,
@@ -262,8 +262,8 @@ class AnthropicAdapter implements ProviderAdapter {
 
   classifyError(input: HttpErrorInput): ClassifiedError {
     const result = classifyHttpError(input);
-    // Anthropic: overloaded_error (529) و api_error (500) قابل تلاش دوباره‌اند؛ classifyHttpError
-    // هر دو را پوشش می‌دهد. «prompt is too long» هم context_length است.
+    // Anthropic: overloaded_error (529) and api_error (500) are retryable; classifyHttpError
+    // covers both. "prompt is too long" is also context_length.
     return result;
   }
 
@@ -279,8 +279,8 @@ class AnthropicAdapter implements ProviderAdapter {
 }
 
 /**
- * pass-through کنترل‌شدهٔ anthropic-beta: فقط وقتی کلاینت Anthropic است و فقط
- * betaهایی که در `options.allowedBetas` آمده‌اند (یا `*` برای همه).
+ * Controlled pass-through of anthropic-beta: only when the client is Anthropic, and only
+ * betas listed in `options.allowedBetas` (or `*` for all).
  */
 function allowedBetas(ctx: BuildContext): string | undefined {
   const configured = ctx.provider.options.betas;
@@ -340,10 +340,10 @@ function geminiVersion(provider: ProviderConfig): string {
     : GEMINI_API_VERSION;
 }
 
-/** نام مدل بدون پیشوند `models/` (هر دو شکل در config پذیرفته می‌شود). */
+/** Model name without the `models/` prefix (both forms are accepted in config). */
 const geminiModel = (name: string) => name.replace(/^models\//, '');
 
-/** کدهای وضعیت gRPC گوگل → وضعیت HTTP معادل برای طبقه‌بندی. */
+/** Google gRPC status codes → equivalent HTTP status for classification. */
 const GOOGLE_STATUS: Readonly<Record<string, number>> = {
   RESOURCE_EXHAUSTED: 429,
   UNAVAILABLE: 503,
@@ -390,7 +390,7 @@ class GeminiAdapter implements ProviderAdapter {
   }
 
   classifyError(input: HttpErrorInput): ClassifiedError {
-    // بدنهٔ خطای گوگل: {"error":{"code":429,"message":"…","status":"RESOURCE_EXHAUSTED",
+    // Google error body: {"error":{"code":429,"message":"…","status":"RESOURCE_EXHAUSTED",
     //   "details":[{"@type":"type.googleapis.com/google.rpc.RetryInfo","retryDelay":"17s"}]}}
     let googleStatus: string | undefined;
     let retryDelayMs: number | undefined;
@@ -404,14 +404,14 @@ class GeminiAdapter implements ProviderAdapter {
       const seconds = delay ? /^(\d+(?:\.\d+)?)s$/.exec(delay)?.[1] : undefined;
       if (seconds) retryDelayMs = Math.round(Number(seconds) * 1000);
     } catch {
-      // متن غیر JSON
+      // Non-JSON text
     }
     const mapped = googleStatus ? GOOGLE_STATUS[googleStatus] : undefined;
     const status = input.status === 400 && mapped ? mapped : input.status;
     const result = classifyHttpError({ ...input, status });
     const upstream = googleStatus ? { upstreamType: googleStatus } : {};
     if (result.class === 'bad_request') {
-      // کلید نامعتبر گوگل 400 با API_KEY_INVALID است.
+      // An invalid Google key returns 400 with API_KEY_INVALID.
       if (/API_KEY_INVALID|API key not valid/i.test(input.body))
         return classified('auth', { status: input.status, message: result.message, ...upstream });
       // «The input token count (…) exceeds the maximum number of tokens allowed (…)»

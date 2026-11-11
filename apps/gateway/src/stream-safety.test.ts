@@ -1,8 +1,8 @@
 /**
- * فال‌بک امن در stream و bulkhead (کارت ۵.۷):
- * - قبل از اولین بایت فال‌بک ممکن است؛ بعد از آن خطای استاندارد قابل‌پارس در فرمت کلاینت.
- * - provider کند بیش از سقف اتصال نمی‌گیرد؛ اضافه‌ها بعد از صف کوتاه 429 یا فال‌بک می‌گیرند.
- * - سقف همزمانی هر کلید.
+ * Safe fallback in streams and bulkhead (card 5.7):
+ * - Fallback is possible before the first byte; after it, a standard error parseable in the client's format.
+ * - A slow provider does not take more than its connection cap; extras get 429 or fallback after a short queue.
+ * - Concurrency cap per key.
  */
 import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -181,7 +181,7 @@ describe('stream fallback is only allowed before the first byte', () => {
     const last = payloads.at(-1) as { error?: { type: string; code: string; message: string } };
     expect(last.error).toMatchObject({ type: 'api_error', message: 'upstream stream interrupted' });
     expect(typeof last.error?.code).toBe('string');
-    // فقط provider اول تماس گرفته شد (فال‌بک بعد از ارسال بایت ممنوع است).
+    // Only the first provider was contacted (fallback after sending bytes is forbidden).
     expect((await mockStats()).requests).toBe(1);
   });
 
@@ -222,7 +222,7 @@ describe('stream fallback is only allowed before the first byte', () => {
     expect(last?.event).toBe('error');
     expect(JSON.parse(last?.data ?? '{}')).toMatchObject({
       type: 'error',
-      // نوع استاندارد Anthropic، نه کلاس داخلی (connection)
+      // the standard Anthropic type, not the internal class (connection)
       error: { type: 'api_error', message: 'upstream stream interrupted' },
     });
 
@@ -253,11 +253,11 @@ describe('bulkhead', () => {
   it('a queued request runs when a slot frees within the queue timeout', async () => {
     const health = () =>
       gw.app.inject({ method: 'GET', url: '/internal/health' }).then((r) => r.statusCode);
-    // بدون INTERNAL_TOKEN، health داخلی پنهان است.
+    // Without INTERNAL_TOKEN, internal health is hidden.
     expect(await health()).toBe(404);
     const first = chat('slow-m', false);
     const second = chat('slow-m', false);
-    // دو جای خالی پر است؛ سومی در صف ۵۰ms می‌ماند و رد می‌شود، ولی بعد از آزاد شدن یکی جا می‌گیرد.
+    // Two slots are full; the third waits in a 50ms queue and is rejected, but gets a slot once one is freed.
     const [a, b] = await Promise.all([first, second]);
     expect([a.status, b.status]).toEqual([200, 200]);
     const after = await chat('slow-m', false);
@@ -300,7 +300,7 @@ describe('bulkhead', () => {
       error: { type: 'rate_limit_error' },
     });
     expect((await held).status).toBe(200);
-    // بعد از پایان درخواست اول، جای کلید آزاد است.
+    // After the first request ends, the key's slot is free.
     expect((await chat('ok-m', false, ONE_AT_A_TIME)).status).toBe(200);
   });
 

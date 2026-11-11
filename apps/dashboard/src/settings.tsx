@@ -1,4 +1,4 @@
-/** تنظیمات نمایش (تم و تقویم) با context؛ زبان را i18next نگه می‌دارد. */
+/** Display settings (theme and calendar) via context; i18next keeps the language. */
 import { createContext, type ReactNode, useContext, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 

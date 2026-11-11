@@ -1,11 +1,11 @@
-# پیکربندی static Traefik برای توسعه: *.localhost با گواهی self-signed پیش‌فرض
-# Traefik روی HTTPS و بدون ریدایرکت روی HTTP (برای curl ساده).
+# Static Traefik configuration for development: *.localhost with the default self-signed certificate
+# Traefik on HTTPS, and no redirect to HTTP (for plain curl).
 global:
   checkNewVersion: false
   sendAnonymousUsage: false
 
 entryPoints:
-  # ping و متریک؛ منتشر نمی‌شود.
+  # ping and metrics; not published.
   traefik:
     address: ':8082'
   web:

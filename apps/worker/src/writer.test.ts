@@ -52,7 +52,7 @@ const event = (n: number, extra: Partial<UsageEvent> = {}): UsageEvent => ({
   ...extra,
 });
 
-/** db ساختگی با رفتار ON CONFLICT DO NOTHING و امکان شکست برای رویداد خاص. */
+/** fake db with ON CONFLICT DO NOTHING behavior and the ability to fail for a specific event. */
 function fakeDb(failFor = new Set<string>()) {
   const logs = new Map<string, unknown>();
   const ledger = new Map<string, unknown>();

@@ -1,6 +1,6 @@
 /**
- * احراز هویت داشبورد روی Postgres و Valkey واقعی، از طریق HTTP (کارت ۳.۴).
- * فقط با INTEGRATION_DATABASE_URL و INTEGRATION_VALKEY_URL اجرا می‌شود.
+ * Dashboard authentication against real Postgres and Valkey, over HTTP (card 3.4).
+ * Runs only with INTEGRATION_DATABASE_URL and INTEGRATION_VALKEY_URL.
  */
 import { generateKey } from '@dirouter/shared';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
@@ -33,7 +33,7 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('dashboard auth over HTTP', () => 
         url: `/api/v1/auth/${opts.url}`,
         remoteAddress: opts.ip ?? '10.0.0.1',
         headers: {
-          // مثل Traefik: TLS در لبه، درخواست با X-Forwarded-Proto به control-api می‌رسد.
+          // Like Traefik: TLS at the edge, the request reaches control-api with X-Forwarded-Proto.
           'x-forwarded-proto': 'https',
           ...(opts.cookie ? { cookie: `${REFRESH_COOKIE}=${opts.cookie}` } : {}),
           ...(opts.token ? { authorization: `Bearer ${opts.token}` } : {}),
@@ -79,8 +79,8 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('dashboard auth over HTTP', () => 
     expect((await inject({ method: 'GET', url: 'setup' })).json()).toEqual({ required: true });
     const [first, second] = await Promise.all([
       inject({ method: 'POST', url: 'setup', body: owner }),
-      // همان کاربر با حروف دیگر: هر کدام برنده شود، کاربر نهایی یکی است و تست‌های بعدی به
-      // برندهٔ مسابقه وابسته نیستند (فقط یکی باید 201 بگیرد).
+      // Same user with different letter case: whichever wins, the final user is one and later tests do not depend on
+      // the race winner (only one should get 201).
       inject({ method: 'POST', url: 'setup', body: { ...owner, email: 'OWNER@EXAMPLE.COM' } }),
     ]);
     const statuses = [first.statusCode, second.statusCode].sort();
@@ -131,11 +131,11 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('dashboard auth over HTTP', () => 
     const second = refreshCookie(rotated);
     expect(second).not.toBe(first);
 
-    // مهاجم توکن قدیمی را دوباره می‌فرستد.
+    // The attacker resends the old token.
     const replay = await inject({ method: 'POST', url: 'refresh', cookie: first });
     expect(replay.statusCode).toBe(401);
     expect(replay.json()).toMatchObject({ code: 'refresh_token_reused' });
-    // توکن تازهٔ کاربر واقعی هم باطل شده است.
+    // The real user's new token has also been revoked.
     const victim = await inject({ method: 'POST', url: 'refresh', cookie: second });
     expect(victim.statusCode).toBe(401);
   });
@@ -180,7 +180,7 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('dashboard auth over HTTP', () => 
       body: { email: owner.email, password: owner.password },
     });
     expect(right.statusCode).toBe(429);
-    // حساب دیگر قفل نیست؛ یک ناشناس هم جواب یکسان می‌گیرد (بدون لو دادن وجود کاربر).
+    // The other account is not locked; an anonymous caller gets the same response (without revealing that the user exists).
     const unknown = await inject({
       method: 'POST',
       url: 'login',

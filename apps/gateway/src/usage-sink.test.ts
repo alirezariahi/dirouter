@@ -43,7 +43,7 @@ const event = (n: number): UsageEvent => ({
   attempts: [],
 });
 
-/** صف ساختگی با رفتار jobId یکتای BullMQ و قابلیت قطع. */
+/** Fake queue with BullMQ's unique-jobId behavior and the ability to disconnect. */
 class FakeQueue implements UsageQueue {
   up = true;
   jobs = new Map<string, UsageEvent>();
@@ -75,7 +75,7 @@ describe('usage sink', () => {
     const queue = new FakeQueue();
     const sink = new UsageSink({ logger, dataDir: dir, queue, flushIntervalMs: 60_000 });
     for (let i = 0; i < 5; i++) sink.emit(event(i));
-    sink.emit(event(2)); // تکراری
+    sink.emit(event(2)); // duplicate
     await sink.flush();
     expect(queue.order).toEqual(['req_0', 'req_1', 'req_2', 'req_3', 'req_4']);
     expect(sink.stats).toMatchObject({ emitted: 6, enqueued: 6, spooled: 0 });
@@ -152,10 +152,10 @@ describe('usage sink', () => {
       batchSize: 2,
     });
     for (let i = 0; i < 6; i++) sink.emit(event(i));
-    await sink.flush(); // calls 1..3 همه شکست (queue.up=false)
+    await sink.flush(); // calls 1..3 all failed (queue.up=false)
     queue.up = true;
-    await sink.flush(); // replay: یک دسته موفق، یک دسته blip → فایل می‌ماند
-    await sink.flush(); // replay کامل؛ دستهٔ اول تکراری است
+    await sink.flush(); // replay: one batch succeeds, one batch blips → file stays
+    await sink.flush(); // full replay; the first batch is a duplicate
     expect(queue.order).toEqual(['req_0', 'req_1', 'req_2', 'req_3', 'req_4', 'req_5']);
     expect(await outboxFiles(dir)).toHaveLength(0);
     await sink.close();

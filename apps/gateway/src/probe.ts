@@ -1,7 +1,7 @@
 /**
- * تست اتصال و کشف مدل برای control-api (کارت ۳.۶). داخل گیت‌وی اجرا می‌شود تا همان
- * آداپتر، پروکسی (credential، provider یا سراسری) و timeoutهای ترافیک واقعی به کار رود.
- * secret رمزشده می‌رسد و فقط در حافظهٔ گیت‌وی باز می‌شود.
+ * Connection test and model discovery for control-api (card 3.6). Runs inside the gateway so the same
+ * adapter, proxy (credential, provider or global) and real-traffic timeouts are applied.
+ * The encrypted secret arrives and is only decrypted in the gateway's memory.
  */
 import { ProviderConfig } from '@dirouter/contracts';
 import { findByUpstream } from '@dirouter/model-catalog';
@@ -70,7 +70,7 @@ export async function probeProvider(body: unknown, keyring: Keyring): Promise<Pr
         };
       }
       const ids = adapter.parseModelList(await call.response.json());
-      // نام کاتالوگ: preset (مثلاً groq) یا خود نوع provider.
+      // Catalog name: a preset (e.g. groq) or the provider type itself.
       const catalogProvider =
         typeof provider.options.preset === 'string'
           ? provider.options.preset

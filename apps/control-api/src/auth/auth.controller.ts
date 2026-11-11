@@ -14,7 +14,7 @@ import { type AccessClaims, REFRESH_TTL_SECONDS } from './crypto.js';
 export const REFRESH_COOKIE = 'dr_refresh';
 
 const Email = z.email().max(254);
-/** حداقل ۱۰ کاراکتر؛ سقف برای جلوگیری از DoS روی argon2. */
+/** At least 10 characters; a maximum to prevent DoS on argon2. */
 const Password = z.string().min(10).max(256);
 
 export const SetupBody = z.object({
@@ -66,12 +66,12 @@ export class AuthController {
     @Inject(ENV) private readonly env: Env,
   ) {}
 
-  /** refresh token فقط در کوکی httpOnly، فقط برای مسیرهای /auth و فقط same-site. */
+  /** Refresh token only in an httpOnly cookie, only for /auth paths, and same-site only. */
   #setRefresh(reply: FastifyReply, session: Session) {
     void reply.setCookie(REFRESH_COOKIE, session.refreshToken, {
       httpOnly: true,
-      // در production همیشه Secure؛ در dev فقط روی https (پشت Traefik از X-Forwarded-Proto)،
-      // تا داشبورد روی http://app.localhost هم بعد از reload نشست را نگه دارد.
+      // Always Secure in production; in dev only over https (behind Traefik via X-Forwarded-Proto),
+      // so the dashboard also keeps the session after reload on http://app.localhost.
       secure: this.env.NODE_ENV === 'production' || reply.request.protocol === 'https',
       sameSite: 'strict',
       path: `/${API_PREFIX}/auth`,
@@ -138,7 +138,7 @@ export class AuthController {
     @Req() req: FastifyRequest,
     @Res({ passthrough: true }) reply: FastifyReply,
   ) {
-    // رمز کاربر تازه هم باید سیاست حداقل ۱۰ کاراکتر را داشته باشد.
+    // The new user's password must also meet the minimum 10-character policy.
     if (body.name !== undefined && body.password.length < 10)
       throw new ValidationError([
         { path: 'password', message: 'Too small: expected at least 10 characters' },

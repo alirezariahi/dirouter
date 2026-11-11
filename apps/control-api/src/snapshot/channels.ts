@@ -1,4 +1,4 @@
-/** کانال‌های Valkey برای انتشار snapshot (بدون وابستگی به Nest تا اسکریپت‌ها هم import کنند). */
+/** Valkey channels for publishing the snapshot (no Nest dependency so scripts can import them too). */
 export const CONFIG_CHANNEL = 'dirouter:config:updated';
-/** درخواست ساخت دوباره از بیرون از API (مثلاً seed یا ابزار مدیریتی). */
+/** Rebuild request from outside the API (for example, seed or an admin tool). */
 export const REBUILD_CHANNEL = 'dirouter:config:rebuild';

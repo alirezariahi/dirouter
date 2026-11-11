@@ -181,7 +181,7 @@ describe('canonical → Gemini request', () => {
         { functionCall: { name: 'get_weather', args: { city: 'Qom' } } },
       ],
     });
-    // functionResponseها قبل از متن کاربر در همان نوبت user می‌آیند و نام تابع از tool_call پیدا می‌شود.
+    // functionResponses come before the user text in the same user turn, and the function name is found from the tool_call.
     expect(body.contents[2]).toEqual({
       role: 'user',
       parts: [

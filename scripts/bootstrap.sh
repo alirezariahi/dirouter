@@ -1,6 +1,6 @@
 #!/usr/bin/env sh
-# ساخت .env کامل با رازهای تصادفی از روی .env.example.
-# استفاده:  ./scripts/bootstrap.sh [--domain example.com] [--prod] [--force]
+# Creates a complete .env with random secrets from .env.example.
+# Usage:  ./scripts/bootstrap.sh [--domain example.com] [--prod] [--force]
 set -eu
 
 cd "$(dirname "$0")/.."

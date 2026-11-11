@@ -22,19 +22,19 @@ const env = loadEnvOrExit(
     CONTROL_API_URL: z.string().optional(),
     DATA_DIR: z.string().default('./.data'),
     SHUTDOWN_DRAIN_MS: z.coerce.number().int().min(0).default(30_000),
-    /** مکث بعد از readyz=503 تا Traefik (health check هر ۲ ثانیه) replica را کنار بگذارد. */
+    /** Pause after readyz=503 so Traefik (health check every 2 seconds) takes this replica out of rotation. */
     SHUTDOWN_READY_DELAY_MS: z.coerce.number().int().min(0).default(5_000),
     VALKEY_URL: z.string().optional(),
   }),
 );
 const logger = createLogger({ service: 'gateway', level: env.LOG_LEVEL });
 
-// بدون Valkey (مثلاً اجرای محلی تک‌فایل) رویدادها فقط لاگ می‌شوند.
+// Without Valkey (e.g. a local single-file run) events are only logged.
 const usageSink = env.VALKEY_URL
   ? new UsageSink({ logger, dataDir: env.DATA_DIR, valkeyUrl: env.VALKEY_URL })
   : undefined;
 
-// هم‌خبری وضعیت breaker بین replicaها؛ اتصال subscribe باید جدا باشد (حالت pub/sub).
+// Breaker state sync between replicas; the subscribe connection must be separate (pub/sub mode).
 const healthSync = env.VALKEY_URL
   ? new HealthSync({
       instance: `${hostname()}-${String(process.pid)}`,
@@ -50,7 +50,7 @@ const gateway = buildGateway({
   logger,
   ...(usageSink ? { outbox: usageSink } : {}),
   onRequestComplete: (event) => {
-    // سفیدلیست: بدون organization/project/key/endUser، خطای متنی، prompt یا secret.
+    // Allowlist: no organization/project/key/endUser, text errors, prompt or secret.
     logger.info(
       {
         requestId: event.requestId,
@@ -86,7 +86,7 @@ const gateway = buildGateway({
   dataDir: env.DATA_DIR,
   ...(env.CONTROL_API_URL ? { controlApiUrl: env.CONTROL_API_URL } : {}),
   ...(env.INTERNAL_TOKEN ? { internalToken: env.INTERNAL_TOKEN } : {}),
-  // اتصال جدا با صف آفلاین خاموش: در قطعی Valkey فرمان فوراً خطا می‌دهد و limiter محلی جایش را می‌گیرد.
+  // Separate connection with offline queue disabled: during a Valkey outage commands fail immediately and the local limiter takes over.
   ...(env.VALKEY_URL
     ? {
         limiterRedis: quiet(
@@ -97,7 +97,7 @@ const gateway = buildGateway({
 });
 await gateway.start();
 await healthSync?.start(gateway.health);
-// heartbeat نود برای صفحهٔ Health (کارت ۷.۸): نسخهٔ config و آمادگی هر replica، با انقضای ۱۵ ثانیه.
+// Node heartbeat for the Health page (card 7.8): config version and readiness of each replica, expiring after 15 seconds.
 if (env.VALKEY_URL) {
   const beat = quiet(
     new Redis(env.VALKEY_URL, { enableOfflineQueue: false, maxRetriesPerRequest: 1 }),
@@ -125,8 +125,8 @@ if (env.VALKEY_URL) {
   setInterval(tick, 5_000).unref();
 }
 
-// اعمال فوری تغییرات داشبورد: control-api بعد از هر نسخهٔ تازه این کانال را منتشر می‌کند
-// (کارت‌های ۳.۹ و ۴.۲)؛ poll دوره‌ای با ETag پشتیبان قطعی Valkey است.
+// Immediate application of dashboard changes: control-api publishes on this channel after each new version
+// (cards 3.9 and 4.2); periodic polling with ETag is the fallback when Valkey is down.
 if (env.VALKEY_URL) {
   const configSub = quiet(new Redis(env.VALKEY_URL, { maxRetriesPerRequest: null }));
   configSub.on('message', () => {
@@ -148,7 +148,7 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) {
       .then(({ forced }) => {
         logger.info({ forced }, 'drained');
       })
-      // رویدادهای درخواست‌های آخر قبل از خروج فرستاده (یا در outbox نوشته) می‌شوند.
+      // Events for the last requests are sent (or written to the outbox) before exit.
       .then(() => usageSink?.close())
       .then(() => process.exit(0));
   });

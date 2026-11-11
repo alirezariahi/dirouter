@@ -1,5 +1,5 @@
 /**
- * بودجه (کارت ۶.۳). بخش Valkey با INTEGRATION_VALKEY_URL اجرا می‌شود.
+ * Budget (card 6.3). The Valkey part runs with INTEGRATION_VALKEY_URL.
  */
 import { randomUUID } from 'node:crypto';
 import { mkdtemp, writeFile } from 'node:fs/promises';
@@ -45,9 +45,9 @@ describe('Valkey outage', () => {
       expect(await open.check(b)).toEqual({ ok: true });
       const closed = new BudgetGuard({ redis, logger, failMode: () => 'closed' });
       expect(await closed.check(b)).toMatchObject({ ok: false, unavailable: true });
-      // بدون بودجه هیچ‌وقت به Valkey نیاز نیست.
+      // Without a budget, Valkey is never needed.
       expect(await closed.check([])).toEqual({ ok: true });
-      open.record(b, '0.5', 10); // هرگز throw نمی‌کند
+      open.record(b, '0.5', 10); // never throws
     } finally {
       redis.disconnect();
     }
@@ -76,7 +76,7 @@ describe.skipIf(!VALKEY_URL)('budgets on real Valkey', () => {
     expect((await guard.check(usd)).ok).toBe(true);
     guard.record(usd, '0.0006', 10);
     await settle();
-    expect((await guard.check(usd)).ok).toBe(true); // ۶۰٪
+    expect((await guard.check(usd)).ok).toBe(true); // 60%
     guard.record(usd, '0.0004', 10);
     await settle();
     const rejected = await guard.check(usd);
@@ -118,7 +118,7 @@ describe.skipIf(!VALKEY_URL)('budgets on real Valkey', () => {
     await ready();
     const id = `alerts-${randomUUID()}`;
     const b = [scoped({ id, limitUsd: '1' })];
-    // ۲۰ افزایش ۰٫۰۶ دلاری هم‌زمان از سه replica = ۱٫۲ دلار (از ۵۰، ۸۰ و ۱۰۰٪ عبور می‌کند)
+    // 20 concurrent $0.06 increments from three replicas = $1.2 (crosses 50%, 80% and 100%)
     for (let i = 0; i < 20; i++) guards[i % 3]?.record(b, '0.06', 1);
     await new Promise((r) => setTimeout(r, 300));
     const events = (await watcher.lrange(BUDGET_ALERTS_KEY, 0, -1))
@@ -158,7 +158,7 @@ describe.skipIf(!VALKEY_URL)('budgets on real Valkey', () => {
           ],
         },
       ],
-      // قیمت بالا تا با چند درخواست به سقف برسیم: هر درخواست حدود ۰٫۰۱ دلار.
+      // High price so we reach the cap with a few requests: each request is about $0.01.
       models: [
         {
           id: 'm',

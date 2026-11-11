@@ -1,6 +1,6 @@
 /**
- * ساخت سرور گیت‌وی. مسیرهای /v1 مستقیم روی Fastify‌اند (بدون pipeline سنگین)؛
- * ADR-001: هیچ hook یا middleware سراسری روی مسیر داغ.
+ * Builds the gateway server. The /v1 routes run directly on Fastify (no heavy pipeline);
+ * ADR-001: no global hook or middleware on the hot path.
  */
 import type { IncomingMessage } from 'node:http';
 import { timingSafeEqual } from 'node:crypto';
@@ -36,16 +36,16 @@ export interface GatewayOptions {
   internalToken?: string;
   instance?: string;
   emitUsage?: (event: UsageEvent) => void;
-  /** تغییرات سلامت محلی برای انتشار به replicaهای دیگر (HealthSync). */
+  /** Local health changes to publish to other replicas (HealthSync). */
   onHealthChange?: (change: HealthChange) => void;
   heartbeatMs?: number;
-  /** اتصال Valkey برای rate limiter (کارت ۶.۱)؛ بدون آن limiter محلی تک‌نودی است. */
+  /** Valkey connection for the rate limiter (card 6.1); without it the limiter is local single-node. */
   limiterRedis?: Redis;
-  /** کارت ۸.۲: لاگ ساخت‌یافته پایان هر درخواست در کنار رویداد مصرف. */
+  /** Card 8.2: structured end-of-request log alongside the usage event. */
   onRequestComplete?: (event: UsageEvent) => void;
-  /** outbox محلی usage برای gauge اندازهٔ backlog. */
+  /** Local usage outbox for the backlog-size gauge. */
   outbox?: { backlogSize(): Promise<number> };
-  /** فقط برای تست: طول پنجرهٔ limiter. */
+  /** Tests only: limiter window length. */
   limiterWindowMs?: number;
 }
 
@@ -86,13 +86,13 @@ export function buildGateway(opts: GatewayOptions) {
       ];
     },
   });
-  // چرخهٔ خاموشی (کارت ۵.۸): draining و سیگنال قطع اجباری درخواست‌های باقی‌مانده.
+  // Shutdown cycle (card 5.8): draining and the forced-disconnect signal for remaining requests.
   const shutdown = new AbortController();
   const lifecycle = { draining: false, signal: shutdown.signal };
   const deliverUsage =
     opts.emitUsage ??
     ((event: UsageEvent) => {
-      // لاگ پیش‌فرض فقط metadata است؛ usage شامل prompt/response و secret نیست.
+      // The default log is metadata only; usage does not include prompt/response or secrets.
       opts.logger.info({ requestId: event.requestId }, 'usage event emitted locally');
     });
   const deps = {
@@ -115,7 +115,7 @@ export function buildGateway(opts: GatewayOptions) {
     logger: opts.logger,
     metrics,
     onRequestComplete: opts.onRequestComplete,
-    // در داکر hostname همان شناسهٔ کانتینر است؛ برای ردیابی replica در لاگ و هدر.
+    // In Docker the hostname is the container ID; used to trace the replica in logs and headers.
     instance: opts.instance ?? hostname(),
     emitUsage: deliverUsage,
     ...(opts.heartbeatMs !== undefined ? { heartbeatMs: opts.heartbeatMs } : {}),
@@ -126,11 +126,11 @@ export function buildGateway(opts: GatewayOptions) {
     trustProxy: true,
     bodyLimit: 20 * 1024 * 1024,
     requestTimeout: 0,
-    // بیشتر از idleConnTimeout ترافیک (۹۰s) تا گیت‌وی زودتر از Traefik اتصال idle را نبندد
-    // (وگرنه درخواستی که Traefik روی اتصالِ در حال بسته‌شدن می‌فرستد 502 می‌گیرد).
+    // Longer than the idleConnTimeout of the traffic (90s), so the gateway does not close an idle connection before Traefik does
+    // (otherwise a request Traefik sends on a connection that is closing gets a 502).
     keepAliveTimeout: 95_000,
-    // درخواستی که هنگام بستن روی اتصال باز برسد هنوز سرویس می‌گیرد (نه 503)؛ سقف زمان را
-    // خود drain کنترل می‌کند.
+    // A request that arrives on an open connection during shutdown is still served (not 503); the time cap
+    // is controlled by drain itself.
     return503OnClosing: false,
     genReqId: (req: IncomingMessage) => {
       const incoming = req.headers['x-request-id'];
@@ -143,7 +143,7 @@ export function buildGateway(opts: GatewayOptions) {
   let inFlight = 0;
   app.addHook('onRequest', async (req, reply) => {
     void reply.header('x-request-id', req.id).header('x-dirouter-instance', deps.instance);
-    // در drain هر پاسخ اتصالش را می‌بندد تا Traefik اتصال تازه (به replica سالم) باز کند.
+    // During drain every response closes its connection so Traefik opens a new one (to a healthy replica).
     if (lifecycle.draining) void reply.header('connection', 'close');
     if (req.url.startsWith('/v1/') || req.url.startsWith('/chat/')) {
       inFlight++;
@@ -198,8 +198,8 @@ export function buildGateway(opts: GatewayOptions) {
       controlApiSync: store.lastSyncOk,
     });
   });
-  // وضعیت داخلی (شناسهٔ providerها و credentialها) فقط با INTERNAL_TOKEN؛ مسیر از Traefik هم
-  // در دسترس است، پس بدون توکن 404 می‌دهد تا وجودش هم لو نرود.
+  // Internal state (provider and credential IDs) only with INTERNAL_TOKEN; the route is also reachable via Traefik,
+  // so without the token it returns 404 to keep its existence hidden.
   const internalOk = (req: FastifyRequest) => {
     const token = opts.internalToken;
     const given = typeof req.headers.authorization === 'string' ? req.headers.authorization : '';
@@ -221,7 +221,7 @@ export function buildGateway(opts: GatewayOptions) {
         }
       : reply.status(404).send(notFound),
   );
-  // تست اتصال و کشف مدل برای control-api (کارت ۳.۶).
+  // Connection test and model discovery for control-api (card 3.6).
   app.post('/internal/providers/probe', async (req, reply) => {
     if (!internalOk(req)) return reply.status(404).send(notFound);
     try {
@@ -243,17 +243,17 @@ export function buildGateway(opts: GatewayOptions) {
       await store.start();
       if (opts.limiterRedis) deps.limiter.startNodeCount();
     },
-    /** تعداد درخواست‌های proxy باز (از جمله streamها). */
+    /** Number of open proxy requests (including streams). */
     get inFlight() {
       return inFlight;
     },
     /**
-     * graceful shutdown (کارت ۵.۸):
-     * 1. readyz=503 و ادامهٔ سرویس به مدت `readyDelayMs` تا health check Traefik این replica
-     *    را از چرخش خارج کند (در این فاصله پاسخ‌ها `connection: close` دارند).
-     * 2. توقف پذیرش اتصال تازه و انتظار برای درخواست‌ها و streamهای باز تا سقف `drainMs`.
-     * 3. درخواست‌های باقی‌مانده قطع می‌شوند: stream رویداد خطای استاندارد می‌گیرد و
-     *    درخواست بی‌پاسخ 503.
+     * graceful shutdown (card 5.8):
+     * 1. readyz=503 and service continues for `readyDelayMs`, so Traefik's health check takes this replica
+     *    out of rotation (during this interval responses carry `connection: close`).
+     * 2. Stop accepting new connections and wait for in-flight requests and open streams, up to the `drainMs` cap.
+     * 3. Remaining requests are cut: a stream gets a standard error event, and
+     *    an unanswered request gets 503.
      */
     async drain(options: { readyDelayMs: number; drainMs: number }): Promise<{ forced: number }> {
       lifecycle.draining = true;
@@ -263,7 +263,7 @@ export function buildGateway(opts: GatewayOptions) {
       const closing = app.close();
       const deadline = Date.now() + options.drainMs;
       while (inFlight > 0 && Date.now() < deadline) {
-        // اتصال keep-alive که پاسخش تمام شده بیکار است و بستنش امن است.
+        // A keep-alive connection whose response is finished and is idle; closing it is safe.
         app.server.closeIdleConnections();
         await sleep(50);
       }
@@ -271,7 +271,7 @@ export function buildGateway(opts: GatewayOptions) {
       if (forced > 0) {
         opts.logger.warn({ inFlight: forced }, 'drain timeout, aborting open requests');
         shutdown.abort(new Error('gateway shutting down'));
-        // فرصت کوتاه برای نوشتن رویداد خطا یا 503 پیش از بستن اتصال‌ها.
+        // A short window to write the error event or 503 before connections are closed.
         const grace = Date.now() + 1_000;
         while (inFlight > 0 && Date.now() < grace) await sleep(20);
       }

@@ -1,6 +1,6 @@
 /**
- * همگام‌سازی breaker بین replicaها و رفتار در قطعی Valkey (کارت ۵.۵). روی Valkey واقعی هم
- * با INTEGRATION_VALKEY_URL اجرا می‌شود.
+ * Breaker sync between replicas and behavior during a Valkey outage (card 5.5). Also runs against a real Valkey
+ * with INTEGRATION_VALKEY_URL.
  */
 import { EventEmitter } from 'node:events';
 
@@ -21,7 +21,7 @@ const serverError: ClassifiedError = {
   message: '503',
 };
 
-/** کانال pub/sub ساختگی بین چند نود، با امکان قطع. */
+/** Fake pub/sub channel between several nodes, with the ability to disconnect. */
 class Bus {
   down = false;
   readonly subs: (EventEmitter & Subscriber)[] = [];
@@ -76,7 +76,7 @@ describe('health sync between gateway replicas', () => {
     expect(b.registry.providerBreaker('p1').state).toBe('open');
     expect(b.registry.modelBreaker('m1').state).toBe('open');
     expect(b.sync.applied).toBeGreaterThan(0);
-    // پیام خود نود دوباره اعمال نمی‌شود.
+    // a node's own message is not applied again.
     expect(a.sync.applied).toBe(0);
   });
 
@@ -109,7 +109,7 @@ describe('health sync between gateway replicas', () => {
     await tick();
     expect(a.registry.providerBreaker('p1').state).toBe('open');
     expect(a.sync.dropped).toBeGreaterThan(0);
-    // b خبر ندارد ولی با خطاهای خودش مستقل باز می‌شود.
+    // b does not know, but opens independently on its own errors.
     expect(b.registry.providerBreaker('p1').state).toBe('closed');
     fail(b.registry, 10);
     expect(b.registry.providerBreaker('p1').state).toBe('open');

@@ -1,9 +1,9 @@
 /**
- * مدل canonical داخلی DiRouter.
+ * DiRouter's internal canonical model.
  *
- * هر ورودی (OpenAI، Anthropic، …) ابتدا به این قالب ترجمه می‌شود و هر آداپتر
- * provider از همین قالب به API مقصد می‌رود؛ پس برای N ورودی و M خروجی فقط
- * N + M مترجم لازم است، نه N × M.
+ * Every inbound format (OpenAI, Anthropic, …) is first translated into this canonical format, and each
+ * provider adapter translates from it to the target API; so for N inbound and M outbound formats only
+ * N + M translators are needed, not N × M.
  */
 import { z } from 'zod';
 
@@ -14,7 +14,7 @@ import { JsonObject, NonNegativeInt } from './common.js';
 export const CanonicalTextPart = z.object({
   type: z.literal('text'),
   text: z.string(),
-  /** نشانهٔ cache breakpoint برای providerهایی که prompt caching صریح دارند. */
+  /** Cache breakpoint marker for providers that support explicit prompt caching. */
   cache: z.boolean().optional(),
 });
 
@@ -31,7 +31,7 @@ export const CanonicalToolCallPart = z.object({
   type: z.literal('tool_call'),
   id: z.string(),
   name: z.string(),
-  /** آرگومان‌ها به‌صورت رشتهٔ JSON خام، همان‌طور که مدل تولید کرده. */
+  /** Arguments as a raw JSON string, exactly as the model produced them. */
   arguments: z.string(),
 });
 
@@ -45,9 +45,9 @@ export const CanonicalToolResultPart = z.object({
 export const CanonicalReasoningPart = z.object({
   type: z.literal('reasoning'),
   text: z.string(),
-  /** امضای Anthropic برای ارسال دوبارهٔ thinking در نوبت بعد. */
+  /** Anthropic signature for resending thinking in the next turn. */
   signature: z.string().optional(),
-  /** محتوای رمزشده (redacted_thinking). */
+  /** Encrypted content (redacted_thinking). */
   redacted: z.string().optional(),
 });
 
@@ -103,15 +103,15 @@ export const CanonicalResponseFormat = z.discriminatedUnion('type', [
   }),
 ]);
 
-/** API ورودی که درخواست با آن رسیده است؛ برای ترجمهٔ پاسخ برعکس لازم است. */
+/** The inbound API the request arrived through; needed to translate the response back. */
 export const InboundApi = z.enum(['openai.chat', 'anthropic.messages']);
 export type InboundApi = z.infer<typeof InboundApi>;
 
 export const CanonicalRequest = z.object({
   inboundApi: InboundApi,
-  /** نام مدل همان‌طور که کلاینت فرستاده (alias، combo یا مدل). */
+  /** Model name as sent by the client (alias, combo, or model). */
   model: z.string(),
-  /** دستورالعمل‌های system/developer به ترتیب. */
+  /** System/developer instructions, in order. */
   system: z.array(CanonicalTextPart),
   messages: z.array(CanonicalMessage),
   tools: z.array(CanonicalTool).optional(),
@@ -133,7 +133,7 @@ export const CanonicalRequest = z.object({
   stream: z.boolean(),
   user: z.string().optional(),
   metadata: z.record(z.string(), z.string()).optional(),
-  /** پارامترهای مخصوص provider که ترجمهٔ عمومی ندارند و دست‌نخورده عبور می‌کنند. */
+  /** Provider-specific parameters that have no generic translation and pass through unchanged. */
   passthrough: JsonObject.optional(),
 });
 export type CanonicalRequest = z.infer<typeof CanonicalRequest>;
@@ -154,11 +154,11 @@ export type CanonicalFinishReason = z.infer<typeof CanonicalFinishReason>;
 export const CanonicalUsage = z.object({
   inputTokens: NonNegativeInt,
   outputTokens: NonNegativeInt,
-  /** توکن‌های ورودی که از prompt cache خوانده شدند (زیرمجموعهٔ inputTokens). */
+  /** Input tokens read from the prompt cache (subset of inputTokens). */
   cacheReadTokens: NonNegativeInt.default(0),
-  /** توکن‌های ورودی که در prompt cache نوشته شدند (زیرمجموعهٔ inputTokens). */
+  /** Input tokens written to the prompt cache (subset of inputTokens). */
   cacheWriteTokens: NonNegativeInt.default(0),
-  /** توکن‌های استدلال (زیرمجموعهٔ outputTokens). */
+  /** Reasoning tokens (subset of outputTokens). */
   reasoningTokens: NonNegativeInt.default(0),
 });
 export type CanonicalUsage = z.infer<typeof CanonicalUsage>;
@@ -168,9 +168,9 @@ export const CanonicalResponse = z.object({
   model: z.string(),
   content: z.array(CanonicalPart),
   finishReason: CanonicalFinishReason,
-  /** دلیل خام provider (مثلاً `end_turn`) برای لاگ و دیباگ. */
+  /** Raw stop reason from the provider (e.g. `end_turn`), for logging and debugging. */
   rawFinishReason: z.string().optional(),
-  /** نبودنش یعنی provider usage نداده و گیت‌وی باید تخمین بزند (کارت ۶.۲). */
+  /** If absent, the provider returned no usage and the gateway must estimate it (card 6.2). */
   usage: CanonicalUsage.optional(),
   created: z.int(),
 });

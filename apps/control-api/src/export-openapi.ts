@@ -1,6 +1,6 @@
 /**
- * خروجی گرفتن از سند OpenAPI برای تولید کلاینت داشبورد (orval، کارت ۷.۱) بدون DB.
- * استفاده: pnpm --filter @dirouter/control-api openapi:export [مسیر خروجی]
+ * Exports the OpenAPI document to generate the dashboard client (orval, card 7.1) without a DB.
+ * Usage: pnpm --filter @dirouter/control-api openapi:export [output path]
  */
 import 'reflect-metadata';
 

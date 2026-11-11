@@ -15,7 +15,7 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 15_000,
-      // خطای دسترسی یا اعتبارسنجی با تکرار درست نمی‌شود.
+      // Authorization or validation errors are not fixed by retrying.
       retry: (count, error) => count < 2 && !(error instanceof ApiError && error.status < 500),
     },
   },

@@ -1,17 +1,17 @@
 /**
- * canonical ⇄ Gemini `generateContent` / `streamGenerateContent` (کارت ۴.۸).
+ * canonical ⇄ Gemini `generateContent` / `streamGenerateContent` (card 4.8).
  *
- * Gemini فقط مقصد است (ورودی Gemini نداریم)، پس این فایل یک‌طرفه است:
- * canonical → درخواست Gemini، و پاسخ/stream Gemini → canonical.
+ * Gemini is only a destination (we have no Gemini inbound), so this file is one-way:
+ * canonical → Gemini request, and Gemini response/stream → canonical.
  *
- * نکته‌ها:
- * - نقش‌ها `user` و `model` هستند و پیام‌های هم‌نقش پشت‌سرهم ادغام می‌شوند.
- * - functionResponse نام تابع را می‌خواهد؛ از tool_call هم‌شناسه در تاریخچه پیدا می‌شود.
- * - Gemini 3 روی functionCall امضای thought (`thoughtSignature`) می‌گذارد و باید در نوبت
- *   بعد عیناً برگردد. canonical جایی برای آن ندارد، پس داخل شناسهٔ tool call جاسازی
- *   می‌شود (`<id>__ts__<signature>`) که کلاینت‌های OpenAI و Anthropic دست‌نخورده برمی‌گردانند.
- * - اسکیمای ابزار Gemini زیرمجموعهٔ OpenAPI است؛ کلیدهای ناشناخته (`$schema`،
- *   `additionalProperties`، …) حذف می‌شوند.
+ * Notes:
+ * - Roles are `user` and `model`, and consecutive same-role messages are merged.
+ * - functionResponse needs the function name; it is looked up from the tool_call with the same ID in history.
+ * - Gemini 3 attaches a thought signature (`thoughtSignature`) to functionCall and it must be returned
+ *   unchanged in the next turn. canonical has no place for it, so it is embedded in the tool call ID
+ *   (`<id>__ts__<signature>`), which OpenAI and Anthropic clients return unchanged.
+ * - The Gemini tool schema is a subset of OpenAPI; unknown keys (`$schema`,
+ *   `additionalProperties`, …) are removed.
  */
 import type {
   CanonicalFinishReason,
@@ -36,10 +36,10 @@ import {
 
 type Json = Record<string, unknown>;
 
-// ───────────── شناسهٔ tool call و امضای thought ─────────────
+// ───────────── Tool call ID and thought signature ─────────────
 
 const SIGNATURE_SEP = '__ts__';
-/** امضای جایگزین مستند Google برای functionCallی که امضا ندارد (مثلاً از مدل دیگر آمده). */
+/** Google's documented placeholder signature for a functionCall that has none (e.g. came from another model). */
 export const GEMINI_SKIP_SIGNATURE = 'skip_thought_signature_validator';
 
 export function encodeGeminiToolCallId(id: string, signature: string | undefined): string {
@@ -52,7 +52,7 @@ export function decodeGeminiToolCallId(id: string): { id: string; signature?: st
   return { id: id.slice(0, at), signature: id.slice(at + SIGNATURE_SEP.length) };
 }
 
-// ───────────── اسکیمای ابزار ─────────────
+// ───────────── Tool schema ─────────────
 
 const SCHEMA_KEYS = new Set([
   'type',
@@ -80,8 +80,8 @@ const SCHEMA_KEYS = new Set([
 ]);
 
 /**
- * JSON Schema → زیرمجموعهٔ OpenAPI که Gemini می‌پذیرد. `type: ["string","null"]` به
- * `type: "string", nullable: true` و `const` به `enum` تبدیل می‌شود؛ `oneOf` مثل `anyOf`.
+ * JSON Schema → the OpenAPI subset that Gemini accepts. `type: ["string","null"]` becomes
+ * `type: "string", nullable: true` and `const` becomes `enum`; `oneOf` is treated like `anyOf`.
  */
 export function toGeminiSchema(schema: unknown, onDrop: DropReporter = ignoreDrops): unknown {
   if (Array.isArray(schema)) return schema.map((s) => toGeminiSchema(s, onDrop));
@@ -110,12 +110,12 @@ export function toGeminiSchema(schema: unknown, onDrop: DropReporter = ignoreDro
       onDrop(`tools[].parameters.${key}`, 'not supported by Gemini schema');
     }
   }
-  // Gemini فقط enum رشته‌ای می‌پذیرد.
+  // Gemini only accepts string enums.
   if (Array.isArray(out.enum)) {
     out.enum = out.enum.map(String);
     out.type ??= 'string';
   }
-  // شیء بدون property برای Gemini نامعتبر است.
+  // An object without properties is invalid for Gemini.
   if (out.type === 'object' && out.properties && Object.keys(out.properties).length === 0)
     delete out.properties;
   return out;
@@ -124,9 +124,9 @@ export function toGeminiSchema(schema: unknown, onDrop: DropReporter = ignoreDro
 // ───────────── canonical → Gemini request ─────────────
 
 export interface ToGeminiRequestOptions extends TranslateOptions {
-  /** آستانهٔ پیش‌فرض safetySettings برای همهٔ دسته‌ها. */
+  /** Default safetySettings threshold for all categories. */
   safetyThreshold?: string;
-  /** جایگزینی کامل safetySettings (از options provider). */
+  /** Full replacement of safetySettings (from provider options). */
   safetySettings?: unknown[];
 }
 
@@ -137,7 +137,7 @@ export const GEMINI_SAFETY_CATEGORIES = [
   'HARM_CATEGORY_DANGEROUS_CONTENT',
 ] as const;
 
-/** پیش‌فرض گیت‌وی: مثل OpenAI و Anthropic پاسخ را خودمان مسدود نمی‌کنیم. */
+/** Gateway default: like OpenAI and Anthropic, we do not block responses ourselves. */
 export const GEMINI_DEFAULT_SAFETY_THRESHOLD = 'BLOCK_NONE';
 
 const BUDGET_FROM_EFFORT = { minimal: 512, low: 1_024, medium: 8_192, high: 24_576 } as const;
@@ -165,7 +165,7 @@ function toolResponse(text: string, isError: boolean): Json {
       const parsed = JSON.parse(text) as unknown;
       if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed as Json;
     } catch {
-      // متن ساده
+      // Plain text
     }
   }
   return isError ? { error: text } : { result: text };
@@ -193,7 +193,7 @@ function partsFor(
             name: part.name,
             args: parseToolArguments(part.arguments, onDrop) ?? {},
           },
-          // فقط اولین functionCall هر نوبت امضا لازم دارد.
+          // Only the first functionCall in each turn needs a signature.
           ...(signature
             ? { thoughtSignature: signature }
             : firstCall
@@ -245,7 +245,7 @@ export function canonicalToGeminiRequest(
     const last = contents.at(-1);
     if (last?.role === role) {
       if (message.role === 'tool') {
-        // functionResponseها باید اول پیام کاربر بیایند، به ترتیب خودشان.
+        // functionResponses must come first in the user message, in their own order.
         let at = 0;
         while (last.parts[at]?.functionResponse !== undefined) at++;
         last.parts.splice(at, 0, ...parts);
@@ -337,7 +337,7 @@ export function geminiFinishToCanonical(
 ): CanonicalFinishReason {
   if (!reason) return 'other';
   const mapped = FINISH_IN[reason] ?? 'other';
-  // Gemini برای فراخوانی تابع هم STOP می‌دهد.
+  // Gemini also returns STOP for function calls.
   return mapped === 'stop' && hasToolCalls ? 'tool_calls' : mapped;
 }
 
@@ -381,7 +381,7 @@ export function geminiResponseToCanonical(
     const p = geminiPartToCanonical(part);
     if (!p) continue;
     const last = content.at(-1);
-    // Gemini گاهی متن را در چند part پشت‌سرهم می‌دهد.
+    // Gemini sometimes returns text across several consecutive parts.
     if (p.type === 'text' && last?.type === 'text') last.text += p.text;
     else content.push(p);
   }
@@ -402,8 +402,8 @@ export function geminiResponseToCanonical(
 // ───────────── Gemini stream → canonical ─────────────
 
 /**
- * هر رویداد SSE یک GenerateContentResponse کامل با بخشی از پاسخ است. functionCall
- * همیشه کامل در یک chunk می‌آید. usageMetadata تجمعی است و فقط آخرینش گزارش می‌شود.
+ * Each SSE event is a complete GenerateContentResponse with a piece of the response. A functionCall
+ * always arrives complete in one chunk. usageMetadata is cumulative, and only the last one is reported.
  */
 export class GeminiStreamDecoder {
   #started = false;

@@ -1,7 +1,7 @@
-// overhead گیت‌وی نسبت به فراخوانی مستقیم mock (کارت ۴.۱).
-// استفاده: pnpm build && node scripts/bench/overhead.mjs [تعداد=3000]
-// mock-provider و گیت‌وی (از dist، NODE_ENV=production، LOG_LEVEL=warn) را جدا اجرا می‌کند،
-// هر دو مسیر را با keep-alive و به‌صورت ترتیبی می‌زند و p50/p95/p99 را چاپ می‌کند.
+// Gateway overhead compared with calling the mock directly (card 4.1).
+// Usage: pnpm build && node scripts/bench/overhead.mjs [count=3000]
+// Runs the mock-provider and the gateway (from dist, NODE_ENV=production, LOG_LEVEL=warn) separately,
+// runs both paths sequentially with keep-alive, and prints p50/p95/p99.
 import { spawn } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { mkdtempSync } from 'node:fs';
@@ -43,7 +43,7 @@ async function waitReady(url) {
     try {
       if ((await fetch(url)).ok) return;
     } catch {
-      // هنوز بالا نیامده
+      // not up yet
     }
     await sleep(100);
   }
@@ -57,7 +57,7 @@ const body = JSON.stringify({
   messages: [{ role: 'user', content: 'Hello, how are you today?' }],
 });
 async function measure(port, headers) {
-  // fetch سراسری Node (undici) اتصال keep-alive را بین درخواست‌های ترتیبی نگه می‌دارد.
+  // Node's global fetch (undici) keeps the keep-alive connection between sequential requests.
   const times = [];
   for (let i = 0; i < WARMUP + N; i++) {
     const t = process.hrtime.bigint();

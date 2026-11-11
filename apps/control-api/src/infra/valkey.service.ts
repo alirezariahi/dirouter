@@ -13,7 +13,7 @@ export class ValkeyService implements OnModuleDestroy {
       maxRetriesPerRequest: 2,
       enableOfflineQueue: false,
     });
-    // خطای اتصال در readyz گزارش می‌شود؛ رویداد error نباید پروسه را بکشد.
+    // Connection errors are reported in readyz; the error event must not kill the process.
     this.client.on('error', () => undefined);
   }
 

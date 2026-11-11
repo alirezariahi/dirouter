@@ -1,6 +1,6 @@
-# production: چند replica از gateway، محدودیت منابع، چرخش لاگ، بدون انتشار پورت دیتابیس.
-# اجرا: make prod-up   (یا docker compose -f compose.yaml -f compose.prod.yaml up -d)
-# رازها فقط در .env (دسترسی 600، ساخته‌شده با scripts/bootstrap.sh) هستند.
+# production: multiple gateway replicas, resource limits, log rotation, no database port publishing.
+# Run: make prod-up   (or docker compose -f compose.yaml -f compose.prod.yaml up -d)
+# Secrets live only in .env (permissions 600, created with scripts/bootstrap.sh).
 
 x-logging: &logging
   driver: json-file
@@ -18,7 +18,7 @@ services:
       - ./deploy/traefik/traefik.yml:/etc/traefik/traefik.tmpl.yml:ro
     environment:
       ACME_EMAIL: ${ACME_EMAIL:-}
-    # ایمیل ACME از env در پیکربندی static جایگزین می‌شود.
+    # The ACME email is replaced from env in the static configuration.
     entrypoint:
       - sh
       - -c

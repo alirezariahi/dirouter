@@ -1,10 +1,10 @@
 /**
- * کارهای زمان‌بندی‌شدهٔ worker (کارت‌های ۳.۲ و ۶.۵): rollup ساعتی/روزانه، ساخت
- * پارتیشن ماه‌های آینده و retention لاگ خام.
+ * Scheduled worker jobs (cards 3.2 and 6.5): hourly/daily rollup, creating
+ * partitions for upcoming months, and raw log retention.
  *
- * زمان‌بندی با job scheduler در BullMQ است: هر tick فقط یک job می‌سازد و فقط یک
- * replica آن را برمی‌دارد. خود توابع SQL هم idempotent هستند و پارتیشن‌سازی با
- * advisory lock از اجرای هم‌زمان محافظت می‌شود.
+ * Scheduling uses the BullMQ job scheduler: each tick creates only one job, and only one
+ * replica picks it up. The SQL functions are idempotent too, and partition creation is protected by
+ * an advisory lock against concurrent runs.
  */
 import type { Logger } from '@dirouter/shared';
 
@@ -20,7 +20,7 @@ export interface DirtySet {
   spop(key: string, count: number): Promise<string[]>;
 }
 
-const PARTITION_LOCK = 482_901; // کلید ثابت advisory lock
+const PARTITION_LOCK = 482_901; // fixed advisory lock key
 
 export async function ensurePartitions(db: MaintenanceDb, monthsAhead = 3): Promise<number> {
   const [, rows] = await db.$transaction([
@@ -45,8 +45,8 @@ export async function dropOldPartitions(db: MaintenanceDb, retainMonths: number)
 }
 
 /**
- * ساعت‌های علامت‌خورده را برمی‌دارد (SPOP اتمیک: دو replica یک ساعت را با هم نمی‌گیرند)،
- * به‌علاوهٔ ساعت جاری و قبلی برای اطمینان، و ساعت‌ها و روزهای مربوط را از نو حساب می‌کند.
+ * takes the marked hours (atomic SPOP: two replicas never take the same hour),
+ * plus the current and previous hour as a safeguard, and recomputes the related hours and days.
  */
 export async function rollup(
   db: MaintenanceDb,
@@ -69,7 +69,7 @@ export async function rollup(
       await db.$queryRawUnsafe('SELECT dirouter_rollup_day($1::date)', day);
     }
   } catch (error) {
-    // ساعت‌ها برمی‌گردند تا tick بعدی دوباره امتحان کند.
+    // hours are returned so the next tick retries them.
     if (popped.length > 0) await dirty.sadd(DIRTY_HOURS_KEY, ...popped);
     throw error;
   }

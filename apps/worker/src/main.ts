@@ -1,6 +1,6 @@
 /**
- * worker (کارت ۶.۵): مصرف صف usage و نوشتن دسته‌ای در Postgres (کارت ۶.۴)، rollup،
- * پارتیشن و retention با job scheduler، dead-letter برای jobهای ناموفق، و /metrics.
+ * worker (card 6.5): consumes the usage queue and batch-writes to Postgres (card 6.4), rollup,
+ * partitioning and retention via the job scheduler, dead-letter for failed jobs, and /metrics.
  */
 import { createServer } from 'node:http';
 
@@ -28,7 +28,7 @@ const db = createPrismaClient({
   databaseUrl: env.DATABASE_URL,
   maxConnections: env.DB_MAX_CONNECTIONS,
 });
-// BullMQ برای Worker به maxRetriesPerRequest=null نیاز دارد (اتصال blocking).
+// BullMQ's Worker requires maxRetriesPerRequest=null (blocking connection).
 const connection = new Redis(env.VALKEY_URL, { maxRetriesPerRequest: null });
 connection.on('error', (error: Error) => {
   logger.warn({ err: error }, 'valkey connection error');
@@ -59,7 +59,7 @@ const usageWorker = new Worker(
   async (job: Job) => {
     const end = metrics.jobDuration.startTimer({ job: 'usage' });
     const parsed = UsageEvent.safeParse(job.data);
-    // رویداد نامعتبر با retry درست نمی‌شود: مستقیم به dead-letter.
+    // an invalid event cannot be fixed by retrying: send it straight to dead-letter.
     if (!parsed.success) {
       end();
       throw new UnrecoverableError(`invalid usage event: ${parsed.error.message}`);
@@ -153,7 +153,7 @@ maintenanceWorker.on('failed', (job, error) => {
   logger.error({ err: error, job: job?.name }, 'maintenance job failed');
 });
 
-// upsert در هر replica بی‌خطر است: scheduler یکی است و هر tick یک job می‌سازد.
+// upsert is safe on every replica: the scheduler is single and each tick creates one job.
 const schedule = {
   rollup: { every: env.ROLLUP_INTERVAL_MS },
   partitions: { every: 3_600_000 },
@@ -209,7 +209,7 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) {
     if (closing) return;
     closing = true;
     logger.info({ signal }, 'shutting down');
-    // jobهای فعال تمام می‌شوند (writer بافر را می‌نویسد)، بعد اتصال‌ها بسته می‌شوند.
+    // active jobs finish (the writer flushes its buffer), then connections are closed.
     void Promise.all([usageWorker.close(), maintenanceWorker.close(), writer.drain()])
       .then(() => Promise.all([usageQueue.close(), deadQueue.close(), maintenanceQueue.close()]))
       .then(() => db.$disconnect())

@@ -1,7 +1,7 @@
 /**
- * صفحهٔ Overview (کارت ۷.۳): KPIها با مقایسه با دورهٔ قبل، نمودار سری زمانی، top مدل‌ها و
- * کلیدها و پروژه‌ها، وضعیت providerها. بازهٔ زمانی سراسری است و هر ۳۰ ثانیه تازه می‌شود.
- * کلیک روی ستون نمودار یا ردیف top به Request Log با همان فیلتر می‌رود.
+ * Overview page (card 7.3): KPIs compared with the previous period, time-series chart, top models and
+ * keys and projects, provider status. The time range is global and refreshes every 30 seconds.
+ * Clicking a chart column or top row goes to Request Log with the same filter.
  */
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
@@ -75,7 +75,7 @@ export default function OverviewPage() {
   const opts = {
     enabled: Boolean(org),
     refetchInterval: REFRESH_MS,
-    // با تغییر بازه دادهٔ قبلی می‌ماند تا صفحه چشمک نزند.
+    // the previous data is kept when the range changes so the page does not flicker.
     placeholderData: keepPreviousData,
   };
 

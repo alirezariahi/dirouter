@@ -1,8 +1,8 @@
 /**
- * provider و credential (کارت ۳.۶). secret فقط یک بار وارد می‌شود، با AES-256-GCM و
- * MASTER_KEY (AAD = شناسهٔ credential) رمز می‌شود و هرگز در پاسخ یا لاگ برنمی‌گردد. پاسخ
- * فقط `••••last4` را نشان می‌دهد. تست اتصال و کشف مدل از گیت‌وی (`/internal/providers/probe`)
- * می‌گذرد تا همان آداپتر، پروکسی و timeout ترافیک واقعی استفاده شود.
+ * Provider and credential (card 3.6). The secret is entered only once and encrypted with AES-256-GCM and
+ * MASTER_KEY (AAD = credential ID), and is never returned in a response or log. The response
+ * shows only `••••last4`. The connection test and model discovery go through the gateway (`/internal/providers/probe`)
+ * so the same adapter, proxy, and timeout used for real traffic apply.
  */
 import { DiRouterError, encrypt, keyVersionOf, prefixedId } from '@dirouter/shared';
 import { Prisma } from '@dirouter/db';
@@ -35,7 +35,7 @@ const FROM_DB = Object.fromEntries(Object.entries(TO_DB).map(([k, v]) => [v, k])
   ProviderTypeName
 >;
 
-/** baseUrl پیش‌فرض نوع‌های رسمی؛ برای سازگارها و Azure باید داده شود. */
+/** Default baseUrl for official types; must be provided for compatible providers and Azure. */
 const DEFAULT_BASE: Partial<Record<ProviderTypeName, string>> = {
   openai: 'https://api.openai.com/v1',
   anthropic: 'https://api.anthropic.com',
@@ -93,7 +93,7 @@ export class ProvidersService {
     return { secretEnc, keyVersion: keyVersionOf(secretEnc), last4: secret.slice(-4) };
   }
 
-  /** شکل عمومی: هیچ فیلد secret یا ciphertext بیرون نمی‌رود. */
+  /** Public shape: no secret or ciphertext field is exposed. */
   view(p: ProviderRow) {
     return {
       id: p.id,
@@ -286,7 +286,7 @@ export class ProvidersService {
     });
   }
 
-  /** شکل ProviderConfig قرارداد، با secret رمزشده؛ برای probe گیت‌وی (و snapshot در ۳.۹). */
+  /** Contract ProviderConfig shape, with an encrypted secret; for the gateway probe (and the snapshot in 3.9). */
   toConfig(p: ProviderRow) {
     return {
       id: p.id,
@@ -360,7 +360,7 @@ export class ProvidersService {
     };
   }
 
-  /** مدل‌های upstream؛ آن‌هایی که هنوز در کاتالوگ سازمان نیستند پیشنهاد می‌شوند. */
+  /** Upstream models; those not yet in the organization's catalog are suggested. */
   async discover(ctx: OrgContext, providerId: string) {
     const { provider, result } = await this.#probe(ctx, providerId);
     const known = new Set(
@@ -406,7 +406,7 @@ export class ProvidersService {
   }
 }
 
-/** در لاگ ممیزی هم secret و رمز پروکسی ثبت نمی‌شود. */
+/** The audit log also does not record the secret or the proxy password. */
 function redactInput(input: object): object {
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(input)) {

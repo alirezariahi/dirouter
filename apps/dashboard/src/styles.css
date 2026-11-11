@@ -1,8 +1,8 @@
 @import 'tailwindcss';
 @import '@fontsource-variable/vazirmatn';
 
-/* تم با متغیرهای CSS؛ کلاس dark روی <html>. فاصله‌گذاری فقط با logical properties
-   (ps/pe/ms/me، start/end) تا RTL و LTR بدون کد اضافه درست شوند. */
+/* Theme via CSS variables; the dark class is on <html>. Spacing uses logical properties only
+   (ps/pe/ms/me, start/end) تا RTL و LTR بدون کد اضافه درست شوند. */
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {

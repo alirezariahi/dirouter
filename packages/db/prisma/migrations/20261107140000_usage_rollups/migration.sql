@@ -1,17 +1,17 @@
--- تجمیع ساعتی و روزانهٔ مصرف (کارت‌های ۳.۲ و ۶.۵).
+-- Hourly and daily usage rollups (cards 3.2 and 6.5).
 --
--- worker بعد از نوشتن هر دسته ساعت‌های تغییرکرده را علامت می‌زند و این توابع را برای
--- همان ساعت‌ها/روزها صدا می‌زند. هر فراخوانی bucket را از نو و کامل محاسبه می‌کند
--- (idempotent)، پس رویداد دیررس یا اجرای تکراری عدد را دوبرابر نمی‌کند.
+-- After writing each batch, the worker marks the changed hours and calls these functions for
+-- those same hours/days. Each call recalculates the bucket from scratch and completely
+-- (idempotent), so a late event or a repeated run does not double the numbers.
 --
--- هیستوگرام latency: ۱۰ سطل با مرزهای 100، 250، 500 و 1000 میلی‌ثانیه، 2.5، 5، 10، 30 و 60 ثانیه، و بیشتر.
+-- Latency histogram: 10 buckets with boundaries at 100, 250, 500, and 1000 milliseconds, 2.5, 5, 10, 30, and 60 seconds, and above.
 
 CREATE OR REPLACE FUNCTION dirouter_latency_bucket(ms integer)
 RETURNS integer
 LANGUAGE sql IMMUTABLE PARALLEL SAFE
 AS $$ SELECT width_bucket(ms, ARRAY[100, 250, 500, 1000, 2500, 5000, 10000, 30000, 60000]) + 1 $$;
 
--- جمع عضوبه‌عضو آرایه‌ها (برای ساختن هیستوگرام روزانه از ساعتی).
+-- Element-wise sum of arrays (to build the daily histogram from hourly ones).
 CREATE OR REPLACE FUNCTION dirouter_int_array_add(a integer[], b integer[])
 RETURNS integer[]
 LANGUAGE sql IMMUTABLE PARALLEL SAFE
@@ -32,8 +32,8 @@ CREATE OR REPLACE AGGREGATE dirouter_int_array_sum(integer[]) (
   INITCOND = '{}'
 );
 
--- محاسبهٔ کامل یک ساعت از request_log. model_slug همان مدل درخواستی کلاینت است
--- (مدل، alias یا combo) و provider_id خالی یعنی هیچ providerی پاسخ نداد.
+-- Full calculation of one hour from request_log. model_slug is the model the client requested
+-- (model, alias, or combo), and an empty provider_id means no provider responded.
 CREATE OR REPLACE FUNCTION dirouter_rollup_hour(at_hour timestamptz)
 RETURNS integer
 LANGUAGE plpgsql
@@ -89,7 +89,7 @@ BEGIN
 END;
 $$;
 
--- محاسبهٔ کامل یک روز (UTC) از جدول ساعتی.
+-- Full calculation of one day (UTC) from the hourly table.
 CREATE OR REPLACE FUNCTION dirouter_rollup_day(day date)
 RETURNS integer
 LANGUAGE plpgsql

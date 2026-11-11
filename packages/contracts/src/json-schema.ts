@@ -1,5 +1,5 @@
 /**
- * خروجی JSON Schema برای مستندات و مصرف‌کننده‌های غیر TypeScript.
+ * JSON Schema output for documentation and non-TypeScript consumers.
  */
 import { z } from 'zod';
 
@@ -37,7 +37,7 @@ export const schemaRegistry = {
 
 export type SchemaName = keyof typeof schemaRegistry;
 
-/** JSON Schema (draft 2020-12) یک اسکیمای ثبت‌شده. */
+/** JSON Schema (draft 2020-12) of a registered schema. */
 export function toJsonSchema(name: SchemaName): Record<string, unknown> {
   return z.toJSONSchema(schemaRegistry[name], { target: 'draft-2020-12', io: 'input' });
 }

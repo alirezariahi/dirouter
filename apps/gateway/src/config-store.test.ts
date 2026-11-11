@@ -1,4 +1,4 @@
-/** قانون پذیرش snapshot در گیت‌وی (کارت ۴.۲). */
+/** Snapshot acceptance rules in the gateway (card 4.2). */
 import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -45,7 +45,7 @@ describe('snapshot acceptance', () => {
     s.apply(snap(1_794_000_000), 'disk');
     expect(s.apply(snap(3, 'b'.repeat(64)), 'control-api')).toBe(true);
     expect(s.current?.version).toBe(3);
-    // همان نسخه و checksum دوباره اعمال نمی‌شود.
+    // The same version and checksum are not applied again.
     expect(s.apply(snap(3, 'b'.repeat(64)), 'control-api')).toBe(false);
   });
 

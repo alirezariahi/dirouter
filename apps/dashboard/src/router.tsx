@@ -1,7 +1,7 @@
 /**
- * مسیرها (TanStack Router، code-based). /login و /setup عمومی‌اند؛ بقیه زیر layout محافظت‌شده
- * که اول نشست را با refresh بازیابی می‌کند و در نبودش به /setup (اگر هنوز کاربری نیست) یا
- * /login می‌فرستد. صفحه‌ها lazy هستند تا bundle اولیه کوچک بماند.
+ * Routes (TanStack Router, code-based). /login and /setup are public; the rest sit under the protected layout
+ * which first restores the session with refresh and, if absent, redirects to /setup (if no user exists yet) or
+ * /login. Pages are lazy-loaded to keep the initial bundle small.
  */
 import {
   createRootRoute,
@@ -57,7 +57,7 @@ const app = createRoute({
   beforeLoad: async () => {
     if (await restoreSession()) return;
     const needsSetup = await setupRequired().catch(() => false);
-    // eslint-disable-next-line @typescript-eslint/only-throw-error -- الگوی redirect در TanStack Router
+    // eslint-disable-next-line @typescript-eslint/only-throw-error -- redirect pattern in TanStack Router
     throw redirect({ to: needsSetup ? '/setup' : '/login' });
   },
 });

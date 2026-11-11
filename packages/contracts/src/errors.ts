@@ -1,13 +1,13 @@
 /**
- * قالب‌های استاندارد خطا و taxonomy کدهای پایدار.
+ * Standard error formats and the taxonomy of stable error codes.
  *
- * - control-api خطا را با `application/problem+json` (RFC 9457) برمی‌گرداند.
- * - گیت‌وی خطا را در قالب API ورودی برمی‌گرداند (OpenAI یا Anthropic) تا SDKهای
- *   رسمی بدون تغییر کار کنند؛ کد پایدار DiRouter در فیلد `code` می‌آید.
+ * - control-api returns errors as `application/problem+json` (RFC 9457).
+ * - The gateway returns errors in the inbound API format (OpenAI or Anthropic) so that SDKs
+ *   keep working unchanged; the stable DiRouter code is in the `code` field.
  */
 import { z } from 'zod';
 
-/** نوع خطا در API رسمی OpenAI. */
+/** Error type in the official OpenAI API. */
 export const OpenAIErrorType = z.enum([
   'invalid_request_error',
   'authentication_error',
@@ -20,7 +20,7 @@ export const OpenAIErrorType = z.enum([
 ]);
 export type OpenAIErrorType = z.infer<typeof OpenAIErrorType>;
 
-/** نوع خطا در API رسمی Anthropic. */
+/** Error type in the official Anthropic API. */
 export const AnthropicErrorType = z.enum([
   'invalid_request_error',
   'authentication_error',
@@ -43,11 +43,11 @@ interface ErrorCodeSpec {
 }
 
 /**
- * کدهای پایدار خطا. این کدها بخشی از قرارداد عمومی‌اند: حذف یا تغییر معنی ممنوع،
- * فقط افزودن مجاز است.
+ * Stable error codes. These codes are part of the public contract: removing or changing their meaning is forbidden,
+ * only additions are allowed.
  */
 export const ERROR_CODES = {
-  // درخواست
+  // Request
   invalid_request: {
     status: 400,
     openai: 'invalid_request_error',
@@ -72,7 +72,7 @@ export const ERROR_CODES = {
     anthropic: 'invalid_request_error',
     title: 'Context length exceeded',
   },
-  // احراز هویت و دسترسی
+  // Authentication and authorization
   unauthenticated: {
     status: 401,
     openai: 'authentication_error',
@@ -97,7 +97,7 @@ export const ERROR_CODES = {
     anthropic: 'authentication_error',
     title: 'Invalid email or password',
   },
-  /** refresh token قبلاً مصرف شده: نشانهٔ سرقت؛ کل خانوادهٔ نشست باطل می‌شود. */
+  /** A previously used refresh token: a sign of theft; the whole session family is invalidated. */
   refresh_token_reused: {
     status: 401,
     openai: 'authentication_error',
@@ -128,7 +128,7 @@ export const ERROR_CODES = {
     anthropic: 'permission_error',
     title: 'Model not allowed for this key',
   },
-  // منابع
+  // Resources
   not_found: {
     status: 404,
     openai: 'not_found_error',
@@ -147,7 +147,7 @@ export const ERROR_CODES = {
     anthropic: 'invalid_request_error',
     title: 'Conflict',
   },
-  // محدودیت و بودجه
+  // Limits and budget
   rate_limited: {
     status: 429,
     openai: 'rate_limit_error',
@@ -185,7 +185,7 @@ export const ERROR_CODES = {
     anthropic: 'overloaded_error',
     title: 'No available provider',
   },
-  // داخلی
+  // Internal
   service_unavailable: {
     status: 503,
     openai: 'server_error',
@@ -205,7 +205,7 @@ export const ErrorCode = z.enum(Object.keys(ERROR_CODES) as [ErrorCode, ...Error
 
 export const PROBLEM_TYPE_BASE = 'https://dirouter.dev/errors/' as const;
 
-/** RFC 9457 Problem Details با فیلدهای افزودهٔ DiRouter. */
+/** RFC 9457 Problem Details with DiRouter's extra fields. */
 export const ProblemDetails = z.looseObject({
   type: z.string(),
   title: z.string(),
@@ -214,12 +214,12 @@ export const ProblemDetails = z.looseObject({
   instance: z.string().optional(),
   code: ErrorCode,
   requestId: z.string().optional(),
-  /** خطاهای اعتبارسنجی فیلد به فیلد. */
+  /** Field-by-field validation errors. */
   errors: z.array(z.object({ path: z.string(), message: z.string() })).optional(),
 });
 export type ProblemDetails = z.infer<typeof ProblemDetails>;
 
-/** بدنهٔ خطای سازگار با OpenAI. */
+/** OpenAI-compatible error body. */
 export const OpenAIErrorBody = z.looseObject({
   error: z.looseObject({
     message: z.string(),
@@ -230,7 +230,7 @@ export const OpenAIErrorBody = z.looseObject({
 });
 export type OpenAIErrorBody = z.infer<typeof OpenAIErrorBody>;
 
-/** بدنهٔ خطای سازگار با Anthropic. */
+/** Anthropic-compatible error body. */
 export const AnthropicErrorBody = z.looseObject({
   type: z.literal('error'),
   error: z.looseObject({

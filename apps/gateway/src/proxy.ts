@@ -1,6 +1,6 @@
 /**
- * مسیر داغ: /v1/chat/completions و /v1/messages (کارت ۴.۹).
- * auth → اعتبارسنجی → canonical → resolve → retry/فال‌بک → ترجمهٔ پاسخ → رویداد مصرف.
+ * Hot path: /v1/chat/completions and /v1/messages (card 4.9).
+ * auth → validation → canonical → resolve → retry/fallback → response translation → usage event.
  */
 import {
   AnthropicMessagesRequest,
@@ -67,29 +67,29 @@ import { callUpstream, mergeTimeouts, readErrorBody, UpstreamTimeout } from './u
 export interface ProxyDeps {
   store: ConfigStore;
   budget: RetryBudget;
-  /** سقف همزمانی هر provider و هر کلید (کارت ۵.۷). */
+  /** Concurrency cap per provider and per key (card 5.7). */
   bulkheads?: BulkheadRegistry;
-  /** بودجهٔ کلید، پروژه و تیم (کارت ۶.۳). */
+  /** Budget for key, project and team (card 6.3). */
   budgets?: BudgetGuard;
-  /** rate limiter توزیع‌شده (کارت ۶.۱). */
+  /** Distributed rate limiter (card 6.1). */
   limiter?: RateLimiter;
-  /** وضعیت خاموشی (کارت ۵.۸): در drain، اتصال‌ها بعد از پاسخ بسته می‌شوند. */
+  /** Shutdown state (card 5.8): during drain, connections are closed after the response. */
   lifecycle?: { readonly draining: boolean; readonly signal: AbortSignal };
   pepper: string;
   logger: Logger;
   instance: string;
-  /** مقصد رویداد مصرف (صف یا outbox)؛ هرگز await نمی‌شود. */
+  /** Usage event destination (queue or outbox); never awaited. */
   emitUsage: (event: UsageEvent) => void;
-  /** متریک‌های مسیر داغ؛ در تست‌های واحد قابل حذف است. */
+  /** Hot-path metrics; can be omitted in unit tests. */
   metrics?: GatewayMetrics;
-  /** لاگ پایان هر درخواست، حتی رد پیش از usage event. */
+  /** End-of-request log, even for rejections before the usage event. */
   onRequestComplete?: (event: UsageEvent) => void;
   heartbeatMs?: number;
 }
 
 interface StreamOutcome {
   usage: CanonicalUsage;
-  /** provider usage نداد و مقدار با tokenizer تخمین زده شد. */
+  /** Provider gave no usage and the value was estimated with the tokenizer. */
   usageEstimated: boolean;
   ttftMs: number;
 }
@@ -113,8 +113,8 @@ function toClientError(error: ClassifiedError | undefined, reason: string): DiRo
         message: error.message,
         ...(error.retryAfterMs !== undefined ? { retryAfterMs: error.retryAfterMs } : {}),
       });
-    // پیام خطای شبکه ممکن است آدرس داخلی provider یا پروکسی را داشته باشد؛ کلاینت فقط
-    // متن عمومی می‌گیرد و جزئیات (با رمز ماسک‌شده) فقط در لاگ سرور است.
+    // Network error messages may contain the internal address of the provider or proxy; the client only
+    // gets a generic message, and details (with the masked password) are only in the server log.
     case 'timeout':
       return new UpstreamError('upstream_timeout', { message: 'Upstream request timed out' });
     case 'connection':
@@ -172,8 +172,8 @@ function parseInbound(api: InboundApi, body: unknown, logger: Logger): Canonical
 }
 
 /**
- * `POST /v1/messages/count_tokens` (سازگار با Anthropic، کارت ۴.۹): تخمین محلی با tokenizer
- * و بدون فراخوانی upstream. Claude Code و SDK برای مدیریت context از آن استفاده می‌کنند.
+ * `POST /v1/messages/count_tokens` (Anthropic-compatible, card 4.9): local estimate with the tokenizer
+ * and no upstream call. Claude Code and the SDK use it to manage context.
  */
 export function handleCountTokens(req: FastifyRequest, reply: FastifyReply, deps: ProxyDeps): void {
   const api: InboundApi = 'anthropic.messages';
@@ -184,7 +184,7 @@ export function handleCountTokens(req: FastifyRequest, reply: FastifyReply, deps
   }
   try {
     const key = authenticate(config, extractApiKey(req.headers), deps.pepper, req.ip);
-    // count_tokens بدنهٔ messages بدون max_tokens است.
+    // count_tokens is a messages body without max_tokens.
     const body = { max_tokens: 1, ...(req.body as Record<string, unknown> | undefined) };
     const canonical = parseInbound(api, body, deps.logger);
     if (key.allowedModels.length > 0 && !key.allowedModels.includes(canonical.model))
@@ -209,8 +209,8 @@ export async function handleProxy(
   const requestId = req.id;
   const started = Date.now();
   let model = 'unknown';
-  // درخواست‌های ردشده پیش از usage event هم شمارش می‌شوند. درخواست موفق/ناموفق
-  // upstream در runRoute ثبت می‌شود؛ finally برای خروج‌های غیرمنتظره تضمین است.
+  // Rejected requests before the usage event are also counted. Successful/failed
+  // upstream requests are recorded in runRoute; finally guarantees it for unexpected exits.
   let observed = false;
   const observeEarly = (status: number) => {
     if (observed) return;
@@ -308,19 +308,19 @@ export async function handleProxy(
     return;
   }
 
-  // قطع کلاینت → abort همهٔ تلاش‌ها و upstream.
+  // Client disconnect → abort all attempts and upstream.
   const clientGone = new AbortController();
   reply.raw.on('close', () => {
     if (!reply.raw.writableFinished) clientGone.abort(new Error('client disconnected'));
   });
-  // پایان مهلت drain: درخواست‌های باقی‌مانده مثل قطع کلاینت لغو می‌شوند.
+  // Drain deadline reached: remaining requests are cancelled like a client disconnect.
   const onShutdown = () => {
     clientGone.abort(new Error('gateway shutting down'));
   };
   deps.lifecycle?.signal.addEventListener('abort', onShutdown, { once: true });
   reply.raw.once('close', () => deps.lifecycle?.signal.removeEventListener('abort', onShutdown));
 
-  // rate limit توزیع‌شده (کارت ۶.۱): کلید، پروژه و تیم. رزرو TPM = ورودی + سقف خروجی.
+  // Distributed rate limit (card 6.1): key, project and team. TPM reservation = input + output cap.
   const admission = deps.limiter
     ? await deps.limiter.acquire(
         limitScopes(config, key),
@@ -348,7 +348,7 @@ export async function handleProxy(
   if (admission)
     for (const [name, value] of Object.entries(admission.headers)) void reply.header(name, value);
 
-  // بودجه: رسیده به سقف یعنی 429 budget_exceeded تا شروع دورهٔ بعد.
+  // Budget: reaching the cap means 429 budget_exceeded until the next period starts.
   const budgets = budgetScopes(config, key);
   const budgetCheck = deps.budgets ? await deps.budgets.check(budgets) : { ok: true as const };
   if (!budgetCheck.ok) {
@@ -380,7 +380,7 @@ export async function handleProxy(
     ...(queue?.queueSize !== undefined ? { queueSize: queue.queueSize } : {}),
     ...(queue?.queueTimeoutMs !== undefined ? { queueTimeoutMs: queue.queueTimeoutMs } : {}),
   };
-  // سقف همزمانی کلید: پر بودن یعنی 429 فوری (بعد از صف کوتاه)، بدون تماس با upstream.
+  // Key concurrency cap: if full, 429 immediately (after a short queue), without contacting upstream.
   const keyBulkhead = deps.bulkheads?.get(
     `key:${key.id}`,
     key.rateLimit?.maxConcurrency,
@@ -443,7 +443,7 @@ export async function handleProxy(
   }
 }
 
-/** بودجه‌های یک کلید: خودش، پروژه و تیمش (کارت ۶.۳). */
+/** Budgets for a key: itself, its project and its team (card 6.3). */
 function budgetScopes(config: LoadedConfig, key: VirtualKeyConfig): ScopedBudget[] {
   const out: ScopedBudget[] = key.budgets.map((budget) => ({
     budget,
@@ -463,7 +463,7 @@ function budgetScopes(config: LoadedConfig, key: VirtualKeyConfig): ScopedBudget
   return out;
 }
 
-/** scopeهای limit یک کلید: خودش، پروژه و تیمش. */
+/** Limit scopes for a key: itself, its project and its team. */
 function limitScopes(config: LoadedConfig, key: VirtualKeyConfig): LimitScope[] {
   const scopes: LimitScope[] = [];
   if (key.rateLimit) scopes.push({ name: `key:${key.id}`, limit: key.rateLimit });
@@ -570,7 +570,7 @@ async function runRoute(
       if (!canonical.stream) {
         const json: unknown = await response.json();
         const parsed = adapter.parseResponse(json, candidate.model.upstreamModel);
-        // بدون usage از provider: تخمین با tokenizer تا هم کلاینت و هم رویداد مصرف عدد بگیرند.
+        // No usage from the provider: estimate with the tokenizer so both the client and the usage event get a number.
         const usage = parsed.usage ?? estimateUsage(canonical, parsed.content);
         return {
           ok: true,
@@ -618,7 +618,7 @@ async function runRoute(
     signal: clientGone.signal,
     ...(deps.bulkheads ? { admit: admitProvider(deps.bulkheads, ctx.queueOverrides) } : {}),
   });
-  // هر تلاش provider/model خودش را دارد؛ attribution نهایی request از event می‌آید.
+  // Each provider/model attempt has its own; the final request attribution comes from the event.
   for (const item of result.attempts) {
     if (item.outcome === 'skipped') continue;
     const provider = config.snapshot.providers.find((p) => p.id === item.providerId);
@@ -660,7 +660,7 @@ async function runRoute(
     sendError(reply, api, toClientError(result.error, result.reason), requestId);
   }
 
-  // رویداد مصرف: هرگز در مسیر پاسخ منتظر نمی‌مانیم.
+  // Usage event: we never wait for it on the response path.
   const usage = result.ok
     ? result.value.kind === 'json'
       ? result.value.response.usage
@@ -693,7 +693,7 @@ async function runRoute(
   return { tokens: usage ? usage.inputTokens + usage.outputTokens : 0, costUsd };
 }
 
-/** bulkhead هر provider: پر بودن یعنی رفتن به کاندیدای بعدی (یا 429 اگر کاندیدایی نماند). */
+/** Each provider's bulkhead: if full, move to the next candidate (or 429 if no candidates remain). */
 function admitProvider(
   bulkheads: BulkheadRegistry,
   overrides: { queueSize?: number; queueTimeoutMs?: number },
@@ -745,9 +745,9 @@ async function pipeStream(
       : new AnthropicStreamEncoder({ model: canonical.model });
   const parser = new SseParser();
   const raw = reply.raw;
-  // در state نگه داشته می‌شود چون داخل closureِ commit تغییر می‌کند.
+  // Kept in state because it is changed inside the commit closure.
   const state = { committed: false, ttftMs: 0 };
-  // متن خروجی برای تخمین usage وقتی upstream آن را نفرستد.
+  // Output text for estimating usage when upstream does not send it.
   const output: string[] = [];
   const collect = (ev: CanonicalStreamEvent) => {
     if (ev.type === 'text_delta') output.push(ev.text);
@@ -765,7 +765,7 @@ async function pipeStream(
     state.committed = true;
     state.ttftMs = Date.now() - opts.started;
     reply.hijack();
-    // هدرهای سراسری (x-request-id، x-dirouter-instance) هم در stream بمانند.
+    // Global headers (x-request-id, x-dirouter-instance) must also remain in the stream.
     const base = Object.fromEntries(
       Object.entries(reply.getHeaders()).filter(
         (e): e is [string, string | number | string[]] => e[1] !== undefined,
@@ -830,7 +830,7 @@ async function pipeStream(
       throw error;
     }
     if (state.committed) {
-      // قطع upstream بعد از ارسال بایت: خطای استاندارد و پایان (فال‌بک ممکن نیست).
+      // Upstream cut after bytes were sent: standard error and end (fallback is not possible).
       const classified = classifyNetworkError(error, call.signal.reason instanceof UpstreamTimeout);
       await write(
         encoder.push({
@@ -872,7 +872,7 @@ function emitUsageEvent(
   },
 ): string {
   try {
-    // درخواست ناموفق upstream توکنی مصرف نکرده (یا خبری از آن نداریم)؛ هزینه صفر.
+    // A failed upstream request consumed no tokens (or we have no record of it); cost is zero.
     const usage: CanonicalUsage = e.usage ?? {
       inputTokens: 0,
       outputTokens: 0,

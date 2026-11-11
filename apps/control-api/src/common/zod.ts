@@ -1,5 +1,5 @@
 /**
- * اعتبارسنجی با zod و تولید اسکیمای OpenAPI از همان اسکیما (یک منبع حقیقت).
+ * Validation with zod and OpenAPI schema generation from the same schema (single source of truth).
  */
 import { ValidationError } from '@dirouter/shared';
 import { applyDecorators, type PipeTransform } from '@nestjs/common';
@@ -31,14 +31,14 @@ export class ZodPipe<S extends z.ZodType> implements PipeTransform<unknown, z.ou
   }
 }
 
-/** مستندسازی بدنهٔ درخواست در Swagger. */
+/** Documents the request body in Swagger. */
 export const ApiZodBody = (schema: z.ZodType) => ApiBody({ schema: toOpenApi(schema) });
 
-/** مستندسازی پاسخ موفق در Swagger. */
+/** Documents the success response in Swagger. */
 export const ApiZodOk = (schema: z.ZodType, description?: string) =>
   ApiOkResponse({ schema: toOpenApi(schema), ...(description ? { description } : {}) });
 
-/** مستندسازی پارامترهای query در Swagger از روی یک z.object. */
+/** Documents query parameters in Swagger from a z.object. */
 export function ApiZodQuery(schema: z.ZodObject) {
   return applyDecorators(
     ...Object.entries(schema.shape).map(([name, field]) =>

@@ -1,11 +1,11 @@
-# پیکربندی static Traefik برای production (TLS با Let's Encrypt).
-# __ACME_EMAIL__ هنگام اجرای کانتینر از env جایگزین می‌شود (compose.prod.yaml).
+# Static Traefik configuration for production (TLS with Let's Encrypt).
+# __ACME_EMAIL__ is replaced from env when the container runs (compose.prod.yaml).
 global:
   checkNewVersion: false
   sendAnonymousUsage: false
 
 entryPoints:
-  # ping و متریک؛ منتشر نمی‌شود.
+  # ping and metrics; not published.
   traefik:
     address: ':8082'
   web:
@@ -21,7 +21,7 @@ entryPoints:
     http:
       tls:
         certResolver: le
-    # SSE: نوشتن پاسخ نباید timeout داشته باشد؛ خواندن بدنهٔ درخواست حداکثر ۵ دقیقه.
+    # SSE: writing the response must not time out; reading the request body takes at most 5 minutes.
     transport:
       respondingTimeouts:
         readTimeout: 300s
@@ -52,8 +52,8 @@ certificatesResolvers:
       storage: /acme/acme.json
       httpChallenge:
         entryPoint: web
-      # DNS-01 (اختیاری، برای wildcard): httpChallenge را حذف و این را فعال کنید
-      # و متغیرهای provider را (مثلاً CF_DNS_API_TOKEN) به کانتینر بدهید.
+      # DNS-01 (optional, for wildcard): remove httpChallenge and enable this
+      # and pass the provider variables (e.g. CF_DNS_API_TOKEN) to the container.
       # dnsChallenge:
       #   provider: cloudflare
 

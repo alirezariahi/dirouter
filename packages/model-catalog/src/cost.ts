@@ -1,9 +1,9 @@
 /**
- * محاسبهٔ هزینه از usage canonical و قیمت مدل (کارت ۶.۲)، بدون هیچ float.
+ * Cost calculation from canonical usage and model prices (card 6.2), with no floats at all.
  *
- * - ورودی عادی = inputTokens − cacheRead − cacheWrite با قیمت input
- * - cache read/write با قیمت خودشان (اگر نباشد، قیمت input)
- * - خروجی عادی = outputTokens − reasoning با قیمت output؛ reasoning با قیمت خودش یا output
+ * - Regular input = inputTokens − cacheRead − cacheWrite, priced at the input rate
+ * - cache read/write at their own rates (if absent, the input rate)
+ * - Regular output = outputTokens − reasoning, priced at the output rate; reasoning at its own rate or the output rate
  */
 import type { CanonicalUsage, ModelPricing } from '@dirouter/contracts';
 import { costForTokens, formatUsd, type UsdUnits } from '@dirouter/shared';

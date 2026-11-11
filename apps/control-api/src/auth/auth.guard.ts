@@ -1,4 +1,4 @@
-/** گارد access token داشبورد: `Authorization: Bearer <jwt>` → `request.user`. */
+/** Dashboard access token guard: `Authorization: Bearer <jwt>` → `request.user`. */
 import { AuthenticationError } from '@dirouter/shared';
 import {
   type CanActivate,

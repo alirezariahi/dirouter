@@ -1,5 +1,5 @@
 /**
- * لاگر ساخت‌یافته (pino، JSON) با redact خودکار فیلدهای حساس.
+ * Structured logger (pino, JSON) with automatic redaction of sensitive fields.
  */
 import { pino, type DestinationStream, type Logger, type LoggerOptions } from 'pino';
 
@@ -26,9 +26,9 @@ const SENSITIVE_KEYS = [
 ];
 
 /**
- * مسیرهای redact. pino در هر مسیر فقط یک wildcard را پشتیبانی می‌کند، پس
- * کلیدهای حساس در ریشه و تا سه سطح عمق (مثل `req.headers.authorization`) پوشش
- * داده می‌شوند.
+ * Redact paths. pino supports only one wildcard per path, so
+ * sensitive keys are covered at the root and up to three levels deep (e.g. `req.headers.authorization`)
+ * are redacted.
  */
 export const REDACT_PATHS: string[] = SENSITIVE_KEYS.flatMap((key) => {
   const k = /^[A-Za-z_$][\w$]*$/.test(key) ? key : `["${key}"]`;
@@ -39,14 +39,14 @@ export const REDACT_PATHS: string[] = SENSITIVE_KEYS.flatMap((key) => {
 export const REDACTED = '[REDACTED]';
 
 export interface CreateLoggerOptions {
-  /** نام سرویس، مثلاً `gateway`؛ در فیلد `service` هر لاگ می‌آید. */
+  /** Service name, e.g. `gateway`; it appears in the `service` field of every log. */
   service: string;
   level?: LogLevel;
-  /** فیلدهای ثابت اضافه برای همهٔ لاگ‌ها. */
+  /** Extra fixed fields for all logs. */
   base?: Record<string, unknown>;
-  /** مسیرهای redact اضافه. */
+  /** Additional redact paths. */
   redact?: string[];
-  /** مقصد خروجی (پیش‌فرض stdout)؛ در تست استفاده می‌شود. */
+  /** Output destination (default stdout); used in tests. */
   destination?: DestinationStream;
 }
 

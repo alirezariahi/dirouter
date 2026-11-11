@@ -1,8 +1,8 @@
 /**
- * کلاینت API (کارت ۷.۱): access token فقط در حافظه است (نه localStorage)؛ refresh token در
- * کوکی httpOnly است و با `credentials: 'include'` فرستاده می‌شود. پاسخ 401 یک بار با
- * `/auth/refresh` تکرار می‌شود (چند درخواست هم‌زمان یک refresh مشترک دارند). خطاها
- * problem+json هستند و به ApiError با کد پایدار تبدیل می‌شوند.
+ * API client (card 7.1): the access token lives only in memory (not localStorage); the refresh token is in
+ * an httpOnly cookie sent with `credentials: 'include'`. A 401 response is retried once with
+ * `/auth/refresh` (concurrent requests share one refresh). Errors are
+ * problem+json and are converted to ApiError with a stable code.
  */
 import { API_URL } from '../config';
 
@@ -62,15 +62,15 @@ async function refresh(fetchImpl: typeof fetch): Promise<boolean> {
 export interface RequestOptions {
   method?: string;
   body?: unknown;
-  /** بدنهٔ آماده (مثلاً JSON سریال‌شده توسط orval). */
+  /** Prepared body (e.g. JSON serialized by orval). */
   rawBody?: BodyInit;
   query?: Record<string, string | number | boolean | undefined>;
   signal?: AbortSignal | null;
-  /** برای تست. */
+  /** For tests. */
   fetchImpl?: typeof fetch;
 }
 
-/** درخواست با refresh خودکار؛ پاسخ ناموفق به ApiError تبدیل می‌شود. */
+/** Request with automatic refresh; a failed response is converted to ApiError. */
 async function request(
   path: string,
   opts: RequestOptions = {},
@@ -111,8 +111,8 @@ export async function api<T>(path: string, opts: RequestOptions = {}): Promise<T
 }
 
 /**
- * mutator کلاینت تولیدشده با orval (امضای fetch): مسیرهای سند پیشوند /api/v1 دارند و API_URL
- * خودش آن را دارد. خروجی همان `{data, status, headers}` است که hookهای تولیدشده انتظار دارند.
+ * orval-generated client mutator (fetch signature): document paths have the /api/v1 prefix and API_URL
+ * already includes it. The output is `{data, status, headers}`, which the generated hooks expect.
  */
 export async function orvalFetch<T>(url: string, init: RequestInit = {}): Promise<T> {
   const { data, res } = await request(url.replace(/^\/api\/v1/, ''), {

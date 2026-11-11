@@ -7,8 +7,8 @@ import type {
 } from '@dirouter/contracts';
 
 /**
- * گزارش فیلدهایی که در مقصد معادل ندارند و کنار گذاشته شدند. گیت‌وی این‌ها را
- * با سطح debug لاگ می‌کند.
+ * Reports fields that have no equivalent at the destination and were dropped. The gateway
+ * logs these at debug level.
  */
 export type DropReporter = (field: string, reason: string) => void;
 
@@ -25,7 +25,7 @@ export function textOf(parts: readonly CanonicalPart[]): string {
     .join('');
 }
 
-/** تبدیل data URL به منبع base64؛ آدرس معمولی دست‌نخورده می‌ماند. */
+/** Convert a data URL to a base64 source; a regular URL is left unchanged. */
 export function imageFromUrl(url: string): CanonicalImagePart['source'] {
   const match = /^data:([^;,]+);base64,(.*)$/s.exec(url);
   if (match)
@@ -41,7 +41,7 @@ export function imageToUrl(source: CanonicalImagePart['source']): string {
   return source.kind === 'url' ? source.url : `data:${source.mediaType};base64,${source.data}`;
 }
 
-/** JSON.parse امن برای آرگومان ابزار؛ آرگومان نامعتبر به `{}` تبدیل می‌شود. */
+/** Safe JSON.parse for tool arguments; invalid arguments are converted to `{}`. */
 export function parseToolArguments(raw: string, onDrop: DropReporter): unknown {
   if (raw.trim() === '') return {};
   try {

@@ -1,4 +1,4 @@
-/** پیام دقیق و ترجمه‌شدهٔ خطا از روی کد پایدار problem+json (کارت ۷.۲). */
+/** Exact, translated error message derived from the stable problem+json code (card 7.2). */
 import type { TFunction } from 'i18next';
 
 import { ApiError } from './api';
@@ -19,7 +19,7 @@ export function errorMessage(error: unknown, t: TFunction): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-/** خطای یک فیلد خاص از خطای اعتبارسنجی. */
+/** Error for a specific field from a validation error. */
 export function fieldError(error: unknown, path: string): string | undefined {
   return error instanceof ApiError
     ? error.problem.errors?.find((e) => e.path === path)?.message

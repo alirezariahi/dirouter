@@ -1,8 +1,8 @@
 /**
- * اسکیمای OpenAI Chat Completions (`POST /v1/chat/completions`).
+ * OpenAI Chat Completions schema (`POST /v1/chat/completions`).
  *
- * اسکیماها عمداً «loose» هستند: فیلدهای ناشناخته حذف نمی‌شوند تا پارامترهای
- * جدید OpenAI بدون تغییر گیت‌وی به provider برسند.
+ * The schemas are intentionally "loose": unknown fields are not stripped, so new
+ * OpenAI parameters reach the provider without a gateway change.
  */
 import { z } from 'zod';
 
@@ -60,7 +60,7 @@ export const OpenAIToolCall = z.looseObject({
   type: z.literal('function'),
   function: z.looseObject({
     name: z.string(),
-    /** آرگومان‌ها به‌صورت رشتهٔ JSON (ممکن است JSON معتبر نباشد). */
+    /** Arguments as a JSON string (may not be valid JSON). */
     arguments: z.string(),
   }),
 });
@@ -266,7 +266,7 @@ export const OpenAIChatCompletionChunk = z.looseObject({
       logprobs: z.unknown().nullish(),
     }),
   ),
-  /** فقط در chunk آخر وقتی `stream_options.include_usage` روشن باشد. */
+  /** Only in the last chunk, when `stream_options.include_usage` is enabled. */
   usage: OpenAIUsage.nullish(),
   system_fingerprint: z.string().nullish(),
   service_tier: z.string().nullish(),

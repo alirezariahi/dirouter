@@ -1,4 +1,4 @@
-/** متریک‌های BullMQ مشترک control-api و worker؛ scrape با Valkey قطع timeout دارد. */
+/** BullMQ metrics shared by control-api and worker; the scrape has a timeout when Valkey is down. */
 import { Gauge, type Registry } from 'prom-client';
 
 export interface QueueCounts {

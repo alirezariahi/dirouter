@@ -1,6 +1,6 @@
 /**
- * timeoutهای چندلایه (کارت ۵.۴) و بستن upstream با قطع کلاینت (کارت ۴.۵)، روی
- * سرورهای خام TCP/HTTP تا رفتار شبکه دقیق کنترل شود.
+ * multi-layer timeouts (card 5.4) and closing upstream on client disconnect (card 4.5), on
+ * raw TCP/HTTP servers so network behavior can be precisely controlled.
  */
 import {
   createServer as createHttpServer,
@@ -35,7 +35,7 @@ beforeAll(async () => {
   await new Promise<void>((r) => http.listen(0, '127.0.0.1', r));
   const a = http.address();
   httpUrl = `http://127.0.0.1:${String(typeof a === 'object' && a ? a.port : 0)}`;
-  // اتصال TCP را می‌پذیرد ولی هیچ‌وقت handshake TLS را کامل نمی‌کند.
+  // Accepts the TCP connection but never completes the TLS handshake.
   blackhole = createTcpServer((s) => {
     sockets.add(s);
   });
@@ -87,7 +87,7 @@ describe('layered upstream timeouts', () => {
       new AbortController().signal,
       false,
     ).catch((e: unknown) => e);
-    // connectMs=200؛ سقف گشاده برای runnerهای شلوغ CI، ولی بسیار کمتر از پیش‌فرض ۵ ثانیه.
+    // connectMs=200; a generous cap for busy CI runners, but much lower than the default of 5 seconds.
     expect(Date.now() - started).toBeLessThan(3_000);
     const classified = classifyNetworkError(error, error instanceof UpstreamTimeout);
     expect(classified.class).toBe('timeout');
@@ -95,7 +95,7 @@ describe('layered upstream timeouts', () => {
   });
 
   it('first byte: headers that never come abort at the TTFT limit', async () => {
-    handler = () => undefined; // هیچ پاسخی
+    handler = () => undefined; // no response
     const started = Date.now();
     const error = await callUpstream(
       provider(httpUrl, 'ttft'),

@@ -1,9 +1,9 @@
 /**
- * parser و writer مقاوم Server-Sent Events.
+ * Robust Server-Sent Events parser and writer.
  *
- * - chunkهای شبکه هر جایی بریده می‌شوند (وسط خط یا وسط کاراکتر چندبایتی فارسی)؛
- *   TextDecoder با `stream: true` و بافر خط این را مدیریت می‌کند.
- * - پایان خط `\n`، `\r\n` و `\r`؛ چند خط `data:` با `\n` به هم می‌پیوندند؛ خطوط `:` (کامنت/heartbeat) نادیده گرفته می‌شوند.
+ * - Network chunks can be cut anywhere (mid-line or mid-way through a multibyte character);
+ *   TextDecoder with `stream: true` and the line buffer handle this.
+ * - Line endings are `\n`, `\r\n` and `\r`; multiple `data:` lines are joined with `\n`; `:` lines (comment/heartbeat) are ignored.
  */
 
 export interface SseEvent {
@@ -18,10 +18,10 @@ export class SseParser {
   #event: string | undefined;
   #data: string[] = [];
   #id: string | undefined;
-  /** \r آخر chunk قبلی؛ اگر chunk بعدی با \n شروع شود یک پایان خط است، نه دو. */
+  /** Trailing \r of the previous chunk; if the next chunk starts with \n, it is one line ending, not two. */
   #pendingCr = false;
 
-  /** chunk جدید؛ رویدادهای کامل‌شده را برمی‌گرداند. */
+  /** New chunk; returns the completed events. */
   feed(chunk: Uint8Array | string): SseEvent[] {
     let text = typeof chunk === 'string' ? chunk : this.#decoder.decode(chunk, { stream: true });
     if (this.#pendingCr && text.startsWith('\n')) text = text.slice(1);
@@ -43,7 +43,7 @@ export class SseParser {
     return events;
   }
 
-  /** پایان stream: باقیماندهٔ بافر را به‌عنوان رویداد آخر برمی‌گرداند. */
+  /** End of stream: returns the remaining buffer as the last event. */
   flush(): SseEvent[] {
     const rest = this.#decoder.decode();
     const events = rest ? this.feed(rest) : [];
@@ -96,11 +96,11 @@ export class SseParser {
   }
 }
 
-/** یک رویداد SSE به‌صورت متن آمادهٔ نوشتن. */
+/** Encode an SSE event as text ready to write. */
 export function encodeSse(event: { event?: string; data: string }): string {
   const lines = event.data.split(/\r\n|\r|\n/).map((l) => `data: ${l}`);
   return `${event.event ? `event: ${event.event}\n` : ''}${lines.join('\n')}\n\n`;
 }
 
-/** heartbeat کامنت SSE؛ کلاینت‌ها نادیده می‌گیرند ولی اتصال idle نمی‌شود. */
+/** SSE comment heartbeat; clients ignore it, but the connection does not go idle. */
 export const SSE_HEARTBEAT = ': ping\n\n';

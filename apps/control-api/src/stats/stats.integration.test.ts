@@ -1,4 +1,4 @@
-/** API آمار و لاگ روی Postgres و Valkey واقعی (کارت ۳.۱۰). */
+/** Stats and logs API against real Postgres and Valkey (card 3.10). */
 import { createServer, type Server } from 'node:http';
 
 import { generateKey } from '@dirouter/shared';
@@ -187,7 +187,7 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('stats and logs over HTTP', () => 
     });
     await insertLogs(org, 100);
     await insertLogs('org_other', 40, { model: 'secret-model' });
-    // rollup همان ساعت‌ها (کاری که worker انجام می‌دهد).
+    // Rollup of the same hours (the work the worker does).
     for (const h of [at(0), at(59)])
       await db.$queryRawUnsafe('SELECT dirouter_rollup_hour($1::timestamptz)', h.toISOString());
     for (const d of new Set([at(0), at(59)].map((x) => x.toISOString().slice(0, 10))))
@@ -232,7 +232,7 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('stats and logs over HTTP', () => 
   });
 
   it('cursor pagination is stable: no duplicates or gaps, even with ties and new rows arriving', async () => {
-    // ۳۰ ردیف با created_at یکسان (tie) به‌اضافهٔ ۱۰۰ ردیف قبلی.
+    // 30 rows with the same created_at (tie), plus the previous 100 rows.
     await insertLogs(org, 30, { created: () => at(30), prefix: 'tie' });
     const seen: string[] = [];
     let cursor: string | null = null;
@@ -247,7 +247,7 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('stats and logs over HTTP', () => 
       }>();
       seen.push(...body.items.map((i) => i.id));
       cursor = body.nextCursor;
-      // رسیدن ردیف تازه وسط صفحه‌بندی صفحه‌های بعدی را جابه‌جا نمی‌کند.
+      // A new row arriving mid-pagination does not shift the subsequent pages.
       if (pages++ === 1) await insertLogs(org, 5, { created: () => new Date(), prefix: 'fresh' });
     } while (cursor);
     expect(seen).toHaveLength(130);

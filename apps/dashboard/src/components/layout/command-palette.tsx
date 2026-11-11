@@ -1,4 +1,4 @@
-/** command palette با ⌘K / Ctrl+K: رفتن به صفحه‌ها و کارهای سریع. */
+/** command palette with ⌘K / Ctrl+K: navigate to pages and run quick actions. */
 import { useNavigate } from '@tanstack/react-router';
 import { Command } from 'cmdk';
 import { useTranslation } from 'react-i18next';

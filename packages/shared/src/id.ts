@@ -1,6 +1,6 @@
 /**
- * تولید شناسهٔ ULID (۴۸ بیت زمان + ۸۰ بیت تصادفی، Crockford base32).
- * شناسه‌ها بر اساس زمان مرتب‌پذیرند و برای کلید پارتیشن و ایندکس مناسب‌اند.
+ * ULID generation (48 bits of time + 80 random bits, Crockford base32).
+ * IDs are sortable by time and suit partition keys and indexes.
  */
 import { randomBytes } from 'node:crypto';
 
@@ -23,20 +23,20 @@ function encodeTime(ms: number): string {
 }
 
 function encodeRandom(): string {
-  // ۱۶ کاراکتر × ۵ بیت = ۸۰ بیت. از ۵ بیت پایین هر بایت استفاده می‌شود؛ ۲۵۶ بر ۳۲
-  // بخش‌پذیر است پس توزیع یکنواخت می‌ماند.
+  // 32 characters × 5 bits = 80 bits. The low 5 bits of each byte are used; 256 divided by 32
+  // is exact, so the distribution stays uniform.
   const bytes = randomBytes(RANDOM_LEN);
   let out = '';
   for (const byte of bytes) out += ALPHABET.charAt(byte & 31);
   return out;
 }
 
-/** یک ULID جدید. */
+/** A new ULID. */
 export function ulid(now: number = Date.now()): string {
   return encodeTime(now) + encodeRandom();
 }
 
-/** زمان (میلی‌ثانیه) ذخیره‌شده در یک ULID. */
+/** Time (milliseconds) stored in a ULID. */
 export function ulidTime(id: string): number {
   if (!/^[0-9A-HJKMNP-TV-Z]{26}$/.test(id)) throw new TypeError(`invalid ULID: ${id}`);
   let ms = 0;
@@ -44,7 +44,7 @@ export function ulidTime(id: string): number {
   return ms;
 }
 
-/** شناسهٔ پیشونددار مثل `req_01JC…` برای خوانایی در لاگ‌ها. */
+/** Prefixed ID such as `req_01JC…` for readability in logs. */
 export function prefixedId(prefix: string, now?: number): string {
   return `${prefix}_${ulid(now)}`;
 }

@@ -1,8 +1,8 @@
 /**
  * Anthropic Messages ⇄ canonical.
  *
- * نکتهٔ usage: در Anthropic مقدار `input_tokens` توکن‌های cache را شامل نمی‌شود،
- * ولی در canonical `inputTokens` کل ورودی است و cacheRead/cacheWrite زیرمجموعهٔ آن.
+ * Usage note: in Anthropic, `input_tokens` does not include cache tokens,
+ * but in canonical `inputTokens` is the total input and cacheRead/cacheWrite are subsets of it.
  */
 import type {
   AnthropicInputContentBlock,
@@ -47,7 +47,7 @@ const CONSUMED_REQUEST_FIELDS = new Set([
   'metadata',
 ]);
 
-/** کلید passthrough برای server toolهای Anthropic (web_search، …). */
+/** Passthrough key for Anthropic server tools (web_search, …). */
 export const SERVER_TOOLS_KEY = '__anthropic_server_tools';
 
 function imageIn(
@@ -143,7 +143,7 @@ export function anthropicRequestToCanonical(
           break;
       }
     }
-    // tool_resultها در canonical پیام جدای «tool» هستند و قبل از بقیهٔ محتوای کاربر می‌آیند.
+    // In canonical, tool_results are separate "tool" messages and come before the rest of the user content.
     if (toolResults.length > 0) messages.push({ role: 'tool', content: toolResults });
     if (content.length > 0) messages.push({ role: message.role, content });
   }
@@ -212,7 +212,7 @@ export function anthropicRequestToCanonical(
 
 export interface ToAnthropicRequestOptions extends TranslateOptions {
   upstreamModel: string;
-  /** max_tokens در Anthropic اجباری است؛ اگر کلاینت نداد این مقدار استفاده می‌شود. */
+  /** max_tokens is required in Anthropic; this value is used if the client does not send one. */
   defaultMaxTokens?: number;
 }
 
@@ -264,7 +264,7 @@ function blocksFor(message: CanonicalMessage, onDrop: DropReporter): Block[] {
         });
         break;
       case 'reasoning':
-        // Anthropic فقط thinking امضاشدهٔ خودش را می‌پذیرد و باید اول پیام بیاید.
+        // Anthropic only accepts its own signed thinking, and it must come first in the message.
         if (part.redacted !== undefined)
           reasoning.push({ type: 'redacted_thinking', data: part.redacted });
         else if (part.signature)
@@ -282,7 +282,7 @@ export function canonicalToAnthropicRequest(
 ): Record<string, unknown> {
   const onDrop = options.onDrop ?? ignoreDrops;
 
-  // نقش tool به user تبدیل و پیام‌های هم‌نقش پشت‌سرهم ادغام می‌شوند (Anthropic نقش‌ها را یکی‌درمیان می‌خواهد).
+  // The tool role is converted to user, and consecutive same-role messages are merged (Anthropic requires alternating roles).
   const messages: { role: 'user' | 'assistant'; content: Block[] }[] = [];
   for (const message of req.messages) {
     const role = message.role === 'assistant' ? 'assistant' : 'user';
@@ -291,7 +291,7 @@ export function canonicalToAnthropicRequest(
     const last = messages.at(-1);
     if (last?.role === role) {
       if (message.role === 'tool') {
-        // tool_resultها باید اول پیام کاربر بیایند، با حفظ ترتیب خودشان.
+        // tool_results must come first in the user message, preserving their own order.
         let at = 0;
         while (last.content[at]?.type === 'tool_result') at++;
         last.content.splice(at, 0, ...blocks);
@@ -350,7 +350,7 @@ export function canonicalToAnthropicRequest(
     (req.reasoning?.effort ? BUDGET_FROM_EFFORT[req.reasoning.effort] : undefined);
   if (budget !== undefined) {
     const budgetTokens = Math.max(1_024, budget);
-    // Anthropic: budget_tokens باید کمتر از max_tokens باشد.
+    // Anthropic: budget_tokens must be less than max_tokens.
     if (maxTokens <= budgetTokens) maxTokens = budgetTokens + 1_024;
     body.thinking = { type: 'enabled', budget_tokens: budgetTokens };
   }

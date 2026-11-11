@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1.7
-# داشبورد: build استاتیک با Vite و سرو با nginx-unprivileged.
+# Dashboard: static build with Vite, served by nginx-unprivileged.
 ARG NODE_VERSION=22.17
 
 FROM node:${NODE_VERSION}-alpine AS base
@@ -23,7 +23,7 @@ RUN pnpm turbo run build --filter=@dirouter/dashboard
 FROM nginxinc/nginx-unprivileged:1.29-alpine AS runtime
 COPY deploy/docker/nginx/dashboard.conf.template /etc/nginx/templates/default.conf.template
 COPY --from=build /repo/apps/dashboard/dist /usr/share/nginx/html
-# آدرس control-api در زمان اجرا از env به /config.js تزریق می‌شود.
+# The control-api address is injected into /config.js from env at runtime.
 ENV DIROUTER_API_URL=/api
 EXPOSE 8080
 HEALTHCHECK --interval=10s --timeout=3s --retries=3 \

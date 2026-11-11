@@ -1,12 +1,12 @@
 /**
- * همگام‌سازی وضعیت سلامت بین replicaهای گیت‌وی روی Valkey pub/sub (کارت‌های ۵.۵ و ۵.۶).
+ * Health state sync between gateway replicas over Valkey pub/sub (cards 5.5 and 5.6).
  *
- * هر تغییر محلی (باز یا بسته شدن breaker، cooldown، lockout، غیرفعال شدن credential) منتشر
- * می‌شود و بقیهٔ نودها با `applyRemote` آن را اعمال می‌کنند. پس وقتی یک نود provider خراب
- * را دید، بقیه هم بی‌درنگ از آن دوری می‌کنند.
+ * Every local change (breaker opening or closing, cooldown, lockout, credential disabling) is published
+ * and the other nodes apply it with `applyRemote`. So when one node sees a provider is broken,
+ * the others immediately avoid it too.
  *
- * Valkey فقط برای هم‌خبری است، نه منبع وضعیت: اگر قطع باشد انتشار بی‌صدا رد می‌شود و هر
- * نود با breaker محلی خودش ادامه می‌دهد؛ بعد از وصل شدن دوباره، اشتراک خودکار برقرار می‌شود.
+ * Valkey is only for syncing, not the source of state: if it is down, publishing is silently skipped and each
+ * node continues with its own local breaker; after reconnecting, the subscription is restored automatically.
  */
 import type { Logger } from '@dirouter/shared';
 import type { HealthChange, HealthRegistry } from '@dirouter/routing';
@@ -37,7 +37,7 @@ export class HealthSync {
     },
   ) {}
 
-  /** از onChange رجیستری صدا زده می‌شود؛ همگام و بدون throw. */
+  /** Called from the registry's onChange; synchronous and never throws. */
   publish(change: HealthChange): void {
     this.opts.publisher
       .publish(HEALTH_CHANNEL, JSON.stringify({ from: this.opts.instance, change }))
@@ -45,7 +45,7 @@ export class HealthSync {
         this.published++;
       })
       .catch(() => {
-        // Valkey در دسترس نیست؛ breaker محلی کار خودش را می‌کند.
+        // Valkey is unavailable; the local breaker does its own job.
         this.dropped++;
       });
   }
@@ -69,7 +69,7 @@ export class HealthSync {
     try {
       await sub.subscribe(HEALTH_CHANNEL);
     } catch (error) {
-      // ioredis بعد از وصل شدن دوباره اشتراک را خودش برقرار می‌کند.
+      // ioredis re-establishes the subscription itself after reconnecting.
       this.opts.logger.warn({ err: error }, 'health sync subscribe failed; continuing locally');
     }
   }

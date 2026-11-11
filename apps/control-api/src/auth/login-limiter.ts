@@ -1,8 +1,8 @@
 /**
- * محدودیت تلاش ورود (کارت ۳.۴): ۱۰ تلاش ناموفق برای یک حساب در ۱۵ دقیقه آن را ۱۵ دقیقه
- * قفل می‌کند. سقف جدای ۱۰۰ تلاش برای هر IP جلوی password spraying روی حساب‌های مختلف را
- * می‌گیرد. شمارنده‌ها روی Valkey هستند (مشترک بین replicaها). اگر Valkey در دسترس نباشد،
- * شمارندهٔ حافظهٔ همان نود استفاده می‌شود: محافظت ضعیف‌تر می‌شود ولی از کار نمی‌افتد.
+ * Login attempt limit (card 3.4): 10 failed attempts for one account within 15 minutes locks it for 15 minutes.
+ * A separate cap of 100 attempts per IP prevents password spraying across different accounts.
+ * Counters live in Valkey (shared across replicas). If Valkey is unavailable,
+ * the node's in-memory counter is used: protection is weaker but does not fail.
  */
 import { createHash } from 'node:crypto';
 
@@ -65,7 +65,7 @@ export class LoginLimiter {
     }
   }
 
-  /** اگر قفل است، میلی‌ثانیه تا باز شدن؛ وگرنه undefined. */
+  /** If locked, milliseconds until unlock; otherwise undefined. */
   lockedFor(email: string, ip: string): Promise<number | undefined> {
     return this.#run(async (s) => {
       for (const [key, limit] of [
@@ -85,13 +85,13 @@ export class LoginLimiter {
   failure(email: string, ip: string): Promise<void> {
     return this.#run(async (s) => {
       for (const key of [accountKey(email), ipKey(ip)]) {
-        // پنجرهٔ ثابت از اولین شکست؛ قفل تا پایان همان پنجره می‌ماند.
+        // Fixed window from the first failure; the lock lasts until the end of that window.
         if ((await s.incr(key)) === 1) await s.pexpire(key, LOGIN_LIMITS.windowMs);
       }
     });
   }
 
-  /** ورود موفق شمارندهٔ حساب را صفر می‌کند (شمارندهٔ IP می‌ماند). */
+  /** A successful login resets the account counter (the IP counter remains). */
   success(email: string): Promise<void> {
     return this.#run(async (s) => {
       await s.del(accountKey(email));

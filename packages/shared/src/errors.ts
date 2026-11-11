@@ -1,6 +1,6 @@
 /**
- * کلاس‌های خطا با کد پایدار. کدها و نگاشت HTTP/OpenAI/Anthropic در
- * `@dirouter/contracts` تعریف شده‌اند؛ این‌جا فقط رفتار و تبدیل قالب است.
+ * Error classes with stable codes. The codes and the HTTP/OpenAI/Anthropic mappings are defined in
+ * `@dirouter/contracts`; this file only contains the behavior and format conversion.
  */
 import {
   ERROR_CODES,
@@ -17,14 +17,14 @@ export interface FieldError {
 }
 
 export interface DiRouterErrorOptions {
-  /** متن قابل‌نمایش برای کلاینت؛ پیش‌فرض عنوان کد. */
+  /** Message shown to the client; defaults to the code title. */
   message?: string;
   cause?: unknown;
-  /** اطلاعات اضافه برای لاگ (به کلاینت فرستاده نمی‌شود). */
+  /** Extra information for logs (not sent to the client). */
   meta?: Record<string, unknown>;
-  /** نام پارامتر مشکل‌دار (فیلد `param` در OpenAI). */
+  /** Name of the offending parameter (the `param` field in OpenAI). */
   param?: string;
-  /** وضعیت HTTP متفاوت از پیش‌فرض کد (مثلاً status واقعی upstream). */
+  /** HTTP status that differs from the code's default (e.g. the actual upstream status). */
   status?: number;
 }
 
@@ -43,7 +43,7 @@ export class DiRouterError extends Error {
     this.param = options.param;
   }
 
-  /** آیا تلاش دوباره (یا فال‌بک به provider دیگر) منطقی است؟ */
+  /** Is retrying (or falling back to another provider) reasonable? */
   get retryable(): boolean {
     return false;
   }
@@ -99,7 +99,7 @@ export class ValidationError extends DiRouterError {
 export class AuthenticationError extends DiRouterError {
   override readonly name = 'AuthenticationError';
 
-  // فقط نوع `code` را به کدهای احراز هویت محدود می‌کند.
+  // Only narrows the type of `code` to the authentication codes.
   // eslint-disable-next-line @typescript-eslint/no-useless-constructor
   constructor(
     code: Extract<
@@ -140,7 +140,7 @@ export class NotFoundError extends DiRouterError {
 
 export class RateLimitError extends DiRouterError {
   override readonly name = 'RateLimitError';
-  /** زمان پیشنهادی تا تلاش دوباره (برای هدر `Retry-After`). */
+  /** Suggested time until retry (for the `Retry-After` header). */
   readonly retryAfterMs: number | undefined;
 
   constructor(options: DiRouterErrorOptions & { retryAfterMs?: number } = {}) {
@@ -159,7 +159,7 @@ export class BudgetExceededError extends DiRouterError {
 
 export interface UpstreamErrorOptions extends DiRouterErrorOptions {
   providerId?: string;
-  /** وضعیت HTTP پاسخ provider، اگر پاسخی آمده باشد. */
+  /** HTTP status of the provider's response, if a response was received. */
   upstreamStatus?: number;
   retryable?: boolean;
 }
@@ -192,7 +192,7 @@ export function isDiRouterError(error: unknown): error is DiRouterError {
   return error instanceof DiRouterError;
 }
 
-/** هر خطای ناشناخته را به `internal_error` تبدیل می‌کند و خطای اصلی را در `cause` نگه می‌دارد. */
+/** Converts any unknown error to `internal_error` and keeps the original error in `cause`. */
 export function toDiRouterError(error: unknown): DiRouterError {
   if (isDiRouterError(error)) return error;
   return new DiRouterError('internal_error', { cause: error });

@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1.7
-# اجرای یک‌بارهٔ `prisma migrate deploy` (سرویس migrate در compose).
+# One-time run of `prisma migrate deploy` (the migrate service in compose).
 ARG NODE_VERSION=22.17
 
 FROM node:${NODE_VERSION}-alpine AS base

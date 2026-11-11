@@ -342,7 +342,7 @@ describe('golden: OpenAI request → Anthropic request', () => {
     const canonical = openAIRequestToCanonical(oaReq(input));
     const out = canonicalToAnthropicRequest(canonical, { upstreamModel: 'claude-sonnet-4-5' });
     expect(out).toMatchObject({ model: 'claude-sonnet-4-5', ...expected });
-    // خروجی باید درخواست معتبر Anthropic باشد.
+    // The output must be a valid Anthropic request.
     expect(AnthropicMessagesRequest.safeParse(out).success).toBe(true);
   });
 });

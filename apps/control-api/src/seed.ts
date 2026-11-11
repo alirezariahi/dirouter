@@ -1,9 +1,9 @@
 /**
- * داده‌های نمونهٔ توسعه (کارت ۳.۱۱): سازمان، مدیر، providerهای mock، مدل‌ها، comboها، aliasها،
- * پروژه و کلیدهای dev. idempotent است (شناسه‌های ثابت و upsert) و فقط در development اجرا
- * می‌شود. در پایان control-api را برای ساخت snapshot تازه خبر می‌کند.
+ * Development sample data (card 3.11): organization, admin, mock providers, models, combos, aliases,
+ * project, and dev keys. Idempotent (fixed IDs and upserts), and runs only in development
+ * . At the end it notifies control-api to build a fresh snapshot.
  *
- * استفاده: make seed   (در کانتینر: pnpm --filter @dirouter/control-api seed)
+ * Usage: make seed   (in the container: pnpm --filter @dirouter/control-api seed)
  */
 import { randomBytes } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
@@ -51,7 +51,7 @@ async function main() {
     update: { name: 'DiRouter Dev', deletedAt: null },
   });
 
-  // مدیر: رمز فقط وقتی کاربر تازه است ساخته و در فایل git-ignored نوشته می‌شود.
+  // Admin: the password is generated and written to a git-ignored file only when the user is new.
   let admin = await db.user.findUnique({ where: { email: ADMIN_EMAIL } });
   let password: string | undefined;
   if (!admin) {
@@ -200,7 +200,7 @@ async function main() {
 
   const aliases: [slug: string, target: { modelId?: string; comboId?: string }][] = [
     ['gpt-4.1', { comboId: 'cmb_dev' }],
-    // Claude Code فقط نام مدل‌های واقعی Claude را می‌پذیرد (کارت ۴.۹).
+    // Claude Code only accepts real Claude model names (card 4.9).
     ['claude-sonnet-4-5', { modelId: modelId('mock/claude') }],
     ['claude-haiku-4-5', { modelId: modelId('mock/tool') }],
   ];
@@ -255,7 +255,7 @@ async function main() {
     });
   }
 
-  // snapshot تازه بی‌درنگ (وگرنه ساخت دوره‌ای control-api در ۳۰ ثانیه آن را می‌گیرد).
+  // Fresh snapshot immediately (otherwise control-api's periodic build picks it up within 30 seconds).
   if (env.VALKEY_URL) {
     const redis = new Redis(env.VALKEY_URL, { maxRetriesPerRequest: 1 });
     await redis.publish(REBUILD_CHANNEL, 'seed').catch(() => undefined);

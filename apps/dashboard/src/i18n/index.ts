@@ -1,4 +1,4 @@
-/** i18n (کارت ۷.۱): فارسی پیش‌فرض و انگلیسی؛ تغییر زبان جهت صفحه را هم عوض می‌کند. */
+/** i18n (card 7.1): Persian by default and English; changing the language also changes the page direction. */
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 

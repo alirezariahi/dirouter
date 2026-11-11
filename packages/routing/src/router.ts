@@ -1,6 +1,6 @@
 /**
- * موتور مسیریابی (کارت ۵.۱): نام مدل ← alias ← combo یا مدل ← فهرست مرتب کاندیداها.
- * بدون I/O؛ index یک بار به ازای هر snapshot ساخته می‌شود.
+ * Routing engine (card 5.1): model name → alias → combo or model → ordered candidate list.
+ * No I/O; the index is built once per snapshot.
  */
 import type {
   AliasConfig,
@@ -23,20 +23,20 @@ export interface Candidate {
 }
 
 export interface ResolvedRoute {
-  /** نامی که کلاینت فرستاد. */
+  /** The name the client sent. */
   requested: string;
   kind: 'model' | 'combo';
   combo?: ComboConfig;
   candidates: Candidate[];
   fallbackOn: UpstreamErrorClass[];
-  /** هدف‌هایی که فیلتر شدند و دلیلشان (برای لاگ debug و شبیه‌ساز). */
+  /** Targets that were filtered out, and why (for debug logs and the simulator). */
   skipped: { modelId: string; credentialId?: string; reason: string }[];
 }
 
 export type RouteError = {
   error:
     'model_not_found' | 'model_not_allowed' | 'no_available_provider' | 'context_length_exceeded';
-  /** برای context_length_exceeded: توکن لازم (ورودی تخمینی + سقف خروجی). */
+  /** For context_length_exceeded: required tokens (estimated input + output cap). */
   neededTokens?: number;
   skipped: ResolvedRoute['skipped'];
 };
@@ -77,7 +77,7 @@ export class RouteIndex {
     for (const a of snapshot.aliases) org(a.organizationId).aliases.set(a.slug, a);
   }
 
-  /** نام → مدل یا combo در محدودهٔ سازمان. */
+  /** Name → model or combo within the organization's scope. */
   lookup(
     organizationId: string,
     name: string,
@@ -99,7 +99,7 @@ export class RouteIndex {
     return model ? { model } : undefined;
   }
 
-  /** نام‌های قابل‌نمایش برای /v1/models. */
+  /** Display names for /v1/models. */
   names(organizationId: string): string[] {
     const o = this.#orgs.get(organizationId);
     if (!o) return [];
@@ -112,13 +112,13 @@ export class RouteIndex {
 }
 
 export interface ResolveOptions {
-  /** تخمین توکن ورودی برای فیلتر context window. */
+  /** Estimated input tokens for the context window filter. */
   estimatedInputTokens?: number;
   maxOutputTokens?: number;
   random?: Random;
 }
 
-/** ترتیب تصادفی وزنی بدون جایگذاری. */
+/** Weighted random ordering without replacement. */
 function weightedOrder<T>(items: T[], weight: (t: T) => number, random: Random): T[] {
   const pool = items.map((item) => ({ item, w: Math.max(0, weight(item)) }));
   const out: T[] = [];
@@ -141,7 +141,7 @@ function weightedOrder<T>(items: T[], weight: (t: T) => number, random: Random):
 export class Router {
   readonly #index: RouteIndex;
   readonly #health: HealthRegistry;
-  /** شمارندهٔ round-robin به ازای (combo، کلید) — حالت sticky per key. */
+  /** Round-robin counter per (combo, key) — sticky-per-key mode. */
   readonly #rr = new Map<string, number>();
 
   constructor(index: RouteIndex, health: HealthRegistry) {
@@ -231,8 +231,8 @@ export class Router {
     }
 
     if (candidates.length === 0) {
-      // اگر هیچ مدلی به‌خاطر سلامت (breaker، cooldown) کنار نرفته و دست‌کم یکی فقط به‌خاطر
-      // context کوچک حذف شده، مشکل از درخواست است نه از providerها: 400 به‌جای 503.
+      // If no model was removed for health reasons (breaker, cooldown) and at least one was removed
+      // only because its context is too small, the problem is the request, not the providers: 400 instead of 503.
       const transient = skipped.some(
         (s) => s.credentialId !== undefined || s.reason.endsWith('circuit_open'),
       );

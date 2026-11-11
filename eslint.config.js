@@ -1,6 +1,6 @@
 import { node } from '@dirouter/eslint-config';
 
-// فقط فایل‌های ریشه؛ هر اپ و پکیج eslint.config.js خودش را دارد.
+// Root files only; each app and package has its own eslint.config.js.
 export default [
   { ignores: ['apps/**', 'packages/**'] },
   ...node,

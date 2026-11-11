@@ -1,14 +1,14 @@
--- پارتیشن‌بندی ماهانهٔ request_log (کارت ۳.۲).
+-- Monthly partitioning of request_log (card 3.2).
 --
--- پارتیشن‌ها در schema جدای «partitions» ساخته می‌شوند تا Prisma (که فقط
--- schema «public» را مدیریت می‌کند) آن‌ها را drift تشخیص ندهد.
--- worker هر ساعت dirouter_ensure_request_log_partitions(3) را صدا می‌زند تا
--- همیشه پارتیشن ماه جاری و سه ماه بعد وجود داشته باشد، و
--- dirouter_drop_request_log_partitions(<retention>) پارتیشن‌های قدیمی را حذف می‌کند.
+-- Partitions are created in a separate "partitions" schema so that Prisma (which only
+-- manages the "public" schema) does not detect them as drift.
+-- The worker calls dirouter_ensure_request_log_partitions(3) every hour so that
+-- the current month's partition and the next three months' partitions always exist, and
+-- dirouter_drop_request_log_partitions(<retention>) removes old partitions.
 
 CREATE SCHEMA IF NOT EXISTS "partitions";
 
--- پارتیشن پیش‌فرض: اگر به هر دلیل پارتیشن ماه وجود نداشت، insert شکست نمی‌خورد.
+-- Default partition: if the month's partition is missing for any reason, the insert does not fail.
 CREATE TABLE IF NOT EXISTS "partitions"."request_log_default"
   PARTITION OF "request_log" DEFAULT;
 
@@ -39,8 +39,8 @@ BEGIN
 END;
 $$;
 
--- حذف پارتیشن‌های کامل‌تر از retain_months ماه (ماه جاری حساب نمی‌شود). retention
--- لاگ خام است؛ جداول تجمیعی و ledger حذف نمی‌شوند.
+-- Drops partitions older than retain_months months (the current month is not counted). Retention
+-- applies to the raw log; rollup tables and the ledger are not deleted.
 CREATE OR REPLACE FUNCTION dirouter_drop_request_log_partitions(retain_months integer)
 RETURNS integer
 LANGUAGE plpgsql

@@ -1,11 +1,11 @@
 /**
- * ساخت و انتشار Config Snapshot (کارت ۳.۹).
+ * Building and publishing the Config Snapshot (card 3.9).
  *
- * - snapshot کل پیکربندی همهٔ سازمان‌ها برای گیت‌وی: providerها با secret **رمزشده**، مدل‌ها،
- *   aliasها، comboها، کلیدها (فقط hash)، محدودیت‌ها و بودجه‌ها. هیچ secret بازی در آن نیست.
- * - بعد از هر تغییر مؤثر (debounce کوتاه) دوباره ساخته می‌شود؛ اگر checksum عوض شده باشد نسخهٔ
- *   تازه با شمارهٔ افزایشی در config_versions ذخیره و `dirouter:config:updated` روی Valkey
- *   منتشر می‌شود. گیت‌وی با دریافت پیام بی‌درنگ (و هر ۲ ثانیه با ETag) نسخه را می‌گیرد.
+ * - Snapshot of the full configuration of all organizations for the gateway: providers with **encrypted** secrets, models,
+ *   aliases, combos, keys (hash only), limits, and budgets. It contains no plaintext secrets.
+ * - After each effective change (short debounce) it is rebuilt; if the checksum changed, a new version
+ *   is stored in config_versions with an incrementing number and `dirouter:config:updated` is published on Valkey
+ *   The gateway fetches the version upon receiving the message immediately (and every 2 seconds with an ETag).
  */
 import { createHash } from 'node:crypto';
 
@@ -47,7 +47,7 @@ const usd = (d: Prisma.Decimal | null | undefined) =>
 
 type Content = Omit<ConfigSnapshotInput, 'version' | 'generatedAt' | 'checksum'>;
 
-/** کلیدها مرتب می‌شوند تا checksum فقط با تغییر واقعی عوض شود. */
+/** Keys are sorted so the checksum only changes on a real change. */
 function stable(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(stable);
   if (value && typeof value === 'object' && !(value instanceof Date))
@@ -74,11 +74,11 @@ export class SnapshotService implements OnModuleInit, OnModuleDestroy {
   ) {}
 
   async onModuleInit() {
-    // اولین نسخه یا هم‌گام شدن با تغییراتی که هنگام خاموشی رخ داده‌اند.
+    // The first version, or syncing with changes that happened during shutdown.
     await this.rebuild('startup').catch((error: unknown) => {
       this.logger.error({ err: error }, 'initial config snapshot failed');
     });
-    // تور ایمنی: تغییر مستقیم DB (seed، ابزار) و انقضای کلیدها؛ بدون تغییر نسخه‌ای ساخته نمی‌شود.
+    // Safety net: direct DB changes (seed, tools) and key expiry; no version is built without a change.
     this.#periodic = setInterval(() => {
       this.schedule('periodic', 0);
     }, PERIODIC_MS);
@@ -100,7 +100,7 @@ export class SnapshotService implements OnModuleInit, OnModuleDestroy {
     this.#sub?.disconnect();
   }
 
-  /** چند تغییر پشت سر هم یک نسخه می‌سازند. */
+  /** Several consecutive changes produce one version. */
   schedule(reason: string, delayMs = 50): void {
     if (this.#timer) clearTimeout(this.#timer);
     this.#timer = setTimeout(() => {
@@ -128,7 +128,7 @@ export class SnapshotService implements OnModuleInit, OnModuleDestroy {
           orderBy: { id: 'asc' },
         }),
         db.modelAlias.findMany({ orderBy: { id: 'asc' } }),
-        // کلیدهای ابطال‌شده یا منقضی‌شده دیگر لازم نیستند؛ نبودنشان یعنی رد.
+        // Revoked or expired keys are no longer needed; their absence means rejected.
         db.apiKey.findMany({
           where: { status: 'ACTIVE', OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] },
           orderBy: { id: 'asc' },
@@ -259,7 +259,7 @@ export class SnapshotService implements OnModuleInit, OnModuleDestroy {
             ...rateLimit(p),
             budgets: budgetsFor(p.scope, p.scopeId),
           })),
-        // بودجهٔ پروژه یا تیم بدون rate limit هم باید برسد.
+        // A project or team budget without a rate limit must also be included.
         ...[
           ...new Set(
             budgets
@@ -282,7 +282,7 @@ export class SnapshotService implements OnModuleInit, OnModuleDestroy {
     };
   }
 
-  /** نسخهٔ تازه فقط اگر محتوا عوض شده باشد؛ برمی‌گرداند شمارهٔ نسخهٔ فعلی. */
+  /** A new version only if the content changed; returns the current version number. */
   rebuild(reason: string): Promise<number> {
     const run = this.#running.then(() => this.#rebuild(reason));
     this.#running = run.catch(() => undefined);
@@ -294,7 +294,7 @@ export class SnapshotService implements OnModuleInit, OnModuleDestroy {
     const checksum = createHash('sha256').update(JSON.stringify(content)).digest('hex');
     const db = this.prisma.client;
     const result = await db.$transaction(async (tx) => {
-      // چند replica از control-api: فقط یکی در هر لحظه نسخه می‌سازد.
+      // Multiple control-api replicas: only one builds a version at any moment.
       await tx.$queryRaw`SELECT 1 AS locked FROM pg_advisory_xact_lock(${LOCK})`;
       const latest = await tx.configVersion.findFirst({ orderBy: { version: 'desc' } });
       if (latest?.checksum === checksum) return { version: latest.version, created: false };
@@ -321,7 +321,7 @@ export class SnapshotService implements OnModuleInit, OnModuleDestroy {
       await this.valkey.client
         .publish(CONFIG_CHANNEL, String(result.version))
         .catch((error: unknown) => {
-          // گیت‌وی در هر صورت با poll دوره‌ای (۲ ثانیه) نسخه را می‌گیرد.
+          // The gateway always fetches the version via periodic polling (every 2 seconds).
           this.logger.warn({ err: error }, 'config:updated publish failed');
         });
     }

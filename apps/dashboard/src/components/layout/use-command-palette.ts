@@ -1,4 +1,4 @@
-/** کلید ⌘K / Ctrl+K؛ جدا از خود palette تا cmdk فقط با اولین باز شدن بارگذاری شود. */
+/** ⌘K / Ctrl+K shortcut; kept apart from the palette so cmdk loads only on first open. */
 import { useEffect, useState } from 'react';
 
 export function useCommandPalette() {

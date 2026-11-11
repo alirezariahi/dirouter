@@ -1,8 +1,8 @@
 /**
- * ترجمهٔ stream: chunkهای provider → رویدادهای canonical → رویدادهای API کلاینت.
+ * Stream translation: provider chunks → canonical events → client API events.
  *
- * هر مبدل stateful است ولی حافظه‌اش با طول stream رشد نمی‌کند (فقط شاخص‌ها و
- * وضعیت بلوک باز نگه داشته می‌شود، نه متن).
+ * Each converter is stateful, but its memory does not grow with the stream length (only indexes and
+ * open block state are kept, not text).
  */
 import type {
   AnthropicStreamEvent,
@@ -34,7 +34,7 @@ export class OpenAIStreamDecoder {
   #nextIndex = 0;
   #textIndex: number | undefined;
   #reasoningIndex: number | undefined;
-  /** شاخص tool call در OpenAI → شاخص بلوک canonical */
+  /** OpenAI tool call index → canonical block index */
   readonly #tools = new Map<number, number>();
   #open = new Set<number>();
   #finished = false;
@@ -157,7 +157,7 @@ export class AnthropicStreamDecoder {
         return [{ type: 'content_end', index: event.index }];
       case 'message_delta': {
         const u = event.usage;
-        // بعضی providerها usage کامل را در message_delta می‌دهند.
+        // Some providers send full usage in message_delta.
         if (u.input_tokens !== null && u.input_tokens !== undefined)
           this.#inputRaw = u.input_tokens;
         const cacheRead = u.cache_read_input_tokens ?? this.#usage.cacheReadTokens;
@@ -202,7 +202,7 @@ const ANTHROPIC_ERROR_TYPES = new Set([
   'overloaded_error',
 ]);
 
-/** کد خطای canonical (کلاس DiRouter یا نوع upstream) → نوع استاندارد خطای Anthropic. */
+/** Canonical error code (DiRouter class or upstream type) → standard Anthropic error type. */
 export function anthropicErrorType(code: string): string {
   if (ANTHROPIC_ERROR_TYPES.has(code)) return code;
   if (/overload/i.test(code)) return 'overloaded_error';
@@ -212,13 +212,13 @@ export function anthropicErrorType(code: string): string {
 }
 
 export interface StreamEncoderOptions {
-  /** نام مدلی که کلاینت فرستاده (در پاسخ همان برمی‌گردد). */
+  /** The model name the client sent (returned as-is in the response). */
   model: string;
 }
 
 /**
- * canonical → chunkهای OpenAI. `includeUsage` همان `stream_options.include_usage`
- * کلاینت است؛ usage همیشه از upstream گرفته می‌شود ولی فقط در صورت درخواست ارسال می‌شود.
+ * canonical → OpenAI chunks. `includeUsage` is the client's `stream_options.include_usage`;
+ * usage is always taken from upstream but is only sent when requested.
  */
 export class OpenAIStreamEncoder {
   readonly #model: string;
@@ -239,7 +239,7 @@ export class OpenAIStreamEncoder {
     return this.#usage;
   }
 
-  /** رویداد canonical → متن SSE (ممکن است خالی باشد). */
+  /** Canonical event → SSE text (may be empty). */
   push(event: CanonicalStreamEvent): string {
     switch (event.type) {
       case 'start':
@@ -291,7 +291,7 @@ export class OpenAIStreamEncoder {
     }
   }
 
-  /** پایان stream: usage (در صورت درخواست) و `[DONE]`. */
+  /** End of stream: usage (if requested) and `[DONE]`. */
   end(): string {
     let out = '';
     if (!this.#finished) out += this.push({ type: 'finish', finishReason: 'stop' });
@@ -340,7 +340,7 @@ export class AnthropicStreamEncoder {
   #started = false;
   #nextIndex = 0;
   #open: OpenBlock | undefined;
-  /** بلوک‌های canonical که بسته شدند؛ deltaهای دیررس آن‌ها نادیده گرفته می‌شوند. */
+  /** Canonical blocks that have been closed; late deltas for them are ignored. */
   readonly #closed = new Set<number>();
   #usage: CanonicalUsage | undefined;
   #finish: CanonicalFinishReason | undefined;
@@ -405,7 +405,7 @@ export class AnthropicStreamEncoder {
     }
   }
 
-  /** پایان stream: بستن بلوک باز، message_delta با usage نهایی و message_stop. */
+  /** End of stream: close the open block, then message_delta with final usage and message_stop. */
   end(): string {
     let out = this.#ensureStarted() + this.#closeOpen();
     const usage = canonicalUsageToAnthropic(this.#usage ?? emptyUsage());
@@ -418,7 +418,7 @@ export class AnthropicStreamEncoder {
     return out;
   }
 
-  /** رویداد ping دوره‌ای Anthropic. */
+  /** Periodic Anthropic ping event. */
   ping(): string {
     return this.#event('ping', { type: 'ping' });
   }
@@ -436,7 +436,7 @@ export class AnthropicStreamEncoder {
         content: [],
         stop_reason: null,
         stop_sequence: null,
-        // usage ورودی در OpenAI تا آخر stream معلوم نیست؛ مقدار نهایی در message_delta می‌آید.
+        // OpenAI's input usage is not known until the end of the stream; the final value comes in message_delta.
         usage: { input_tokens: 0, output_tokens: 0 },
       },
     });

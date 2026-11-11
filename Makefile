@@ -1,10 +1,10 @@
-# دستورهای عملیاتی DiRouter. فهرست: make help
+# DiRouter operational commands. List: make help
 SHELL := /bin/sh
 .DEFAULT_GOAL := help
 
 DEV  := docker compose -f compose.yaml -f compose.dev.yaml
 PROD := docker compose -f compose.yaml -f compose.prod.yaml
-# متغیرهای .env برای دستورهای میزبان (prisma، اسکریپت‌ها)
+# .env variables for host commands (prisma, scripts)
 ENV  := set -a && . ./.env && set +a &&
 
 .PHONY: help bootstrap up down restart logs ps migrate seed dev-snapshot test e2e lint build push \

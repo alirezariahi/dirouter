@@ -1,10 +1,10 @@
 /**
- * نوشتن دسته‌ای رویدادهای مصرف در request_log و usage_ledger (کارت ۶.۴).
+ * Batch-writes usage events to request_log and usage_ledger (card 6.4).
  *
- * هر job صف یک رویداد است؛ writer آن‌ها را جمع می‌کند و با createMany و
- * skipDuplicates (ON CONFLICT DO NOTHING) می‌نویسد. promise هر job بعد از commit
- * دسته resolve می‌شود، پس BullMQ فقط رویداد نوشته‌شده را complete می‌کند.
- * اگر دسته شکست بخورد، رویدادها تک‌تک نوشته می‌شوند تا رویداد خراب بقیه را نگه ندارد.
+ * Each queue job is one event; the writer collects them and writes with createMany and
+ * skipDuplicates (ON CONFLICT DO NOTHING) . Each job's promise resolves after the commit
+ * of its batch, so BullMQ only completes events that were written.
+ * If a batch fails, events are written one by one so a bad event does not hold back the rest.
  */
 import type { UsageEvent } from '@dirouter/contracts';
 import type { Logger } from '@dirouter/shared';
@@ -20,7 +20,7 @@ export interface WriterOptions {
   logger: Logger;
   batchSize: number;
   flushMs: number;
-  /** بعد از هر commit با ساعت‌های تغییرکرده (ISO، ابتدای ساعت UTC) صدا زده می‌شود. */
+  /** Called after each commit with the changed hours (ISO, start of the UTC hour). */
   onWritten?: (hours: Set<string>, count: number) => Promise<void> | void;
 }
 
@@ -107,7 +107,7 @@ export class UsageBatchWriter {
     });
   }
 
-  /** نوشتن همهٔ بافر و انتظار برای دسته‌های در حال نوشتن (برای shutdown). */
+  /** Flushes the entire buffer and waits for in-progress batches (for shutdown). */
   async drain(): Promise<void> {
     this.#flushNow();
     await Promise.allSettled([...this.#inflight]);
@@ -164,7 +164,7 @@ export class UsageBatchWriter {
         done.length,
       );
     } catch (error) {
-      // علامت rollup از دست برود، rollup دوره‌ای ساعت جاری و قبلی را هم حساب می‌کند.
+      // if the rollup mark is lost, the periodic rollup also recomputes the current and previous hour.
       this.#opts.logger.warn({ err: error }, 'failed to mark rollup hours');
     }
     for (const p of done) p.resolve();

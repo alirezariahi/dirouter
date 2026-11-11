@@ -1,2 +1,2 @@
-// کامپوننت‌های مشترک React در کارت ۷.۱ اضافه می‌شود.
+// Shared React components will be added in card 7.1.
 export const UI_PACKAGE = '@dirouter/ui' as const;

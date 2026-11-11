@@ -356,8 +356,8 @@ describe('router: filters', () => {
     const start = performance.now();
     for (let i = 0; i < n; i++) router.resolve(k, 'ten');
     const perCallUs = ((performance.now() - start) * 1000) / n;
-    // معیار کارت ۵.۱ (کمتر از ۵۰µs) روی ماشین توسعه اندازه گرفته می‌شود؛ runnerهای مشترک CI
-    // کندتر و پرنوسان‌اند، پس آن‌جا فقط جلوی پسرفت جدی (۴ برابر) را می‌گیرد.
+    // The card 5.1 target (under 50µs) is measured on the dev machine; shared CI runners
+    // are slower and noisier, so there it only guards against a serious regression (4x).
     expect(perCallUs).toBeLessThan(process.env.CI ? 200 : 50);
   });
 });
@@ -370,7 +370,7 @@ describe('circuit breaker', () => {
     const b = new CircuitBreaker(DEFAULT_BREAKER, clock.now);
     for (let i = 0; i < 5; i++) b.record(true);
     for (let i = 0; i < 4; i++) b.record(false);
-    expect(b.state).toBe('closed'); // ۹ درخواست، کمتر از حداقل حجم
+    expect(b.state).toBe('closed'); // 9 requests, below the minimum volume
     b.record(false);
     expect(b.state).toBe('open');
     expect(b.allow()).toBe(false);
@@ -379,7 +379,7 @@ describe('circuit breaker', () => {
     expect(b.state).toBe('half_open');
     expect(b.allow()).toBe(true);
     b.begin();
-    expect(b.allow()).toBe(false); // فقط یک probe
+    expect(b.allow()).toBe(false); // only one probe
     b.record(true);
     b.begin();
     b.record(true);
@@ -612,7 +612,7 @@ describe('executor: retry and fallback', () => {
         { budget },
       );
     }
-    // بدون budget هر درخواست ۲ تلاش × ۳ provider = ۶ می‌شد (۶۰۰)؛ با budget حدود ۱۰۰ + ۱۰ + ۵.
+    // Without a budget, each request would make 2 attempts × 3 providers = 6 (600); with the budget, about 100 + 10 + 5.
     expect(calls).toBeLessThanOrEqual(120);
     expect(calls).toBeGreaterThanOrEqual(100);
   });
@@ -695,7 +695,7 @@ describe('manual reset (card 7.8)', () => {
   });
 });
 
-// ───────────── bulkhead (کارت ۵.۷) ─────────────
+// ───────────── bulkhead (card 5.7) ─────────────
 
 describe('bulkhead', () => {
   it('grants up to the limit, queues briefly, then rejects', async () => {
@@ -706,20 +706,20 @@ describe('bulkhead', () => {
     expect(b.active).toBe(2);
     const waiting = b.acquire();
     expect(b.queued).toBe(1);
-    // صف پر: فوراً رد
+    // Queue full: rejected immediately
     expect(await b.acquire()).toBeUndefined();
     r1?.();
     const r3 = await waiting;
     expect(r3).toBeTypeOf('function');
     expect(b.active).toBe(2);
-    // timeout در صف
+    // Timeout in queue
     const started = Date.now();
     expect(await b.acquire()).toBeUndefined();
     expect(Date.now() - started).toBeGreaterThanOrEqual(45);
     expect(b.queued).toBe(0);
     r2?.();
     r3?.();
-    r3?.(); // release دوم بی‌اثر است
+    r3?.(); // second release has no effect
     expect(b.active).toBe(0);
   });
 
@@ -742,7 +742,7 @@ describe('bulkhead', () => {
     const waiting = b?.acquire();
     expect(reg.get('provider:a', 1)).toBe(b);
     expect(reg.snapshot()).toEqual([{ name: 'provider:a', active: 1, queued: 1, limit: 1 }]);
-    // سقف بالا رفت → منتظر راه می‌افتد
+    // Cap raised → the waiter starts
     reg.get('provider:a', 2);
     const second = await waiting;
     expect(b?.active).toBe(2);
@@ -779,7 +779,7 @@ describe('executor: admission (bulkhead)', () => {
       'skipped',
     ]);
     expect(released).toEqual(['b']);
-    // رد محلی نه breaker را باز می‌کند نه credential را در cooldown می‌برد.
+    // A local rejection neither opens the breaker nor puts the credential into cooldown.
     expect(health.providerBreaker('a').state).toBe('closed');
     expect(health.credentialAvailable('a-k1', route.candidates[0]?.model.id ?? '')).toBe(true);
   });

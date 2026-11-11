@@ -1,6 +1,6 @@
 /**
- * ویزارد راه‌اندازی (کارت ۷.۲): ۱) سازمان و مالک ۲) اولین provider (اختیاری) ۳) اولین کلید
- * مجازی. هدف: از نصب تا اولین کلید کمتر از ۳ دقیقه.
+ * Setup wizard (card 7.2): 1) organization and owner 2) first provider (optional) 3) first key
+ * virtual. Goal: under 3 minutes from install to first key.
  */
 import { useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';

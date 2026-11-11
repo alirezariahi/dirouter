@@ -1,7 +1,7 @@
 /**
- * متریک‌های مسیر داغ (کارت ۸.۱). همهٔ زمان‌ها بر حسب ثانیه‌اند (قرارداد Prometheus).
- * labelها فقط provider/model پایدار و مقادیر enum هستند؛ request id، کاربر، کلید،
- * سازمان، credential و خطای متنی هرگز label نمی‌شوند.
+ * Hot-path metrics (card 8.1). All times are in seconds (Prometheus convention).
+ * Labels are only stable provider/model and enum values; request id, user, key,
+ * organization, credential and text errors are never used as labels.
  */
 import type { UsageEvent } from '@dirouter/contracts';
 import {
@@ -87,7 +87,7 @@ export function createGatewayMetrics(options: GatewayMetricOptions) {
       try {
         this.set(await options.outbox.size());
       } catch {
-        // Scrape نباید به‌خاطر outbox کثیف یا Valkey قطع شکست بخورد؛ مقدار قبلی می‌ماند.
+        // A scrape must not fail because of a dirty outbox or Valkey being down; the previous value stays.
       }
     },
   });
