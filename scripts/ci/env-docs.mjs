@@ -4,7 +4,6 @@ import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
-const projectRoot = resolve(root, '..');
 const excludedDirectories = new Set(['.git', 'node_modules', 'dist', '.turbo', 'generated']);
 const sourceExtensions = new Set([
   '.ts',
@@ -52,17 +51,19 @@ export function discoverEnvironment(rootDirectory = root) {
     if (!sourceExtensions.has(extension) && !/^compose(?:\.[\w-]+)?\.ya?ml$/.test(file)) continue;
     const source = readFileSync(path, 'utf8');
 
-    for (const match of source.matchAll(
-      /(?:process|Bun)\.env(?:\s*\[\s*['"]([A-Z][A-Z0-9_]*)['"]\s*\]|\.([A-Z][A-Z0-9_]*))/g,
-    )) {
-      // This TSX file contains a Python usage example, not an actual Node environment read.
-      if (
-        file.includes('apps/website/src/components/Integration.tsx') &&
-        match[2] === 'DIROUTER_API_KEY'
-      ) {
-        continue;
+    if (!file.endsWith('.md')) {
+      for (const match of source.matchAll(
+        /(?:process|Bun)\.env(?:\s*\[\s*['"]([A-Z][A-Z0-9_]*)['"]\s*\]|\.([A-Z][A-Z0-9_]*))/g,
+      )) {
+        // This TSX file contains a Python usage example, not an actual Node environment read.
+        if (
+          file.includes('apps/website/src/components/Integration.tsx') &&
+          match[2] === 'DIROUTER_API_KEY'
+        ) {
+          continue;
+        }
+        add(discovered, match[1] ?? match[2], file, 'direct read');
       }
-      add(discovered, match[1] ?? match[2], file, 'direct read');
     }
     for (const match of source.matchAll(/import\.meta\.env\.([A-Z][A-Z0-9_]*)/g)) {
       add(discovered, match[1], file, 'Vite read');
@@ -132,7 +133,7 @@ export function documentedVariables(document) {
 
 export function check({
   rootDirectory = root,
-  referencePath = join(projectRoot, 'docs/env-reference.md'),
+  referencePath = join(root, 'docs/env-reference.md'),
 } = {}) {
   const discovered = discoverEnvironment(rootDirectory);
   const documented = documentedVariables(readFileSync(referencePath, 'utf8'));
