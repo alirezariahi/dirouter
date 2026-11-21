@@ -4,3 +4,5 @@ export * from './anthropic.js';
 export * from './gemini.js';
 export * from './sse.js';
 export * from './stream.js';
+export * from './gemini-inbound.js';
+export * from './responses.js';

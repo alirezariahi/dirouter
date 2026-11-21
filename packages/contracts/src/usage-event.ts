@@ -9,6 +9,10 @@ import { IsoDateTime, NonNegativeInt, Ulid, UsdAmount } from './common.js';
 
 export const USAGE_EVENT_SCHEMA_VERSION = 1 as const;
 
+/** Inbound APIs that produce usage events (card 11.x adds Responses, Gemini and embeddings). */
+export const UsageInboundApi = InboundApi;
+export type UsageInboundApi = z.infer<typeof UsageInboundApi>;
+
 export const AttemptOutcome = z.enum([
   'success',
   'error',
@@ -49,7 +53,7 @@ export const UsageEvent = z.object({
   virtualKeyId: z.string(),
   endUser: z.string().optional(),
 
-  inboundApi: InboundApi,
+  inboundApi: UsageInboundApi,
   requestedModel: z.string(),
   /** Model, provider, and credential of the final attempt (successful or last failed). */
   resolvedModelId: z.string().nullable(),
@@ -66,6 +70,13 @@ export const UsageEvent = z.object({
   costUsd: UsdAmount,
   /** true when tokens are estimated (the provider did not return usage). */
   usageEstimated: z.boolean().default(false),
+  /** Served from the exact or semantic response cache (cards 13.1 and 13.2). */
+  cacheHit: z.boolean().optional(),
+  cacheKind: z.enum(['exact', 'semantic']).optional(),
+  /** Estimated input tokens removed by context compression (card 13.3). */
+  savedInputTokens: NonNegativeInt.optional(),
+  /** Additional upstream attempts started by request hedging (card 12.2). */
+  hedgeAttempts: NonNegativeInt.optional(),
 
   latencyMs: NonNegativeInt,
   ttftMs: NonNegativeInt.optional(),

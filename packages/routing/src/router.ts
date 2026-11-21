@@ -15,6 +15,7 @@ import type {
 import { DEFAULT_FALLBACK_ON } from '@dirouter/contracts';
 
 import type { HealthRegistry } from './health.js';
+import { estimateMicroUsd, headroom, RouterStats } from './stats.js';
 
 export interface Candidate {
   model: ModelConfig;
@@ -116,6 +117,21 @@ export interface ResolveOptions {
   estimatedInputTokens?: number;
   maxOutputTokens?: number;
   random?: Random;
+  /** Sticky-session identity (card 12.4); usually `key.id` + the client session header. */
+  sessionKey?: string;
+  /** Stable hash of the prompt prefix; a fallback session identity for sticky combos. */
+  promptPrefixHash?: string;
+  /** Power-of-two-choices latency selection (card 12.1): samples two candidates, keeps the faster. */
+  p2c?: boolean;
+  /** Prefer the last successful target of this combo (last-known-good). */
+  preferLastKnownGood?: boolean;
+}
+
+export interface RouterOptions {
+  stats?: RouterStats;
+  /** Sticky-session lifetime; 0 disables affinity. */
+  affinityTtlMs?: number;
+  now?: () => number;
 }
 
 /** Weighted random ordering without replacement. */
@@ -141,12 +157,23 @@ function weightedOrder<T>(items: T[], weight: (t: T) => number, random: Random):
 export class Router {
   readonly #index: RouteIndex;
   readonly #health: HealthRegistry;
+  readonly stats: RouterStats;
+  readonly #affinityTtlMs: number;
+  readonly #now: () => number;
   /** Round-robin counter per (combo, key) — sticky-per-key mode. */
   readonly #rr = new Map<string, number>();
+  /** Sticky session → target, for combos with `sticky: true` (card 12.4). */
+  readonly #affinity = new Map<
+    string,
+    { modelId: string; credentialId?: string; expires: number }
+  >();
 
-  constructor(index: RouteIndex, health: HealthRegistry) {
+  constructor(index: RouteIndex, health: HealthRegistry, options: RouterOptions = {}) {
     this.#index = index;
     this.#health = health;
+    this.stats = options.stats ?? new RouterStats();
+    this.#affinityTtlMs = options.affinityTtlMs ?? 3_600_000;
+    this.#now = options.now ?? Date.now;
   }
 
   get index(): RouteIndex {
@@ -166,6 +193,7 @@ export class Router {
     const found = this.#index.lookup(key.organizationId, requested);
     if (!found) return { error: 'model_not_found', skipped };
 
+    const needed = (options.estimatedInputTokens ?? 0) + (options.maxOutputTokens ?? 0);
     let models: ModelConfig[];
     let combo: ComboConfig | undefined;
     if ('model' in found) {
@@ -186,12 +214,40 @@ export class Router {
         this.#rr.set(rrKey, n + 1);
         const start = byOrder.length ? n % byOrder.length : 0;
         models = [...byOrder.slice(start), ...byOrder.slice(0, start)].map((x) => x.model);
+      } else if (c.strategy === 'latency') {
+        if (options.p2c) {
+          // P2C: two samples, keep the faster; the rest follow by PeakEWMA.
+          const scored = byOrder.map((x) => x.model);
+          const winner = this.#pickP2c(scored, random);
+          const rest = scored.filter((m) => m.id !== winner?.id);
+          models = winner ? [winner, ...orderBy(rest, (m) => latencyKey(this.stats, m.id))] : [];
+        } else {
+          models = orderBy(
+            byOrder.map((x) => x.model),
+            (m) => latencyKey(this.stats, m.id),
+          );
+        }
+      } else if (c.strategy === 'cost') {
+        models = orderBy(
+          byOrder.map((x) => x.model),
+          (m) =>
+            estimateMicroUsd(m, options.estimatedInputTokens ?? 0, options.maxOutputTokens ?? 0),
+        );
+      } else if (c.strategy === 'least-used') {
+        models = orderBy(
+          byOrder.map((x) => x.model),
+          (m) => this.stats.recentRequests(m.id) + this.stats.inFlight(m.id),
+        );
+      } else if (c.strategy === 'headroom') {
+        models = orderBy(
+          byOrder.map((x) => x.model),
+          (m) => -headroom(m, needed),
+        );
       } else {
         models = byOrder.map((x) => x.model);
       }
     }
 
-    const needed = (options.estimatedInputTokens ?? 0) + (options.maxOutputTokens ?? 0);
     const candidates: Candidate[] = [];
     for (const model of models) {
       const provider = this.#index.providersById.get(model.providerId);
@@ -230,6 +286,41 @@ export class Router {
         candidates.push({ model, provider, credential });
     }
 
+    // Sticky sessions (card 12.4): when the combo asks for affinity, a session keeps its target
+    // (model and preferably credential) for the TTL as long as it is healthy. An explicit session
+    // header or a stable prompt-prefix hash both work.
+    const affinityKey =
+      options.sessionKey ?? (options.promptPrefixHash ? options.promptPrefixHash : undefined);
+    if (combo?.sticky && affinityKey && this.#affinityTtlMs > 0) {
+      const affinityId = `${combo.id}:${affinityKey}`;
+      const pinned = this.#affinity.get(affinityId);
+      if (pinned && pinned.expires > this.#now()) {
+        let at = candidates.findIndex(
+          (c) =>
+            c.model.id === pinned.modelId &&
+            (pinned.credentialId === undefined || c.credential.id === pinned.credentialId),
+        );
+        // The pinned credential is cooling down: stay on the same model with another credential
+        // rather than losing the model affinity as well.
+        if (at < 0) at = candidates.findIndex((c) => c.model.id === pinned.modelId);
+        if (at > 0) candidates.unshift(...candidates.splice(at, 1));
+      } else if (pinned) this.#affinity.delete(affinityId);
+    }
+
+    // Last-known-good: after failures, prefer the target that most recently succeeded.
+    if (combo && options.preferLastKnownGood && candidates.length > 1) {
+      let bestAt = -1;
+      let bestIndex = -1;
+      candidates.forEach((c, index) => {
+        const at = this.stats.lastSuccessAt(c.model.id) ?? -1;
+        if (at > bestAt) {
+          bestAt = at;
+          bestIndex = index;
+        }
+      });
+      if (bestIndex > 0) candidates.unshift(...candidates.splice(bestIndex, 1));
+    }
+
     if (candidates.length === 0) {
       // If no model was removed for health reasons (breaker, cooldown) and at least one was removed
       // only because its context is too small, the problem is the request, not the providers: 400 instead of 503.
@@ -249,6 +340,76 @@ export class Router {
       skipped,
     };
   }
+  /** Remember the successful target of a sticky session; called by the gateway after a success. */
+  pinSession(comboId: string, sessionKey: string, modelId: string, credentialId?: string): void {
+    if (this.#affinityTtlMs <= 0) return;
+    // Prompt-prefix keys are unbounded in number: drop expired pins once the map grows, and the
+    // oldest ones if that is not enough (a Map iterates in insertion order).
+    if (this.#affinity.size >= 50_000) {
+      const now = this.#now();
+      for (const [id, entry] of this.#affinity) if (entry.expires <= now) this.#affinity.delete(id);
+      for (const id of this.#affinity.keys()) {
+        if (this.#affinity.size < 45_000) break;
+        this.#affinity.delete(id);
+      }
+    }
+    // Re-inserting moves an active session to the young end of the map.
+    this.#affinity.delete(`${comboId}:${sessionKey}`);
+    this.#affinity.set(`${comboId}:${sessionKey}`, {
+      modelId,
+      ...(credentialId ? { credentialId } : {}),
+      expires: this.#now() + this.#affinityTtlMs,
+    });
+  }
+
+  /** Current sticky target of a session (for debug/health). */
+  sessionModel(comboId: string, sessionKey: string): string | undefined {
+    const entry = this.#affinity.get(`${comboId}:${sessionKey}`);
+    if (!entry) return undefined;
+    if (entry.expires <= this.#now()) {
+      this.#affinity.delete(`${comboId}:${sessionKey}`);
+      return undefined;
+    }
+    return entry.modelId;
+  }
+
+  /** Sticky credential, so provider prompt caches stay warm (card 12.4). */
+  sessionCredential(comboId: string, sessionKey: string): string | undefined {
+    return this.#affinity.get(`${comboId}:${sessionKey}`)?.credentialId;
+  }
+
+  /** Power-of-two-choices helper; exported for tests and the dry-run simulator. */
+  #pickP2c(models: ModelConfig[], random: Random): ModelConfig | undefined {
+    if (models.length <= 2) return orderBy(models, (m) => latencyKey(this.stats, m.id))[0];
+    const first = Math.floor(random() * models.length) % models.length;
+    let second = Math.floor(random() * models.length) % models.length;
+    if (second === first) second = (first + 1) % models.length;
+    const a = models[first];
+    const b = models[second];
+    if (!a || !b) return undefined;
+    const score = (m: ModelConfig) =>
+      (this.stats.peakLatency(m.id) ?? Number.POSITIVE_INFINITY) * (1 + this.stats.inFlight(m.id));
+    return score(a) <= score(b) ? a : b;
+  }
+
+  /** Dry-run view of routing for the simulator (card 12.5). */
+  simulate(
+    key: VirtualKeyConfig,
+    requested: string,
+    options: ResolveOptions = {},
+  ): ResolvedRoute | RouteError {
+    return this.resolve(key, requested, options);
+  }
+}
+
+function orderBy<T>(items: T[], key: (item: T) => number): T[] {
+  return [...items].sort((a, b) => key(a) - key(b));
+}
+
+/** Unknown models sort last; in-flight pressure raises the score. */
+function latencyKey(stats: RouterStats, modelId: string): number {
+  const base = stats.peakLatency(modelId) ?? Number.POSITIVE_INFINITY;
+  return base * (1 + stats.inFlight(modelId));
 }
 
 export function isRouteError(r: ResolvedRoute | RouteError): r is RouteError {

@@ -46,6 +46,33 @@ export const PRESETS: Record<string, Preset> = {
     baseUrl: 'https://api.mistral.ai/v1',
     supportsStreamOptions: false,
   }),
+  zai: preset({
+    name: 'Z.AI (GLM)',
+    baseUrl: 'https://api.z.ai/api/paas/v4',
+    supportsStreamOptions: false,
+  }),
+  moonshot: preset({
+    name: 'Moonshot (Kimi)',
+    baseUrl: 'https://api.moonshot.ai/v1',
+    supportsStreamOptions: false,
+  }),
+  minimax: preset({
+    name: 'MiniMax',
+    baseUrl: 'https://api.minimax.io/v1',
+    supportsStreamOptions: false,
+  }),
+  qwen: preset({
+    name: 'Qwen (DashScope)',
+    baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+    supportsStreamOptions: false,
+  }),
+  siliconflow: preset({
+    name: 'SiliconFlow',
+    baseUrl: 'https://api.siliconflow.cn/v1',
+    supportsStreamOptions: false,
+  }),
+  voyage: preset({ name: 'Voyage AI', baseUrl: 'https://api.voyageai.com/v1' }),
+  jina: preset({ name: 'Jina AI', baseUrl: 'https://api.jina.ai/v1' }),
   xai: preset({ name: 'xAI', baseUrl: 'https://api.x.ai/v1' }),
   cerebras: preset({
     name: 'Cerebras',
@@ -61,7 +88,8 @@ export const PRESETS: Record<string, Preset> = {
 export function presetFor(provider: ProviderConfig): Preset {
   const named =
     typeof provider.options.preset === 'string' ? PRESETS[provider.options.preset] : undefined;
-  const fallback = provider.type === 'openai' ? PRESETS.openai : undefined;
+  const fallback =
+    PRESETS[provider.type] ?? (provider.type === 'openai' ? PRESETS.openai : undefined);
   const base = named ?? fallback ?? preset({ name: provider.name, baseUrl: provider.baseUrl });
   const opts = provider.options;
   const headers =

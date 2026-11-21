@@ -16,6 +16,8 @@ export const ignoreDrops: DropReporter = () => undefined;
 
 export interface TranslateOptions {
   onDrop?: DropReporter;
+  /** Inbound APIs whose model lives in the URL path (Gemini) rather than the body. */
+  model?: string;
 }
 
 export function textOf(parts: readonly CanonicalPart[]): string {

@@ -97,6 +97,30 @@ export const ERROR_CODES = {
     anthropic: 'authentication_error',
     title: 'Invalid email or password',
   },
+  /** The account has TOTP enabled and the login did not include a valid code. */
+  mfa_required: {
+    status: 401,
+    openai: 'authentication_error',
+    anthropic: 'authentication_error',
+    title: 'A second factor is required',
+  },
+  /**
+   * The organization requires MFA for this member's role (card 14.1) and the account has no second
+   * factor yet. Organization resources stay closed until the user enrolls under /auth/mfa.
+   */
+  mfa_enrollment_required: {
+    status: 403,
+    openai: 'permission_error',
+    anthropic: 'permission_error',
+    title: 'Multi-factor authentication must be set up before accessing this organization',
+  },
+  /** SSO is enforced for this account's organization (card 14.2); password login is disabled. */
+  sso_required: {
+    status: 401,
+    openai: 'authentication_error',
+    anthropic: 'authentication_error',
+    title: 'Password login is disabled; use single sign-on',
+  },
   /** A previously used refresh token: a sign of theft; the whole session family is invalidated. */
   refresh_token_reused: {
     status: 401,

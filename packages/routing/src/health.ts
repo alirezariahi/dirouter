@@ -349,6 +349,31 @@ export class HealthRegistry {
     }
   }
 
+  /**
+   * Take a credential out of rotation on purpose (health probe, card 12.3) and tell other replicas.
+   * `forMs` defaults to the normal disable window; the prober re-enables it earlier on recovery.
+   */
+  disableCredential(credentialId: string, reason: string, forMs?: number): void {
+    const text = reason.slice(0, 200);
+    this.#disabled.set(credentialId, {
+      until: this.#clock() + (forMs ?? this.#disableMs),
+      reason: text,
+    });
+    this.#onChange({ kind: 'credential_disabled', credentialId, reason: text });
+  }
+
+  /** Re-enable a credential and publish the reset (unlike `reset`, which stays local). */
+  restoreCredential(credentialId: string): void {
+    this.enableCredential(credentialId);
+    this.#onChange({ kind: 'reset', scope: 'credential', id: credentialId });
+  }
+
+  /** Reason a credential is currently disabled, if it is. */
+  credentialDisabledReason(credentialId: string): string | undefined {
+    const entry = this.#disabled.get(credentialId);
+    return entry && entry.until > this.#clock() ? entry.reason : undefined;
+  }
+
   enableCredential(credentialId: string): void {
     this.#disabled.delete(credentialId);
     this.#cooldowns.delete(credentialId);

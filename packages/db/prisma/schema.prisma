@@ -25,6 +25,10 @@ model Organization {
   createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
   deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+  /// Base roles that must complete MFA before login (card 14.1).
+  mfaRequiredRoles String[] @default([]) @map("mfa_required_roles")
+  /// When SSO is enforced, password login is disabled for this organization (card 14.2).
+  passwordLoginDisabled Boolean @default(false) @map("password_login_disabled")
 
   memberships  Membership[]
   invitations  Invitation[]
@@ -39,6 +43,12 @@ model Organization {
   rateLimits   RateLimitPolicy[]
   usageLedger  UsageLedger[]
   auditLogs    AuditLog[]
+  ssoConnections SsoConnection[]
+  customRoles  CustomRole[]
+  guardrails   GuardrailPolicy[]
+  channels     NotificationChannel[]
+  alertRules   AlertRule[]
+  alertEvents  AlertEvent[]
 
   @@map("organizations")
 }
@@ -56,6 +66,8 @@ model User {
 
   memberships   Membership[]
   refreshTokens RefreshToken[]
+  mfa           UserMfa?
+  webauthn      WebAuthnCredential[]
   invitations   Invitation[]   @relation("InvitedBy")
   apiKeys       ApiKey[]       @relation("CreatedBy")
   auditLogs     AuditLog[]
@@ -75,12 +87,16 @@ model Membership {
   userId         String   @map("user_id")
   organizationId String   @map("organization_id")
   role           Role
+  /// Optional custom role (card 14.3); its permissions are added to the base role.
+  customRoleId   String?  @map("custom_role_id")
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
 
   user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  customRole   CustomRole?  @relation(fields: [customRoleId], references: [id], onDelete: SetNull)
 
   @@unique([userId, organizationId])
+  @@index([customRoleId])
   @@index([organizationId])
   @@map("memberships")
 }
@@ -212,6 +228,12 @@ enum ProviderType {
   OPENAI_COMPATIBLE @map("openai-compatible")
   ANTHROPIC      @map("anthropic")
   GEMINI         @map("gemini")
+  BEDROCK        @map("bedrock")
+  VERTEX         @map("vertex")
+  COHERE         @map("cohere")
+  MISTRAL        @map("mistral")
+  VOYAGE         @map("voyage")
+  JINA           @map("jina")
   MOCK           @map("mock")
 }
 
@@ -328,6 +350,10 @@ enum ComboStrategy {
   PRIORITY    @map("priority")
   WEIGHTED    @map("weighted")
   ROUND_ROBIN @map("round-robin")
+  LATENCY     @map("latency")
+  COST        @map("cost")
+  LEAST_USED  @map("least-used")
+  HEADROOM    @map("headroom")
 }
 
 model Combo {
@@ -339,6 +365,10 @@ model Combo {
   fallbackOn       String[]      @default([]) @map("fallback_on")
   retryMaxAttempts Int           @default(2) @map("retry_max_attempts")
   timeouts         Json?
+  /// Keep a session on the same target while it is healthy (card 12.4).
+  sticky           Boolean       @default(false)
+  /// { enabled, afterMs, maxParallel } (card 12.2).
+  hedging          Json?
   createdAt        DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt        DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
   deletedAt        DateTime?     @map("deleted_at") @db.Timestamptz(3)
@@ -451,6 +481,10 @@ model RequestLog {
   attempts         Json     @default("[]")
   configVersion    Int      @map("config_version")
   gatewayInstance  String   @map("gateway_instance")
+  cacheHit         Boolean  @default(false) @map("cache_hit")
+  cacheKind        String?  @map("cache_kind")
+  savedInputTokens Int      @default(0) @map("saved_input_tokens")
+  hedgeAttempts    Int      @default(0) @map("hedge_attempts")
 
   @@id([id, createdAt])
   @@index([projectId, createdAt])
@@ -536,9 +570,202 @@ model UsageDaily {
 // ───────────── Config & audit ─────────────
 
 /// Each snapshot publish is one row with an incrementing number.
+
+// ───────────── Sprint 2: security, guardrails & operations ─────────────
+
+/// TOTP second factor (card 14.1); the secret is AES-256-GCM encrypted like provider keys.
+model UserMfa {
+  id               String   @id
+  userId           String   @unique @map("user_id")
+  secretEnc        String   @map("secret_enc")
+  keyVersion       Int      @default(1) @map("key_version")
+  enabled          Boolean  @default(false)
+  backupCodeHashes String[] @default([]) @map("backup_code_hashes")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_mfa")
+}
+
+/// Passkey / WebAuthn credential (card 14.1).
+model WebAuthnCredential {
+  id           String    @id
+  userId       String    @map("user_id")
+  credentialId String    @unique @map("credential_id")
+  publicKey    Bytes     @map("public_key")
+  counter      BigInt    @default(0)
+  transports   String[]  @default([])
+  name         String    @default("passkey")
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  lastUsedAt   DateTime? @map("last_used_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("webauthn_credentials")
+}
+
+/// OIDC SSO connection per organization (card 14.2).
+model SsoConnection {
+  id              String   @id
+  organizationId  String   @map("organization_id")
+  name            String
+  issuer          String
+  clientId        String   @map("client_id")
+  clientSecretEnc String   @map("client_secret_enc")
+  keyVersion      Int      @default(1) @map("key_version")
+  enabled         Boolean  @default(true)
+  defaultRole     Role     @default(MEMBER) @map("default_role")
+  allowedDomains  String[] @default([]) @map("allowed_domains")
+  /// IdP group name → application role (OWNER/ADMIN/MEMBER/VIEWER).
+  groupRoleMap    Json     @default("{}") @map("group_role_map")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@map("sso_connections")
+}
+
+/// Custom organization role (card 14.3); permissions are a subset of the static matrix.
+model CustomRole {
+  id             String   @id
+  organizationId String   @map("organization_id")
+  name           String
+  permissions    String[] @default([])
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  memberships  Membership[]
+
+  @@unique([organizationId, name])
+  @@map("custom_roles")
+}
+
+/// Guardrail policy evaluated by the gateway (card 15.1).
+model GuardrailPolicy {
+  id             String   @id
+  organizationId String   @map("organization_id")
+  name           String
+  enabled        Boolean  @default(true)
+  stage          String   @default("both")
+  type           String
+  action         String   @default("block")
+  config         Json     @default("{}")
+  message        String?
+  /// Optional narrowing to one API key or project; null means organization-wide.
+  virtualKeyId   String?  @map("virtual_key_id")
+  projectId      String?  @map("project_id")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([virtualKeyId])
+  @@index([projectId])
+  @@map("guardrail_policies")
+}
+
+/// Webhook / Slack / email destination for alerts (card 16.2).
+model NotificationChannel {
+  id             String   @id
+  organizationId String   @map("organization_id")
+  name           String
+  type           String
+  config         Json     @default("{}")
+  enabled        Boolean  @default(true)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  rules        AlertRule[]
+
+  @@index([organizationId])
+  @@map("notification_channels")
+}
+
+/// Alert rule (card 16.2): error rate, budget burn, latency, breaker state.
+model AlertRule {
+  id             String    @id
+  organizationId String    @map("organization_id")
+  name           String
+  type           String
+  threshold      Decimal?  @db.Decimal(18, 8)
+  windowMinutes  Int       @default(15) @map("window_minutes")
+  /// Minimum minutes between notifications for the same rule/dedup key.
+  silenceMinutes Int       @default(60) @map("silence_minutes")
+  channelId      String?   @map("channel_id")
+  enabled        Boolean   @default(true)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  channel      NotificationChannel? @relation(fields: [channelId], references: [id], onDelete: SetNull)
+  events       AlertEvent[]
+
+  @@index([organizationId])
+  @@index([channelId])
+  @@map("alert_rules")
+}
+
+model AlertEvent {
+  id             String    @id
+  organizationId String    @map("organization_id")
+  ruleId         String    @map("rule_id")
+  severity       String    @default("warning")
+  title          String
+  details        Json?
+  dedupKey       String?  @map("dedup_key")
+  deliveredAt    DateTime? @map("delivered_at") @db.Timestamptz(3)
+  deliveryError  String?  @map("delivery_error")
+  acknowledgedAt DateTime? @map("acknowledged_at") @db.Timestamptz(3)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  rule         AlertRule    @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+
+  @@unique([ruleId, dedupKey])
+  @@index([organizationId, createdAt])
+  @@index([ruleId])
+  @@map("alert_events")
+}
+
+
+/// Periodic active health probe result (card 12.3); retained for uptime analytics.
+model ProviderHealthSample {
+  id           String   @id
+  providerId   String   @map("provider_id")
+  credentialId String?  @map("credential_id")
+  ok           Boolean
+  status       Int?
+  latencyMs    Int      @map("latency_ms")
+  errorClass   String?  @map("error_class")
+  checkedAt    DateTime @default(now()) @map("checked_at") @db.Timestamptz(3)
+
+  @@index([providerId, checkedAt])
+  @@index([credentialId, checkedAt])
+  @@map("provider_health_samples")
+}
+
+/// Gateway-wide runtime settings (single row, id = "global"); copied into ConfigSnapshot.settings.
+model GatewaySetting {
+  id        String   @id @default("global")
+  settings  Json     @default("{}")
+  updatedBy String?  @map("updated_by")
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+
+  @@map("gateway_settings")
+}
+
 model ConfigVersion {
   version   Int      @id @default(autoincrement())
   checksum  String
+  /// Set on rollback/import: checksum of the database-built content when the image was pinned.
+  baseChecksum String? @map("base_checksum")
   snapshot  Json
   reason    String
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)

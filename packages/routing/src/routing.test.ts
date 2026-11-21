@@ -198,6 +198,7 @@ describe('router: resolution', () => {
           strategy: 'round-robin',
           targets: [{ modelId: 'deleted', order: 0, weight: 1 }],
           fallbackOn: ['server'],
+          sticky: false,
         },
       ],
     });
@@ -345,6 +346,7 @@ describe('router: filters', () => {
           strategy: 'priority',
           targets: models.map((m, i) => ({ modelId: m.id, order: i, weight: 1 })),
           fallbackOn: ['server'],
+          sticky: false,
         },
       ],
       aliases: [],

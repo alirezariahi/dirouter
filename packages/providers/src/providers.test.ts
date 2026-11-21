@@ -47,7 +47,14 @@ const model: ModelConfig = {
   upstreamModel: 'mock-small',
   enabled: true,
   pricing: { inputPerMTok: '1', outputPerMTok: '2' },
-  capabilities: { streaming: true, tools: true, vision: false, reasoning: false, jsonMode: false },
+  capabilities: {
+    streaming: true,
+    tools: true,
+    vision: false,
+    reasoning: false,
+    jsonMode: false,
+    embeddings: false,
+  },
 };
 const request = (over: Partial<CanonicalRequest> = {}): CanonicalRequest => ({
   inboundApi: 'openai.chat',

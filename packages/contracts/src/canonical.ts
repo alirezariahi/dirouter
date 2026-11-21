@@ -104,7 +104,13 @@ export const CanonicalResponseFormat = z.discriminatedUnion('type', [
 ]);
 
 /** The inbound API the request arrived through; needed to translate the response back. */
-export const InboundApi = z.enum(['openai.chat', 'anthropic.messages']);
+export const InboundApi = z.enum([
+  'openai.chat',
+  'anthropic.messages',
+  'openai.responses',
+  'gemini.generate',
+  'openai.embeddings',
+]);
 export type InboundApi = z.infer<typeof InboundApi>;
 
 export const CanonicalRequest = z.object({
