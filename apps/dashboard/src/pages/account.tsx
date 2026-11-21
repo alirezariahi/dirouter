@@ -2,6 +2,8 @@ import { useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { MfaCard } from '../components/account/mfa-card';
+import { PasskeysCard } from '../components/account/passkeys-card';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
 import { Field, FormError } from '../components/ui/field';
@@ -59,6 +61,8 @@ export default function AccountPage() {
           </Button>
         </form>
       </Card>
+      <MfaCard />
+      <PasskeysCard />
     </section>
   );
 }

@@ -1,6 +1,7 @@
 import type { Messages } from './fa';
 import { keyMessages } from './key-messages';
 import { modelMessages } from './model-messages';
+import { s2En } from './s2';
 
 type Widen<T> = { [K in keyof T]: T[K] extends string ? string : Widen<T[K]> };
 
@@ -13,6 +14,15 @@ export const en: Widen<Messages> = {
     models: 'Models & combos',
     logs: 'Request logs',
     health: 'Health',
+    simulator: 'Routing simulator',
+    security: 'Security',
+    cost: 'Cost and budgets',
+    analytics: 'Analytics',
+    live: 'Live view',
+    alerts: 'Alerts',
+    guardrails: 'Guardrails',
+    playground: 'Playground',
+    config: 'Settings and versions',
     organization: 'Organization',
     guides: 'Connect your tools',
   },
@@ -193,8 +203,13 @@ export const en: Widen<Messages> = {
     service_unavailable: 'The service is temporarily unavailable. Try again shortly.',
     rate_limited: 'Too many requests. Please wait a moment.',
     internal_error: 'The server hit an internal error.',
+    mfa_required: 'A verification code is required.',
+    mfa_enrollment_required:
+      'Your organization requires two-factor authentication for your role. Enable it on the Account page first.',
+    sso_required: 'Password sign-in is disabled for this organization; use single sign-on.',
     network: 'Could not reach the server. Check the network or the API address.',
   },
   keys: keyMessages,
   models: modelMessages,
+  s2: s2En,
 };

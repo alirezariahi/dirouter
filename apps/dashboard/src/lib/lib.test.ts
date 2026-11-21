@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { api, ApiError, isSignedIn, setAccessToken } from './api';
+import { api, ApiError, isSignedIn, setAccessToken, shouldRefresh } from './api';
 import { formatDate } from './date';
 import { errorMessage, fieldError } from './errors';
 
@@ -79,5 +79,55 @@ describe('api client', () => {
     expect(isSignedIn()).toBe(false);
     const error = await api('/orgs/y', { fetchImpl }).catch((e: unknown) => e);
     expect(error).toMatchObject({ status: 403, code: 'forbidden', message: 'Requires keys:write' });
+  });
+
+  it('refreshes authenticated /auth/* calls once when the access token expired', async () => {
+    setAccessToken('old');
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(json(401, { status: 401, code: 'unauthenticated' }))
+      .mockResolvedValueOnce(json(200, { accessToken: 'new' }))
+      .mockResolvedValueOnce(json(200, { enabled: true }));
+    await expect(api('/auth/mfa', { fetchImpl })).resolves.toEqual({ enabled: true });
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
+    expect(fetchImpl.mock.calls[1]?.[0]).toMatch(/\/auth\/refresh$/);
+  });
+
+  it('does not repeat a wrong password or loop on the sign-in endpoints', async () => {
+    setAccessToken('token');
+    const wrong = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(json(401, { status: 401, code: 'invalid_credentials' }));
+    await expect(api('/auth/password', { method: 'POST', fetchImpl: wrong })).rejects.toMatchObject(
+      { code: 'invalid_credentials' },
+    );
+    expect(wrong).toHaveBeenCalledTimes(1);
+
+    for (const path of [
+      '/auth/login',
+      '/auth/refresh',
+      '/auth/logout',
+      '/auth/setup',
+      '/auth/invitations/accept',
+      '/auth/sso/lookup',
+      '/auth/sso/callback?code=a&state=b',
+      '/auth/webauthn/login/verify',
+    ]) {
+      const fetchImpl = vi
+        .fn<typeof fetch>()
+        .mockResolvedValue(json(401, { status: 401, code: 'unauthenticated' }));
+      await expect(api(path, { method: 'POST', fetchImpl })).rejects.toBeInstanceOf(ApiError);
+      expect(fetchImpl).toHaveBeenCalledTimes(1);
+    }
+    setAccessToken(undefined);
+  });
+
+  it('decides refresh from the path, the token and the error code', () => {
+    expect(shouldRefresh('/orgs/x/keys', false, undefined)).toBe(true);
+    expect(shouldRefresh('/auth/me', true, 'unauthenticated')).toBe(true);
+    expect(shouldRefresh('/auth/webauthn/options', true, 'unauthenticated')).toBe(true);
+    expect(shouldRefresh('/auth/me', false, 'unauthenticated')).toBe(false);
+    expect(shouldRefresh('/auth/mfa/disable', true, 'validation_failed')).toBe(false);
+    expect(shouldRefresh('/auth/setup', true, 'unauthenticated')).toBe(false);
   });
 });

@@ -1,5 +1,5 @@
 /**
- * Routes (TanStack Router, code-based). /login and /setup are public; the rest sit under the protected layout
+ * Routes (TanStack Router, code-based). /login, /invite/<token> and /setup are public; the rest sit under the protected layout
  * which first restores the session with refresh and, if absent, redirects to /setup (if no user exists yet) or
  * /login. Pages are lazy-loaded to keep the initial bundle small.
  */
@@ -43,6 +43,12 @@ const login = createRoute({
   getParentRoute: () => root,
   path: '/login',
   component: lazyRouteComponent(() => import('./pages/login')),
+});
+/** Public: the invited person usually has no session (and may have no account) yet. */
+const invite = createRoute({
+  getParentRoute: () => root,
+  path: '/invite/$token',
+  component: lazyRouteComponent(() => import('./pages/invite')),
 });
 const setup = createRoute({
   getParentRoute: () => root,
@@ -108,6 +114,28 @@ const guides = createRoute({
   path: '/guides',
   component: lazyRouteComponent(() => import('./pages/guides')),
 });
+/** Sprint 2 pages; each entry is lazy-loaded like the pages above. */
+const SPRINT2_PAGES = [
+  { path: '/simulator', load: () => import('./pages/simulator') },
+  { path: '/security', load: () => import('./pages/security') },
+  { path: '/cost', load: () => import('./pages/cost') },
+  { path: '/analytics', load: () => import('./pages/analytics') },
+  { path: '/live', load: () => import('./pages/live') },
+  { path: '/alerts', load: () => import('./pages/alerts') },
+  { path: '/guardrails', load: () => import('./pages/guardrails') },
+  { path: '/playground', load: () => import('./pages/playground') },
+  { path: '/config', load: () => import('./pages/config') },
+  // sprint2-pages
+] as const;
+const sprint2 = SPRINT2_PAGES.map((page) =>
+  createRoute({
+    getParentRoute: () => app,
+    path: page.path,
+    component: lazyRouteComponent(page.load),
+  }),
+);
+const BUILT: readonly string[] = SPRINT2_PAGES.map((page) => page.path);
+
 const sections = NAV.filter(
   (n) =>
     ![
@@ -119,7 +147,7 @@ const sections = NAV.filter(
       '/models',
       '/organization',
       '/guides',
-    ].includes(n.to),
+    ].includes(n.to) && !BUILT.includes(n.to),
 ).map((n) =>
   createRoute({
     getParentRoute: () => app,
@@ -130,6 +158,7 @@ const sections = NAV.filter(
 
 export const routeTree = root.addChildren([
   login,
+  invite,
   setup,
   app.addChildren([
     overview,
@@ -141,6 +170,7 @@ export const routeTree = root.addChildren([
     models,
     organization,
     guides,
+    ...sprint2,
     ...sections,
   ]),
 ]);

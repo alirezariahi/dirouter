@@ -1,5 +1,6 @@
 import { keyMessages } from './key-messages';
 import { modelMessages } from './model-messages';
+import { s2Fa } from './s2';
 export const fa = {
   app: { name: 'دی‌روتر', tagline: 'درگاه هوشمند مدل‌های زبانی' },
   nav: {
@@ -9,6 +10,15 @@ export const fa = {
     models: 'مدل‌ها و Combo',
     logs: 'لاگ درخواست‌ها',
     health: 'سلامت',
+    simulator: 'شبیه‌ساز مسیریابی',
+    security: 'امنیت',
+    cost: 'هزینه و بودجه',
+    analytics: 'تحلیل مصرف',
+    live: 'نمای زنده',
+    alerts: 'هشدارها',
+    guardrails: 'Guardrailها',
+    playground: 'Playground',
+    config: 'تنظیمات و نسخه‌ها',
     organization: 'سازمان',
     guides: 'راهنمای اتصال',
   },
@@ -189,10 +199,16 @@ export const fa = {
     service_unavailable: 'سرویس موقتاً در دسترس نیست. کمی بعد دوباره امتحان کنید.',
     rate_limited: 'درخواست‌ها زیاد است. کمی صبر کنید.',
     internal_error: 'خطای داخلی سرور رخ داد.',
+    mfa_required: 'کد تأیید دومرحله‌ای لازم است.',
+    mfa_enrollment_required:
+      'سازمان برای نقش شما ورود دومرحله‌ای را اجباری کرده است. ابتدا از صفحهٔ «حساب کاربری» آن را فعال کنید.',
+    sso_required:
+      'ورود با رمز عبور برای این سازمان غیرفعال است؛ از ورود یکپارچه (SSO) استفاده کنید.',
     network: 'ارتباط با سرور برقرار نشد. اتصال شبکه یا آدرس API را بررسی کنید.',
   },
   keys: keyMessages,
   models: modelMessages,
+  s2: s2Fa,
 } as const;
 
 export type Messages = typeof fa;

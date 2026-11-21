@@ -1,7 +1,8 @@
 /**
  * API client (card 7.1): the access token lives only in memory (not localStorage); the refresh token is in
  * an httpOnly cookie sent with `credentials: 'include'`. A 401 response is retried once with
- * `/auth/refresh` (concurrent requests share one refresh). Errors are
+ * `/auth/refresh` (concurrent requests share one refresh); authenticated `/auth/*` calls are retried
+ * too, the sign-in endpoints themselves never are (see `shouldRefresh`). Errors are
  * problem+json and are converted to ApiError with a stable code.
  */
 import { API_URL } from '../config';
@@ -70,6 +71,37 @@ export interface RequestOptions {
   fetchImpl?: typeof fetch;
 }
 
+/**
+ * Endpoints that are themselves part of signing in or out. A 401 from them is an answer (wrong
+ * password, expired refresh cookie, unknown passkey), never a reason to refresh and try again.
+ */
+const AUTH_FLOW = [
+  /^\/auth\/(login|refresh|logout|setup|invitations\/accept)(\?|$)/,
+  /^\/auth\/sso\//,
+  /^\/auth\/webauthn\/login\//,
+];
+
+/**
+ * Whether a 401 on `path` should be answered with one refresh and one retry.
+ * - Outside `/auth/*` every 401 means the access token is missing or expired.
+ * - Under `/auth/*` only calls that carried an access token (MFA, passkeys, password, me) are
+ *   retried, and only when the server says the token itself was rejected (`unauthenticated`):
+ *   a wrong current password is also a 401 and must not be sent twice.
+ */
+export function shouldRefresh(path: string, sentToken: boolean, code: string | undefined): boolean {
+  if (!path.startsWith('/auth/')) return true;
+  if (AUTH_FLOW.some((pattern) => pattern.test(path))) return false;
+  return sentToken && code === 'unauthenticated';
+}
+
+async function problemCode(res: Response): Promise<string | undefined> {
+  try {
+    return ((await res.clone().json()) as Problem | null)?.code;
+  } catch {
+    return undefined;
+  }
+}
+
 /** Request with automatic refresh; a failed response is converted to ApiError. */
 async function request(
   path: string,
@@ -80,8 +112,10 @@ async function request(
   const sep = path.includes('?') ? '&' : '?';
   const url = `${API_URL}${path}${qs.length ? `${sep}${new URLSearchParams(qs.map(([k, v]) => [k, String(v)])).toString()}` : ''}`;
   const hasBody = opts.body !== undefined || opts.rawBody !== undefined;
-  const send = () =>
-    fetchImpl(url, {
+  let sentToken = false;
+  const send = () => {
+    sentToken = Boolean(accessToken);
+    return fetchImpl(url, {
       method: opts.method ?? 'GET',
       credentials: 'include',
       headers: {
@@ -95,8 +129,17 @@ async function request(
           : {}),
       ...(opts.signal ? { signal: opts.signal } : {}),
     });
+  };
   let res = await send();
-  if (res.status === 401 && !path.startsWith('/auth/') && (await refresh(fetchImpl)))
+  if (
+    res.status === 401 &&
+    shouldRefresh(
+      path,
+      sentToken,
+      path.startsWith('/auth/') ? await problemCode(res) : undefined,
+    ) &&
+    (await refresh(fetchImpl))
+  )
     res = await send();
   if (res.status === 204) return { data: undefined, res };
   const isJson = (res.headers.get('content-type') ?? '').includes('json');
