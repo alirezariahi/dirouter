@@ -114,6 +114,9 @@ services:
       DASHBOARD_ORIGIN: https://app.${DOMAIN:-localhost},http://app.${DOMAIN:-localhost}
       PUBLIC_DASHBOARD_URL: https://app.${DOMAIN:-localhost}
       GATEWAY_INTERNAL_URL: http://gateway:8080
+      SEMANTIC_CACHE_EMBEDDING_URL: ${SEMANTIC_CACHE_EMBEDDING_URL:-}
+      SEMANTIC_CACHE_EMBEDDING_KEY: ${SEMANTIC_CACHE_EMBEDDING_KEY:-}
+      SEMANTIC_CACHE_EMBEDDING_MODEL: ${SEMANTIC_CACHE_EMBEDDING_MODEL:-text-embedding-3-small}
       SMTP_URL: smtp://mailpit:1025
     command: ['pnpm', '--filter', '@dirouter/control-api', 'dev']
     labels:

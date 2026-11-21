@@ -7,7 +7,7 @@ PROD := docker compose -f compose.yaml -f compose.prod.yaml
 # .env variables for host commands (prisma, scripts)
 ENV  := set -a && . ./.env && set +a &&
 
-.PHONY: help bootstrap up down restart logs ps migrate seed dev-snapshot test e2e lint build push \
+.PHONY: help bootstrap up down restart logs ps migrate seed dev-snapshot test e2e chaos lint build push \
         prod-up prod-down prod-logs scale clean
 
 help: ## نمایش همین فهرست
@@ -51,6 +51,9 @@ test: ## تست‌های واحد و یکپارچه
 
 e2e: ## تست end-to-end (کارت ۹.۳)
 	node scripts/e2e/sprint-1.mjs
+
+chaos: ## تست chaos روی محیط dev با seed (کارت ۱۸.۱): make chaos s="valkey postgres"
+	node scripts/chaos/run.mjs $(s)
 
 lint: ## lint، typecheck و بررسی قالب‌بندی
 	pnpm lint && pnpm typecheck && pnpm format:check

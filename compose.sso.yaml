@@ -1,0 +1,36 @@
+# Optional overlay: a local Keycloak for testing SSO with OIDC (card 14.2).
+#
+#   docker compose -f compose.yaml -f compose.dev.yaml -f compose.sso.yaml up -d --wait
+#
+# Keycloak is published through Traefik as http://sso.<DOMAIN> and imports the "dirouter" realm
+# from deploy/keycloak/dirouter-realm.json (client, groups and two test users). Development only:
+# the admin password, client secret and user passwords in the realm file are public test values.
+services:
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0
+    command: ['start-dev', '--import-realm']
+    restart: unless-stopped
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      # The same URL must work from the browser and from the control-api container (discovery,
+      # token endpoint and the `iss` claim), hence the Traefik alias below.
+      KC_HOSTNAME: http://sso.${DOMAIN:-localhost}
+      KC_HTTP_ENABLED: 'true'
+      KC_PROXY_HEADERS: xforwarded
+      KC_HEALTH_ENABLED: 'true'
+    volumes:
+      - ./deploy/keycloak/dirouter-realm.json:/opt/keycloak/data/import/dirouter-realm.json:ro
+    networks: [edge]
+    labels:
+      traefik.enable: 'true'
+      traefik.docker.network: dirouter_edge
+      traefik.http.routers.sso.rule: Host(`sso.${DOMAIN:-localhost}`)
+      traefik.http.routers.sso.entrypoints: web,websecure
+      traefik.http.services.sso.loadbalancer.server.port: '8080'
+
+  traefik:
+    networks:
+      edge:
+        # Lets containers resolve the public SSO host name to Traefik.
+        aliases: ['sso.${DOMAIN:-localhost}']

@@ -13,3 +13,4 @@ __pycache__/
 packages/db/generated/
 .data/
 .pnpm-store/
+.verify/

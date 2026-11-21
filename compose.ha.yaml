@@ -1,0 +1,286 @@
+# High-availability overlay (card 17.3). Use on top of the production files:
+#
+#   docker compose -f compose.yaml -f compose.prod.yaml -f compose.ha.yaml up -d
+#
+# What it adds
+#   - Valkey: one primary, two replicas and three sentinels. Failover is automatic; the apps find
+#     the current primary through the sentinels (VALKEY_URL with the redis+sentinel:// scheme).
+#   - PostgreSQL: a hot standby fed by streaming replication, and continuous WAL archiving for
+#     point-in-time recovery. Promotion is a manual, documented step (docs/deploy-ha.md); the
+#     gateway keeps serving traffic while the database is down.
+#   - Three gateway replicas, two control-api replicas and two workers.
+#   - Optional (profile `backup-s3`): a sidecar that copies the WAL archive and the base backups
+#     to an S3-compatible bucket (MinIO, Ceph, AWS S3, ...).
+#
+# A single Docker host protects against process and container failures, not against the loss of
+# the host. For host-level HA run the same services on several hosts (Swarm or Kubernetes) or use
+# managed PostgreSQL and Valkey; the application settings below stay the same.
+x-valkey-url: &valkey-url redis+sentinel://valkey-sentinel-1:26379,valkey-sentinel-2:26379,valkey-sentinel-3:26379/dirouter
+
+x-valkey-sentinels: &valkey-sentinels valkey-sentinel-1 valkey-sentinel-2 valkey-sentinel-3
+
+# The Valkey nodes and the sentinels have fixed addresses on the internal network and announce
+# those, never their names. When a container stops, Docker's DNS forgets its name; a sentinel
+# that monitors a name it can no longer resolve enters TILT mode and never fails over.
+# The default lies outside the ranges Docker hands out by itself (172.17-31.x and 192.168.x), so it
+# does not collide with other compose projects; change HA_IP_PREFIX if 10.89.250.0/24 is in use.
+x-valkey-primary-address: &valkey-primary-address ${HA_IP_PREFIX:-10.89.250}.11
+
+# Every data node keeps its configuration on its data volume, so a role change made by Sentinel
+# survives a restart (deploy/ha/valkey/server-entrypoint.sh).
+x-valkey-node-command: &valkey-node-command ['sh', '/opt/dirouter/ha/server-entrypoint.sh']
+
+x-valkey-scripts: &valkey-scripts ./deploy/ha/valkey:/opt/dirouter/ha:ro
+
+x-valkey-replica: &valkey-replica
+  image: valkey/valkey:8-alpine
+  restart: unless-stopped
+  command: *valkey-node-command
+  depends_on:
+    valkey: { condition: service_healthy }
+  healthcheck:
+    test: ['CMD', 'valkey-cli', 'ping']
+    interval: 5s
+    timeout: 3s
+    retries: 10
+
+x-valkey-sentinel: &valkey-sentinel
+  image: valkey/valkey:8-alpine
+  restart: unless-stopped
+  # Sentinel persists the failover state in its config file, which therefore lives on a volume
+  # and is written only once (deploy/ha/valkey/sentinel-entrypoint.sh).
+  # Quorum 2 of 3: one sentinel can be lost and failover still works.
+  command: ['sh', '/opt/dirouter/ha/sentinel-entrypoint.sh']
+  depends_on:
+    valkey: { condition: service_healthy }
+  healthcheck:
+    test: ['CMD', 'valkey-cli', '-p', '26379', 'ping']
+    interval: 5s
+    timeout: 3s
+    retries: 10
+
+# Shared by the primary and the standby, so the standby archives WAL as well once it is promoted.
+x-postgres-command: &postgres-command
+  - postgres
+  - -c
+  - wal_level=replica
+  - -c
+  - max_wal_senders=5
+  - -c
+  - max_replication_slots=5
+  - -c
+  - hot_standby=on
+  # Upper bound for the WAL a replication slot may hold back. Without it a standby that stays
+  # down fills the disk of the primary; with it the slot is invalidated instead and the standby
+  # has to be cloned again.
+  - -c
+  - max_slot_wal_keep_size=${POSTGRES_MAX_SLOT_WAL_KEEP_SIZE:-2GB}
+  - -c
+  - archive_mode=on
+  - -c
+  - archive_command=sh /opt/dirouter/ha/archive-wal.sh "%p" "%f"
+  # A segment is archived at the latest five minutes after its first write.
+  - -c
+  - archive_timeout=300
+  # Only used during recovery: by a standby that fell behind, and for point-in-time recovery.
+  - -c
+  - restore_command=sh /opt/dirouter/ha/restore-wal.sh "%f" "%p"
+
+x-postgres-scripts: &postgres-scripts ./deploy/ha/postgres:/opt/dirouter/ha:ro
+
+x-postgres-wal-archive: &postgres-wal-archive pgwal-archive:/var/lib/postgresql/wal-archive
+
+services:
+  valkey:
+    command: *valkey-node-command
+    environment:
+      NODE_NAME: valkey
+      NODE_ADDRESS: *valkey-primary-address
+      SENTINELS: *valkey-sentinels
+    networks:
+      internal:
+        ipv4_address: *valkey-primary-address
+    volumes:
+      - *valkey-scripts
+
+  valkey-replica-1:
+    <<: *valkey-replica
+    environment:
+      NODE_NAME: valkey-replica-1
+      NODE_ADDRESS: ${HA_IP_PREFIX:-10.89.250}.12
+      INITIAL_PRIMARY: *valkey-primary-address
+      SENTINELS: *valkey-sentinels
+    networks:
+      internal:
+        ipv4_address: ${HA_IP_PREFIX:-10.89.250}.12
+    volumes:
+      - valkeydata-replica-1:/data
+      - *valkey-scripts
+  valkey-replica-2:
+    <<: *valkey-replica
+    environment:
+      NODE_NAME: valkey-replica-2
+      NODE_ADDRESS: ${HA_IP_PREFIX:-10.89.250}.13
+      INITIAL_PRIMARY: *valkey-primary-address
+      SENTINELS: *valkey-sentinels
+    networks:
+      internal:
+        ipv4_address: ${HA_IP_PREFIX:-10.89.250}.13
+    volumes:
+      - valkeydata-replica-2:/data
+      - *valkey-scripts
+
+  valkey-sentinel-1:
+    <<: *valkey-sentinel
+    environment:
+      NODE_NAME: valkey-sentinel-1
+      NODE_ADDRESS: ${HA_IP_PREFIX:-10.89.250}.21
+      INITIAL_PRIMARY: *valkey-primary-address
+    networks:
+      internal:
+        ipv4_address: ${HA_IP_PREFIX:-10.89.250}.21
+    volumes:
+      - valkey-sentinel-1:/data
+      - *valkey-scripts
+  valkey-sentinel-2:
+    <<: *valkey-sentinel
+    environment:
+      NODE_NAME: valkey-sentinel-2
+      NODE_ADDRESS: ${HA_IP_PREFIX:-10.89.250}.22
+      INITIAL_PRIMARY: *valkey-primary-address
+    networks:
+      internal:
+        ipv4_address: ${HA_IP_PREFIX:-10.89.250}.22
+    volumes:
+      - valkey-sentinel-2:/data
+      - *valkey-scripts
+  valkey-sentinel-3:
+    <<: *valkey-sentinel
+    environment:
+      NODE_NAME: valkey-sentinel-3
+      NODE_ADDRESS: ${HA_IP_PREFIX:-10.89.250}.23
+      INITIAL_PRIMARY: *valkey-primary-address
+    networks:
+      internal:
+        ipv4_address: ${HA_IP_PREFIX:-10.89.250}.23
+    volumes:
+      - valkey-sentinel-3:/data
+      - *valkey-scripts
+
+  postgres:
+    # Streaming replication for the standby and WAL archiving. On a database that already has
+    # data, run deploy/ha/postgres/10-replication.sh once by hand (init scripts only run on an
+    # empty volume); see docs/deploy-ha.md.
+    # The wrapper only prepares the archive and base-backup directories, then runs the image
+    # entrypoint unchanged.
+    entrypoint: ['/bin/sh', '/opt/dirouter/ha/primary-entrypoint.sh']
+    command: *postgres-command
+    environment:
+      REPLICATION_PASSWORD: ${REPLICATION_PASSWORD:?REPLICATION_PASSWORD is required for the HA overlay}
+    volumes:
+      - *postgres-scripts
+      - ./deploy/ha/postgres/10-replication.sh:/docker-entrypoint-initdb.d/10-replication.sh:ro
+      - *postgres-wal-archive
+      - pgbasebackup:/var/lib/postgresql/basebackup
+
+  postgres-standby:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    shm_size: 256m
+    entrypoint: ['/bin/sh', '/opt/dirouter/ha/standby-entrypoint.sh']
+    command: *postgres-command
+    environment:
+      # A subdirectory of the volume: the clone is written next to it and renamed when complete,
+      # so an interrupted clone can never be mistaken for a usable data directory.
+      PGDATA: /var/lib/postgresql/data/pgdata
+      PRIMARY_HOST: postgres
+      REPLICATION_PASSWORD: ${REPLICATION_PASSWORD:?REPLICATION_PASSWORD is required for the HA overlay}
+      POSTGRES_USER: ${POSTGRES_USER:-dirouter}
+      POSTGRES_DB: ${POSTGRES_DB:-dirouter}
+    volumes:
+      - pgdata-standby:/var/lib/postgresql/data
+      - *postgres-scripts
+      - *postgres-wal-archive
+      # Used after a promotion, when base backups are taken from this server.
+      - pgbasebackup:/var/lib/postgresql/basebackup
+    networks: [internal]
+    depends_on:
+      postgres: { condition: service_healthy }
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      # The first start clones the primary before PostgreSQL accepts connections.
+      start_period: 120s
+
+  # Optional: copies the WAL archive and the base backups to an S3-compatible bucket once a
+  # minute. Start it with `--profile backup-s3`. The values are interpolated leniently so that
+  # the other compose commands work without them; the container refuses to start when one is
+  # missing.
+  backup-sync:
+    image: rclone/rclone:1.68
+    profiles: [backup-s3]
+    restart: unless-stopped
+    entrypoint: ['/bin/sh', '/opt/dirouter/ha/backup-sync.sh']
+    environment:
+      RCLONE_CONFIG_BACKUP_TYPE: s3
+      RCLONE_CONFIG_BACKUP_PROVIDER: Other
+      RCLONE_CONFIG_BACKUP_ENDPOINT: ${BACKUP_S3_ENDPOINT:-}
+      RCLONE_CONFIG_BACKUP_REGION: ${BACKUP_S3_REGION:-us-east-1}
+      RCLONE_CONFIG_BACKUP_ACCESS_KEY_ID: ${BACKUP_S3_ACCESS_KEY:-}
+      RCLONE_CONFIG_BACKUP_SECRET_ACCESS_KEY: ${BACKUP_S3_SECRET_KEY:-}
+      BACKUP_S3_BUCKET: ${BACKUP_S3_BUCKET:-}
+    volumes:
+      - *postgres-scripts
+      - pgwal-archive:/backup/wal:ro
+      - pgbasebackup:/backup/basebackup:ro
+    # The internal network has no route to the outside; the bucket is reached through `edge`.
+    networks: [edge]
+
+  # After promoting the standby, set POSTGRES_HOST=postgres-standby in .env and recreate
+  # control-api and worker with --no-deps (docs/deploy-ha.md).
+  migrate:
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-dirouter}:${POSTGRES_PASSWORD}@${POSTGRES_HOST:-postgres}:5432/${POSTGRES_DB:-dirouter}
+
+  # The replica counts have their own variables: GATEWAY_REPLICAS in .env belongs to
+  # compose.prod.yaml (default 2) and must not lower the HA defaults by accident.
+  control-api:
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-dirouter}:${POSTGRES_PASSWORD}@${POSTGRES_HOST:-postgres}:5432/${POSTGRES_DB:-dirouter}
+      VALKEY_URL: *valkey-url
+    deploy:
+      replicas: ${HA_CONTROL_API_REPLICAS:-2}
+
+  gateway:
+    environment:
+      VALKEY_URL: *valkey-url
+    deploy:
+      replicas: ${HA_GATEWAY_REPLICAS:-3}
+
+  worker:
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-dirouter}:${POSTGRES_PASSWORD}@${POSTGRES_HOST:-postgres}:5432/${POSTGRES_DB:-dirouter}
+      VALKEY_URL: *valkey-url
+    deploy:
+      replicas: ${HA_WORKER_REPLICAS:-2}
+
+networks:
+  internal:
+    # A fixed subnet so the Valkey nodes and sentinels can have fixed addresses. Docker applies it
+    # when the network is created: on a host that already runs the stack without this overlay,
+    # stop the stack and remove the old `<project>_internal` network once before starting it.
+    ipam:
+      config:
+        - subnet: ${HA_IP_PREFIX:-10.89.250}.0/24
+
+volumes:
+  valkeydata-replica-1:
+  valkeydata-replica-2:
+  valkey-sentinel-1:
+  valkey-sentinel-2:
+  valkey-sentinel-3:
+  pgdata-standby:
+  pgwal-archive:
+  pgbasebackup:

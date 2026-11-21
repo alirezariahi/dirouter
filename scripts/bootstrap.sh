@@ -33,12 +33,14 @@ MASTER_KEY="1:$(rand_b64 32)"
 KEY_PEPPER=$(rand_hex 32)
 JWT_SECRET=$(rand_hex 32)
 INTERNAL_TOKEN=$(rand_hex 32)
+REPLICATION_PASSWORD=$(rand_hex 24)
 
 umask 077
 sed \
   -e "s|^DOMAIN=.*|DOMAIN=${DOMAIN}|" \
   -e "s|^NODE_ENV=.*|NODE_ENV=${NODE_ENV}|" \
   -e "s|^POSTGRES_PASSWORD=.*|POSTGRES_PASSWORD=${POSTGRES_PASSWORD}|" \
+  -e "s|^REPLICATION_PASSWORD=.*|REPLICATION_PASSWORD=${REPLICATION_PASSWORD}|" \
   -e "s|^DATABASE_URL=.*|DATABASE_URL=postgresql://dirouter:${POSTGRES_PASSWORD}@localhost:55432/dirouter|" \
   -e "s|^MASTER_KEY=.*|MASTER_KEY=${MASTER_KEY}|" \
   -e "s|^KEY_PEPPER=.*|KEY_PEPPER=${KEY_PEPPER}|" \

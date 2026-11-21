@@ -47,7 +47,9 @@ services:
       retries: 3
 
   postgres:
-    image: postgres:17-alpine
+    # The semantic cache needs the pgvector extension: build deploy/docker/postgres.Dockerfile and
+    # set POSTGRES_IMAGE=dirouter/postgres:17-pgvector (same base image, the data volume is reused).
+    image: ${POSTGRES_IMAGE:-postgres:17-alpine}
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-dirouter}
@@ -108,6 +110,10 @@ services:
       DASHBOARD_ORIGIN: ${DASHBOARD_ORIGIN:-https://app.${DOMAIN:-localhost}}
       PUBLIC_DASHBOARD_URL: ${DASHBOARD_ORIGIN:-https://app.${DOMAIN:-localhost}}
       GATEWAY_INTERNAL_URL: http://gateway:8080
+      # Semantic cache (card 13.2): off until an embeddings endpoint is configured.
+      SEMANTIC_CACHE_EMBEDDING_URL: ${SEMANTIC_CACHE_EMBEDDING_URL:-}
+      SEMANTIC_CACHE_EMBEDDING_KEY: ${SEMANTIC_CACHE_EMBEDDING_KEY:-}
+      SEMANTIC_CACHE_EMBEDDING_MODEL: ${SEMANTIC_CACHE_EMBEDDING_MODEL:-text-embedding-3-small}
       SMTP_URL: ${SMTP_URL:-}
       SMTP_FROM: ${SMTP_FROM:-DiRouter <noreply@${DOMAIN:-localhost}>}
     networks: [edge, internal]
