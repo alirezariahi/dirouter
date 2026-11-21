@@ -13,6 +13,7 @@ import {
   CONFIG_SNAPSHOT_SCHEMA_VERSION,
   ConfigSnapshot,
   type ConfigSnapshotInput,
+  GatewaySettings,
 } from '@dirouter/contracts';
 import type { Prisma } from '@dirouter/db';
 import type { Logger } from '@dirouter/shared';
@@ -35,12 +36,25 @@ const TYPE: Record<string, string> = {
   OPENAI_COMPATIBLE: 'openai-compatible',
   ANTHROPIC: 'anthropic',
   GEMINI: 'gemini',
+  BEDROCK: 'bedrock',
+  VERTEX: 'vertex',
+  COHERE: 'cohere',
+  MISTRAL: 'mistral',
+  VOYAGE: 'voyage',
+  JINA: 'jina',
   MOCK: 'mock',
 };
-const STRATEGY: Record<string, 'priority' | 'weighted' | 'round-robin'> = {
+const STRATEGY: Record<
+  string,
+  'priority' | 'weighted' | 'round-robin' | 'latency' | 'cost' | 'least-used' | 'headroom'
+> = {
   PRIORITY: 'priority',
   WEIGHTED: 'weighted',
   ROUND_ROBIN: 'round-robin',
+  LATENCY: 'latency',
+  COST: 'cost',
+  LEAST_USED: 'least-used',
+  HEADROOM: 'headroom',
 };
 const usd = (d: Prisma.Decimal | null | undefined) =>
   d === null || d === undefined ? undefined : d.toFixed(8).replace(/\.?0+$/, '') || '0';
@@ -114,7 +128,7 @@ export class SnapshotService implements OnModuleInit, OnModuleDestroy {
 
   async build(): Promise<Content> {
     const db = this.prisma.client;
-    const [providers, models, combos, aliases, keys, projects, budgets, policies] =
+    const [providers, models, combos, aliases, keys, projects, budgets, policies, guardrails] =
       await Promise.all([
         db.provider.findMany({
           where: { deletedAt: null },
@@ -136,6 +150,7 @@ export class SnapshotService implements OnModuleInit, OnModuleDestroy {
         db.project.findMany({ select: { id: true, teamId: true } }),
         db.budget.findMany({ orderBy: { id: 'asc' } }),
         db.rateLimitPolicy.findMany({ orderBy: { id: 'asc' } }),
+        db.guardrailPolicy.findMany({ where: { enabled: true }, orderBy: { id: 'asc' } }),
       ]);
     const teamOf = new Map(projects.map((p) => [p.id, p.teamId]));
     const budgetsFor = (scope: string, id: string) =>
@@ -171,7 +186,7 @@ export class SnapshotService implements OnModuleInit, OnModuleDestroy {
         id: p.id,
         organizationId: p.organizationId,
         slug: p.slug,
-        type: (TYPE[p.type] ?? 'openai-compatible') as 'openai',
+        type: (TYPE[p.type] ?? 'openai-compatible') as never,
         name: p.name,
         baseUrl: p.baseUrl,
         enabled: p.enabled,
@@ -223,6 +238,8 @@ export class SnapshotService implements OnModuleInit, OnModuleDestroy {
           ...(c.fallbackOn.length > 0 ? { fallbackOn: c.fallbackOn as never[] } : {}),
           retry: { maxAttempts: c.retryMaxAttempts },
           ...(c.timeouts ? { timeouts: c.timeouts as Record<string, number> } : {}),
+          sticky: c.sticky,
+          ...(c.hedging ? { hedging: c.hedging as Record<string, unknown> } : {}),
         })),
       aliases: aliases
         .filter((a) =>
@@ -278,8 +295,43 @@ export class SnapshotService implements OnModuleInit, OnModuleDestroy {
             };
           }),
       ],
-      settings: {},
+      guardrails: guardrails.map((g) => ({
+        id: g.id,
+        organizationId: g.organizationId,
+        name: g.name,
+        enabled: g.enabled,
+        stage: g.stage as 'request' | 'response' | 'both',
+        type: g.type as never,
+        action: g.action as never,
+        config: g.config as Record<string, unknown>,
+        ...(g.message ? { message: g.message } : {}),
+        // Optional narrowing to one key or project; without these the policy covers the organization.
+        ...(g.virtualKeyId ? { virtualKeyId: g.virtualKeyId } : {}),
+        ...(g.projectId ? { projectId: g.projectId } : {}),
+      })),
+      settings: await this.gatewaySettings(),
     };
+  }
+
+  /**
+   * Gateway-wide settings stored by the dashboard (single `gateway_settings` row). Read with raw SQL
+   * so the snapshot keeps building even before the table exists (older database) or if the stored
+   * JSON no longer matches the schema: in both cases the gateway falls back to its defaults.
+   */
+  async gatewaySettings(): Promise<ConfigSnapshotInput['settings']> {
+    try {
+      const rows = await this.prisma.client.$queryRaw<{ settings: unknown }[]>`
+        SELECT "settings" FROM "gateway_settings" WHERE "id" = 'global' LIMIT 1`;
+      const parsed = GatewaySettings.safeParse(rows[0]?.settings ?? {});
+      if (parsed.success) return rows[0]?.settings ?? {};
+      this.logger.warn(
+        { issues: parsed.error.issues.slice(0, 5) },
+        'stored gateway settings are invalid; using defaults',
+      );
+    } catch (error) {
+      this.logger.warn({ err: error }, 'gateway settings unavailable; using defaults');
+    }
+    return {};
   }
 
   /** A new version only if the content changed; returns the current version number. */
@@ -298,6 +350,15 @@ export class SnapshotService implements OnModuleInit, OnModuleDestroy {
       await tx.$queryRaw`SELECT 1 AS locked FROM pg_advisory_xact_lock(${LOCK})`;
       const latest = await tx.configVersion.findFirst({ orderBy: { version: 'desc' } });
       if (latest?.checksum === checksum) return { version: latest.version, created: false };
+      // A rolled-back or imported image stays published while the database is exactly as it was
+      // when the image was pinned. Without this the periodic rebuild would undo a rollback within
+      // 30 seconds. Any later change in the database lifts the pin and publishes from the database.
+      if (latest) {
+        const pinned = await tx.$queryRaw<{ base_checksum: string | null }[]>`
+          SELECT "base_checksum" FROM "config_versions" WHERE "version" = ${latest.version}`;
+        if (pinned[0]?.base_checksum === checksum)
+          return { version: latest.version, created: false };
+      }
       const row = await tx.configVersion.create({
         data: { checksum, reason, snapshot: {} },
       });
@@ -330,5 +391,49 @@ export class SnapshotService implements OnModuleInit, OnModuleDestroy {
 
   async latest() {
     return this.prisma.client.configVersion.findFirst({ orderBy: { version: 'desc' } });
+  }
+
+  /**
+   * Publish an explicit snapshot image (rollback or YAML import). The gateway only needs a newer
+   * version with a valid image, so the image is re-versioned and stored as a new history row.
+   */
+  async publishSnapshot(snapshot: ConfigSnapshotInput, reason: string): Promise<number> {
+    const checksum = createHash('sha256')
+      .update(JSON.stringify(stable(snapshot)))
+      .digest('hex');
+    const db = this.prisma.client;
+    // What the database would publish right now; stored with the pinned image (see #rebuild).
+    const baseChecksum = createHash('sha256')
+      .update(JSON.stringify(stable(await this.build())))
+      .digest('hex');
+    const row = await db.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT 1 AS locked FROM pg_advisory_xact_lock(${LOCK})`;
+      const created = await tx.configVersion.create({
+        data: { checksum, reason, snapshot: {} },
+      });
+      await tx.$executeRaw`
+        UPDATE "config_versions" SET "base_checksum" = ${baseChecksum}
+        WHERE "version" = ${created.version}`;
+      const image = ConfigSnapshot.parse({
+        ...snapshot,
+        version: created.version,
+        generatedAt: new Date().toISOString(),
+        checksum,
+      });
+      await tx.configVersion.update({
+        where: { version: created.version },
+        data: { snapshot: image as unknown as Prisma.InputJsonObject },
+      });
+      await tx.configVersion.deleteMany({
+        where: { version: { lte: created.version - KEEP_VERSIONS } },
+      });
+      return created;
+    });
+    await this.valkey.client
+      .publish(CONFIG_CHANNEL, String(row.version))
+      .catch((error: unknown) => {
+        this.logger.warn({ err: error }, 'config:updated publish failed');
+      });
+    return row.version;
   }
 }

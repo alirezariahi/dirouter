@@ -50,3 +50,11 @@ export function ApiZodQuery(schema: z.ZodObject) {
     ),
   );
 }
+
+/**
+ * Loose response schemas for endpoints whose payload is an aggregate that changes with the data
+ * (stats, snapshots, provider-specific records). They document "a JSON object" honestly instead of
+ * a shape that would drift; endpoints with a stable contract declare a precise schema.
+ */
+export const JsonObjectSchema = z.record(z.string(), z.unknown());
+export const JsonListSchema = z.array(JsonObjectSchema);

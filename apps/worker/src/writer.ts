@@ -60,6 +60,10 @@ export function toRequestLogRow(e: UsageEvent) {
     attempts: e.attempts,
     configVersion: e.configVersion,
     gatewayInstance: e.gatewayInstance,
+    cacheHit: e.cacheHit ?? false,
+    cacheKind: e.cacheKind ?? null,
+    savedInputTokens: e.savedInputTokens ?? 0,
+    hedgeAttempts: e.hedgeAttempts ?? 0,
   };
 }
 

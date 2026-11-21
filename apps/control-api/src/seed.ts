@@ -10,7 +10,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 
 import { createPrismaClient } from '@dirouter/db';
-import { encrypt, hashApiKey, keyVersionOf, parseKeyring } from '@dirouter/shared';
+import { connectValkey, encrypt, hashApiKey, keyVersionOf, parseKeyring } from '@dirouter/shared';
 import { Redis } from 'ioredis';
 
 import { hashPassword } from './auth/crypto.js';
@@ -257,7 +257,7 @@ async function main() {
 
   // Fresh snapshot immediately (otherwise control-api's periodic build picks it up within 30 seconds).
   if (env.VALKEY_URL) {
-    const redis = new Redis(env.VALKEY_URL, { maxRetriesPerRequest: 1 });
+    const redis = connectValkey(Redis, env.VALKEY_URL, { maxRetriesPerRequest: 1 });
     await redis.publish(REBUILD_CHANNEL, 'seed').catch(() => undefined);
     redis.disconnect();
   }

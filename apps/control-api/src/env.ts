@@ -15,6 +15,17 @@ export const envSchema = baseEnvSchema.extend({
   GATEWAY_INTERNAL_URL: z.string().default('http://gateway:8080'),
   SMTP_URL: z.string().optional(),
   SMTP_FROM: z.string().default('DiRouter <noreply@localhost>'),
+  /** OpenAI-compatible embeddings endpoint used by the pgvector semantic cache (card 13.2). */
+  // Compose passes unset variables as empty strings; empty means "not configured".
+  SEMANTIC_CACHE_EMBEDDING_URL: z.preprocess(
+    (value) => (value === '' ? undefined : value),
+    z.url().optional(),
+  ),
+  SEMANTIC_CACHE_EMBEDDING_KEY: z.string().optional(),
+  SEMANTIC_CACHE_EMBEDDING_MODEL: z.preprocess(
+    (value) => (value === '' ? undefined : value),
+    z.string().default('text-embedding-3-small'),
+  ),
 });
 
 export type Env = z.infer<typeof envSchema>;

@@ -10,7 +10,19 @@ import { describe, expect, it } from 'vitest';
 import { createApp } from './bootstrap.js';
 import { envSchema } from './env.js';
 
-const NO_BODY = ['/revoke', '/discover', '/sync-catalog', '/logout', '/refresh'];
+// Actions that take no request body.
+const NO_BODY = [
+  '/revoke',
+  '/discover',
+  '/sync-catalog',
+  '/logout',
+  '/refresh',
+  '/mfa/setup',
+  '/webauthn/options',
+  '/channels/{id}/test',
+  '/events/{id}/ack',
+  '/security/rotate-key',
+];
 
 describe('OpenAPI document', () => {
   it('documents every operation with request and response schemas', async () => {

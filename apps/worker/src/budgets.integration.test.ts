@@ -92,7 +92,8 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('budget reconcile on real services
   afterAll(async () => {
     await db.usageLedger.deleteMany({ where: { organizationId: ORG } });
     await db.budget.deleteMany({ where: { organizationId: ORG } });
-    await db.auditLog.deleteMany({ where: { organizationId: ORG } });
+    // audit_logs is append-only (database trigger), so its rows stay; the assertion below is
+    // scoped to this run's budget id instead.
     await db.$disconnect();
     redis.disconnect();
   });
@@ -131,7 +132,7 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('budget reconcile on real services
     await redis.lpush(BUDGET_ALERTS_KEY, JSON.stringify(event), 'not json');
     expect(await processBudgetAlerts(db as unknown as BudgetDb, redis, logger)).toBe(1);
     const rows = await db.auditLog.findMany({
-      where: { organizationId: ORG, action: 'budget.threshold_crossed' },
+      where: { organizationId: ORG, action: 'budget.threshold_crossed', targetId: ids.active },
     });
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({

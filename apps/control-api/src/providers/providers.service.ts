@@ -19,6 +19,12 @@ export const PROVIDER_TYPES = [
   'openai-compatible',
   'anthropic',
   'gemini',
+  'bedrock',
+  'vertex',
+  'cohere',
+  'mistral',
+  'voyage',
+  'jina',
 ] as const;
 export type ProviderTypeName = (typeof PROVIDER_TYPES)[number];
 
@@ -28,6 +34,12 @@ const TO_DB = {
   'openai-compatible': 'OPENAI_COMPATIBLE',
   anthropic: 'ANTHROPIC',
   gemini: 'GEMINI',
+  bedrock: 'BEDROCK',
+  vertex: 'VERTEX',
+  cohere: 'COHERE',
+  mistral: 'MISTRAL',
+  voyage: 'VOYAGE',
+  jina: 'JINA',
   mock: 'MOCK',
 } as const;
 const FROM_DB = Object.fromEntries(Object.entries(TO_DB).map(([k, v]) => [v, k])) as Record<
@@ -40,6 +52,10 @@ const DEFAULT_BASE: Partial<Record<ProviderTypeName, string>> = {
   openai: 'https://api.openai.com/v1',
   anthropic: 'https://api.anthropic.com',
   gemini: 'https://generativelanguage.googleapis.com',
+  cohere: 'https://api.cohere.com',
+  mistral: 'https://api.mistral.ai/v1',
+  voyage: 'https://api.voyageai.com/v1',
+  jina: 'https://api.jina.ai/v1',
 };
 
 export interface TimeoutsInput {
@@ -397,6 +413,7 @@ export class ProvidersService {
         id: prefixedId('aud'),
         organizationId: ctx.organizationId,
         actorUserId: ctx.userId,
+        ...(ctx.ip ? { ip: ctx.ip } : {}),
         action,
         targetType,
         targetId,

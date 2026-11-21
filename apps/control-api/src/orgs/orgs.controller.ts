@@ -25,7 +25,11 @@ const SlugSchema = z
   .regex(/^[a-z0-9][a-z0-9-]{0,62}$/, 'lowercase letters, digits and dashes');
 
 export const OrgPatch = z.object({ name: Name });
-export const RoleBody = z.object({ role: RoleSchema });
+export const RoleBody = z.object({
+  role: RoleSchema,
+  /** Optional custom role (card 14.3); null clears it. */
+  customRoleId: z.string().nullable().optional(),
+});
 export const InviteBody = z.object({ email: z.email().max(254), role: RoleSchema });
 export const TeamBody = z.object({ name: Name, slug: SlugSchema.optional() });
 export const TeamPatch = TeamBody.partial();
@@ -89,13 +93,13 @@ export class OrgsController {
   @Patch('members/:userId')
   @RequirePermission('members:write')
   @ApiZodBody(RoleBody)
-  @ApiZodOk(z.object({ userId: z.string(), role: RoleSchema }))
+  @ApiZodOk(z.object({ userId: z.string(), role: RoleSchema, customRoleId: z.string().nullable() }))
   role(
     @Org() org: OrgContext,
     @Param('userId') userId: string,
     @Body(new ZodPipe(RoleBody)) body: z.infer<typeof RoleBody>,
   ) {
-    return this.orgs.changeRole(org, userId, body.role);
+    return this.orgs.changeRole(org, userId, body.role, body.customRoleId);
   }
 
   @Delete('members/:userId')

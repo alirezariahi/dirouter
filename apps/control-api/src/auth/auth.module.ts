@@ -3,11 +3,14 @@ import { Global, Module } from '@nestjs/common';
 import { AuthController } from './auth.controller.js';
 import { AccessGuard } from './auth.guard.js';
 import { AuthService } from './auth.service.js';
+import { MfaController } from './mfa.controller.js';
+import { MfaService } from './mfa.service.js';
+import { WebAuthnController } from './webauthn.controller.js';
 
 @Global()
 @Module({
-  controllers: [AuthController],
-  providers: [AuthService, AccessGuard],
-  exports: [AuthService, AccessGuard],
+  controllers: [AuthController, MfaController, WebAuthnController],
+  providers: [AuthService, MfaService, AccessGuard],
+  exports: [AuthService, MfaService, AccessGuard],
 })
 export class AuthModule {}

@@ -11,7 +11,13 @@ import { hashInvite, slugify } from '../common/ids.js';
 import { ENV, type Env } from '../env.js';
 import { PrismaService } from '../infra/prisma.service.js';
 import type { OrgContext } from '../rbac/org.guard.js';
-import { type Role, ROLE_RANK } from '../rbac/permissions.js';
+import {
+  canManageMember,
+  effectivePermissions,
+  missingPermissions,
+  type Role,
+  ROLE_RANK,
+} from '../rbac/permissions.js';
 
 export const INVITE_TTL_MS = 7 * 24 * 3600 * 1000;
 
@@ -40,6 +46,7 @@ export class OrgsService {
         id: prefixedId('aud'),
         organizationId: ctx.organizationId,
         actorUserId: ctx.userId,
+        ...(ctx.ip ? { ip: ctx.ip } : {}),
         action,
         targetType,
         targetId,
@@ -76,10 +83,15 @@ export class OrgsService {
     }));
   }
 
-  /** Rules: you cannot grant a role higher than your own; only OWNER deals with OWNERs; the last OWNER remains. */
+  /**
+   * Rules: you cannot grant a role higher than your own; only OWNER deals with OWNERs; the last OWNER
+   * remains; and nobody modifies or removes a member who is more powerful than themselves, whether by
+   * base role or by the permissions of a custom role.
+   */
   async #checkMemberChange(ctx: OrgContext, userId: string, newRole?: Role) {
     const target = await this.db.membership.findUnique({
       where: { userId_organizationId: { userId, organizationId: ctx.organizationId } },
+      include: { customRole: { select: { permissions: true } } },
     });
     if (!target) throw notFound();
     const touchesOwner = target.role === 'OWNER' || newRole === 'OWNER';
@@ -87,6 +99,16 @@ export class OrgsService {
       throw new ForbiddenError('forbidden', { message: 'Only an owner can change owners' });
     if (newRole && ROLE_RANK[newRole] > ROLE_RANK[ctx.role])
       throw new ForbiddenError('forbidden', { message: 'Cannot grant a role above your own' });
+    if (
+      userId !== ctx.userId &&
+      !canManageMember(
+        { role: ctx.role, customPermissions: ctx.customPermissions },
+        { role: target.role, customPermissions: target.customRole?.permissions },
+      )
+    )
+      throw new ForbiddenError('forbidden', {
+        message: 'Cannot change a member with more access than your own',
+      });
     if (target.role === 'OWNER' && newRole !== 'OWNER') {
       const owners = await this.db.membership.count({
         where: { organizationId: ctx.organizationId, role: 'OWNER' },
@@ -99,11 +121,43 @@ export class OrgsService {
     return target;
   }
 
-  async changeRole(ctx: OrgContext, userId: string, role: Role) {
+  async changeRole(ctx: OrgContext, userId: string, role: Role, customRoleId?: string | null) {
     const target = await this.#checkMemberChange(ctx, userId, role);
-    await this.db.membership.update({ where: { id: target.id }, data: { role } });
-    await this.#audit(ctx, 'member.role_changed', 'user', userId, { from: target.role, to: role });
-    return { userId, role };
+    // Nobody edits their own access: a role change always needs a second, sufficiently powerful
+    // member. (Checked after the rules above so the last-owner conflict is still reported as such.)
+    if (userId === ctx.userId)
+      throw new ForbiddenError('forbidden', { message: 'You cannot change your own role' });
+    let nextCustomRoleId = target.customRoleId;
+    if (customRoleId !== undefined) {
+      if (customRoleId === null) nextCustomRoleId = null;
+      else {
+        const custom = await this.db.customRole.findFirst({
+          where: { id: customRoleId, organizationId: ctx.organizationId },
+          select: { id: true, permissions: true },
+        });
+        if (!custom) throw notFound();
+        // Assigning a custom role grants its permissions, so the actor must hold all of them.
+        const missing = missingPermissions(
+          effectivePermissions(ctx.role, ctx.customPermissions),
+          custom.permissions,
+        );
+        if (missing.length > 0)
+          throw new ForbiddenError('forbidden', {
+            message: `Cannot assign a custom role with permissions you do not hold: ${missing.join(', ')}`,
+          });
+        nextCustomRoleId = custom.id;
+      }
+    }
+    await this.db.membership.update({
+      where: { id: target.id },
+      data: { role, customRoleId: nextCustomRoleId },
+    });
+    await this.#audit(ctx, 'member.role_changed', 'user', userId, {
+      from: target.role,
+      to: role,
+      ...(customRoleId !== undefined ? { customRoleId: nextCustomRoleId } : {}),
+    });
+    return { userId, role, customRoleId: nextCustomRoleId };
   }
 
   async removeMember(ctx: OrgContext, userId: string) {

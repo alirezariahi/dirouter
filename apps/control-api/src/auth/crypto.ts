@@ -8,7 +8,10 @@
 import { createHmac, randomBytes } from 'node:crypto';
 
 import { hash, verify } from '@node-rs/argon2';
+import { prefixedId } from '@dirouter/shared';
 import { jwtVerify, SignJWT } from 'jose';
+
+import type { AuthMethod } from '../rbac/permissions.js';
 
 // The default algorithm of @node-rs/argon2 is Argon2id (the test checks the `$argon2id$` prefix).
 const ARGON = {
@@ -38,9 +41,40 @@ export async function verifyPassword(
   }
 }
 
+export type { AuthMethod };
+const AUTH_METHODS: readonly string[] = ['pwd', 'passkey', 'sso'];
+
 export interface AccessClaims {
   sub: string;
   email: string;
+  /** Absent means a password session, the least trusted method. */
+  amr?: AuthMethod | undefined;
+  /** SSO sessions only: the organization whose identity provider vouched for the user. */
+  org?: string | undefined;
+}
+
+/** How a session (a refresh-token family) was opened. */
+export interface SessionOrigin {
+  amr: AuthMethod;
+  org?: string | undefined;
+}
+
+/**
+ * The origin of a session is encoded in its family id, which every refresh token of the session
+ * carries: it survives rotation without an extra column and cannot be lost like a cache entry.
+ * Ids of any other shape (including all families created before this encoding) are password sessions.
+ */
+export function newFamilyId(origin: SessionOrigin): string {
+  if (origin.amr === 'passkey') return prefixedId('fampk');
+  if (origin.amr === 'sso' && origin.org) return `${prefixedId('famsso')}_${origin.org}`;
+  return prefixedId('fam');
+}
+
+export function familyOrigin(familyId: string): SessionOrigin {
+  if (familyId.startsWith('fampk_')) return { amr: 'passkey' };
+  const sso = /^famsso_[^_]+_(.+)$/.exec(familyId);
+  if (sso?.[1]) return { amr: 'sso', org: sso[1] };
+  return { amr: 'pwd' };
 }
 
 export class TokenService {
@@ -50,7 +84,12 @@ export class TokenService {
   }
 
   signAccess(claims: AccessClaims, now = Date.now()): Promise<string> {
-    return new SignJWT({ email: claims.email, typ: 'access' })
+    return new SignJWT({
+      email: claims.email,
+      typ: 'access',
+      amr: claims.amr ?? 'pwd',
+      ...(claims.org ? { org: claims.org } : {}),
+    })
       .setProtectedHeader({ alg: 'HS256' })
       .setSubject(claims.sub)
       .setIssuer('dirouter')
@@ -69,7 +108,15 @@ export class TokenService {
         audience: 'dirouter-dashboard',
       });
       if (payload.typ !== 'access' || typeof payload.sub !== 'string') return undefined;
-      return { sub: payload.sub, email: typeof payload.email === 'string' ? payload.email : '' };
+      return {
+        sub: payload.sub,
+        email: typeof payload.email === 'string' ? payload.email : '',
+        amr:
+          typeof payload.amr === 'string' && AUTH_METHODS.includes(payload.amr)
+            ? (payload.amr as AuthMethod)
+            : 'pwd',
+        ...(typeof payload.org === 'string' ? { org: payload.org } : {}),
+      };
     } catch {
       return undefined;
     }

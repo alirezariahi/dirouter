@@ -6,6 +6,8 @@
  */
 import { createHash } from 'node:crypto';
 
+import { DiRouterError } from '@dirouter/shared';
+
 export interface LimiterStore {
   incr(key: string): Promise<number>;
   pexpire(key: string, ms: number): Promise<number>;
@@ -96,5 +98,13 @@ export class LoginLimiter {
     return this.#run(async (s) => {
       await s.del(accountKey(email));
     });
+  }
+}
+
+/** 429 with code login_locked; ProblemFilter builds the Retry-After header from retryAfterMs. */
+export class LoginLockedError extends DiRouterError {
+  override readonly name = 'LoginLockedError';
+  constructor(readonly retryAfterMs: number) {
+    super('login_locked', { message: 'Too many failed login attempts; try again later' });
   }
 }

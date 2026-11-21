@@ -58,6 +58,10 @@ export function decodeCursor(cursor: string): { createdAt: Date; id: string } {
   }
 }
 
+/** A `::text` decimal column as a string; anything unexpected reads as zero. */
+const decimalText = (value: unknown): string =>
+  typeof value === 'string' ? value : typeof value === 'number' ? String(value) : '0';
+
 @Injectable()
 export class StatsService {
   constructor(
@@ -129,6 +133,7 @@ export class StatsService {
         id: prefixedId('aud'),
         organizationId: org,
         actorUserId: ctx.userId,
+        ...(ctx.ip ? { ip: ctx.ip } : {}),
         action: 'health.reset',
         targetType: scope,
         targetId: id,
@@ -255,6 +260,31 @@ export class StatsService {
     };
   }
 
+  async ledger(ctx: OrgContext, r: Range, f: Filters, limit: number) {
+    const rows = await this.prisma.client.usageLedger.findMany({
+      where: {
+        organizationId: ctx.organizationId,
+        occurredAt: { gte: r.from, lt: r.to },
+        ...(f.projectId ? { projectId: f.projectId } : {}),
+        ...(f.apiKeyId ? { apiKeyId: f.apiKeyId } : {}),
+      },
+      orderBy: { occurredAt: 'desc' },
+      take: limit,
+    });
+    return {
+      rows: rows.map((row) => ({
+        id: row.id,
+        requestId: row.requestId,
+        projectId: row.projectId,
+        apiKeyId: row.apiKeyId,
+        teamId: row.teamId,
+        tokens: row.tokens,
+        costUsd: usd(row.costUsd),
+        occurredAt: row.occurredAt.toISOString(),
+      })),
+    };
+  }
+
   async logs(
     ctx: OrgContext,
     r: Range,
@@ -360,6 +390,222 @@ export class StatsService {
       configVersion: row.configVersion,
       gatewayInstance: row.gatewayInstance,
       attempts: row.attempts,
+    };
+  }
+
+  /**
+   * Ledger totals for the range (card 16.1). The cost page shows this next to the rollup total:
+   * the ledger is the financial source of truth, so the two must agree once rollups caught up.
+   */
+  async ledgerTotal(ctx: OrgContext, r: Range, f: Filters) {
+    const project = f.projectId ? Prisma.sql`AND "project_id" = ${f.projectId}` : Prisma.empty;
+    const key = f.apiKeyId ? Prisma.sql`AND "api_key_id" = ${f.apiKeyId}` : Prisma.empty;
+    // Same window as the rollup tables read by `overview` (whole days over 7 days, whole hours
+    // otherwise); with a different window the two totals could never be compared.
+    const window =
+      this.#table(r) === 'd'
+        ? Prisma.sql`"occurred_at" >= ${r.from}::date AND "occurred_at" < ${r.to}::date + 1`
+        : Prisma.sql`"occurred_at" >= date_trunc('hour', ${r.from}::timestamptz) AND "occurred_at" < ${r.to}::timestamptz`;
+    const [row] = await this.db.$queryRaw<Record<string, unknown>[]>`
+      SELECT count(*)::int AS entries, coalesce(sum("cost_usd"), 0)::text AS cost_usd,
+             coalesce(sum("tokens"), 0)::bigint AS tokens
+      FROM "usage_ledger"
+      WHERE "organization_id" = ${ctx.organizationId} AND ${window} ${project} ${key}`;
+    return {
+      entries: Number(row?.entries ?? 0),
+      costUsd: decimalText(row?.cost_usd),
+      tokens: Number(row?.tokens ?? 0),
+    };
+  }
+
+  /** Every budget of the organization with what was spent in its current period (UTC day/month). */
+  async budgetStatus(ctx: OrgContext) {
+    const rows = await this.db.$queryRaw<Record<string, unknown>[]>`
+      SELECT b."id", b."scope"::text AS scope, b."scope_id", b."period"::text AS period,
+             b."limit_usd"::text AS limit_usd, b."limit_tokens"::text AS limit_tokens,
+             s.spent_usd::text AS spent_usd, s.spent_tokens::text AS spent_tokens
+      FROM "budgets" b
+      CROSS JOIN LATERAL (
+        SELECT coalesce(sum(l."cost_usd"), 0) AS spent_usd, coalesce(sum(l."tokens"), 0) AS spent_tokens
+        FROM "usage_ledger" l
+        WHERE l."organization_id" = b."organization_id"
+          AND l."occurred_at" >= CASE WHEN b."period"::text = 'daily'
+                THEN date_trunc('day', now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'
+                ELSE date_trunc('month', now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC' END
+          AND CASE b."scope"::text
+                WHEN 'api_key' THEN l."api_key_id" = b."scope_id"
+                WHEN 'project' THEN l."project_id" = b."scope_id"
+                WHEN 'team' THEN l."team_id" = b."scope_id"
+                ELSE false END
+      ) s
+      WHERE b."organization_id" = ${ctx.organizationId}
+      ORDER BY b."scope", b."scope_id", b."period"`;
+    return rows.map((row) => {
+      const limitUsd = row.limit_usd === null ? null : decimalText(row.limit_usd);
+      const spentUsd = decimalText(row.spent_usd);
+      return {
+        id: String(row.id),
+        scope: String(row.scope) === 'api_key' ? 'key' : String(row.scope),
+        scopeId: String(row.scope_id),
+        period: String(row.period),
+        limitUsd,
+        limitTokens: row.limit_tokens === null ? null : Number(row.limit_tokens),
+        spentUsd,
+        spentTokens: Number(row.spent_tokens ?? 0),
+        usedPercent:
+          limitUsd && Number(limitUsd) > 0
+            ? Math.round((Number(spentUsd) / Number(limitUsd)) * 1000) / 10
+            : null,
+      };
+    });
+  }
+
+  /**
+   * Cache effectiveness (cards 13.1-13.3): hit rate per cache kind, the provider cost the hits
+   * avoided (tokens of the cached answer at the model's current price) and tokens removed by
+   * context compression. Read from request_log, so the range is limited by its retention.
+   */
+  async cacheStats(ctx: OrgContext, range: Range, projectId?: string) {
+    const project = projectId ? Prisma.sql`AND l."project_id" = ${projectId}` : Prisma.empty;
+    const [totals] = await this.db.$queryRaw<Record<string, unknown>[]>`
+      SELECT count(*)::int AS requests,
+             count(*) FILTER (WHERE l."cache_hit")::int AS hits,
+             coalesce(sum(l."saved_input_tokens"), 0)::bigint AS compressed_tokens
+      FROM "request_log" l
+      WHERE l."organization_id" = ${ctx.organizationId}
+        AND l."created_at" >= ${range.from} AND l."created_at" < ${range.to} ${project}`;
+    const kinds = await this.db.$queryRaw<Record<string, unknown>[]>`
+      SELECT coalesce(l."cache_kind", 'exact') AS kind, count(*)::int AS hits,
+             coalesce(sum(l."input_tokens"), 0)::bigint AS input_tokens,
+             coalesce(sum(l."output_tokens"), 0)::bigint AS output_tokens,
+             coalesce(sum(
+               l."input_tokens"::numeric * coalesce(m."input_price", 0) / 1000000
+               + l."output_tokens"::numeric * coalesce(m."output_price", 0) / 1000000
+             ), 0)::text AS saved_usd
+      FROM "request_log" l
+      LEFT JOIN "models" m ON m."id" = l."model_id"
+      WHERE l."organization_id" = ${ctx.organizationId} AND l."cache_hit"
+        AND l."created_at" >= ${range.from} AND l."created_at" < ${range.to} ${project}
+      GROUP BY 1 ORDER BY 1`;
+    const requests = Number(totals?.requests ?? 0);
+    const hits = Number(totals?.hits ?? 0);
+    return {
+      from: range.from.toISOString(),
+      to: range.to.toISOString(),
+      requests,
+      hits,
+      hitRate: requests ? hits / requests : 0,
+      compressedInputTokens: Number(totals?.compressed_tokens ?? 0),
+      kinds: kinds.map((row) => ({
+        kind: String(row.kind),
+        hits: Number(row.hits),
+        hitRate: requests ? Number(row.hits) / requests : 0,
+        savedInputTokens: Number(row.input_tokens),
+        savedOutputTokens: Number(row.output_tokens),
+        savedUsd: String(row.saved_usd),
+      })),
+    };
+  }
+
+  /**
+   * Routing dry-run (card 12.5): asks a gateway replica which candidates it would try for a model
+   * right now and why the others are skipped. The organization is always forced to the caller's.
+   */
+  async simulateRoute(
+    ctx: OrgContext,
+    body: {
+      model: string;
+      virtualKeyId?: string | undefined;
+      estimatedInputTokens?: number | undefined;
+      maxOutputTokens?: number | undefined;
+      sessionKey?: string | undefined;
+    },
+  ) {
+    if (body.virtualKeyId) {
+      const key = await this.db.apiKey.findFirst({
+        where: { id: body.virtualKeyId, organizationId: ctx.organizationId },
+        select: { id: true },
+      });
+      if (!key) throw new DiRouterError('not_found', { message: 'key not found', status: 404 });
+    }
+    const res = await fetch(
+      `${this.env.GATEWAY_INTERNAL_URL.replace(/\/+$/, '')}/internal/routes/simulate`,
+      {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${this.env.INTERNAL_TOKEN}`,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({ ...body, organizationId: ctx.organizationId, p2c: true }),
+        signal: AbortSignal.timeout(5_000),
+      },
+    ).catch(() => undefined);
+    if (!res)
+      throw new DiRouterError('service_unavailable', {
+        message: 'gateway is not reachable',
+        status: 503,
+      });
+    const payload = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+    // A routing error (model_not_found, no_available_provider, …) is a valid simulation result.
+    return { ok: res.ok, status: res.status, ...payload };
+  }
+
+  /**
+   * Uptime history from periodic health probes (card 12.3): per provider totals for the range and
+   * hourly buckets for the chart. Only providers of this organization are visible.
+   */
+  async uptime(ctx: OrgContext, range: Range) {
+    const totals = await this.db.$queryRaw<Record<string, unknown>[]>`
+      SELECT p."id" AS provider_id, p."slug", p."name",
+             count(s."id")::int AS samples,
+             count(s."id") FILTER (WHERE s."ok")::int AS ok,
+             round(avg(s."latency_ms") FILTER (WHERE s."ok"))::int AS avg_latency_ms,
+             max(s."checked_at") AS last_checked_at,
+             max(s."checked_at") FILTER (WHERE s."ok") AS last_ok_at
+      FROM "providers" p
+      LEFT JOIN "provider_health_samples" s
+        ON s."provider_id" = p."id"
+       AND s."checked_at" >= ${range.from} AND s."checked_at" < ${range.to}
+      WHERE p."organization_id" = ${ctx.organizationId} AND p."deleted_at" IS NULL
+      GROUP BY p."id", p."slug", p."name"
+      ORDER BY p."slug"`;
+    const buckets = await this.db.$queryRaw<Record<string, unknown>[]>`
+      SELECT s."provider_id", date_trunc('hour', s."checked_at") AS bucket,
+             count(*)::int AS samples, count(*) FILTER (WHERE s."ok")::int AS ok
+      FROM "provider_health_samples" s
+      JOIN "providers" p ON p."id" = s."provider_id"
+      WHERE p."organization_id" = ${ctx.organizationId}
+        AND s."checked_at" >= ${range.from} AND s."checked_at" < ${range.to}
+      GROUP BY s."provider_id", bucket
+      ORDER BY bucket`;
+    const iso = (value: unknown) => (value instanceof Date ? value.toISOString() : null);
+    const pct = (ok: number, samples: number) =>
+      samples > 0 ? Math.round((ok / samples) * 10_000) / 100 : null;
+    return {
+      from: range.from.toISOString(),
+      to: range.to.toISOString(),
+      providers: totals.map((row) => {
+        const samples = Number(row.samples ?? 0);
+        const ok = Number(row.ok ?? 0);
+        return {
+          providerId: String(row.provider_id),
+          slug: String(row.slug),
+          name: String(row.name),
+          samples,
+          ok,
+          uptimePercent: pct(ok, samples),
+          avgLatencyMs: row.avg_latency_ms === null ? null : Number(row.avg_latency_ms),
+          lastCheckedAt: iso(row.last_checked_at),
+          lastOkAt: iso(row.last_ok_at),
+          buckets: buckets
+            .filter((b) => b.provider_id === row.provider_id)
+            .map((b) => ({
+              at: iso(b.bucket),
+              samples: Number(b.samples),
+              uptimePercent: pct(Number(b.ok), Number(b.samples)),
+            })),
+        };
+      }),
     };
   }
 

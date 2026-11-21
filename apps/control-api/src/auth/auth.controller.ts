@@ -23,11 +23,18 @@ export const SetupBody = z.object({
   email: Email,
   password: Password,
 });
-export const LoginBody = z.object({ email: Email, password: z.string().min(1).max(256) });
+export const LoginBody = z.object({
+  email: Email,
+  password: z.string().min(1).max(256),
+  /** TOTP or backup code when MFA is enabled (card 14.1). */
+  mfaCode: z.string().min(6).max(16).optional(),
+});
 export const AcceptInviteBody = z.object({
   token: z.string().min(16).max(128),
   name: z.string().trim().min(1).max(100).optional(),
   password: z.string().min(1).max(256),
+  /** Required when the invitation is accepted by an existing account that has MFA enabled. */
+  mfaCode: z.string().min(6).max(16).optional(),
 });
 export const PasswordBody = z.object({
   currentPassword: z.string().min(1).max(256),
@@ -49,6 +56,7 @@ const MeResponse = z.object({
       name: z.string(),
       slug: z.string(),
       role: z.enum(['OWNER', 'ADMIN', 'MEMBER', 'VIEWER']),
+      permissions: z.array(z.string()),
     }),
   ),
 });
@@ -110,7 +118,10 @@ export class AuthController {
     @Req() req: FastifyRequest,
     @Res({ passthrough: true }) reply: FastifyReply,
   ) {
-    return this.#setRefresh(reply, await this.auth.login(body.email, body.password, client(req)));
+    return this.#setRefresh(
+      reply,
+      await this.auth.login(body.email, body.password, client(req), body.mfaCode),
+    );
   }
 
   @Post('refresh')
@@ -174,6 +185,6 @@ export class AuthController {
   @ApiBearerAuth()
   @ApiZodOk(MeResponse)
   me(@CurrentUser() user: AccessClaims) {
-    return this.auth.me(user.sub);
+    return this.auth.me(user.sub, user.amr === 'sso' ? (user.org ?? '') : undefined);
   }
 }

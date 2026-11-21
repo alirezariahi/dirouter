@@ -11,6 +11,10 @@ export const workerEnvSchema = baseEnvSchema.extend({
   USAGE_BATCH_SIZE: z.coerce.number().int().min(1).max(5000).default(500),
   USAGE_FLUSH_MS: z.coerce.number().int().min(10).max(10_000).default(200),
   ROLLUP_INTERVAL_MS: z.coerce.number().int().min(1000).default(30_000),
+  /** How often alert rules are evaluated (card 16.2). */
+  ALERT_EVALUATE_INTERVAL_MS: z.coerce.number().int().min(5_000).default(60_000),
+  /** Days of provider probe history kept in provider_health_samples (card 12.3). */
+  HEALTH_SAMPLE_RETENTION_DAYS: z.coerce.number().int().min(1).max(365).default(30),
   DB_MAX_CONNECTIONS: z.coerce.number().int().min(1).default(10),
 });
 export type WorkerEnv = z.infer<typeof workerEnvSchema>;

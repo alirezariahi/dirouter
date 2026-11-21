@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { slugify } from '../common/ids.js';
-import { hashPassword, TokenService, verifyPassword } from './crypto.js';
+import { familyOrigin, hashPassword, newFamilyId, TokenService, verifyPassword } from './crypto.js';
 import { LOGIN_LIMITS, LoginLimiter, type LimiterStore } from './login-limiter.js';
 
 describe('passwords', () => {
@@ -20,7 +20,35 @@ describe('tokens', () => {
 
   it('signs and verifies a short-lived access token', async () => {
     const jwt = await tokens.signAccess({ sub: 'usr_1', email: 'a@b.c' });
-    expect(await tokens.verifyAccess(jwt)).toEqual({ sub: 'usr_1', email: 'a@b.c' });
+    expect(await tokens.verifyAccess(jwt)).toEqual({ sub: 'usr_1', email: 'a@b.c', amr: 'pwd' });
+  });
+
+  it('carries how the session was opened and, for SSO, the organization it is bound to', async () => {
+    const passkey = await tokens.signAccess({ sub: 'usr_1', email: 'a@b.c', amr: 'passkey' });
+    expect(await tokens.verifyAccess(passkey)).toEqual({
+      sub: 'usr_1',
+      email: 'a@b.c',
+      amr: 'passkey',
+    });
+    const sso = await tokens.signAccess({ sub: 'usr_1', email: 'a@b.c', amr: 'sso', org: 'org_1' });
+    expect(await tokens.verifyAccess(sso)).toEqual({
+      sub: 'usr_1',
+      email: 'a@b.c',
+      amr: 'sso',
+      org: 'org_1',
+    });
+  });
+
+  it('derives the session origin from the refresh-token family id', () => {
+    expect(familyOrigin(newFamilyId({ amr: 'pwd' }))).toEqual({ amr: 'pwd' });
+    expect(familyOrigin(newFamilyId({ amr: 'passkey' }))).toEqual({ amr: 'passkey' });
+    expect(familyOrigin(newFamilyId({ amr: 'sso', org: 'org_01ABC' }))).toEqual({
+      amr: 'sso',
+      org: 'org_01ABC',
+    });
+    // Families created before the encoding, or of any unknown shape, are password sessions.
+    expect(familyOrigin('fam_01HZZZZZZZZZZZZZZZZZZZZZZZ')).toEqual({ amr: 'pwd' });
+    expect(familyOrigin('famsso_')).toEqual({ amr: 'pwd' });
   });
 
   it('rejects tampered, foreign and expired tokens', async () => {

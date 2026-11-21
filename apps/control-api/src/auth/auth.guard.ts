@@ -1,5 +1,5 @@
 /** Dashboard access token guard: `Authorization: Bearer <jwt>` → `request.user`. */
-import { AuthenticationError } from '@dirouter/shared';
+import { AuthenticationError, ForbiddenError } from '@dirouter/shared';
 import {
   type CanActivate,
   createParamDecorator,
@@ -34,3 +34,15 @@ export const CurrentUser = createParamDecorator((_data: unknown, context: Execut
   if (!user) throw new AuthenticationError('unauthenticated');
   return user;
 });
+
+/**
+ * Sign-in methods of the account (TOTP, passkeys) can only be managed from a session the user opened
+ * with their own credentials. An SSO session is vouched for by one organization's identity provider;
+ * letting it enroll a passkey or TOTP secret would turn that into access to the whole account.
+ */
+export function assertOwnCredentialSession(user: AccessClaims): void {
+  if (user.amr === 'sso')
+    throw new ForbiddenError('forbidden', {
+      message: 'Sign in with your password or a passkey to change sign-in methods',
+    });
+}

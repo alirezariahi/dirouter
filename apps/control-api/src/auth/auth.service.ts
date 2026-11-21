@@ -10,13 +10,17 @@ import { PrismaService } from '../infra/prisma.service.js';
 import { ValkeyService } from '../infra/valkey.service.js';
 import {
   ACCESS_TTL_SECONDS,
+  familyOrigin,
   hashPassword,
+  newFamilyId,
   REFRESH_TTL_SECONDS,
   TokenService,
   verifyPassword,
 } from './crypto.js';
 import { hashInvite, slugify } from '../common/ids.js';
-import { LoginLimiter } from './login-limiter.js';
+import { LoginLimiter, LoginLockedError } from './login-limiter.js';
+import { MfaService } from './mfa.service.js';
+import { effectivePermissions } from '../rbac/permissions.js';
 
 export interface ClientInfo {
   ip: string;
@@ -41,6 +45,7 @@ export class AuthService {
     @Inject(ENV) env: Env,
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(ValkeyService) valkey: ValkeyService,
+    @Inject(MfaService) private readonly mfa: MfaService,
   ) {
     this.tokens = new TokenService(env.JWT_SECRET);
     this.limiter = new LoginLimiter(valkey.client);
@@ -92,7 +97,12 @@ export class AuthService {
     return this.#issue(user, prefixedId('fam'), client);
   }
 
-  async login(email: string, password: string, client: ClientInfo): Promise<Session> {
+  async login(
+    email: string,
+    password: string,
+    client: ClientInfo,
+    mfaCode?: string,
+  ): Promise<Session> {
     const normalized = email.toLowerCase();
     const locked = await this.limiter.lockedFor(normalized, client.ip);
     if (locked !== undefined) throw lockedError(locked);
@@ -104,6 +114,27 @@ export class AuthService {
       const now = await this.limiter.lockedFor(normalized, client.ip);
       if (now !== undefined) throw lockedError(now);
       throw new AuthenticationError('invalid_credentials');
+    }
+    if (await this.#passwordLoginDisabled(user.id)) {
+      throw new DiRouterError('sso_required', {
+        message: 'Password login is disabled for this organization; use single sign-on',
+      });
+    }
+    if (await this.mfa.required(user.id)) {
+      if (!mfaCode)
+        throw new DiRouterError('mfa_required', {
+          message: 'A second factor is required',
+        });
+      if (!(await this.mfa.check(user.id, mfaCode))) {
+        // A wrong (or replayed) code counts like a wrong password: six digits must not be guessable
+        // by whoever already knows the password.
+        await this.limiter.failure(normalized, client.ip);
+        const now = await this.limiter.lockedFor(normalized, client.ip);
+        if (now !== undefined) throw lockedError(now);
+        throw new AuthenticationError('invalid_credentials', {
+          message: 'Invalid second factor',
+        });
+      }
     }
     await this.limiter.success(normalized);
     await this.prisma.client.user.update({
@@ -152,7 +183,12 @@ export class AuthService {
    * ); otherwise a new user is created with a name and password. The link is single-use.
    */
   async acceptInvitation(
-    input: { token: string; name?: string | undefined; password: string },
+    input: {
+      token: string;
+      name?: string | undefined;
+      password: string;
+      mfaCode?: string | undefined;
+    },
     client: ClientInfo,
   ): Promise<Session> {
     const db = this.prisma.client;
@@ -167,8 +203,28 @@ export class AuthService {
     )
       throw new DiRouterError('not_found', { message: 'Invitation is invalid or expired' });
     const existing = await db.user.findUnique({ where: { email: invite.email } });
-    if (existing && !(await verifyPassword(existing.passwordHash, input.password)))
-      throw new AuthenticationError('invalid_credentials');
+    if (existing) {
+      // This path issues a session for an existing account, so it is guarded exactly like login:
+      // the same lockout and, when the account has MFA, the same second factor.
+      const locked = await this.limiter.lockedFor(existing.email, client.ip);
+      if (locked !== undefined) throw lockedError(locked);
+      const fail = async (message?: string) => {
+        await this.limiter.failure(existing.email, client.ip);
+        return new AuthenticationError('invalid_credentials', message ? { message } : {});
+      };
+      if (
+        !existing.isActive ||
+        existing.deletedAt ||
+        !(await verifyPassword(existing.passwordHash, input.password))
+      )
+        throw await fail();
+      if (await this.mfa.required(existing.id)) {
+        if (!input.mfaCode)
+          throw new DiRouterError('mfa_required', { message: 'A second factor is required' });
+        if (!(await this.mfa.check(existing.id, input.mfaCode)))
+          throw await fail('Invalid second factor');
+      }
+    }
     if (!existing && !input.name)
       throw new DiRouterError('validation_failed', {
         message: 'name is required for a new account',
@@ -240,22 +296,28 @@ export class AuthService {
     ]);
   }
 
-  async me(userId: string) {
+  /** `onlyOrganizationId` is set for SSO sessions, which are valid in a single organization. */
+  async me(userId: string, onlyOrganizationId?: string) {
     const user = await this.prisma.client.user.findUnique({
       where: { id: userId },
-      include: { memberships: { include: { organization: true } } },
+      include: { memberships: { include: { organization: true, customRole: true } } },
     });
     if (!user || user.deletedAt) throw new AuthenticationError('unauthenticated');
     return {
       id: user.id,
       email: user.email,
       name: user.name,
-      organizations: user.memberships.map((m) => ({
-        id: m.organization.id,
-        name: m.organization.name,
-        slug: m.organization.slug,
-        role: m.role,
-      })),
+      organizations: user.memberships
+        .filter((m) => onlyOrganizationId === undefined || m.organizationId === onlyOrganizationId)
+        .map((m) => ({
+          id: m.organization.id,
+          name: m.organization.name,
+          slug: m.organization.slug,
+          role: m.role,
+          // Effective permissions (base role plus custom role) so the dashboard shows exactly
+          // the controls the server will accept (card 14.3).
+          permissions: [...effectivePermissions(m.role, m.customRole?.permissions ?? [])].sort(),
+        })),
     };
   }
 
@@ -266,11 +328,52 @@ export class AuthService {
     });
   }
 
+  /** New session after a passkey login; the method ends up in the `amr` claim. */
+  async sessionFor(userId: string, client: ClientInfo, method: 'passkey'): Promise<Session> {
+    const user = await this.prisma.client.user.findUnique({ where: { id: userId } });
+    if (!user?.isActive || user.deletedAt) throw new AuthenticationError('unauthenticated');
+    return this.#issue(user, newFamilyId({ amr: method }), client);
+  }
+
+  /**
+   * Password login is disabled when the user belongs to an organization that enforces SSO and has an
+   * enabled connection (card 14.2). Users who belong only to organizations without SSO keep password login.
+   */
+  async #passwordLoginDisabled(userId: string): Promise<boolean> {
+    const row = await this.prisma.client.membership.findFirst({
+      where: {
+        userId,
+        organization: {
+          deletedAt: null,
+          passwordLoginDisabled: true,
+          ssoConnections: { some: { enabled: true } },
+        },
+      },
+      select: { id: true },
+    });
+    return row !== null;
+  }
+
+  /**
+   * Issue a session for a user authenticated by an organization's identity provider (OIDC SSO, card
+   * 14.2). The session is bound to that organization: an identity provider only vouches for its own
+   * organization, so the token must not open the user's other organizations.
+   */
+  issueSsoSession(
+    user: { id: string; email: string; name: string },
+    organizationId: string,
+    client: ClientInfo,
+  ): Promise<Session> {
+    return this.#issue(user, newFamilyId({ amr: 'sso', org: organizationId }), client);
+  }
+
+  /** The access token inherits how the session was opened from the refresh-token family. */
   async #issue(
     user: { id: string; email: string; name: string },
     familyId: string,
     client: ClientInfo,
   ): Promise<Session> {
+    const origin = familyOrigin(familyId);
     const refresh = this.tokens.newRefreshToken();
     await this.prisma.client.refreshToken.create({
       data: {
@@ -284,7 +387,12 @@ export class AuthService {
       },
     });
     return {
-      accessToken: await this.tokens.signAccess({ sub: user.id, email: user.email }),
+      accessToken: await this.tokens.signAccess({
+        sub: user.id,
+        email: user.email,
+        amr: origin.amr,
+        ...(origin.org ? { org: origin.org } : {}),
+      }),
       expiresIn: ACCESS_TTL_SECONDS,
       refreshToken: refresh.token,
       user: { id: user.id, email: user.email, name: user.name },
@@ -292,13 +400,7 @@ export class AuthService {
   }
 }
 
-/** 429 with code login_locked; ProblemFilter builds the Retry-After header from retryAfterMs. */
-export class LoginLockedError extends DiRouterError {
-  override readonly name = 'LoginLockedError';
-  constructor(readonly retryAfterMs: number) {
-    super('login_locked', { message: 'Too many failed login attempts; try again later' });
-  }
-}
+export { LoginLockedError };
 
 function lockedError(ms: number): LoginLockedError {
   return new LoginLockedError(ms);

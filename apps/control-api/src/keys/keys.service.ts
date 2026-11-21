@@ -322,6 +322,7 @@ export class KeysService {
       id: prefixedId('aud'),
       organizationId: ctx.organizationId,
       actorUserId: ctx.userId,
+      ...(ctx.ip ? { ip: ctx.ip } : {}),
       action,
       targetType: 'api_key',
       targetId,

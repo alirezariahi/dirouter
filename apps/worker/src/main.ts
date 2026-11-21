@@ -6,7 +6,7 @@ import { createServer } from 'node:http';
 
 import { QUEUES, UsageEvent } from '@dirouter/contracts';
 import { createPrismaClient } from '@dirouter/db';
-import { createLogger, loadEnvOrExit } from '@dirouter/shared';
+import { connectValkey, createLogger, loadEnvOrExit } from '@dirouter/shared';
 import { type Job, Queue, UnrecoverableError, Worker } from 'bullmq';
 import { Redis } from 'ioredis';
 
@@ -19,6 +19,8 @@ import {
   rollup,
 } from './maintenance.js';
 import { type BudgetDb, processBudgetAlerts, reconcileBudgets } from './budgets.js';
+import { evaluateAlerts } from './alerts.js';
+import { drainHealthSamples } from './health-samples.js';
 import { createMetrics } from './metrics.js';
 import { type UsageDb, UsageBatchWriter } from './writer.js';
 
@@ -29,7 +31,7 @@ const db = createPrismaClient({
   maxConnections: env.DB_MAX_CONNECTIONS,
 });
 // BullMQ's Worker requires maxRetriesPerRequest=null (blocking connection).
-const connection = new Redis(env.VALKEY_URL, { maxRetriesPerRequest: null });
+const connection = connectValkey(Redis, env.VALKEY_URL, { maxRetriesPerRequest: null });
 connection.on('error', (error: Error) => {
   logger.warn({ err: error }, 'valkey connection error');
 });
@@ -126,6 +128,9 @@ const jobs: Record<string, () => Promise<unknown>> = {
   retention: () => dropOldPartitions(mdb, env.REQUEST_LOG_RETENTION_MONTHS),
   'budget-alerts': () => processBudgetAlerts(db as unknown as BudgetDb, connection, logger),
   'budget-reconcile': () => reconcileBudgets(db as unknown as BudgetDb, connection, logger),
+  'alerts-evaluate': () => evaluateAlerts({ db: db, logger, clock: { now: () => Date.now() } }),
+  'health-samples': () =>
+    drainHealthSamples(db, connection, logger, { retentionDays: env.HEALTH_SAMPLE_RETENTION_DAYS }),
 };
 
 const maintenanceWorker = new Worker(
@@ -160,6 +165,8 @@ const schedule = {
   retention: { pattern: '17 3 * * *', tz: 'UTC' },
   'budget-alerts': { every: 10_000 },
   'budget-reconcile': { every: 300_000 },
+  'alerts-evaluate': { every: env.ALERT_EVALUATE_INTERVAL_MS },
+  'health-samples': { every: 30_000 },
 };
 for (const [name, repeat] of Object.entries(schedule)) {
   await maintenanceQueue.upsertJobScheduler(name, repeat, {

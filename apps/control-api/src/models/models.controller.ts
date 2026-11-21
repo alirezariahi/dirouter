@@ -56,7 +56,9 @@ export const AliasBody = z.object({
 export const AliasPatch = AliasBody.partial();
 export const ComboBody = z.object({
   slug: Name,
-  strategy: z.enum(['priority', 'weighted', 'round-robin']).optional(),
+  strategy: z
+    .enum(['priority', 'weighted', 'round-robin', 'latency', 'cost', 'least-used', 'headroom'])
+    .optional(),
   targets: z
     .array(
       z.object({
@@ -75,6 +77,15 @@ export const ComboBody = z.object({
       firstByteMs: z.int().positive().optional(),
       idleMs: z.int().positive().optional(),
       totalMs: z.int().positive().optional(),
+    })
+    .nullable()
+    .optional(),
+  sticky: z.boolean().optional(),
+  hedging: z
+    .object({
+      enabled: z.boolean().optional(),
+      afterMs: z.int().positive().optional(),
+      maxParallel: z.int().min(2).max(4).optional(),
     })
     .nullable()
     .optional(),
@@ -105,11 +116,21 @@ const AliasView = z.object({
 const ComboView = z.object({
   id: z.string(),
   slug: z.string(),
-  strategy: z.enum(['priority', 'weighted', 'round-robin']),
+  strategy: z.enum([
+    'priority',
+    'weighted',
+    'round-robin',
+    'latency',
+    'cost',
+    'least-used',
+    'headroom',
+  ]),
   targets: z.array(z.object({ modelId: z.string(), order: z.int(), weight: z.int() })),
   fallbackOn: z.array(z.string()),
   retryMaxAttempts: z.int(),
   timeouts: z.unknown(),
+  sticky: z.boolean(),
+  hedging: z.unknown(),
 });
 
 @ApiTags('models')

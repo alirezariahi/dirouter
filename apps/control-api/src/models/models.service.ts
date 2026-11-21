@@ -32,22 +32,40 @@ export interface ModelInput {
 }
 export interface ComboInput {
   slug: string;
-  strategy?: 'priority' | 'weighted' | 'round-robin' | undefined;
+  strategy?:
+    | 'priority'
+    | 'weighted'
+    | 'round-robin'
+    | 'latency'
+    | 'cost'
+    | 'least-used'
+    | 'headroom'
+    | undefined;
   targets: { modelId: string; order?: number | undefined; weight?: number | undefined }[];
   fallbackOn?: string[] | undefined;
   retryMaxAttempts?: number | undefined;
   timeouts?: Record<string, number | undefined> | null | undefined;
+  sticky?: boolean | undefined;
+  hedging?: { enabled?: boolean; afterMs?: number; maxParallel?: number } | null | undefined;
 }
 
 const STRATEGY_TO_DB = {
   priority: 'PRIORITY',
   weighted: 'WEIGHTED',
   'round-robin': 'ROUND_ROBIN',
+  latency: 'LATENCY',
+  cost: 'COST',
+  'least-used': 'LEAST_USED',
+  headroom: 'HEADROOM',
 } as const;
 const STRATEGY_FROM_DB = {
   PRIORITY: 'priority',
   WEIGHTED: 'weighted',
   ROUND_ROBIN: 'round-robin',
+  LATENCY: 'latency',
+  COST: 'cost',
+  LEAST_USED: 'least-used',
+  HEADROOM: 'headroom',
 } as const;
 const notFound = (what = 'Resource') =>
   new DiRouterError('not_found', { message: `${what} not found` });
@@ -372,6 +390,8 @@ export class ModelsService {
       fallbackOn: c.fallbackOn.length > 0 ? c.fallbackOn : DEFAULT_FALLBACK_ON,
       retryMaxAttempts: c.retryMaxAttempts,
       timeouts: c.timeouts ?? null,
+      sticky: c.sticky,
+      hedging: c.hedging ?? null,
     };
   }
 
@@ -410,6 +430,8 @@ export class ModelsService {
         strategy: STRATEGY_TO_DB[input.strategy ?? 'priority'],
         fallbackOn: input.fallbackOn ?? [],
         retryMaxAttempts: input.retryMaxAttempts ?? 2,
+        sticky: input.sticky ?? false,
+        ...(input.hedging ? { hedging: input.hedging } : {}),
         ...(input.timeouts ? { timeouts: input.timeouts } : {}),
         targets: {
           create: input.targets.map((t, i) => ({
@@ -449,6 +471,15 @@ export class ModelsService {
                   input.timeouts === null
                     ? Prisma.DbNull
                     : (input.timeouts as Prisma.InputJsonObject),
+              }
+            : {}),
+          ...(input.sticky !== undefined ? { sticky: input.sticky } : {}),
+          ...(input.hedging !== undefined
+            ? {
+                hedging:
+                  input.hedging === null
+                    ? Prisma.DbNull
+                    : (input.hedging as Prisma.InputJsonObject),
               }
             : {}),
         },
@@ -496,6 +527,7 @@ export class ModelsService {
         id: prefixedId('aud'),
         organizationId: ctx.organizationId,
         actorUserId: ctx.userId,
+        ...(ctx.ip ? { ip: ctx.ip } : {}),
         action,
         targetType,
         targetId,
