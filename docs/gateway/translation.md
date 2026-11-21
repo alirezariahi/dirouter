@@ -55,3 +55,9 @@ The translator reports each field that has no equivalent through `onDrop(field, 
 `pnpm --filter @dirouter/translator test` — more than 40 golden pairs in both directions, round-trip tests on real fixtures (`packages/contracts/src/__fixtures__`), and validation of the output against the destination schema. Coverage: `pnpm --filter @dirouter/translator coverage` (about 94% statements).
 
 Stream (card 4.5): `packages/translator/src/stream.test.ts` includes 10,000 chunks without memory growth, multi-byte Persian text split across chunks, and a tool call in both directions. Closing the upstream after a client disconnect is tested in `apps/gateway/src/upstream.test.ts`: between the client's `abort` and the upstream socket closing, it takes less than 1 second. Implementation: the Fastify request's `AbortSignal` reaches `callUpstream`.
+
+## Sprint 2 inbound APIs
+
+- [Gemini API inbound](gemini-inbound.md) — `generateContent`, `streamGenerateContent`, `countTokens` and `x-goog-api-key` auth.
+- [OpenAI Responses](responses.md) — `/v1/responses`, `previous_response_id` and streaming.
+- [Embeddings](embeddings.md) — `/v1/embeddings` and `:embedContent` / `:batchEmbedContents`.

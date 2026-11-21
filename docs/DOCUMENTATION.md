@@ -6,6 +6,7 @@ Every document exists in two files: an English `.md` file and a Persian `.fa.md`
 
 - [README](../README.md) — [Persian version](../README.fa.md)
 - [Dashboard user guide and concepts](user-guide/README.md) — all pages, common scenarios, and local screenshots
+- [Sprint 2 feature guide](sprint-2.md) — routing, caching, security, guardrails, alerts, tracing, HA; what is verified and what is not
 - [Operational runbook](runbook.md) — symptoms, diagnosis, action, and verification for service incidents
 - [Contribution guide](../CONTRIBUTING.md) — [Persian version](../CONTRIBUTING.fa.md)
 - [Architecture](architecture.md) — [Persian version](architecture.fa.md)

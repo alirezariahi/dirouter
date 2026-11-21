@@ -58,4 +58,10 @@
 
 stream (کارت ۴.۵): `packages/translator/src/stream.test.ts` شامل ۱۰٬۰۰۰ chunk بدون رشد حافظه، فارسی چندبایتی شکسته بین chunkها، و tool call در هر دو جهت. بستن upstream بعد از قطع کلاینت در `apps/gateway/src/upstream.test.ts` تست شده: بین `abort` کلاینت و بسته شدن سوکت upstream کمتر از ۱ ثانیه طول می‌کشد. پیاده‌سازی: `AbortSignal` درخواست Fastify به `callUpstream` می‌رسد.
 
+## ورودی‌های Sprint 2
+
+- [Gemini API inbound](gemini-inbound.fa.md) — `generateContent`، `streamGenerateContent`، `countTokens` و احراز هویت `x-goog-api-key`.
+- [OpenAI Responses](responses.fa.md) — `/v1/responses`، `previous_response_id` و stream.
+- [Embeddings](embeddings.fa.md) — `/v1/embeddings` و `:embedContent` / `:batchEmbedContents`.
+
 </div>

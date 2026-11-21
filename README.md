@@ -367,6 +367,7 @@ flowchart LR
 
 - [Documentation index](DOCUMENTATION.md) and the [contributing guide](CONTRIBUTING.md)
 - [Production deployment](docs/deploy-production.md), [environment reference](docs/env-reference.md), and [runbook](docs/runbook.md)
+- [Sprint 2 feature guide](docs/sprint-2.md), [HA deployment](docs/deploy-ha.md), [security](docs/security.md) and [SSO](docs/sso.md)
 - [Observability](docs/observability.md), [usage pipeline](docs/usage-pipeline.md), and [seed data](docs/seed.md)
 
 All documentation in this repository is bilingual. Every document is two separate files — an English `.md` file and a Persian `.fa.md` file — and the language links at the top of each page switch between them. See the [documentation policy](CONTRIBUTING.md#documentation-policy).

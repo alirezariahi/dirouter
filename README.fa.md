@@ -371,6 +371,7 @@ flowchart LR
 
 - [فهرست مستندات](DOCUMENTATION.fa.md) و [راهنمای مشارکت](CONTRIBUTING.fa.md)
 - [استقرار production](docs/deploy-production.fa.md)، [مرجع متغیرهای محیطی](docs/env-reference.fa.md) و [Runbook](docs/runbook.fa.md)
+- [راهنمای قابلیت‌های اسپرینت ۲](docs/sprint-2.fa.md)، [استقرار HA](docs/deploy-ha.fa.md)، [امنیت](docs/security.fa.md) و [SSO](docs/sso.fa.md)
 - [مشاهده‌پذیری](docs/observability.fa.md)، [مسیر usage](docs/usage-pipeline.fa.md) و [داده‌های seed](docs/seed.fa.md)
 
 همهٔ مستندات این مخزن دوزبانه‌اند. هر سند دو فایل جداست — یک فایل انگلیسی با پسوند `.md` و یک فایل فارسی با پسوند `.fa.md` — و لینک‌های زبان در بالای هر صفحه بین آن‌ها جابه‌جا می‌کنند. [سیاست مستندات](CONTRIBUTING.fa.md#documentation-policy-fa) را ببینید.

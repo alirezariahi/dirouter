@@ -105,3 +105,42 @@ Example JSON (time/level/pid fields removed):
 - Pino redacts known sensitive fields such as authorization, api key, cookie, secret, password and token. Redaction does not replace the allowlist: a new field must be reviewed before it is added to a log.
 - Upstream errors may contain provider text and appear in server error logs; a user's request or response body is deliberately not added to exceptions or logs. The default level is `info`, and raising it to `debug` does not enable prompt logging either.
 - The usage event and Postgres hold the metadata needed for cost calculation and the logs page. This data is not the same as "structured logging", and the whole event should not be printed to logs.
+
+## Distributed tracing with OpenTelemetry (card 17.2)
+
+> Code: `apps/gateway/src/tracing.ts`. No SDK dependency: spans are sent as OTLP/HTTP JSON with `fetch`.
+
+Off by default. Enable it in the gateway settings (`PUT /orgs/:orgId/config/settings`); the change applies to every replica without a restart:
+
+```json
+{
+  "tracing": {
+    "enabled": true,
+    "endpoint": "http://otel-collector:4318/v1/traces",
+    "serviceName": "dirouter-gateway",
+    "sampleRatio": 0.1
+  }
+}
+```
+
+| Setting       | Default            | Meaning                                                                |
+| ------------- | ------------------ | ---------------------------------------------------------------------- |
+| `enabled`     | `false`            | master switch; without an `endpoint` nothing is recorded               |
+| `endpoint`    | none               | OTLP/HTTP traces URL of a collector (Tempo, Jaeger, an OTel collector) |
+| `serviceName` | `dirouter-gateway` | `service.name` resource attribute                                      |
+| `sampleRatio` | `0.1`              | share of requests **without a parent** that are recorded (0 to 1)      |
+
+**Propagation (W3C Trace Context).** An incoming `traceparent` header is continued: the gateway's span joins the caller's trace with the caller's span as parent. Every upstream attempt sends its own `traceparent` to the provider, so one trace runs from the client through the gateway to the upstream call.
+
+**Sampling is parent-based.** A request with a sampled `traceparent` (`…-01`) is always recorded; one with an unsampled parent (`…-00`) never is; requests without the header are sampled with `sampleRatio`. With `sampleRatio: 0`, only traces the caller already decided to sample are recorded. An unsampled request costs two random ids and nothing else.
+
+**Spans.**
+
+| Span               | Kind   | Attributes                                                                                                                                                                                    |
+| ------------------ | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `gateway.request`  | server | `gateway.inbound_api`, `gateway.model`, `gateway.stream`, `gateway.request_id`, then `gateway.provider`, `gateway.resolved_model`, `gateway.attempts`, `gateway.cache` or `gateway.guardrail` |
+| `gateway.upstream` | client | one per attempt (retry, fallback or hedge): `gateway.provider`, `gateway.resolved_model`, `gateway.credential`, and `gateway.error_class` on failure                                          |
+
+Span attributes are metadata only: no prompt, response or secret is attached. `gateway.request_id` equals the `X-Request-Id` in the logs, so a trace and its log lines can be joined.
+
+**Export.** Spans are batched and flushed every second (or at 200 spans). If the collector is slow or down, the batch is dropped (at most 5000 spans are buffered) and the request path is never affected.

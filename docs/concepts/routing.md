@@ -177,3 +177,98 @@ If `fallbackOn` is empty, `DEFAULT_FALLBACK_ON` is used.
 - A model created with a `catalogKey` is updated to the new catalog price and context with `POST /orgs/:orgId/models/sync-catalog`. So a price update is just a JSON change and a deploy, and needs no migration.
 - A manual price (`PATCH` with `pricing`) detaches the model from the catalog (`catalogKey: null`), so the sync does not overwrite it.
 - control-api only imports `@dirouter/model-catalog/catalog`. js-tiktoken is an optional peer of this package and is not installed in the control-api image.
+
+## Advanced routing (Sprint 2)
+
+> Code: `packages/routing/src/{router,stats,hedging}.ts`, `apps/gateway/src/{proxy,health-probe}.ts` (cards 12.1 to 12.5).
+
+### Smart combo strategies (12.1)
+
+| Strategy     | Target order                                                                          |
+| ------------ | ------------------------------------------------------------------------------------- |
+| `latency`    | lowest latency score first. Score = PeakEWMA × (1 + in-flight requests)               |
+| `cost`       | cheapest estimate for this request first (estimated input + output cap × model price) |
+| `least-used` | fewest (requests in the last 60 seconds + in-flight) first; spreads load              |
+| `headroom`   | most context window left after this request first                                     |
+
+- **PeakEWMA**: an exponential latency average (α = 0.2) next to a "peak" that jumps on every slow sample and decays with a 60-second time constant. A provider that suddenly slows down is avoided sooner than with a plain average, and returns gradually after it recovers.
+- **P2C** (power of two choices): live traffic on `latency` combos samples two targets and the faster one wins; the rest follow by score. This avoids sending every request to the single "fastest" target. The test in `packages/routing/src/sprint2.test.ts` shows that P2C rejects the slow-tailed target of the two samples and lowers the p95.
+- A model without statistics yet sorts last under `latency` (until it is tried once as a fallback).
+- Statistics live in each replica's memory; a restart only costs a short warm-up and routing never waits on the network.
+
+### Request hedging (12.2)
+
+If the first target has not answered within `afterMs`, a second request goes to the next target and whichever answers first wins; the other is cancelled. Configured in a combo's `hedging`:
+
+| Field         | Default | Description                                          |
+| ------------- | ------- | ---------------------------------------------------- |
+| `enabled`     | `false` | hedging is opt-in                                    |
+| `afterMs`     | `800`   | delay before the parallel attempt starts             |
+| `maxParallel` | `2`     | maximum simultaneous attempts (2 to 4)               |
+| `maxRatio`    | `0.2`   | share of requests allowed to hedge within the window |
+| `windowMs`    | `60000` | budget window length                                 |
+
+- **Budget**: `HedgeBudget` is a rolling window; a parallel attempt only starts while hedges are below `maxRatio × requests`. Fallback after an error is not subject to this budget.
+- **Cost**: the number of extra attempts is recorded in the usage event's `hedgeAttempts` and the `request_log.hedge_attempts` column, and every attempt is listed in `attempts`. The recorded cost is the winning attempt's; a cancelled attempt reports no token usage, so if the provider bills for it, DiRouter does not see it. `hedgeAttempts` is there to estimate that overhead and `maxRatio` caps it.
+- In a stream, no further attempt starts after the first byte reached the client (committed).
+
+### Periodic health probes (12.3)
+
+Each round the gateway calls the cheap "list models" endpoint of every enabled credential (no tokens are generated, so it costs nothing on usage-billed providers).
+
+| Setting (`settings.healthProbe`) | Default | Description                                               |
+| -------------------------------- | ------- | --------------------------------------------------------- |
+| `enabled`                        | `false` | off by default                                            |
+| `intervalSeconds`                | `60`    | time between rounds (minimum 10)                          |
+| `failureThreshold`               | `3`     | consecutive auth failures before a credential is disabled |
+| `successThreshold`               | `1`     | consecutive successes before a credential is restored     |
+| `maxPerRound`                    | `50`    | cap of credentials probed per round (rotating window)     |
+
+- Only an `auth` class error disables a credential. A provider outage (5xx, timeout, connection) is the circuit breaker's job; disabling every key during an outage would hide the real cause.
+- A disabled credential (by a probe or by a live-traffic error) returns automatically as soon as a probe succeeds, and the change is published to all replicas.
+- With Valkey only one replica probes per round (lock `dirouter:health:probe-lock`), so the upstream sees one request per credential.
+- **Uptime history**: samples are queued in the `dirouter:health:samples` list and the worker's `health-samples` job moves them to the `provider_health_samples` table every 30 seconds (retention: `HEALTH_SAMPLE_RETENTION_DAYS`, default 30 days). Read it with `GET /orgs/:orgId/health/uptime?from=&to=`: uptime percent, average latency and hourly buckets per provider.
+
+### Session affinity (12.4)
+
+For combos with `sticky: true` a session stays on the same model and credential until the TTL ends (while it is healthy). The benefit: the provider-side prompt cache hits on every turn of a long conversation (for example Claude Code).
+
+| Setting (`settings.sessionAffinity`) | Default              |
+| ------------------------------------ | -------------------- |
+| `enabled`                            | `false`              |
+| `header`                             | `x-dirouter-session` |
+| `ttlSeconds`                         | `3600`               |
+
+The session identity is resolved in this order:
+
+1. The configured header value (at most 200 characters), together with the key id; two keys never share a session.
+2. Without the header: a SHA-256 hash of the stable conversation prefix (system prompt + first message). Agent tools resend this part unchanged on every turn, which is exactly what the provider cache keys on. A single-message request without a system prompt is not pinned.
+
+If the pinned target becomes unhealthy (breaker, cooldown), the request follows the normal strategy and the session is pinned to the new successful target. Prompt text never appears in the identity or in logs.
+
+### Routing simulator (12.5)
+
+`POST /orgs/:orgId/routes/simulate` (permission `models:read`) runs the same resolver as live traffic without any I/O:
+
+```json
+{
+  "model": "smart",
+  "virtualKeyId": "key_…",
+  "estimatedInputTokens": 120000,
+  "maxOutputTokens": 4096
+}
+```
+
+The response contains `candidates` (in attempt order, with provider and credential) and `skipped` (every target left out with its reason: `model_disabled`, `provider_disabled`, `context_window`, `provider_circuit_open`, `model_circuit_open`, `credential_disabled`, `credential_cooldown`). Routing errors (`model_not_found`, `model_not_allowed`, `no_available_provider`, `context_length_exceeded`) are valid simulation results too and come back with `ok: false`. In the dashboard: the "Routing simulator" page.
+
+### Gateway-wide settings
+
+`healthProbe`, `sessionAffinity`, `cache`, `compression`, `tracing` and `breaker` are stored in a single `gateway_settings` row and reach every replica through `ConfigSnapshot.settings`:
+
+```bash
+curl -X PUT "$ADMIN/orgs/$ORG/config/settings" -H "authorization: Bearer $TOKEN" \
+  -H 'content-type: application/json' \
+  -d '{"healthProbe":{"enabled":true,"intervalSeconds":60},"sessionAffinity":{"enabled":true}}'
+```
+
+The whole object is validated before it is stored; an invalid payload changes nothing. `GET` on the same path returns the stored value and the effective value (with defaults).

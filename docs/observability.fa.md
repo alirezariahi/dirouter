@@ -108,4 +108,43 @@ dirouter_queue_metrics_up == 0
 - خطاهای upstream ممکن است متن provider داشته باشند و در لاگ خطای سرور ظاهر شوند؛ body درخواست یا پاسخ کاربر عمداً به exception/log افزوده نمی‌شود. سطح پیش‌فرض `info` است و افزایش آن به `debug` نیز prompt logging فعال نمی‌کند.
 - رویداد usage و Postgres برای محاسبهٔ هزینه و صفحهٔ logs metadata لازم را دارند؛ این داده‌ها با «لاگ ساخت‌یافته» یکی نیستند و نباید کل رویداد را در لاگ چاپ کرد.
 
+## رهگیری توزیع‌شده با OpenTelemetry (کارت ۱۷.۲)
+
+> کد: `apps/gateway/src/tracing.ts`. بدون وابستگی به SDK: spanها به‌صورت OTLP/HTTP JSON با `fetch` ارسال می‌شوند.
+
+به‌صورت پیش‌فرض خاموش است. از تنظیمات گیت‌وی روشن می‌شود (`PUT /orgs/:orgId/config/settings`) و بدون ری‌استارت روی همهٔ replicaها اعمال می‌شود:
+
+```json
+{
+  "tracing": {
+    "enabled": true,
+    "endpoint": "http://otel-collector:4318/v1/traces",
+    "serviceName": "dirouter-gateway",
+    "sampleRatio": 0.1
+  }
+}
+```
+
+| تنظیم         | پیش‌فرض            | معنی                                                          |
+| ------------- | ------------------ | ------------------------------------------------------------- |
+| `enabled`     | `false`            | کلید اصلی؛ بدون `endpoint` چیزی ثبت نمی‌شود                   |
+| `endpoint`    | ندارد              | آدرس OTLP/HTTP یک collector (Tempo، Jaeger یا OTel collector) |
+| `serviceName` | `dirouter-gateway` | ویژگی `service.name`                                          |
+| `sampleRatio` | `0.1`              | سهم درخواست‌های **بدون parent** که ثبت می‌شوند (۰ تا ۱)       |
+
+**انتشار (W3C Trace Context).** هدر ورودی `traceparent` ادامه داده می‌شود: span گیت‌وی به trace فراخواننده می‌پیوندد و span فراخواننده parent آن است. هر تلاش upstream هم `traceparent` خودش را برای provider می‌فرستد؛ پس یک trace از کلاینت تا گیت‌وی و فراخوانی upstream ادامه دارد.
+
+**نمونه‌برداری مبتنی بر parent است.** درخواستی با `traceparent` نمونه‌برداری‌شده (`…-01`) همیشه ثبت می‌شود؛ با parent نمونه‌برداری‌نشده (`…-00`) هرگز؛ و درخواست‌های بدون هدر با `sampleRatio` نمونه‌برداری می‌شوند. با `sampleRatio: 0` فقط traceهایی ثبت می‌شوند که فراخواننده از قبل تصمیم به ثبتشان گرفته است. درخواست نمونه‌برداری‌نشده فقط هزینهٔ ساخت دو شناسهٔ تصادفی را دارد.
+
+**Spanها.**
+
+| Span               | نوع    | ویژگی‌ها                                                                                                                                                                                      |
+| ------------------ | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `gateway.request`  | server | `gateway.inbound_api`، `gateway.model`، `gateway.stream`، `gateway.request_id` و سپس `gateway.provider`، `gateway.resolved_model`، `gateway.attempts`، `gateway.cache` یا `gateway.guardrail` |
+| `gateway.upstream` | client | یکی به ازای هر تلاش (retry، فال‌بک یا hedge): `gateway.provider`، `gateway.resolved_model`، `gateway.credential` و در صورت خطا `gateway.error_class`                                          |
+
+ویژگی‌های span فقط متادیتا هستند: هیچ prompt، پاسخ یا رازی ضمیمه نمی‌شود. `gateway.request_id` همان `X-Request-Id` لاگ‌هاست؛ پس trace و خط‌های لاگ را می‌توان به هم وصل کرد.
+
+**ارسال.** spanها دسته‌ای و هر ثانیه (یا با رسیدن به ۲۰۰ span) ارسال می‌شوند. اگر collector کند یا خاموش باشد، دسته دور ریخته می‌شود (حداکثر ۵۰۰۰ span بافر می‌شود) و مسیر درخواست هرگز تحت تأثیر قرار نمی‌گیرد.
+
 </div>

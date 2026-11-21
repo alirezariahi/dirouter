@@ -8,6 +8,7 @@
 
 - [README](../README.fa.md) — [نسخهٔ انگلیسی](../README.fa.md)
 - [راهنمای کاربر داشبورد و مفاهیم](user-guide/README.fa.md) — همهٔ صفحه‌ها، سناریوهای رایج و اسکرین‌شات محلی
+- [راهنمای قابلیت‌های اسپرینت ۲](sprint-2.fa.md) — مسیریابی، کش، امنیت، guardrail، هشدار، tracing و HA؛ چه چیزی تأیید شده و چه چیزی نه
 - [Runbook عملیاتی](runbook.fa.md) — علائم، تشخیص، اقدام و بررسی برای حادثه‌های سرویس
 - [راهنمای مشارکت](../CONTRIBUTING.fa.md) — [نسخهٔ انگلیسی](../CONTRIBUTING.fa.md)
 - [معماری](architecture.fa.md) — [نسخهٔ انگلیسی](architecture.fa.md)

@@ -4,8 +4,8 @@
 
 | Field                        | Value                              |
 | ---------------------------- | ---------------------------------- |
-| type                         | `openai-compatible`                |
-| options.preset               | `mistral`                          |
+| type                         | `openai-compatible` or `mistral`   |
+| options.preset               | `mistral` (compatible type)        |
 | Default baseUrl              | `https://api.mistral.ai/v1`        |
 | Output token cap field       | `max_tokens`                       |
 | stream_options.include_usage | Not sent                           |

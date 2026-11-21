@@ -47,3 +47,26 @@ gateway: zod validation → atomic swap in memory → save to disk (boot without
   - A fresh key became usable after 48 to 186 ms.
   - Revocation was applied after 125 to 140 ms.
   - With Valkey stopped, the change arrived via the periodic poll (155 ms in this run, and in the worst case about 2 seconds).
+
+## Versions, rollback and import (card 17.1)
+
+> Code: `apps/control-api/src/config`, `snapshot.service.ts`. Dashboard: **Settings and versions**. Permissions: `config:read`, `config:write`.
+
+Every published snapshot is a row in `config_versions` (the last 50 are kept) with its checksum and the reason it was built.
+
+| Request                            | Result                                                                                        |
+| ---------------------------------- | --------------------------------------------------------------------------------------------- |
+| `GET /orgs/:orgId/config/versions` | the latest 100 versions: number, checksum, reason, time                                       |
+| `GET …/versions/:v/diff?against=`  | changed paths between two versions (default: the previous one), up to 1000 entries            |
+| `POST …/versions/:v/rollback`      | publishes the image of version `v` again as a **new** version                                 |
+| `GET …/export.yaml`                | the current image as text                                                                     |
+| `POST …/import.yaml`               | validates a full image and publishes it                                                       |
+| `GET` / `PUT …/settings`           | gateway-wide settings (cache, compression, tracing, session affinity, health probes, breaker) |
+
+**How fast a rollback applies.** A rollback or import publishes a new version and announces it on the Valkey channel `dirouter:config:updated`; every gateway replica fetches it immediately. If Valkey is down, replicas pick it up with their periodic poll (every 2 seconds). The `configVersion` in each replica's `/readyz` and on the Health page shows when all nodes have it.
+
+**Invalid input changes nothing.** `import.yaml` and `PUT settings` validate the whole payload against the schema before anything is written; an invalid one is rejected with the list of bad fields and no version is created.
+
+**Pinned versions.** A rolled-back or imported image does not match the database records. The version therefore stores `base_checksum`, the checksum of what the database would have published at that moment, and the periodic rebuild (every 30 seconds) leaves the pinned version alone while the database is unchanged. The next change made through the dashboard or API changes the database, lifts the pin, and the configuration is built from the database again. A rollback is therefore a fast way to restore service, not a way to edit records: after rolling back, fix the cause in the dashboard.
+
+**Export format.** The export is JSON text, which is also valid YAML 1.2, and the import accepts exactly that. Hand-written YAML with comments or anchors is not accepted. Secrets in the image stay encrypted with `MASTER_KEY`; an image can only be imported into an installation that has the same keyring.

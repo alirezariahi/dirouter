@@ -6,8 +6,8 @@
 
 | فیلد                         | مقدار                            |
 | ---------------------------- | -------------------------------- |
-| type                         | `openai-compatible`              |
-| options.preset               | `mistral`                        |
+| type                         | `openai-compatible` یا `mistral` |
+| options.preset               | `mistral` (برای نوع سازگار)      |
 | baseUrl پیش‌فرض              | `https://api.mistral.ai/v1`      |
 | فیلد سقف خروجی               | `max_tokens`                     |
 | stream_options.include_usage | `ارسال نمی‌شود`                  |

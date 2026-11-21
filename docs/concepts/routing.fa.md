@@ -180,4 +180,99 @@ curl -X POST $A/aliases -H "authorization: Bearer $TOKEN" -H 'content-type: appl
 - قیمت دستی (`PATCH` با `pricing`) مدل را از کاتالوگ جدا می‌کند (`catalogKey: null`) تا sync آن را بازنویسی نکند.
 - control-api فقط `@dirouter/model-catalog/catalog` را import می‌کند. js-tiktoken برای این پکیج peer اختیاری است و در ایمیج control-api نصب نمی‌شود.
 
+## مسیریابی پیشرفته (اسپرینت ۲)
+
+> کد: `packages/routing/src/{router,stats,hedging}.ts`، `apps/gateway/src/{proxy,health-probe}.ts` (کارت‌های ۱۲.۱ تا ۱۲.۵).
+
+### استراتژی‌های هوشمند combo (۱۲.۱)
+
+| استراتژی     | ترتیب هدف‌ها                                                                       |
+| ------------ | ---------------------------------------------------------------------------------- |
+| `latency`    | کمترین امتیاز تأخیر اول. امتیاز = PeakEWMA × (۱ + تعداد درخواست در جریان)          |
+| `cost`       | ارزان‌ترین برآورد قیمت همین درخواست (توکن ورودی تخمینی + سقف خروجی × قیمت مدل) اول |
+| `least-used` | کمترین (درخواست ۶۰ ثانیهٔ اخیر + درخواست در جریان) اول؛ بار را پخش می‌کند          |
+| `headroom`   | بیشترین ظرفیت باقی‌ماندهٔ context window بعد از این درخواست اول                    |
+
+- **PeakEWMA**: میانگین نمایی تأخیر (α = ۰٫۲) در کنار «قله»ای که با هر نمونهٔ کند فوراً بالا می‌رود و با ثابت زمانی ۶۰ ثانیه افت می‌کند. یک provider که ناگهان کند شده، زودتر از میانگین ساده کنار می‌رود و بعد از بهبود آرام برمی‌گردد.
+- **P2C** (power of two choices): در ترافیک واقعی برای `latency` دو هدف تصادفی انتخاب و سریع‌تر برنده می‌شود؛ بقیه به ترتیب امتیاز می‌آیند. این کار جلوی هجوم همهٔ درخواست‌ها به «سریع‌ترین» هدف را می‌گیرد. تست `packages/routing/src/sprint2.test.ts` نشان می‌دهد P2C از بین دو نمونه، هدفِ دارای دُم کند را رد می‌کند و p95 پایین می‌آید.
+- مدلی که هنوز آماری ندارد در `latency` آخر قرار می‌گیرد (تا وقتی یک بار به‌عنوان فال‌بک امتحان شود).
+- آمار در حافظهٔ هر replica است؛ ری‌استارت فقط یک دورهٔ گرم‌شدن کوتاه هزینه دارد و مسیریابی هرگز منتظر شبکه نمی‌ماند.
+
+### Request hedging (۱۲.۲)
+
+اگر پاسخ هدف اول تا `afterMs` نیامد، درخواست دوم به هدف بعدی هم فرستاده می‌شود و هر کدام زودتر جواب داد برنده است؛ دیگری لغو می‌شود. تنظیم در `hedging` هر combo:
+
+| فیلد          | پیش‌فرض | توضیح                                                  |
+| ------------- | ------- | ------------------------------------------------------ |
+| `enabled`     | `false` | hedging فقط با فعال‌سازی صریح روشن می‌شود              |
+| `afterMs`     | `800`   | مهلت پیش از شروع تلاش موازی                            |
+| `maxParallel` | `2`     | حداکثر تلاش هم‌زمان (۲ تا ۴)                           |
+| `maxRatio`    | `0.2`   | سهم درخواست‌هایی که اجازهٔ hedge دارند در پنجرهٔ زمانی |
+| `windowMs`    | `60000` | طول پنجرهٔ بودجه                                       |
+
+- **بودجه**: `HedgeBudget` یک پنجرهٔ لغزان است؛ تلاش موازی فقط وقتی شروع می‌شود که تعداد hedgeها از `maxRatio × درخواست‌ها` کمتر باشد. فال‌بک بعد از خطا مشمول این بودجه نیست.
+- **هزینه**: تعداد تلاش‌های اضافه در `hedgeAttempts` رویداد مصرف و ستون `request_log.hedge_attempts` ثبت می‌شود و همهٔ تلاش‌ها در `attempts` می‌آیند. هزینهٔ ثبت‌شده، هزینهٔ تلاش برنده است؛ تلاش لغوشده مصرف توکن گزارش نمی‌کند، پس اگر provider برای آن صورت‌حساب بدهد در DiRouter دیده نمی‌شود. `hedgeAttempts` برای برآورد همین سربار است و `maxRatio` سقف آن را می‌بندد.
+- در stream، بعد از رسیدن اولین بایت به کلاینت تلاش دیگری شروع نمی‌شود (committed).
+
+### Health probe دوره‌ای (۱۲.۳)
+
+گیت‌وی در هر دور، endpoint ارزان «فهرست مدل‌ها»ی هر credential فعال را صدا می‌زند (توکنی تولید نمی‌شود، پس برای providerهای مصرف‌محور هزینه‌ای ندارد).
+
+| تنظیم (`settings.healthProbe`) | پیش‌فرض | توضیح                                                |
+| ------------------------------ | ------- | ---------------------------------------------------- |
+| `enabled`                      | `false` | خاموش به‌صورت پیش‌فرض                                |
+| `intervalSeconds`              | `60`    | فاصلهٔ دورها (حداقل ۱۰)                              |
+| `failureThreshold`             | `3`     | شکست احراز هویت پیاپی پیش از غیرفعال‌سازی credential |
+| `successThreshold`             | `1`     | موفقیت پیاپی پیش از بازگرداندن credential            |
+| `maxPerRound`                  | `50`    | سقف credentialهای بررسی‌شده در هر دور (پنجرهٔ چرخشی) |
+
+- فقط خطای کلاس `auth` یک credential را غیرفعال می‌کند. قطعی provider (5xx، timeout، اتصال) کار circuit breaker است؛ غیرفعال کردن همهٔ کلیدها در قطعی، علت واقعی را پنهان می‌کرد.
+- credential غیرفعال (چه با probe و چه با خطای ترافیک واقعی) به محض موفقیت probe خودکار برمی‌گردد و تغییر به همهٔ replicaها منتشر می‌شود.
+- با Valkey فقط یک replica در هر دور probe می‌کند (قفل `dirouter:health:probe-lock`)، پس upstream به ازای هر credential یک درخواست می‌بیند.
+- **تاریخچهٔ uptime**: نمونه‌ها در لیست `dirouter:health:samples` صف می‌شوند و job `health-samples` در worker هر ۳۰ ثانیه آن‌ها را به جدول `provider_health_samples` می‌برد (نگه‌داری: `HEALTH_SAMPLE_RETENTION_DAYS`، پیش‌فرض ۳۰ روز). خواندن: `GET /orgs/:orgId/health/uptime?from=&to=` با درصد uptime، میانگین تأخیر و سطل‌های ساعتی برای هر provider.
+
+### Session affinity (۱۲.۴)
+
+برای comboهای `sticky: true` یک نشست تا پایان TTL روی همان مدل و credential می‌ماند (تا وقتی سالم باشد). فایده: prompt cache سمت provider برای گفت‌وگوهای طولانی (مثل Claude Code) هر بار hit می‌شود.
+
+| تنظیم (`settings.sessionAffinity`) | پیش‌فرض              |
+| ---------------------------------- | -------------------- |
+| `enabled`                          | `false`              |
+| `header`                           | `x-dirouter-session` |
+| `ttlSeconds`                       | `3600`               |
+
+شناسهٔ نشست به این ترتیب تعیین می‌شود:
+
+1. مقدار هدر تنظیم‌شده (حداکثر ۲۰۰ نویسه)، همراه با شناسهٔ کلید؛ دو کلید هرگز یک نشست مشترک ندارند.
+2. بدون هدر: هش SHA-256 پیشوند پایدار گفت‌وگو (system prompt + اولین پیام). ابزارهای agent این بخش را در هر نوبت بدون تغییر می‌فرستند، و این همان چیزی است که cache provider روی آن کلید می‌خورد. درخواست تک‌پیامِ بدون system prompt سنجاق نمی‌شود.
+
+اگر هدف سنجاق‌شده ناسالم شود (breaker، cooldown)، درخواست طبق استراتژی عادی جلو می‌رود و نشست روی هدف موفق جدید سنجاق می‌شود. متن prompt هرگز در شناسه یا لاگ نمی‌آید.
+
+### شبیه‌ساز مسیریابی (۱۲.۵)
+
+`POST /orgs/:orgId/routes/simulate` (مجوز `models:read`) همان resolver ترافیک واقعی را بدون I/O اجرا می‌کند:
+
+```json
+{
+  "model": "smart",
+  "virtualKeyId": "key_…",
+  "estimatedInputTokens": 120000,
+  "maxOutputTokens": 4096
+}
+```
+
+پاسخ شامل `candidates` (به ترتیب تلاش، با provider و credential) و `skipped` (هر هدف کنارگذاشته با دلیل: `model_disabled`، `provider_disabled`، `context_window`، `provider_circuit_open`، `model_circuit_open`، `credential_disabled`، `credential_cooldown`) است. خطاهای مسیریابی (`model_not_found`، `model_not_allowed`، `no_available_provider`، `context_length_exceeded`) هم نتیجهٔ معتبر شبیه‌سازی‌اند و با `ok: false` برمی‌گردند. در داشبورد: صفحهٔ «شبیه‌ساز مسیریابی».
+
+### تنظیمات سراسری گیت‌وی
+
+تنظیم‌های `healthProbe`، `sessionAffinity`، `cache`، `compression`، `tracing` و `breaker` در یک ردیف جدول `gateway_settings` ذخیره و در `ConfigSnapshot.settings` به همهٔ replicaها می‌رسند:
+
+```bash
+curl -X PUT "$ADMIN/orgs/$ORG/config/settings" -H "authorization: Bearer $TOKEN" \
+  -H 'content-type: application/json' \
+  -d '{"healthProbe":{"enabled":true,"intervalSeconds":60},"sessionAffinity":{"enabled":true}}'
+```
+
+کل شیء پیش از ذخیره اعتبارسنجی می‌شود؛ ورودی نامعتبر هیچ تغییری ایجاد نمی‌کند. `GET` همان مسیر، مقدار ذخیره‌شده و مقدار مؤثر (با پیش‌فرض‌ها) را برمی‌گرداند.
+
 </div>
