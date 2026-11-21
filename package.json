@@ -15,6 +15,8 @@
     "test:unit": "turbo run test -- --coverage.enabled=false",
     "test:integration": "node scripts/integration/run.mjs",
     "test:e2e": "node scripts/e2e/sprint-1.mjs",
+    "test:e2e:sprint2": "node scripts/e2e/sprint-2.mjs",
+    "test:chaos": "node scripts/chaos/run.mjs",
     "coverage": "turbo run test",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
