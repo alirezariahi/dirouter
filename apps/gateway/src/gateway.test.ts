@@ -91,9 +91,10 @@ beforeAll(async () => {
       provider('slow', [cred('slow-k', 'mock:ttft=2000')], { firstByteMs: 200 }),
       provider('invalid', [cred('invalid-k', 'mock:status=400')]),
       provider('nousage', [cred('nousage-k', 'mock:no_usage')]),
-      // Starts streaming at once and keeps going for ~200 ms (5 chunks, 40 ms apart).
-      provider('steady', [cred('steady-k', 'mock:chunk_delay=40,text=steady answer here')]),
-      provider('late', [cred('late-k', 'mock:ttft=300,text=late answer')]),
+      // Starts streaming at once and keeps going for ~750 ms (5 chunks, 150 ms apart), well past
+      // the hedge delay of its combo, also on a slow CI runner.
+      provider('steady', [cred('steady-k', 'mock:chunk_delay=150,text=steady answer here')]),
+      provider('late', [cred('late-k', 'mock:ttft=2000,text=late answer')]),
       provider('limited', [
         cred('limited-k1', 'mock:rate_limit,retry_after=30'),
         cred('limited-k2', 'sk-ok'),
@@ -115,7 +116,7 @@ beforeAll(async () => {
       combo('badreq', ['invalid-m', 'good-m']),
       {
         ...combo('hedged-stream', ['steady-m', 'good-m']),
-        hedging: { enabled: true, afterMs: 20, maxParallel: 2, maxRatio: 1, windowMs: 60_000 },
+        hedging: { enabled: true, afterMs: 300, maxParallel: 2, maxRatio: 1, windowMs: 60_000 },
       },
       {
         ...combo('hedged-late', ['late-m', 'good-m']),
@@ -561,7 +562,7 @@ describe('gateway end-to-end against the mock provider', () => {
     expect(steadyEvent?.status).toBe('success');
     expect(steadyEvent?.attempts).toHaveLength(1);
 
-    // The first target is silent for 300 ms: the hedge answers, the slow one is cancelled.
+    // The first target is silent for 2 s: the hedge answers, the slow one is cancelled.
     events.length = 0;
     const late = await chat({ model: 'hedged-late', stream: true });
     expect(late.headers.get('x-dirouter-provider')).toBe('good');

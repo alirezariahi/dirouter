@@ -390,10 +390,10 @@ describe('hedged requests (12.2)', () => {
         // The first attempt starts writing to the client at 5 ms and finishes much later.
         await new Promise((resolve) => setTimeout(resolve, 5));
         claimed = true;
-        await new Promise((resolve) => setTimeout(resolve, 40));
+        await new Promise((resolve) => setTimeout(resolve, 300));
         return { ok: true as const, value: candidate.model.id };
       },
-      { afterMs: 15, maxParallel: 3, claimed: () => claimed },
+      { afterMs: 150, maxParallel: 3, claimed: () => claimed },
     );
     expect(calls).toBe(1);
     expect(result.ok).toBe(true);
