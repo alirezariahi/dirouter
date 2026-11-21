@@ -1,9 +1,17 @@
 import { hostname } from 'node:os';
 
-import { baseEnvSchema, createLogger, envKeyring, envPort, loadEnvOrExit } from '@dirouter/shared';
+import {
+  baseEnvSchema,
+  connectValkey,
+  createLogger,
+  envKeyring,
+  envPort,
+  loadEnvOrExit,
+} from '@dirouter/shared';
 import { Redis } from 'ioredis';
 import { z } from 'zod';
 
+import { HealthProber } from './health-probe.js';
 import { HealthSync } from './health-sync.js';
 import { buildGateway } from './server.js';
 import { UsageSink } from './usage-sink.js';
@@ -40,9 +48,12 @@ const healthSync = env.VALKEY_URL
       instance: `${hostname()}-${String(process.pid)}`,
       logger,
       publisher: quiet(
-        new Redis(env.VALKEY_URL, { enableOfflineQueue: false, maxRetriesPerRequest: 1 }),
+        connectValkey(Redis, env.VALKEY_URL, {
+          enableOfflineQueue: false,
+          maxRetriesPerRequest: 1,
+        }),
       ),
-      subscriber: quiet(new Redis(env.VALKEY_URL, { maxRetriesPerRequest: null })),
+      subscriber: quiet(connectValkey(Redis, env.VALKEY_URL, { maxRetriesPerRequest: null })),
     })
   : undefined;
 
@@ -90,17 +101,40 @@ const gateway = buildGateway({
   ...(env.VALKEY_URL
     ? {
         limiterRedis: quiet(
-          new Redis(env.VALKEY_URL, { enableOfflineQueue: false, maxRetriesPerRequest: 0 }),
+          connectValkey(Redis, env.VALKEY_URL, {
+            enableOfflineQueue: false,
+            maxRetriesPerRequest: 0,
+          }),
         ),
       }
     : {}),
 });
 await gateway.start();
 await healthSync?.start(gateway.health);
+// Periodic upstream probes (card 12.3). The loop is always armed but does nothing until
+// `settings.healthProbe.enabled` is set in a snapshot, so it can be switched on from the dashboard.
+const prober = new HealthProber({
+  snapshot: () => gateway.store.current?.snapshot,
+  health: gateway.health,
+  keyring: env.MASTER_KEY,
+  logger,
+  instance: `${hostname()}-${String(process.pid)}`,
+  ...(env.VALKEY_URL
+    ? {
+        redis: quiet(
+          connectValkey(Redis, env.VALKEY_URL, {
+            enableOfflineQueue: false,
+            maxRetriesPerRequest: 1,
+          }),
+        ),
+      }
+    : {}),
+});
+prober.start();
 // Node heartbeat for the Health page (card 7.8): config version and readiness of each replica, expiring after 15 seconds.
 if (env.VALKEY_URL) {
   const beat = quiet(
-    new Redis(env.VALKEY_URL, { enableOfflineQueue: false, maxRetriesPerRequest: 1 }),
+    connectValkey(Redis, env.VALKEY_URL, { enableOfflineQueue: false, maxRetriesPerRequest: 1 }),
   );
   const instance = hostname();
   const startedAt = new Date().toISOString();
@@ -128,7 +162,7 @@ if (env.VALKEY_URL) {
 // Immediate application of dashboard changes: control-api publishes on this channel after each new version
 // (cards 3.9 and 4.2); periodic polling with ETag is the fallback when Valkey is down.
 if (env.VALKEY_URL) {
-  const configSub = quiet(new Redis(env.VALKEY_URL, { maxRetriesPerRequest: null }));
+  const configSub = quiet(connectValkey(Redis, env.VALKEY_URL, { maxRetriesPerRequest: null }));
   configSub.on('message', () => {
     void gateway.store.sync();
   });
@@ -143,12 +177,15 @@ logger.info(
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.once(signal, () => {
     logger.info({ signal }, 'draining');
+    prober.stop();
     void gateway
       .drain({ readyDelayMs: env.SHUTDOWN_READY_DELAY_MS, drainMs: env.SHUTDOWN_DRAIN_MS })
       .then(({ forced }) => {
         logger.info({ forced }, 'drained');
       })
       // Events for the last requests are sent (or written to the outbox) before exit.
+      // The last batch of spans is exported before exit (card 17.2).
+      .then(() => gateway.flushTraces())
       .then(() => usageSink?.close())
       .then(() => process.exit(0));
   });

@@ -62,6 +62,7 @@ beforeAll(async () => {
     ],
     models: [
       model('gpt-x', 'oa', 'mock-small'),
+      { ...model('embed-x', 'oa', 'mock-embed'), capabilities: { embeddings: true } },
       model('gpt-tool', 'oa-tool', 'mock-small'),
       model('claude-x', 'an', 'claude-mock'),
       model('claude-tool', 'an-tool', 'claude-mock'),
@@ -155,6 +156,29 @@ describe('official openai SDK', () => {
     const call = res.choices[0]?.message.tool_calls?.[0];
     expect(res.choices[0]?.finish_reason).toBe('tool_calls');
     expect(call?.type === 'function' ? call.function.name : '').toBe('get_weather');
+  });
+
+  it('embeddings work unchanged, including the SDK default base64 transport (card 11.4)', async () => {
+    // The SDK requests encoding_format=base64 unless told otherwise and decodes it itself.
+    const byDefault = await client().embeddings.create({
+      model: 'embed-x',
+      input: ['alpha', 'beta'],
+      dimensions: 4,
+    });
+    expect(byDefault.data).toHaveLength(2);
+    expect(byDefault.data[0]?.embedding).toHaveLength(4);
+    expect(byDefault.data[0]?.embedding.every((v) => typeof v === 'number')).toBe(true);
+    expect(byDefault.usage.total_tokens).toBeGreaterThan(0);
+
+    const asFloat = await client().embeddings.create({
+      model: 'embed-x',
+      input: 'alpha',
+      dimensions: 4,
+      encoding_format: 'float',
+    });
+    asFloat.data[0]?.embedding.forEach((value, i) => {
+      expect(byDefault.data[0]?.embedding[i]).toBeCloseTo(value, 5);
+    });
   });
 
   it('lists models and surfaces errors as SDK errors', async () => {

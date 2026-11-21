@@ -6,11 +6,16 @@ import type { IncomingMessage } from 'node:http';
 import { timingSafeEqual } from 'node:crypto';
 import { hostname } from 'node:os';
 
-import type { UsageEvent } from '@dirouter/contracts';
+import {
+  GeminiGenerateContentRequest,
+  type UsageEvent,
+  type VirtualKeyConfig,
+} from '@dirouter/contracts';
 import {
   BulkheadRegistry,
   type HealthChange,
   HealthRegistry,
+  isRouteError,
   RetryBudget,
 } from '@dirouter/routing';
 import { type Keyring, type Logger, prefixedId } from '@dirouter/shared';
@@ -26,6 +31,11 @@ import { probeProvider } from './probe.js';
 import { handleCountTokens, handleProxy } from './proxy.js';
 import { BudgetGuard } from './budget-guard.js';
 import { RateLimiter } from './rate-limiter.js';
+import { ExactCache, SemanticCacheClient } from './cache.js';
+import { handleEmbeddings, handleGeminiEmbeddings } from './embeddings.js';
+import { Tracer } from './tracing.js';
+import { geminiRequestToCanonical } from '@dirouter/translator';
+import { estimateRequestTokens } from '@dirouter/model-catalog';
 
 export interface GatewayOptions {
   logger: Logger;
@@ -41,6 +51,8 @@ export interface GatewayOptions {
   heartbeatMs?: number;
   /** Valkey connection for the rate limiter (card 6.1); without it the limiter is local single-node. */
   limiterRedis?: Redis;
+  /** Valkey connection for conversation state (previous_response_id, card 11.2). */
+  stateRedis?: Redis;
   /** Card 8.2: structured end-of-request log alongside the usage event. */
   onRequestComplete?: (event: UsageEvent) => void;
   /** Local usage outbox for the backlog-size gauge. */
@@ -98,6 +110,8 @@ export function buildGateway(opts: GatewayOptions) {
   const deps = {
     store,
     budget: new RetryBudget(),
+    // One rolling hedge budget per (ratio, window) pair, shared by every request (card 12.2).
+    hedgeBudgets: new Map(),
     lifecycle,
     budgets: new BudgetGuard({
       logger: opts.logger,
@@ -115,6 +129,21 @@ export function buildGateway(opts: GatewayOptions) {
     logger: opts.logger,
     metrics,
     onRequestComplete: opts.onRequestComplete,
+    // Response caches and tracing (cards 13.1, 13.2 and 17.2); settings are read per snapshot.
+    cache: new ExactCache({
+      ...(opts.limiterRedis ? { redis: opts.limiterRedis } : {}),
+    }),
+    ...(opts.limiterRedis ? { stateRedis: opts.limiterRedis } : {}),
+    ...(opts.stateRedis ? { stateRedis: opts.stateRedis } : {}),
+    tracer: new Tracer(() => store.current?.snapshot.settings.tracing, opts.logger),
+    ...(opts.controlApiUrl && opts.internalToken
+      ? {
+          semanticCache: new SemanticCacheClient({
+            baseUrl: opts.controlApiUrl,
+            internalToken: opts.internalToken,
+          }),
+        }
+      : {}),
     // In Docker the hostname is the container ID; used to trace the replica in logs and headers.
     instance: opts.instance ?? hostname(),
     emitUsage: deliverUsage,
@@ -145,7 +174,8 @@ export function buildGateway(opts: GatewayOptions) {
     void reply.header('x-request-id', req.id).header('x-dirouter-instance', deps.instance);
     // During drain every response closes its connection so Traefik opens a new one (to a healthy replica).
     if (lifecycle.draining) void reply.header('connection', 'close');
-    if (req.url.startsWith('/v1/') || req.url.startsWith('/chat/')) {
+    // `/v1beta/` (Gemini) requests are drained like every other API call.
+    if (/^\/(v1|v1beta|chat)\//.test(req.url)) {
       inFlight++;
       reply.raw.once('close', () => {
         inFlight--;
@@ -160,6 +190,87 @@ export function buildGateway(opts: GatewayOptions) {
     handleCountTokens(req, reply, deps);
   });
 
+  // Sprint 2 inbound APIs (cards 11.1, 11.2 and 11.4).
+  app.post('/v1/responses', (req, reply) => handleProxy('openai.responses', req, reply, deps));
+  app.post('/v1/embeddings', (req, reply) => handleEmbeddings(req, reply, deps));
+  app.post('/v1beta/models/:modelAction', (req, reply) => {
+    const param = (req.params as { modelAction?: string }).modelAction ?? '';
+    const [rawModel = '', action = ''] = param.split(':');
+    // Fastify has already decoded the path parameter; decoding it again would throw on a literal
+    // '%' and mangle encoded characters.
+    const model = rawModel;
+    if (action === 'embedContent' || action === 'batchEmbedContents')
+      return handleGeminiEmbeddings(req, reply, deps);
+    if (action === 'countTokens') {
+      const config = store.current;
+      if (!config)
+        return reply.status(503).send({
+          error: { code: 503, message: 'not ready', status: 'UNAVAILABLE' },
+        });
+      try {
+        authenticate(
+          config,
+          extractApiKey(req.headers, (req.query as { key?: string }).key),
+          opts.pepper,
+          req.ip,
+        );
+        const parsed = GeminiGenerateContentRequest.safeParse({
+          ...(req.body as Record<string, unknown>),
+          model,
+        });
+        if (!parsed.success)
+          return reply.status(400).send({
+            error: { code: 400, message: 'invalid request', status: 'INVALID_ARGUMENT' },
+          });
+        return { totalTokens: estimateRequestTokens(geminiRequestToCanonical(parsed.data)) };
+      } catch (error) {
+        const e = error as { status?: number; message?: string };
+        return reply.status(e.status ?? 400).send({
+          error: { code: e.status ?? 400, message: e.message ?? 'invalid request' },
+        });
+      }
+    }
+    if (action === 'generateContent' || action === 'streamGenerateContent') {
+      const body = (req.body ?? {}) as Record<string, unknown>;
+      body.model = model;
+      if (action === 'streamGenerateContent') body.stream = true;
+      return handleProxy('gemini.generate', req, reply, deps);
+    }
+    return reply.status(404).send({
+      error: { code: 404, message: `unsupported model action '${action}'`, status: 'NOT_FOUND' },
+    });
+  });
+  app.get('/v1beta/models', (req, reply) => {
+    const config = store.current;
+    if (!config)
+      return reply.status(503).send({
+        error: { code: 503, message: 'not ready', status: 'UNAVAILABLE' },
+      });
+    try {
+      const key = authenticate(
+        config,
+        extractApiKey(req.headers, (req.query as { key?: string }).key),
+        opts.pepper,
+        req.ip,
+      );
+      const names = config.router.index
+        .names(key.organizationId)
+        .filter((n) => key.allowedModels.length === 0 || key.allowedModels.includes(n));
+      return {
+        models: names.map((name) => ({
+          name: `models/${name}`,
+          displayName: name,
+          supportedGenerationMethods: ['generateContent', 'streamGenerateContent'],
+        })),
+      };
+    } catch (error) {
+      const e = error as { status?: number; message?: string };
+      return reply.status(e.status ?? 401).send({
+        error: { code: e.status ?? 401, message: e.message ?? 'unauthorized' },
+      });
+    }
+  });
+
   app.get('/v1/models', async (req, reply) => {
     const config = store.current;
     if (!config)
@@ -172,7 +283,12 @@ export function buildGateway(opts: GatewayOptions) {
         },
       });
     try {
-      const key = authenticate(config, extractApiKey(req.headers), opts.pepper, req.ip);
+      const key = authenticate(
+        config,
+        extractApiKey(req.headers, (req.query as { key?: string }).key),
+        opts.pepper,
+        req.ip,
+      );
       const names = config.router.index
         .names(key.organizationId)
         .filter((n) => key.allowedModels.length === 0 || key.allowedModels.includes(n));
@@ -232,6 +348,94 @@ export function buildGateway(opts: GatewayOptions) {
     }
   });
 
+  // Routing dry-run (card 12.5): same resolver as traffic, no I/O, with exact skip reasons.
+  app.post('/internal/routes/simulate', async (req, reply) => {
+    if (!internalOk(req)) return reply.status(404).send(notFound);
+    const config = store.current;
+    if (!config)
+      return reply.status(503).send({ error: { message: 'not ready', code: 'unavailable' } });
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const requested = typeof body.model === 'string' ? body.model : undefined;
+    if (!requested)
+      return reply
+        .status(400)
+        .send({ error: { message: 'model is required', code: 'invalid_request' } });
+    const virtualKeyId = typeof body.virtualKeyId === 'string' ? body.virtualKeyId : undefined;
+    const savedKey = virtualKeyId
+      ? config.snapshot.virtualKeys.find((k) => k.id === virtualKeyId)
+      : undefined;
+    const organizationId =
+      (typeof body.organizationId === 'string' ? body.organizationId : undefined) ??
+      savedKey?.organizationId ??
+      config.snapshot.models.find((m) => m.slug === requested || m.id === requested)
+        ?.organizationId ??
+      config.snapshot.combos.find((c) => c.slug === requested || c.id === requested)
+        ?.organizationId ??
+      config.snapshot.providers[0]?.organizationId;
+    if (!organizationId)
+      return reply
+        .status(400)
+        .send({ error: { message: 'organizationId is required', code: 'invalid_request' } });
+    const key: VirtualKeyConfig = savedKey ?? {
+      id: 'simulate',
+      organizationId,
+      hash: 'a'.repeat(64),
+      prefix: 'sim_',
+      teamId: null,
+      projectId: '',
+      enabled: true,
+      expiresAt: null,
+      allowedModels: [],
+      ipAllowlist: [],
+      budgets: [],
+    };
+    const number = (value: unknown) => (typeof value === 'number' ? value : undefined);
+    const result = config.router.simulate(key, requested, {
+      ...(number(body.estimatedInputTokens) !== undefined
+        ? { estimatedInputTokens: number(body.estimatedInputTokens) }
+        : {}),
+      ...(number(body.maxOutputTokens) !== undefined
+        ? { maxOutputTokens: number(body.maxOutputTokens) }
+        : {}),
+      ...(typeof body.sessionKey === 'string' ? { sessionKey: body.sessionKey } : {}),
+      ...(typeof body.promptPrefixHash === 'string'
+        ? { promptPrefixHash: body.promptPrefixHash }
+        : {}),
+      ...(body.p2c === true ? { p2c: true } : {}),
+      ...(body.preferLastKnownGood === true ? { preferLastKnownGood: true } : {}),
+    });
+    if (isRouteError(result)) {
+      const status =
+        result.error === 'model_not_found'
+          ? 404
+          : result.error === 'model_not_allowed'
+            ? 403
+            : result.error === 'no_available_provider'
+              ? 503
+              : 400;
+      return reply.status(status).send({
+        error: { message: result.error, code: result.error },
+        ...(result.neededTokens !== undefined ? { neededTokens: result.neededTokens } : {}),
+        skipped: result.skipped,
+      });
+    }
+    return {
+      requested: result.requested,
+      kind: result.kind,
+      combo: result.combo
+        ? { id: result.combo.id, slug: result.combo.slug, strategy: result.combo.strategy }
+        : undefined,
+      fallbackOn: result.fallbackOn,
+      candidates: result.candidates.map((candidate) => ({
+        modelId: candidate.model.id,
+        model: candidate.model.slug,
+        provider: candidate.provider.slug,
+        credentialId: candidate.credential.id,
+      })),
+      skipped: result.skipped,
+    };
+  });
+
   return {
     app,
     store,
@@ -247,6 +451,8 @@ export function buildGateway(opts: GatewayOptions) {
     get inFlight() {
       return inFlight;
     },
+    /** Exports the spans still buffered in memory (called once the drain is over). */
+    flushTraces: () => deps.tracer.shutdown(),
     /**
      * graceful shutdown (card 5.8):
      * 1. readyz=503 and service continues for `readyDelayMs`, so Traefik's health check takes this replica

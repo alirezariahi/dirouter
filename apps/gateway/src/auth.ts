@@ -32,12 +32,17 @@ function allowlistFor(key: VirtualKeyConfig): BlockList {
 
 export function extractApiKey(
   headers: Record<string, string | string[] | undefined>,
+  queryKey?: string,
 ): string | undefined {
   const auth = headers.authorization;
   if (typeof auth === 'string' && /^Bearer\s+/i.test(auth))
     return auth.replace(/^Bearer\s+/i, '').trim();
   const xKey = headers['x-api-key'];
-  return typeof xKey === 'string' ? xKey.trim() : undefined;
+  if (typeof xKey === 'string') return xKey.trim();
+  // Gemini clients (Gemini CLI, Google SDKs) use `x-goog-api-key` or `?key=`.
+  const googleKey = headers['x-goog-api-key'];
+  if (typeof googleKey === 'string') return googleKey.trim();
+  return queryKey?.trim() || undefined;
 }
 
 export function authenticate(

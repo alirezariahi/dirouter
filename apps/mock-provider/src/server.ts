@@ -21,6 +21,8 @@ interface Stats {
   byStatus: Record<string, number>;
   /** Last received bodies (for assertions in e2e tests). */
   last: unknown[];
+  /** Last `traceparent` headers received (card 17.2). */
+  traceparents: string[];
   /** Currently open requests and their peak (for bulkhead tests). */
   inFlight: number;
   maxInFlight: number;
@@ -31,6 +33,7 @@ const newStats = (): Stats => ({
   byKey: {},
   byStatus: {},
   last: [],
+  traceparents: [],
   inFlight: 0,
   maxInFlight: 0,
 });
@@ -126,6 +129,12 @@ export function buildServer(options: MockServerOptions = {}) {
     stats.byStatus[String(status)] = (stats.byStatus[String(status)] ?? 0) + 1;
     stats.last.push(req.body);
     if (stats.last.length > 20) stats.last.shift();
+    // Trace context received from the gateway (card 17.2), so tests can follow a trace upstream.
+    const traceparent = req.headers.traceparent;
+    if (typeof traceparent === 'string') {
+      stats.traceparents.push(traceparent);
+      if (stats.traceparents.length > 20) stats.traceparents.shift();
+    }
   }
 
   /** Fixed or random error; returns true if an error was sent. */
@@ -278,6 +287,44 @@ export function buildServer(options: MockServerOptions = {}) {
   app.post('/v1/chat/completions', (req, reply) =>
     openai(req, reply, (req.body as { model?: string } | undefined)?.model ?? 'mock'),
   );
+
+  // ───────────── Embeddings (card 11.4) ─────────────
+  const embedding = (text: string, dimensions: number) =>
+    Array.from({ length: dimensions }, (_, i) => ((text.length + i) % 10) / 10);
+
+  app.post('/v1/embeddings', async (req, reply) => {
+    const s = scenarioFor(req);
+    await sleep(sampleLatency(s.latency));
+    if (await maybeFail('openai', s, req, reply)) return;
+    const body = (req.body ?? {}) as {
+      input?: string | string[];
+      dimensions?: number;
+      encoding_format?: string;
+    };
+    if (body.encoding_format === 'base64')
+      return reply
+        .status(400)
+        .send(errorBody('openai', 400, 'base64 is not supported here', 'invalid_request'));
+    const inputs = Array.isArray(body.input) ? body.input : [body.input ?? ''];
+    // Like the real model, `text-embedding-3-small` answers with 1536 dimensions by default
+    // (the semantic cache stores vectors of that size); every other model keeps the short form.
+    const requestedModel = (req.body as { model?: string } | undefined)?.model ?? '';
+    const dimensions = body.dimensions ?? (requestedModel === 'text-embedding-3-small' ? 1536 : 8);
+    record(req, 200);
+    return reply.send({
+      object: 'list',
+      data: inputs.map((text, index) => ({
+        object: 'embedding',
+        index,
+        embedding: embedding(text, dimensions),
+      })),
+      model: (req.body as { model?: string } | undefined)?.model ?? 'mock',
+      usage: {
+        prompt_tokens: inputs.reduce((sum, text) => sum + Math.ceil(text.length / 4), 0),
+        total_tokens: inputs.reduce((sum, text) => sum + Math.ceil(text.length / 4), 0),
+      },
+    });
+  });
   // Azure OpenAI: /openai/deployments/{deployment}/chat/completions?api-version=...
   app.post<{ Params: { deployment: string } }>(
     '/openai/deployments/:deployment/chat/completions',
@@ -404,12 +451,40 @@ export function buildServer(options: MockServerOptions = {}) {
   app.post<{ Params: { '*': string } }>('/v1beta/models/*', async (req, reply) => {
     const [rawModel = 'mock', action = ''] = req.params['*'].split(':');
     const model = decodeURIComponent(rawModel);
-    if (action !== 'generateContent' && action !== 'streamGenerateContent')
+    const isEmbedding = action === 'embedContent' || action === 'batchEmbedContents';
+    if (!isEmbedding && action !== 'generateContent' && action !== 'streamGenerateContent')
       return reply.status(404).send(errorBody('gemini', 404, `unknown action ${action}`, ''));
     const s = scenarioFor(req);
     await sleep(sampleLatency(s.latency));
     if (await maybeFail('gemini', s, req, reply)) return;
-    const body = (req.body ?? {}) as { contents?: unknown; systemInstruction?: unknown };
+    const body = (req.body ?? {}) as {
+      contents?: unknown;
+      systemInstruction?: unknown;
+      content?: { parts?: { text?: string }[] };
+      requests?: { content?: { parts?: { text?: string }[] } }[];
+    };
+    const textOf = (parts?: { text?: string }[]) => (parts ?? []).map((p) => p.text ?? '').join('');
+    const embedValues = (text: string) =>
+      Array.from({ length: 8 }, (_, i) => ((text.length + i) % 10) / 10);
+    if (action === 'embedContent' || action === 'batchEmbedContents') {
+      const texts =
+        action === 'batchEmbedContents'
+          ? (body.requests ?? []).map((r) => textOf(r.content?.parts))
+          : [textOf(body.content?.parts)];
+      const promptTokenCount = texts.reduce((sum, text) => sum + Math.ceil(text.length / 4), 0);
+      record(req, 200);
+      return reply.send(
+        action === 'batchEmbedContents'
+          ? {
+              embeddings: texts.map((text) => ({ values: embedValues(text) })),
+              usageMetadata: { promptTokenCount },
+            }
+          : {
+              embedding: { values: embedValues(texts[0] ?? '') },
+              usageMetadata: { promptTokenCount },
+            },
+      );
+    }
     const promptTokenCount = tokens([body.systemInstruction, body.contents]);
     const pieces = chunksOf(s.text, s.chunks);
     const candidatesTokenCount = s.tool ? 12 : pieces.length * 2;

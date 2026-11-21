@@ -73,6 +73,12 @@ export function createGatewayMetrics(options: GatewayMetricOptions) {
     labelNames: ['guard', 'reason'],
     registers: [registry],
   });
+  const cacheHits = new Counter({
+    name: 'dirouter_gateway_cache_hits_total',
+    help: 'Responses served from the exact or semantic cache',
+    labelNames: ['kind'],
+    registers: [registry],
+  });
   const activeStreams = new Gauge({
     name: 'dirouter_gateway_active_streams',
     help: 'Currently open upstream/client LLM streams',
@@ -133,8 +139,11 @@ export function createGatewayMetrics(options: GatewayMetricOptions) {
       const { provider, model, outcome } = attempt;
       attemptDuration.observe({ provider, model, outcome }, attempt.latencyMs / 1_000);
     },
-    reject(guard: 'rate_limit' | 'budget' | 'concurrency', reason: string) {
+    reject(guard: 'rate_limit' | 'budget' | 'concurrency' | 'guardrail', reason: string) {
       rejected.inc({ guard, reason });
+    },
+    cacheHit(kind: 'exact' | 'semantic') {
+      cacheHits.inc({ kind });
     },
     streamStarted() {
       activeStreams.inc();

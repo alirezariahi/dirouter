@@ -94,7 +94,10 @@ describe.skipIf(!VALKEY_URL)('budgets on real Valkey', () => {
   });
 
   it('a new period starts from zero', async () => {
-    let now = new Date('2026-11-08T23:59:00Z');
+    // Relative to today: counters expire at an absolute time after their period, so a fixed
+    // past date would have its keys dropped by Valkey as soon as they are written.
+    const today = new Date().toISOString().slice(0, 10);
+    let now = new Date(`${today}T23:59:00Z`);
     const guard = new BudgetGuard({
       redis: conn(),
       logger,
@@ -106,7 +109,7 @@ describe.skipIf(!VALKEY_URL)('budgets on real Valkey', () => {
     guard.record(b, '1', 1);
     await settle();
     expect((await guard.check(b)).ok).toBe(false);
-    now = new Date('2026-11-09T00:00:01Z');
+    now = new Date(now.getTime() + 61_000);
     expect((await guard.check(b)).ok).toBe(true);
   });
 

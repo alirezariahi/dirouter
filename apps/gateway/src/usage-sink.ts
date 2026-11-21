@@ -14,7 +14,7 @@ import { join } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 
 import { QUEUES, type UsageEvent } from '@dirouter/contracts';
-import type { Logger } from '@dirouter/shared';
+import { connectValkey, type Logger } from '@dirouter/shared';
 import { Queue } from 'bullmq';
 import { Redis } from 'ioredis';
 
@@ -93,10 +93,10 @@ export class UsageSink {
     } else {
       if (!opts.valkeyUrl) throw new Error('valkeyUrl or queue is required');
       // No offline queue: when Valkey is down, commands fail immediately and we fall back to the outbox.
-      this.#redis = new Redis(opts.valkeyUrl, {
+      this.#redis = connectValkey(Redis, opts.valkeyUrl, {
         enableOfflineQueue: false,
         maxRetriesPerRequest: 1,
-        retryStrategy: (n) => Math.min(n * 200, 2_000),
+        retryStrategy: (n: number) => Math.min(n * 200, 2_000),
       });
       this.#redis.on('error', (error: Error) => {
         this.#logger.debug({ err: error }, 'usage queue connection error');

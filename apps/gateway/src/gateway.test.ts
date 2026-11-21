@@ -7,6 +7,7 @@ import { buildServer as buildMock } from '@dirouter/mock-provider/server';
 import { createLogger, encrypt, generateKey, hashApiKey, parseKeyring } from '@dirouter/shared';
 import { SseParser } from '@dirouter/translator';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import type { Redis } from 'ioredis';
 
 import { buildGateway } from './server.js';
 
@@ -14,6 +15,7 @@ const keyring = parseKeyring(generateKey());
 const pepper = 'p'.repeat(32);
 const KEY = 'dr-test-0123456789abcdef';
 const LIMITED_KEY = 'dr-test-limited';
+const OTHER_PROJECT_KEY = 'dr-test-other-project';
 const INTERNAL = 'i'.repeat(32);
 const events: UsageEvent[] = [];
 const completed: UsageEvent[] = [];
@@ -22,6 +24,15 @@ const mock = buildMock();
 let mockUrl = '';
 let gw: ReturnType<typeof buildGateway>;
 let base = '';
+/** Minimal Valkey stand-in for previous_response_id state. */
+const conversationState = new Map<string, string>();
+const fakeRedis = {
+  get: async (key: string) => conversationState.get(key) ?? null,
+  set: async (key: string, value: string) => {
+    conversationState.set(key, value);
+    return 'OK';
+  },
+} as unknown as Redis;
 
 const cred = (id: string, secret: string) => ({
   id,
@@ -80,6 +91,9 @@ beforeAll(async () => {
       provider('slow', [cred('slow-k', 'mock:ttft=2000')], { firstByteMs: 200 }),
       provider('invalid', [cred('invalid-k', 'mock:status=400')]),
       provider('nousage', [cred('nousage-k', 'mock:no_usage')]),
+      // Starts streaming at once and keeps going for ~200 ms (5 chunks, 40 ms apart).
+      provider('steady', [cred('steady-k', 'mock:chunk_delay=40,text=steady answer here')]),
+      provider('late', [cred('late-k', 'mock:ttft=300,text=late answer')]),
       provider('limited', [
         cred('limited-k1', 'mock:rate_limit,retry_after=30'),
         cred('limited-k2', 'sk-ok'),
@@ -91,12 +105,26 @@ beforeAll(async () => {
       model('slow-m', 'slow'),
       model('invalid-m', 'invalid'),
       model('nousage-m', 'nousage'),
+      model('steady-m', 'steady'),
+      model('late-m', 'late'),
       model('limited-m', 'limited'),
     ],
     combos: [
       combo('resilient', ['down-m', 'good-m']),
       combo('ttft', ['slow-m', 'good-m']),
       combo('badreq', ['invalid-m', 'good-m']),
+      {
+        ...combo('hedged-stream', ['steady-m', 'good-m']),
+        hedging: { enabled: true, afterMs: 20, maxParallel: 2, maxRatio: 1, windowMs: 60_000 },
+      },
+      {
+        ...combo('hedged-late', ['late-m', 'good-m']),
+        hedging: { enabled: true, afterMs: 20, maxParallel: 2, maxRatio: 1, windowMs: 60_000 },
+      },
+      {
+        ...combo('hedged-badreq', ['invalid-m', 'good-m']),
+        hedging: { enabled: true, afterMs: 500, maxParallel: 2, maxRatio: 1, windowMs: 60_000 },
+      },
     ],
     aliases: [{ organizationId: 'org', slug: 'gpt', target: { kind: 'model', modelId: 'good-m' } }],
     virtualKeys: [
@@ -122,6 +150,16 @@ beforeAll(async () => {
         allowedModels: ['gpt'],
         rateLimit: { requestsPerMinute: 2 },
       },
+      {
+        id: 'vk3',
+        hash: hashApiKey(OTHER_PROJECT_KEY, pepper),
+        prefix: 'dr-oth',
+        organizationId: 'org',
+        teamId: null,
+        projectId: 'prj-other',
+        enabled: true,
+        expiresAt: null,
+      },
     ],
     settings: { defaultRetry: { maxAttempts: 2, baseDelayMs: 1, maxDelayMs: 5 } },
   };
@@ -136,6 +174,7 @@ beforeAll(async () => {
     onRequestComplete: (e) => completed.push(e),
     heartbeatMs: 50,
     internalToken: INTERNAL,
+    stateRedis: fakeRedis,
   });
   await gw.start();
   await gw.app.listen({ port: 0, host: '127.0.0.1' });
@@ -374,6 +413,33 @@ describe('gateway end-to-end against the mock provider', () => {
       expect(report.credentials[0]).toMatchObject({ credentialId: 'limited-k1' });
   });
 
+  it('simulates a route for the dry-run UI with candidates and skip reasons', async () => {
+    const res = await fetch(`${base}/internal/routes/simulate`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${INTERNAL}` },
+      body: JSON.stringify({ model: 'gpt', estimatedInputTokens: 100, maxOutputTokens: 100 }),
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      requested: string;
+      candidates: { model: string }[];
+      skipped: unknown[];
+    };
+    expect(body.requested).toBe('gpt');
+    expect(body.candidates.length).toBeGreaterThan(0);
+    expect(Array.isArray(body.skipped)).toBe(true);
+    // Without the internal token the route is invisible.
+    expect(
+      (
+        await fetch(`${base}/internal/routes/simulate`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ model: 'gpt' }),
+        })
+      ).status,
+    ).toBe(404);
+  });
+
   it('lists models for the key', async () => {
     const res = await fetch(`${base}/v1/models`, {
       headers: { authorization: `Bearer ${LIMITED_KEY}` },
@@ -407,5 +473,234 @@ describe('gateway end-to-end against the mock provider', () => {
       status: 'ok',
       configVersion: 1,
     });
+  });
+
+  it('keeps /v1/responses conversation state for previous_response_id', async () => {
+    const first = await fetch(`${base}/v1/responses`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${KEY}` },
+      body: JSON.stringify({ model: 'gpt', input: 'first turn' }),
+    });
+    expect(first.status).toBe(200);
+    const body = (await first.json()) as { id: string; output_text: string };
+    expect(body.id).toMatch(/^resp_/);
+    expect(body.output_text.length).toBeGreaterThan(0);
+
+    const second = await fetch(`${base}/v1/responses`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${KEY}` },
+      body: JSON.stringify({
+        model: 'gpt',
+        input: 'second turn',
+        previous_response_id: body.id,
+      }),
+    });
+    expect(second.status).toBe(200);
+
+    const missing = await fetch(`${base}/v1/responses`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${KEY}` },
+      body: JSON.stringify({
+        model: 'gpt',
+        input: 'x',
+        previous_response_id: 'resp_does_not_exist',
+      }),
+    });
+    expect(missing.status).toBe(400);
+
+    // The id belongs to the project that produced it: another project gets the same answer as
+    // for an unknown id, and never the conversation.
+    const foreign = await fetch(`${base}/v1/responses`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${OTHER_PROJECT_KEY}` },
+      body: JSON.stringify({ model: 'gpt', input: 'x', previous_response_id: body.id }),
+    });
+    expect(foreign.status).toBe(400);
+  });
+
+  it('continues a streamed /v1/responses turn with previous_response_id', async () => {
+    const first = await fetch(`${base}/v1/responses`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${KEY}` },
+      body: JSON.stringify({ model: 'gpt', input: 'first turn', stream: true }),
+    });
+    expect(first.status).toBe(200);
+    const frames = await sse(first);
+    const completed = frames
+      .map((f) => {
+        try {
+          return JSON.parse(f.data) as { type?: string; response?: { id?: string } };
+        } catch {
+          return {};
+        }
+      })
+      .find((f) => f.type === 'response.completed');
+    expect(completed?.response?.id).toMatch(/^resp_/);
+    const second = await fetch(`${base}/v1/responses`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${KEY}` },
+      body: JSON.stringify({
+        model: 'gpt',
+        input: 'second turn',
+        previous_response_id: completed?.response?.id,
+      }),
+    });
+    expect(second.status).toBe(200);
+  });
+
+  it('a hedged stream is written by exactly one attempt and stays intact', async () => {
+    // The first target is already streaming when the hedge timer fires: no second attempt may
+    // start, and the stream must end cleanly.
+    const steady = await chat({ model: 'hedged-stream', stream: true });
+    expect(steady.status).toBe(200);
+    expect(steady.headers.get('x-dirouter-provider')).toBe('steady');
+    const steadyText = await steady.text();
+    expect(steadyText).not.toContain('upstream stream interrupted');
+    expect(steadyText.trimEnd().endsWith('data: [DONE]')).toBe(true);
+    const steadyEvent = await waitForEvent();
+    expect(steadyEvent?.status).toBe('success');
+    expect(steadyEvent?.attempts).toHaveLength(1);
+
+    // The first target is silent for 300 ms: the hedge answers, the slow one is cancelled.
+    events.length = 0;
+    const late = await chat({ model: 'hedged-late', stream: true });
+    expect(late.headers.get('x-dirouter-provider')).toBe('good');
+    const lateText = await late.text();
+    expect(lateText).not.toContain('upstream stream interrupted');
+    expect(lateText).not.toContain('late answer');
+    expect(lateText.trimEnd().endsWith('data: [DONE]')).toBe(true);
+    expect((await waitForEvent())?.status).toBe('success');
+  });
+
+  it('a hedged combo does not replay a client error on the next target', async () => {
+    const res = await chat({ model: 'hedged-badreq' });
+    expect(res.status).toBe(400);
+    expect((await waitForEvent())?.attempts).toHaveLength(1);
+  });
+
+  it('embeddings count against the key rate limit and are billed', async () => {
+    const embed = (key: string) =>
+      fetch(`${base}/v1/embeddings`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', authorization: `Bearer ${key}` },
+        body: JSON.stringify({ model: 'good-m', input: 'alpha beta gamma' }),
+      });
+    const ok = await embed(KEY);
+    expect(ok.status).toBe(200);
+    const billed = await waitForEvent();
+    expect(billed?.inboundApi).toBe('openai.embeddings');
+    expect(Number(billed?.costUsd)).toBeGreaterThan(0);
+
+    // vk2 is limited to 2 requests per minute and to the `gpt` alias.
+    const limited = (
+      await Promise.all(
+        [1, 2, 3, 4].map(() =>
+          fetch(`${base}/v1/embeddings`, {
+            method: 'POST',
+            headers: {
+              'content-type': 'application/json',
+              authorization: `Bearer ${LIMITED_KEY}`,
+            },
+            body: JSON.stringify({ model: 'gpt', input: 'alpha' }),
+          }),
+        ),
+      )
+    ).map((r) => r.status);
+    expect(limited).toContain(429);
+  });
+
+  it('accepts the Gemini API key as a query parameter for generateContent', async () => {
+    const res = await fetch(`${base}/v1beta/models/gpt:generateContent?key=${KEY}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: 'hi' }] }] }),
+    });
+    expect(res.status).toBe(200);
+    const empty = await fetch(`${base}/v1beta/models/good-m:embedContent`, {
+      method: 'POST',
+      headers: { 'x-goog-api-key': KEY },
+    });
+    expect(empty.status).toBe(400);
+  });
+
+  it('accepts the Gemini API key header for /v1beta', async () => {
+    const res = await fetch(`${base}/v1beta/models/gpt:generateContent`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-goog-api-key': KEY },
+      body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: 'hi' }] }] }),
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { candidates: unknown[] };
+    expect(body.candidates.length).toBeGreaterThan(0);
+  });
+
+  it('serves /v1/embeddings with dimensions, usage and routing headers', async () => {
+    const res = await fetch(`${base}/v1/embeddings`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${KEY}` },
+      body: JSON.stringify({ model: 'good-m', input: ['alpha', 'beta'], dimensions: 4 }),
+    });
+    expect(res.status).toBe(200);
+    expect(res.headers.get('x-dirouter-model')).toBe('good-m');
+    expect(res.headers.get('x-dirouter-provider')).toBe('good');
+    const body = (await res.json()) as {
+      object: string;
+      data: { object: string; index: number; embedding: number[] }[];
+      usage: { prompt_tokens: number; total_tokens: number };
+    };
+    expect(body.object).toBe('list');
+    expect(body.data).toHaveLength(2);
+    expect(body.data[0]?.embedding).toHaveLength(4);
+    expect(body.data[1]?.index).toBe(1);
+    expect(body.usage.total_tokens).toBeGreaterThan(0);
+  });
+
+  it('returns base64 embeddings as little-endian float32 when the client asks for them', async () => {
+    const request = (encoding_format?: string) =>
+      fetch(`${base}/v1/embeddings`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', authorization: `Bearer ${KEY}` },
+        body: JSON.stringify({
+          model: 'good-m',
+          input: 'alpha',
+          dimensions: 4,
+          ...(encoding_format ? { encoding_format } : {}),
+        }),
+      });
+    const floats = (await (await request()).json()) as { data: { embedding: number[] }[] };
+    const res = await request('base64');
+    expect(res.status).toBe(200);
+    const encoded = (await res.json()) as { data: { embedding: string }[] };
+    const bytes = Buffer.from(encoded.data[0]?.embedding ?? '', 'base64');
+    expect(bytes.length).toBe(16);
+    const decoded = Array.from({ length: 4 }, (_, i) => bytes.readFloatLE(i * 4));
+    (floats.data[0]?.embedding ?? []).forEach((value, i) => {
+      expect(decoded[i]).toBeCloseTo(value, 5);
+    });
+  });
+
+  it('serves Gemini embedContent and batchEmbedContents', async () => {
+    const single = await fetch(`${base}/v1beta/models/good-m:embedContent`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-goog-api-key': KEY },
+      body: JSON.stringify({ content: { parts: [{ text: 'alpha' }] } }),
+    });
+    expect(single.status).toBe(200);
+    const singleBody = (await single.json()) as { embedding: { values: number[] } };
+    expect(singleBody.embedding.values).toHaveLength(8);
+
+    const batch = await fetch(`${base}/v1beta/models/good-m:batchEmbedContents`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-goog-api-key': KEY },
+      body: JSON.stringify({
+        requests: [
+          { content: { parts: [{ text: 'one' }] } },
+          { content: { parts: [{ text: 'two' }] } },
+        ],
+      }),
+    });
+    expect(batch.status).toBe(200);
+    const batchBody = (await batch.json()) as { embeddings: { values: number[] }[] };
+    expect(batchBody.embeddings).toHaveLength(2);
   });
 });
