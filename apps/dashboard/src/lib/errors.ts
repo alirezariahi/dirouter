@@ -12,7 +12,7 @@ export function errorMessage(error: unknown, t: TFunction): string {
     if (error.problem.errors?.length)
       return error.problem.errors
         .map((e) => `${t(`fields.${e.path}`, { defaultValue: e.path })}: ${e.message}`)
-        .join('، ');
+        .join(t('state.listSeparator'));
     return error.message;
   }
   if (error instanceof TypeError) return t('errors.network');

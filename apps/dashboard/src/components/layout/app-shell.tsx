@@ -59,12 +59,12 @@ export function AppShell() {
             id="lang"
             value={s.lang}
             onChange={(e) => {
-              s.setLang(e.target.value === 'en' ? 'en' : 'fa');
+              s.setLang(e.target.value === 'fa' ? 'fa' : 'en');
             }}
             className="h-9 rounded-md border border-border bg-surface px-2 text-sm"
           >
-            <option value="fa">فارسی</option>
             <option value="en">English</option>
+            <option value="fa">فارسی</option>
           </select>
           <label className="sr-only" htmlFor="calendar">
             {t('topbar.calendar')}
@@ -77,8 +77,8 @@ export function AppShell() {
             }}
             className="h-9 rounded-md border border-border bg-surface px-2 text-sm"
           >
-            <option value="persian">{t('topbar.persian')}</option>
             <option value="gregory">{t('topbar.gregory')}</option>
+            <option value="persian">{t('topbar.persian')}</option>
           </select>
           <label className="sr-only" htmlFor="theme">
             {t('topbar.theme')}

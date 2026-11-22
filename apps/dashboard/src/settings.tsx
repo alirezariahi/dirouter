@@ -20,7 +20,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const { i18n } = useTranslation();
   const [theme, setThemeState] = useState<Theme>(prefs.theme());
   const [calendar, setCalendarState] = useState<Calendar>(prefs.calendar());
-  const lang: Lang = i18n.language === 'en' ? 'en' : 'fa';
+  const lang: Lang = i18n.language === 'fa' ? 'fa' : 'en';
 
   useEffect(() => {
     applyTheme(theme);

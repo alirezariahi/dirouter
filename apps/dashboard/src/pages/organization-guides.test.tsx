@@ -92,8 +92,8 @@ async function renderPage(page: React.ReactNode) {
 describe('organization management (card 7.9)', () => {
   beforeEach(async () => {
     resetSessionForTests();
-    setupI18n('fa');
-    await i18n.changeLanguage('fa');
+    setupI18n('en');
+    await i18n.changeLanguage('en');
   });
   afterEach(() => {
     cleanup();
@@ -120,12 +120,12 @@ describe('organization management (card 7.9)', () => {
     await renderPage(<OrganizationPage />);
     expect(await screen.findByTestId('member-usr_2')).toBeTruthy();
 
-    fireEvent.change(screen.getByLabelText('organization.email'), {
+    fireEvent.change(screen.getByLabelText('Email'), {
       target: { value: 'new@example.com' },
     });
-    fireEvent.change(screen.getByLabelText('organization.role'), { target: { value: 'VIEWER' } });
+    fireEvent.change(screen.getByLabelText('Role'), { target: { value: 'VIEWER' } });
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'organization.sendInvite' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Send invitation' }));
     });
     expect((await screen.findByTestId('invitation-url')).textContent).toContain('/invite/token');
     const invite = calls.find(
@@ -136,12 +136,9 @@ describe('organization management (card 7.9)', () => {
       role: 'VIEWER',
     });
 
-    fireEvent.change(
-      within(screen.getByTestId('member-usr_2')).getByLabelText('organization.memberRole'),
-      {
-        target: { value: 'VIEWER' },
-      },
-    );
+    fireEvent.change(within(screen.getByTestId('member-usr_2')).getByLabelText(/^Role for /), {
+      target: { value: 'VIEWER' },
+    });
     await waitFor(() => {
       expect(
         calls.some((call) => call.path.endsWith('/members/usr_2') && call.init.method === 'PATCH'),
@@ -150,7 +147,7 @@ describe('organization management (card 7.9)', () => {
     await act(async () => {
       fireEvent.click(
         within(screen.getByTestId('member-usr_2')).getByRole('button', {
-          name: 'organization.remove',
+          name: 'Remove',
         }),
       );
     });
@@ -163,7 +160,7 @@ describe('organization management (card 7.9)', () => {
   it('creates, updates and deletes teams and projects', async () => {
     const calls = mockApi('ADMIN');
     await renderPage(<OrganizationPage />);
-    const teamForm = await screen.findByRole('form', { name: 'organization.newTeam' });
+    const teamForm = await screen.findByRole('form', { name: 'Create team' });
     fireEvent.change(teamForm.querySelector('[name="name"]') as Element, {
       target: { value: 'Research' },
     });
@@ -174,7 +171,7 @@ describe('organization management (card 7.9)', () => {
       true,
     );
 
-    const projectForm = screen.getByRole('form', { name: 'organization.newProject' });
+    const projectForm = screen.getByRole('form', { name: 'Create project' });
     fireEvent.change(projectForm.querySelector('[name="name"]') as Element, {
       target: { value: 'Search' },
     });
@@ -193,20 +190,20 @@ describe('organization management (card 7.9)', () => {
     });
 
     vi.spyOn(window, 'confirm').mockReturnValue(true);
-    fireEvent.click(screen.getAllByText('organization.edit')[0] as Element);
-    fireEvent.change(screen.getAllByLabelText('organization.teamName')[1] as Element, {
+    fireEvent.click(screen.getAllByText('Edit')[0] as Element);
+    fireEvent.change(screen.getAllByLabelText('Team name')[1] as Element, {
       target: { value: 'Core' },
     });
     await act(async () => {
       fireEvent.submit(
-        screen.getAllByLabelText('organization.teamName')[1]?.closest('form') as HTMLFormElement,
+        screen.getAllByLabelText('Team name')[1]?.closest('form') as HTMLFormElement,
       );
     });
     expect(
       calls.some((call) => call.path.endsWith('/teams/team_1') && call.init.method === 'PATCH'),
     ).toBe(true);
     await act(async () => {
-      fireEvent.click(screen.getAllByRole('button', { name: 'organization.delete' })[0] as Element);
+      fireEvent.click(screen.getAllByRole('button', { name: 'Delete' })[0] as Element);
     });
     expect(
       calls.some((call) => call.path.endsWith('/teams/team_1') && call.init.method === 'DELETE'),
@@ -216,28 +213,28 @@ describe('organization management (card 7.9)', () => {
   it('limits member controls to project management and makes viewers read-only', async () => {
     mockApi('MEMBER');
     await renderPage(<OrganizationPage />);
-    expect(await screen.findByRole('form', { name: 'organization.newProject' })).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'organization.sendInvite' })).toBeNull();
-    expect(screen.queryByRole('form', { name: 'organization.newTeam' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'organization.remove' })).toBeNull();
-    expect(screen.getByLabelText<HTMLInputElement>('organization.name').disabled).toBe(true);
+    expect(await screen.findByRole('form', { name: 'Create project' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Send invitation' })).toBeNull();
+    expect(screen.queryByRole('form', { name: 'Create team' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Remove' })).toBeNull();
+    expect(screen.getByLabelText<HTMLInputElement>('Name').disabled).toBe(true);
     cleanup();
     resetSessionForTests();
 
     mockApi('VIEWER');
     await renderPage(<OrganizationPage />);
     expect(await screen.findByTestId('project-prj_1')).toBeTruthy();
-    expect(screen.queryByRole('form', { name: 'organization.newProject' })).toBeNull();
-    expect(screen.queryByText('organization.edit')).toBeNull();
-    expect(screen.queryByRole('button', { name: 'organization.save' })).toBeNull();
+    expect(screen.queryByRole('form', { name: 'Create project' })).toBeNull();
+    expect(screen.queryByText('Edit')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
   });
 });
 
 describe('tool connection guides (card 7.10)', () => {
   beforeEach(async () => {
     resetSessionForTests();
-    setupI18n('fa');
-    await i18n.changeLanguage('fa');
+    setupI18n('en');
+    await i18n.changeLanguage('en');
   });
   afterEach(() => {
     cleanup();
@@ -251,7 +248,7 @@ describe('tool connection guides (card 7.10)', () => {
     await renderPage(<GuidesPage />);
     expect((await screen.findByTestId('guide-snippet')).textContent).toContain('YOUR_DIROUTER_KEY');
 
-    fireEvent.change(screen.getByLabelText('guides.manualKey'), {
+    fireEvent.change(screen.getByLabelText('Key (kept in memory only)'), {
       target: { value: 'dr-test-secret' },
     });
     const tools = [
@@ -273,7 +270,7 @@ describe('tool connection guides (card 7.10)', () => {
       expect(screen.getByTestId('guide-snippet').textContent).toContain('dr-test-secret');
     }
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'guides.copy' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Copy' }));
     });
     expect(clipboard.writeText).toHaveBeenCalledWith(expect.stringContaining('dr-test-secret'));
     for (let index = 0; index < localStorage.length; index += 1) {
@@ -290,13 +287,13 @@ describe('tool connection guides (card 7.10)', () => {
         : undefined,
     );
     await renderPage(<GuidesPage />);
-    fireEvent.change(await screen.findByLabelText('guides.existingKey'), {
+    fireEvent.change(await screen.findByLabelText('Existing key'), {
       target: { value: 'key_1' },
     });
     expect((await screen.findByTestId('guide-snippet')).textContent).toContain('YOUR_DIROUTER_KEY');
     expect(screen.getByTestId('guide-snippet').textContent).not.toContain('dr-abcd…');
 
-    fireEvent.click(screen.getByRole('button', { name: 'guides.createKey' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Create a key' }));
     expect((await screen.findByTestId('guide-new-key')).textContent).toContain('dr-new-secret');
     expect(screen.getByTestId('guide-snippet').textContent).toContain('dr-new-secret');
     const created = calls.find(
@@ -316,6 +313,6 @@ describe('tool connection guides (card 7.10)', () => {
     );
     await renderPage(<GuidesPage />);
     expect((await screen.findByRole('alert')).textContent).toContain('No access');
-    expect(screen.getByRole('button', { name: 'تلاش دوباره' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy();
   });
 });

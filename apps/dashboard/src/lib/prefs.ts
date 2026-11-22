@@ -24,9 +24,9 @@ const write = (key: string, value: string) => {
 };
 
 export const prefs = {
-  lang: () => read<Lang>('lang', ['fa', 'en'], 'fa'),
+  lang: () => read<Lang>('lang', ['en', 'fa'], 'en'),
   theme: () => read<Theme>('theme', ['light', 'dark', 'system'], 'system'),
-  calendar: () => read<Calendar>('calendar', ['persian', 'gregory'], 'persian'),
+  calendar: () => read<Calendar>('calendar', ['gregory', 'persian'], 'gregory'),
   setLang: (v: Lang) => {
     write('lang', v);
   },

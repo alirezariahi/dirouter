@@ -1,4 +1,4 @@
-/** i18n (card 7.1): Persian by default and English; changing the language also changes the page direction. */
+/** i18n (card 7.1): English by default and Persian; changing the language also changes the page direction. */
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 
@@ -10,13 +10,13 @@ export function setupI18n(lang: Lang = prefs.lang()) {
   void i18n.use(initReactI18next).init({
     resources: { fa: { translation: fa }, en: { translation: en } },
     lng: lang,
-    fallbackLng: 'fa',
+    fallbackLng: 'en',
     interpolation: { escapeValue: false },
     returnNull: false,
   });
   applyLang(lang);
   i18n.on('languageChanged', (lng) => {
-    const next: Lang = lng === 'en' ? 'en' : 'fa';
+    const next: Lang = lng === 'fa' ? 'fa' : 'en';
     applyLang(next);
     prefs.setLang(next);
   });

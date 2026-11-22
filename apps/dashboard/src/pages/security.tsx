@@ -160,7 +160,7 @@ function PolicySection({ base, canWrite }: { base: string; canWrite: boolean }) 
                   toggleRole(role);
                 }}
               />
-              <span dir="ltr">{role}</span>
+              <span>{t(`organization.roles.${role}`)}</span>
             </label>
           ))}
         </div>
@@ -373,14 +373,13 @@ function SsoSection({ base, canManage }: { base: string; canManage: boolean }) {
             <span className="font-medium">{t('s2.security.sso.defaultRole')}</span>
             <select
               id="sso-role"
-              dir="ltr"
               value={draft.defaultRole}
               onChange={set('defaultRole')}
               className="h-10 rounded-md border border-border bg-surface px-3"
             >
               {SSO_ROLES.map((role) => (
                 <option key={role} value={role}>
-                  {role}
+                  {t(`organization.roles.${role}`)}
                 </option>
               ))}
             </select>

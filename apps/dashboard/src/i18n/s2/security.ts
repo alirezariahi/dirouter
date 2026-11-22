@@ -22,9 +22,9 @@ export const securityFa = {
   sso: {
     title: 'اتصال‌های SSO (OIDC)',
     name: 'نام',
-    issuer: 'Issuer URL',
-    clientId: 'Client ID',
-    clientSecret: 'Client secret',
+    issuer: 'آدرس صادرکننده (Issuer)',
+    clientId: 'شناسه کلاینت',
+    clientSecret: 'رمز کلاینت',
     defaultRole: 'نقش پیش‌فرض',
     domains: 'دامنه‌های مجاز (دست‌کم یکی؛ با ویرگول جدا کنید)',
     domainsRequired:
@@ -36,7 +36,7 @@ export const securityFa = {
     disabledLabel: 'غیرفعال',
     enable: 'فعال‌سازی',
     disable: 'غیرفعال‌سازی',
-    secretPolicy: 'Client secret فقط نوشتنی است و هرگز نمایش داده نمی‌شود.',
+    secretPolicy: 'رمز کلاینت فقط نوشتنی است و هرگز نمایش داده نمی‌شود.',
   },
   roles: {
     title: 'نقش‌های سفارشی',
@@ -55,17 +55,17 @@ export const securityFa = {
     actor: 'کاربر',
     what: 'عملیات',
     target: 'هدف',
-    ip: 'IP',
+    ip: 'آی‌پی',
     more: 'موارد بیشتر',
     details: 'جزئیات',
   },
   rotate: {
     title: 'چرخش MASTER_KEY',
-    help: 'همهٔ رازهای ذخیره‌شده (کلید providerها، client secretهای SSO و رازهای MFA) با نسخهٔ فعلی MASTER_KEY دوباره رمز می‌شوند. ابتدا کلید جدید را با شمارهٔ نسخهٔ بالاتر به MASTER_KEY اضافه کنید (مثلاً 1:<قدیمی>,2:<جدید>) و سرویس‌ها را ری‌استارت کنید؛ کلید قدیمی باید تا پایان چرخش بماند. فقط OWNER می‌تواند این کار را انجام دهد.',
+    help: 'همهٔ رازهای ذخیره‌شده (کلید ارائه‌دهنده‌ها، رمزهای کلاینت SSO و رازهای MFA) با نسخهٔ فعلی MASTER_KEY دوباره رمز می‌شوند. ابتدا کلید جدید را با شمارهٔ نسخهٔ بالاتر به MASTER_KEY اضافه کنید (مثلاً 1:<قدیمی>,2:<جدید>) و سرویس‌ها را ری‌استارت کنید؛ کلید قدیمی باید تا پایان چرخش بماند. فقط OWNER می‌تواند این کار را انجام دهد.',
     run: 'رمزگذاری دوباره با کلید فعلی',
     confirm: 'همهٔ رازها دوباره رمزگذاری شوند؟',
     result:
-      'نسخهٔ کلید {{version}}: {{rotated}} مورد دوباره رمز شد ({{credentials}} credential، {{sso}} اتصال SSO، {{mfa}} راز MFA).',
+      'نسخهٔ کلید {{version}}: {{rotated}} مورد دوباره رمز شد ({{credentials}} اعتبارنامه، {{sso}} اتصال SSO، {{mfa}} راز MFA).',
   },
 } as const;
 

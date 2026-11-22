@@ -857,9 +857,7 @@ export default function ProvidersPage() {
                                 <td className="py-3 pe-3">{credential.weight}</td>
                                 <td className="py-3 pe-3">
                                   <Badge tone={credential.status === 'ACTIVE' ? 'good' : 'muted'}>
-                                    {t(
-                                      `dashboardTranslations.providers.credentialStatus.${credential.status}`,
-                                    )}
+                                    {t(`providers.credentialStatus.${credential.status}`)}
                                   </Badge>
                                 </td>
                                 <td className="py-3 pe-3 text-xs">
@@ -937,12 +935,9 @@ export default function ProvidersPage() {
                                         onClick={() => {
                                           if (
                                             window.confirm(
-                                              t(
-                                                'dashboardTranslations.providers.deleteCredentialConfirm',
-                                                {
-                                                  name: credential.name,
-                                                },
-                                              ),
+                                              t('providers.deleteCredentialConfirm', {
+                                                name: credential.name,
+                                              }),
                                             )
                                           )
                                             remove.mutate({

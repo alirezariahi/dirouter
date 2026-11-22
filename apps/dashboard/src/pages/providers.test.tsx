@@ -122,8 +122,8 @@ const body = (path: string, method: string, occurrence = 0) => {
 beforeEach(async () => {
   localStorage.clear();
   resetSessionForTests();
-  setupI18n('fa');
-  await i18n.changeLanguage('fa');
+  setupI18n('en');
+  await i18n.changeLanguage('en');
   Object.defineProperty(window, 'matchMedia', {
     writable: true,
     value: (query: string) => ({
@@ -147,10 +147,10 @@ describe('providers and credentials', () => {
   it('combines configuration and full runtime health without exposing secrets', async () => {
     mockApi();
     await renderPage();
-    expect(screen.getByText('providers.breaker.open')).toBeTruthy();
+    expect(screen.getByText('Open')).toBeTruthy();
     expect(screen.getByText('••••2345')).toBeTruthy();
     expect(screen.getByText('socks5h://user:***@proxy:1080')).toBeTruthy();
-    expect(screen.getByText('providers.cooldownUntil')).toBeTruthy();
+    expect(screen.getByText(/^Cooldown until /)).toBeTruthy();
     expect(screen.getByText('mdl_1')).toBeTruthy();
     expect(screen.queryByDisplayValue('sk-live-secret')).toBeNull();
     expect(calls.some((c) => c.path === '/orgs/org_1/health/runtime')).toBe(true);
@@ -159,26 +159,26 @@ describe('providers and credentials', () => {
   it('uses a typed preset and creates a provider with its first weighted credential', async () => {
     mockApi();
     await renderPage();
-    await click(screen.getByRole('button', { name: 'providers.add' }));
-    fireEvent.change(screen.getByLabelText('providers.preset'), { target: { value: 'groq' } });
-    await click(screen.getByRole('button', { name: 'providers.next' }));
-    expect(screen.getByLabelText<HTMLInputElement>('providers.baseUrl').value).toBe(
+    await click(screen.getByRole('button', { name: 'Add provider' }));
+    fireEvent.change(screen.getByLabelText('Preset'), { target: { value: 'groq' } });
+    await click(screen.getByRole('button', { name: 'Next' }));
+    expect(screen.getByLabelText<HTMLInputElement>('Base URL').value).toBe(
       'https://api.groq.com/openai/v1',
     );
-    fireEvent.change(screen.getByLabelText('providers.name'), { target: { value: 'Fast Groq' } });
-    fireEvent.change(screen.getByLabelText('providers.proxyUrl'), {
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Fast Groq' } });
+    fireEvent.change(screen.getByLabelText('Proxy URL'), {
       target: { value: 'socks5h://user:pass@proxy:1080' },
     });
-    fireEvent.change(screen.getByLabelText('providers.connectMs'), { target: { value: '2500' } });
-    await click(screen.getByRole('button', { name: 'providers.next' }));
-    const secret = screen.getByLabelText<HTMLInputElement>('providers.secret');
+    fireEvent.change(screen.getByLabelText('Connect timeout (ms)'), { target: { value: '2500' } });
+    await click(screen.getByRole('button', { name: 'Next' }));
+    const secret = screen.getByLabelText<HTMLInputElement>('API secret');
     expect(secret.type).toBe('password');
     fireEvent.change(secret, { target: { value: 'gsk-one-time-secret' } });
-    fireEvent.change(screen.getByLabelText('providers.credentialName'), {
+    fireEvent.change(screen.getByLabelText('Credential name'), {
       target: { value: 'main' },
     });
-    fireEvent.change(screen.getByLabelText('providers.weight'), { target: { value: '7' } });
-    await click(screen.getByRole('button', { name: 'providers.create' }));
+    fireEvent.change(screen.getByLabelText('Weight'), { target: { value: '7' } });
+    await click(screen.getByRole('button', { name: 'Create' }));
     await waitFor(() => {
       expect(screen.queryByRole('dialog')).toBeNull();
     });
@@ -197,21 +197,21 @@ describe('providers and credentials', () => {
   it('adds a credential with headers and proxy, edits weight and rotates a secret', async () => {
     mockApi();
     await renderPage();
-    await click(screen.getByRole('button', { name: 'providers.addCredential' }));
-    fireEvent.change(screen.getByLabelText('providers.credentialName'), {
+    await click(screen.getByRole('button', { name: 'Add credential' }));
+    fireEvent.change(screen.getByLabelText('Credential name'), {
       target: { value: 'backup' },
     });
-    fireEvent.change(screen.getByLabelText('providers.weight'), { target: { value: '0' } });
-    fireEvent.change(screen.getByLabelText('providers.secret'), {
+    fireEvent.change(screen.getByLabelText('Weight'), { target: { value: '0' } });
+    fireEvent.change(screen.getByLabelText('API secret'), {
       target: { value: 'sk-backup-secret' },
     });
-    fireEvent.change(screen.getByLabelText('providers.headers'), {
+    fireEvent.change(screen.getByLabelText('Additional headers'), {
       target: { value: 'x-organization: org_123\nx-project: proj_123' },
     });
-    fireEvent.change(screen.getByLabelText('providers.credentialProxy'), {
+    fireEvent.change(screen.getByLabelText('Credential proxy'), {
       target: { value: 'http://proxy:8080' },
     });
-    await click(screen.getByRole('button', { name: 'providers.save' }));
+    await click(screen.getByRole('button', { name: 'Save' }));
     expect(body('/orgs/org_1/providers/prv_1/credentials', 'POST')).toEqual({
       name: 'backup',
       weight: 0,
@@ -220,24 +220,22 @@ describe('providers and credentials', () => {
       proxyUrl: 'http://proxy:8080',
     });
 
-    await click(screen.getByRole('button', { name: 'providers.rotate' }));
-    expect(screen.getByLabelText<HTMLInputElement>('providers.credentialName').value).toBe(
-      'primary',
-    );
-    expect(screen.getByLabelText<HTMLInputElement>('providers.weight').value).toBe('3');
-    expect(screen.getByLabelText<HTMLInputElement>('providers.newSecret').value).toBe('');
-    fireEvent.change(screen.getByLabelText('providers.weight'), { target: { value: '9' } });
-    await click(screen.getByRole('button', { name: 'providers.rotateSave' }));
+    await click(screen.getByRole('button', { name: 'Rotate' }));
+    expect(screen.getByLabelText<HTMLInputElement>('Credential name').value).toBe('primary');
+    expect(screen.getByLabelText<HTMLInputElement>('Weight').value).toBe('3');
+    expect(screen.getByLabelText<HTMLInputElement>('New secret (optional)').value).toBe('');
+    fireEvent.change(screen.getByLabelText('Weight'), { target: { value: '9' } });
+    await click(screen.getByRole('button', { name: 'Save' }));
     expect(body('/orgs/org_1/providers/prv_1/credentials/cred_1', 'PATCH')).toEqual({
       name: 'primary',
       weight: 9,
     });
 
-    await click(screen.getByRole('button', { name: 'providers.rotate' }));
-    fireEvent.change(screen.getByLabelText('providers.newSecret'), {
+    await click(screen.getByRole('button', { name: 'Rotate' }));
+    fireEvent.change(screen.getByLabelText('New secret (optional)'), {
       target: { value: 'sk-rotated-once' },
     });
-    await click(screen.getByRole('button', { name: 'providers.rotateSave' }));
+    await click(screen.getByRole('button', { name: 'Save' }));
     expect(body('/orgs/org_1/providers/prv_1/credentials/cred_1', 'PATCH', 1)).toMatchObject({
       name: 'primary',
       weight: 3,
@@ -254,13 +252,13 @@ describe('providers and credentials', () => {
         : undefined,
     );
     await renderPage();
-    await click(screen.getAllByRole('button', { name: 'providers.test' })[0] as HTMLElement);
+    await click(screen.getAllByRole('button', { name: 'Test' })[0] as HTMLElement);
     expect(body('/orgs/org_1/providers/prv_1/test', 'POST')).toEqual({});
     const row = screen.getByTestId('credential-cred_1');
-    await click(within(row).getByRole('button', { name: 'providers.test' }));
+    await click(within(row).getByRole('button', { name: 'Test' }));
     expect(body('/orgs/org_1/providers/prv_1/test', 'POST', 1)).toEqual({ credentialId: 'cred_1' });
-    expect((await screen.findAllByText(/providers\.testOk/)).length).toBeGreaterThan(0);
-    await click(within(row).getByRole('button', { name: 'providers.disable' }));
+    expect((await screen.findAllByText(/^Connection OK:/)).length).toBeGreaterThan(0);
+    await click(within(row).getByRole('button', { name: 'Disable' }));
     expect(body('/orgs/org_1/providers/prv_1/credentials/cred_1', 'PATCH')).toEqual({
       status: 'DISABLED',
     });
@@ -295,21 +293,21 @@ describe('providers and credentials', () => {
       return undefined;
     });
     await renderPage();
-    await click(screen.getByRole('button', { name: 'providers.discover' }));
+    await click(screen.getByRole('button', { name: 'Discover models' }));
     expect(await screen.findByText('gpt-new')).toBeTruthy();
-    const known = screen.getAllByLabelText('providers.selectModel')[0] as HTMLInputElement;
+    const known = screen.getAllByLabelText(/^Select /)[0] as HTMLInputElement;
     expect(known.disabled).toBe(true);
-    const unknown = screen.getAllByLabelText('providers.selectModel')[2] as HTMLInputElement;
+    const unknown = screen.getAllByLabelText(/^Select /)[2] as HTMLInputElement;
     expect(unknown.disabled).toBe(false);
-    await click(screen.getAllByLabelText('providers.selectModel')[1] as HTMLElement);
+    await click(screen.getAllByLabelText(/^Select /)[1] as HTMLElement);
     await click(unknown);
-    fireEvent.change(screen.getByLabelText('providers.inputPriceFor'), {
+    fireEvent.change(screen.getByLabelText(/^Input price for /), {
       target: { value: '0.15' },
     });
-    fireEvent.change(screen.getByLabelText('providers.outputPriceFor'), {
+    fireEvent.change(screen.getByLabelText(/^Output price for /), {
       target: { value: '0.60' },
     });
-    await click(screen.getByRole('button', { name: 'providers.addSelected' }));
+    await click(screen.getByRole('button', { name: 'Add selected' }));
     await waitFor(() => {
       expect(screen.queryByRole('dialog')).toBeNull();
     });
@@ -323,16 +321,16 @@ describe('providers and credentials', () => {
       upstreamModel: 'unknown-model',
       pricing: { inputPerMTok: '0.15', outputPerMTok: '0.60' },
     });
-    expect(screen.getByRole('status').textContent).toContain('providers.modelsAdded');
+    expect(screen.getByRole('status').textContent).toContain('models added');
   });
 
   it('edits network settings and confirms provider deletion', async () => {
     mockApi();
     await renderPage();
-    await click(screen.getByRole('button', { name: 'providers.edit' }));
-    fireEvent.change(screen.getByLabelText('providers.name'), { target: { value: 'Renamed' } });
-    fireEvent.change(screen.getByLabelText('providers.totalMs'), { target: { value: '60000' } });
-    await click(screen.getByRole('button', { name: 'providers.save' }));
+    await click(screen.getByRole('button', { name: 'Edit' }));
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Renamed' } });
+    fireEvent.change(screen.getByLabelText('Total (ms)'), { target: { value: '60000' } });
+    await click(screen.getByRole('button', { name: 'Save' }));
     expect(body('/orgs/org_1/providers/prv_1', 'PATCH')).toEqual({
       name: 'Renamed',
       baseUrl: 'https://api.openai.com/v1',
@@ -340,7 +338,7 @@ describe('providers and credentials', () => {
       timeouts: { connectMs: 5000, firstByteMs: 30000, totalMs: 60000 },
       maxConcurrency: 20,
     });
-    await click(screen.getAllByRole('button', { name: 'providers.delete' })[0] as HTMLElement);
+    await click(screen.getAllByRole('button', { name: 'Delete' })[0] as HTMLElement);
     expect(confirm).toHaveBeenCalled();
     expect(
       calls.some((c) => c.path === '/orgs/org_1/providers/prv_1' && c.init.method === 'DELETE'),
@@ -360,12 +358,12 @@ describe('providers and credentials', () => {
         : undefined,
     );
     await renderPage();
-    expect(screen.getByText('providers.breaker.open')).toBeTruthy();
+    expect(screen.getByText('Open')).toBeTruthy();
     expect(screen.getByText('••••2345')).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'providers.add' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'providers.edit' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'providers.test' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'providers.addCredential' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'providers.rotate' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Add provider' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Edit' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Test' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Add credential' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Rotate' })).toBeNull();
   });
 });

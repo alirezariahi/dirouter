@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { Card } from '../components/ui/card';
 import { Empty, ErrorState, Loading } from '../components/ui/states';
 import { api } from '../lib/api';
+import { formatNumber } from '../lib/date';
 import type { SubmitEvent } from '../lib/form';
 import { currentOrg, useSession } from '../lib/session';
 
@@ -306,7 +307,8 @@ function CatalogTable({
   onEdit: (model: Model) => void;
   onDelete: (model: Model) => void;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const lang = i18n.language === 'fa' ? 'fa' : 'en';
   if (models.length === 0) return <Empty title={t('models.empty')} />;
   return (
     <Card className="overflow-x-auto p-0">
@@ -346,9 +348,10 @@ function CatalogTable({
                   {model.upstreamModel}
                 </td>
                 <td className="whitespace-nowrap px-3 py-2">
-                  {model.contextWindow?.toLocaleString('en-US') ?? '—'}
+                  {model.contextWindow ? formatNumber(model.contextWindow, lang) : '—'}
                   <span className="block text-xs text-muted">
-                    {t('models.maxOutput')}: {model.maxOutputTokens?.toLocaleString('en-US') ?? '—'}
+                    {t('models.maxOutput')}:{' '}
+                    {model.maxOutputTokens ? formatNumber(model.maxOutputTokens, lang) : '—'}
                   </span>
                 </td>
                 <td className="whitespace-nowrap px-3 py-2" dir="ltr">

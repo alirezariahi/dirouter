@@ -1,6 +1,7 @@
 import type { Messages } from './fa';
-import { keyMessages } from './key-messages';
-import { modelMessages } from './model-messages';
+import { keyMessagesEn } from './key-messages';
+import { modelMessagesEn } from './model-messages';
+import { guidesEn, organizationEn, providersEn } from './page-messages';
 import { s2En } from './s2';
 
 type Widen<T> = { [K in keyof T]: T[K] extends string ? string : Widen<T[K]> };
@@ -34,7 +35,7 @@ export const en: Widen<Messages> = {
     light: 'Light',
     dark: 'Dark',
     system: 'System',
-    persian: 'Persian',
+    persian: 'Solar Hijri',
     gregory: 'Gregorian',
   },
   palette: {
@@ -53,6 +54,7 @@ export const en: Widen<Messages> = {
     soon: 'This section is coming soon.',
     notFound: 'Page not found',
     back: 'Back to overview',
+    listSeparator: ', ',
   },
   overview: {
     title: 'Overview',
@@ -79,43 +81,43 @@ export const en: Widen<Messages> = {
     ms: 'ms',
   },
   logs: {
-    title: 'لاگ درخواست‌ها',
-    empty: 'درخواستی با این فیلترها نیست.',
-    clear: 'حذف فیلتر',
-    more: 'بیشتر',
+    title: 'Request logs',
+    empty: 'No requests match these filters.',
+    clear: 'Remove filter',
+    more: 'Load more',
     filter: {
-      model: 'مدل',
-      apiKeyId: 'کلید',
-      projectId: 'پروژه',
+      model: 'Model',
+      apiKeyId: 'Key',
+      projectId: 'Project',
       providerId: 'Provider',
-      status: 'وضعیت',
-      minLatencyMs: 'حداقل تأخیر',
-      maxLatencyMs: 'حداکثر تأخیر',
-      minCostUsd: 'حداقل هزینه',
-      maxCostUsd: 'حداکثر هزینه',
+      status: 'Status',
+      minLatencyMs: 'Min latency (ms)',
+      maxLatencyMs: 'Max latency (ms)',
+      minCostUsd: 'Min cost (USD)',
+      maxCostUsd: 'Max cost (USD)',
     },
-    status: { success: 'موفق', error: 'خطا' },
+    status: { success: 'Success', error: 'Error' },
     col: {
-      time: 'زمان',
-      model: 'مدل',
-      status: 'وضعیت',
-      tokens: 'توکن',
-      cost: 'هزینه',
-      latency: 'تأخیر',
+      time: 'Time',
+      model: 'Model',
+      status: 'Status',
+      tokens: 'Tokens',
+      cost: 'Cost',
+      latency: 'Latency',
     },
-    all: 'همه',
-    detail: 'جزئیات درخواست',
-    copyLink: 'کپی لینک',
-    close: 'بستن',
-    cache: 'کش خواندن / نوشتن',
+    all: 'All',
+    detail: 'Request details',
+    copyLink: 'Copy link',
+    close: 'Close',
+    cache: 'Cache read / write',
     config: 'Config / gateway',
-    timeline: 'خط زمان تلاش‌ها',
+    timeline: 'Attempt timeline',
     attempt: {
-      success: 'موفق',
-      error: 'ناموفق',
-      timeout: 'Timeout',
-      rate_limited: 'Rate limit',
-      skipped: 'رد شده',
+      success: 'Success',
+      error: 'Failed',
+      timeout: 'Timed out',
+      rate_limited: 'Rate limited',
+      skipped: 'Skipped',
     },
   },
 
@@ -209,7 +211,10 @@ export const en: Widen<Messages> = {
     sso_required: 'Password sign-in is disabled for this organization; use single sign-on.',
     network: 'Could not reach the server. Check the network or the API address.',
   },
-  keys: keyMessages,
-  models: modelMessages,
+  keys: keyMessagesEn,
+  models: modelMessagesEn,
+  providers: providersEn,
+  organization: organizationEn,
+  guides: guidesEn,
   s2: s2En,
 };

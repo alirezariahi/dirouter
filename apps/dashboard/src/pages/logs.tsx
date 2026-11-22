@@ -65,7 +65,7 @@ const text = (v: unknown, fallback: string) =>
 function FilterEditor({ search, apply }: { search: LogSearch; apply: (next: LogSearch) => void }) {
   const { t } = useTranslation();
   const s = useSettings();
-  const m = logMessages[s.lang === 'fa' ? 'fa' : 'en'];
+  const m = logMessages[s.lang];
   const [draft, setDraft] = useState(() => draftOf(search));
   const [invalid, setInvalid] = useState(false);
   return (
@@ -155,7 +155,7 @@ function FilterEditor({ search, apply }: { search: LogSearch; apply: (next: LogS
 
 function Detail({ orgId, id, close }: { orgId: string; id: string; close: () => void }) {
   const s = useSettings();
-  const m = logMessages[s.lang === 'fa' ? 'fa' : 'en'];
+  const m = logMessages[s.lang];
   const query = useQuery({
     queryKey: ['log-detail', orgId, id],
     queryFn: () => api<LogDetail>(`/orgs/${orgId}/logs/${encodeURIComponent(id)}`),

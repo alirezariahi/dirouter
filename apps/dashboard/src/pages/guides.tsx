@@ -258,8 +258,8 @@ export default function GuidesPage() {
 
       <div className="grid items-start gap-4 lg:grid-cols-[minmax(12rem,1fr)_minmax(0,3fr)]">
         <Card className="p-2">
-          <h2 className="px-2 py-2 text-sm font-semibold">{t('guides.tools')}</h2>
-          <div role="tablist" aria-label={t('guides.tools')} className="flex flex-col gap-1">
+          <h2 className="px-2 py-2 text-sm font-semibold">{t('guides.toolsTitle')}</h2>
+          <div role="tablist" aria-label={t('guides.toolsTitle')} className="flex flex-col gap-1">
             {TOOLS.map((item) => (
               <button
                 key={item.id}
