@@ -1,6 +1,3 @@
-import { readdirSync, readFileSync, statSync } from 'node:fs';
-import { join } from 'node:path';
-
 import { describe, expect, it } from 'vitest';
 
 import { prefs } from '../lib/prefs';
@@ -24,13 +21,14 @@ const faFlat = flatten(fa);
 // The language switch shows the other language's own name.
 const nativeNames = new Set(['palette.toggleLanguage']);
 
-function sources(dir: string): string[] {
-  return readdirSync(dir).flatMap((name) => {
-    const path = join(dir, name);
-    if (statSync(path).isDirectory()) return name === 'i18n' ? [] : sources(path);
-    return /\.tsx?$/.test(name) && !/\.test\./.test(name) ? [path] : [];
-  });
-}
+// Page and component sources as text, outside the message modules and tests.
+const sources = Object.entries(
+  import.meta.glob<string>(['../**/*.{ts,tsx}', '!../i18n/**', '!../**/*.test.*'], {
+    query: '?raw',
+    import: 'default',
+    eager: true,
+  }),
+);
 
 describe('locale messages', () => {
   it('defaults to English and the Gregorian calendar', () => {
@@ -51,11 +49,12 @@ describe('locale messages', () => {
   });
 
   it('defines every literal key the pages ask for', () => {
+    expect(sources.length).toBeGreaterThan(20);
     const missing: string[] = [];
-    for (const file of sources(join(__dirname, '..'))) {
-      for (const match of readFileSync(file, 'utf8').matchAll(/\bt\(\s*'([\w.-]+)'/g)) {
+    for (const [file, text] of sources) {
+      for (const match of text.matchAll(/\bt\(\s*'([\w.-]+)'/g)) {
         const key = match[1] ?? '';
-        if (!(key in enFlat)) missing.push(`${file.split('/src/')[1] ?? file}: ${key}`);
+        if (!(key in enFlat)) missing.push(`${file}: ${key}`);
       }
     }
     expect(missing).toEqual([]);
