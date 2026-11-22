@@ -12,7 +12,7 @@
 cd code
 make up
 make seed
-make e2e              # یا: pnpm test:e2e
+make e2e              # یا: pnpm test:e2e (مجموعه‌های اسپرینت ۱ و ۲)
 ```
 
 پیش‌نیازها: Node.js 22، Docker Compose و credential تولیدشدهٔ seed در `.data/seed-admin.env`. اسکریپت با کاربر admin توسعه وارد control-api می‌شود و سه کلید موقت با مدلهای محدود می‌سازد. هیچ provider، مدل یا کلید موجودی تغییر نمی‌کند. در پایان کلیدهای موقت revoke و سرویسهای متوقف‌شده start می‌شوند.

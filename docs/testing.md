@@ -10,7 +10,7 @@ The script [`scripts/e2e/sprint-1.mjs`](../scripts/e2e/sprint-1.mjs) checks the 
 cd code
 make up
 make seed
-make e2e              # or: pnpm test:e2e
+make e2e              # or: pnpm test:e2e (sprint 1 and sprint 2 suites)
 ```
 
 Prerequisites: Node.js 22, Docker Compose and the generated seed credential in `.data/seed-admin.env`. The script logs in to control-api as the development admin user and creates three temporary keys with restricted models. No existing provider, model or key is changed. At the end, the temporary keys are revoked and the stopped services are started again.

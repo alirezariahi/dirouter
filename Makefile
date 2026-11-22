@@ -49,8 +49,8 @@ dev-snapshot: .env ## snapshot آزمایشی روی دیسک گیت‌وی بد
 test: ## تست‌های واحد و یکپارچه
 	pnpm test
 
-e2e: ## تست end-to-end (کارت ۹.۳)
-	node scripts/e2e/sprint-1.mjs
+e2e: ## تست end-to-end اسپرینت ۱ و ۲ روی محیط dev (کارت‌های ۹.۳ و اسپرینت ۲)
+	node scripts/e2e/sprint-1.mjs && node scripts/e2e/sprint-2.mjs
 
 chaos: ## تست chaos روی محیط dev با seed (کارت ۱۸.۱): make chaos s="valkey postgres"
 	node scripts/chaos/run.mjs $(s)

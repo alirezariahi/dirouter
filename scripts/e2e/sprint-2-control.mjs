@@ -875,11 +875,13 @@ export default async function controlScenarios(scenario, t) {
     const discovery = await fetch(`${issuer}/.well-known/openid-configuration`).catch(
       () => undefined,
     );
-    assert.equal(
-      discovery?.status,
-      200,
-      'start Keycloak first: docker compose -f compose.yaml -f compose.dev.yaml -f compose.sso.yaml up -d --wait',
-    );
+    if (discovery?.status !== 200)
+      throw Object.assign(
+        new Error(
+          'Keycloak is not running (docker compose -f compose.yaml -f compose.dev.yaml -f compose.sso.yaml up -d --wait)',
+        ),
+        { code: 'E2E_SKIP' },
+      );
     const dashboard = (await sql('SELECT 1')) && 'https://app.localhost';
     const connectionBody = {
       name: `s2-keycloak-${randomUUID().slice(0, 6)}`,

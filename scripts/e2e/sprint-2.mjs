@@ -174,6 +174,12 @@ async function scenario(name, run) {
     results.push({ name, status: 'passed', durationMs: Date.now() - started });
     console.log(`PASS ${name}`);
   } catch (error) {
+    // A scenario whose optional dependency is not running is reported, not failed.
+    if (error?.code === 'E2E_SKIP') {
+      results.push({ name, status: 'skipped', reason: error.message });
+      console.log(`SKIP ${name}: ${error.message}`);
+      return;
+    }
     results.push({ name, status: 'failed', durationMs: Date.now() - started });
     console.log(
       `FAIL ${name}\n     ${String(error?.stack ?? error)
@@ -1077,7 +1083,13 @@ try {
       console.error('cleanup failed:', error instanceof Error ? error.message : error);
     }
   }
-  const passed = results.filter((r) => r.status === 'passed').length;
-  console.log(JSON.stringify({ passed, failed: results.length - passed, results }, null, 2));
-  if (failed || passed !== results.length) process.exitCode = 1;
+  const count = (status) => results.filter((r) => r.status === status).length;
+  console.log(
+    JSON.stringify(
+      { passed: count('passed'), failed: count('failed'), skipped: count('skipped'), results },
+      null,
+      2,
+    ),
+  );
+  if (failed || count('failed') > 0) process.exitCode = 1;
 }
