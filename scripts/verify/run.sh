@@ -45,7 +45,7 @@ step migrate      "set -a && . ./.env && set +a && pnpm --filter @dirouter/db ex
 step compose-ps   "$DEV ps"
 step integration  "pnpm test:integration"
 step seed         "make seed"
-step e2e          "node scripts/e2e/sprint-1.mjs"
+step e2e          "node scripts/e2e/sprint-1.mjs && node scripts/e2e/sprint-2.mjs"
 # Stops PostgreSQL and Valkey on purpose; only runs when asked: CHAOS=1 ./scripts/verify/run.sh
 if [ "${CHAOS:-0}" = "1" ]; then step chaos "node scripts/chaos/run.mjs"; fi
 step compose-logs "$DEV logs --no-color --tail=150 gateway control-api worker"

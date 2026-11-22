@@ -18,6 +18,7 @@
     "test:e2e:sprint1": "node scripts/e2e/sprint-1.mjs",
     "test:e2e:sprint2": "node scripts/e2e/sprint-2.mjs",
     "test:chaos": "node scripts/chaos/run.mjs",
+    "verify": "sh scripts/verify/run.sh",
     "coverage": "turbo run test",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
