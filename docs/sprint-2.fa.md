@@ -115,7 +115,7 @@
 - **نشست واقعی با Gemini CLI و Codex CLI.** فقط درخواست‌هایی در سطح پروتکل و به شکل همین کلاینت‌ها فرستاده شده، آن هم به mock provider.
 - **نرخ hit در prompt cache سمت provider** با Claude Code و یک provider واقعی.
 - **Bedrock، Vertex، Cohere، Voyage و Jina در برابر سرویس واقعی.** فقط تست واحد با fixtureهای ضبط‌شده یا دست‌نویس دارند. SigV4 و decoder مربوط به event stream در AWS با frameهای دست‌ساز آزموده شده‌اند، نه با AWS واقعی. نسخهٔ پیش‌فرض API در Vertex برابر `v1beta1` است و در برابر Vertex واقعی تأیید نشده است.
-- **overlay مربوط به HA پشت Traefik** و **سناریوی `gateway-replica` در تست chaos**: کل overlay با ایمیج‌های production (۳ گیت‌وی، ۲ control-api و ۲ worker) اجرا و هر replica مستقیم صدا زده شد (ثبت تمرین‌ها در [deploy-ha.fa.md](deploy-ha.fa.md))؛ توزیع بار و سهم درخواست‌های ازدست‌رفته هنگام از کار افتادن یک replica اندازه‌گیری نشده است.
+- **overlay مربوط به HA پشت Traefik** و **سناریوی `gateway-replica` در تست chaos**: کل overlay با ایمیج‌های production (۳ گیت‌وی، ۲ control-api و ۲ worker) اجرا و هر replica مستقیم صدا زده شد (ثبت تمرین‌ها در [deploy-ha.fa.md](deploy-ha.fa.md))؛ خود overlay پشت Traefik اجرا نشده است؛ سناریوی `gateway-replica` در تست chaos روی stack توسعه با دو replica اندازه‌گیری شد (۰٫۳۲٪ ناموفق، [benchmarks/chaos.fa.md](benchmarks/chaos.fa.md)).
 - **بازیابی نقطه‌ای (PITR).**
 - **صفحه‌های داشبورد در مرورگر واقعی**، از جمله جریان passkey (WebAuthn). قراردادهای API را اجرای end-to-end پوشش می‌دهد؛ رفتار UI فقط با تست واحد پوشش داده شده است.
 

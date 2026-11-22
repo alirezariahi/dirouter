@@ -52,6 +52,16 @@ http:
 {{- end }}
           - 'disabled:$apr1$invalid$invalidinvalidinvalid00'
 
+    # A request that cannot reach its gateway replica (the container just died, is starting, or
+    # was removed during a rollout) is tried again. Traefik only retries when the connection
+    # failed before any response byte, so a request is never answered twice. The load balancer
+    # picks the next server for each try without knowing which one just failed, so with two
+    # replicas a single retry lands on the dead one half of the time; four tries make that rare.
+    gateway-retry:
+      retry:
+        attempts: 4
+        initialInterval: 20ms
+
     dashboard-ips:
       ipAllowList:
         sourceRange:
@@ -63,7 +73,9 @@ http:
     # Long gateway streams: no timeout for the response header (the gateway controls TTFT itself).
     long-stream:
       forwardingTimeouts:
-        dialTimeout: 5s
+        # Gateways are on the same Docker network: a connection that is not open after one second
+        # is a dead replica, and the retry above moves the request to a live one.
+        dialTimeout: 1s
         responseHeaderTimeout: 0s
         idleConnTimeout: 90s
 

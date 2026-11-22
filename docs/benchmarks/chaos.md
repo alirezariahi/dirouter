@@ -63,19 +63,19 @@ The script prints both numbers for every scenario, exits non-zero when a scenari
 
 Measured on 2026-11-20 on the sprint 2 working tree: development stack (`compose.yaml` + `compose.dev.yaml`) on a single Docker host (macOS Docker Desktop, 4 CPUs / 4 GB), one gateway replica, 20 req/s, 15 s fault window, limits 5xx + network ≤ 1% and 2xx ≥ 99%. All six scenarios that can run with one gateway replica passed without a failed request.
 
-The `gateway-replica` scenario **has not been measured yet**: it needs at least two gateway replicas and has not been run against the production or HA stack. When it is, paste the generated table from `.verify/chaos-<timestamp>.md` below with the commit, the compose files used and the number of gateway replicas.
+The `gateway-replica` scenario was measured on 2026-11-22 on the same stack scaled to two gateway replicas (`up -d --no-deps --scale gateway=2 gateway`), three runs with the same result. The first measurement failed: 29 of 553 requests (5.24%) got 502/504, because Traefik did not retry and waited five seconds for a connection to the dead replica. The gateway router now retries a request that cannot reach its replica (`gateway-retry`, four tries) and the dial timeout is one second; the row below is the result with that change. The one failed request is the request that was in flight on the killed replica.
 
 <!-- chaos-results:start -->
 
-| Scenario                                           | Result  | Requests in fault window | Failed (5xx + network) | Succeeded (2xx) | p95 ms | Recovery phase                                                           |
-| -------------------------------------------------- | ------- | ------------------------ | ---------------------- | --------------- | ------ | ------------------------------------------------------------------------ |
-| No fault (baseline)                                | pass    | 291                      | 0 (0.00%)              | 291 (100.00%)   | 16     | 0/97 failed                                                              |
-| Primary provider returns 503 (combo falls back)    | pass    | 291                      | 0 (0.00%)              | 291 (100.00%)   | 17     | 0/98 failed                                                              |
-| control-api stopped                                | pass    | 329                      | 0 (0.00%)              | 329 (100.00%)   | 18     | 0/97 failed                                                              |
-| Valkey stopped (limiter, usage queue, health sync) | pass    | 312                      | 0 (0.00%)              | 312 (100.00%)   | 36     | 0/95 failed                                                              |
-| PostgreSQL stopped                                 | pass    | 312                      | 0 (0.00%)              | 312 (100.00%)   | 16     | 0/98 failed                                                              |
-| worker stopped (usage events queue up)             | pass    | 343                      | 0 (0.00%)              | 343 (100.00%)   | 43     | 0/98 failed                                                              |
-| One gateway replica killed                         | skipped | —                        | —                      | —               | —      | needs at least 2 gateway replicas; not yet run against the prod/HA stack |
+| Scenario                                            | Result | Requests in fault window | Failed (5xx + network) | Succeeded (2xx) | p95 ms | Recovery phase |
+| --------------------------------------------------- | ------ | ------------------------ | ---------------------- | --------------- | ------ | -------------- |
+| No fault (baseline)                                 | pass   | 291                      | 0 (0.00%)              | 291 (100.00%)   | 16     | 0/97 failed    |
+| Primary provider returns 503 (combo falls back)     | pass   | 291                      | 0 (0.00%)              | 291 (100.00%)   | 17     | 0/98 failed    |
+| control-api stopped                                 | pass   | 329                      | 0 (0.00%)              | 329 (100.00%)   | 18     | 0/97 failed    |
+| Valkey stopped (limiter, usage queue, health sync)  | pass   | 312                      | 0 (0.00%)              | 312 (100.00%)   | 36     | 0/95 failed    |
+| PostgreSQL stopped                                  | pass   | 312                      | 0 (0.00%)              | 312 (100.00%)   | 16     | 0/98 failed    |
+| worker stopped (usage events queue up)              | pass   | 343                      | 0 (0.00%)              | 343 (100.00%)   | 43     | 0/98 failed    |
+| One gateway replica killed (2 replicas, 2026-11-22) | pass   | 310                      | 1 (0.32%)              | 309 (99.68%)    | 18     | 0/97 failed    |
 
 <!-- chaos-results:end -->
 

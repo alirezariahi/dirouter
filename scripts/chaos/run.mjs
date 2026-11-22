@@ -299,7 +299,17 @@ const SCENARIOS = {
           return `killed container ${victim.slice(0, 12)} of ${String(ids.length)}`;
         },
         async () => {
-          await docker(['up', '-d', '--no-recreate', 'gateway']);
+          // Keep the replica count: a plain `up` would scale the service back to its default and
+          // remove the surviving replicas in the middle of the measurement.
+          await docker([
+            'up',
+            '-d',
+            '--no-deps',
+            '--no-recreate',
+            '--scale',
+            `gateway=${String(ids.length)}`,
+            'gateway',
+          ]);
         },
       );
     },

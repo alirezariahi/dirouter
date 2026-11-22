@@ -166,7 +166,7 @@ services:
       traefik.http.routers.gateway.entrypoints: websecure
       traefik.http.routers.gateway.tls: 'true'
       # compress except text/event-stream, so SSE is not buffered.
-      traefik.http.routers.gateway.middlewares: security-headers@file,compress@file
+      traefik.http.routers.gateway.middlewares: security-headers@file,gateway-retry@file,compress@file
       traefik.http.services.gateway.loadbalancer.server.port: '8080'
       traefik.http.services.gateway.loadbalancer.serversTransport: long-stream@file
       traefik.http.services.gateway.loadbalancer.healthcheck.path: /readyz

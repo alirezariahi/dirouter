@@ -113,7 +113,7 @@ State on 2026-11-20 (sprint 2 working tree, single Docker host: macOS Docker Des
 - **Real Gemini CLI and real Codex CLI sessions.** Only protocol-level requests shaped like those clients were sent, against the mock provider.
 - **Provider prompt-cache hit rate** with Claude Code and a real provider.
 - **Bedrock, Vertex, Cohere, Voyage and Jina against the real services.** They are covered by unit tests with recorded or handwritten fixtures only. SigV4 and the AWS event-stream decoder are tested against hand-built frames, not live AWS. The Vertex default API version is `v1beta1` and is unconfirmed against live Vertex.
-- **The HA overlay behind Traefik** and the **`gateway-replica` chaos scenario**: the full overlay ran with production images (3 gateways, 2 control-api, 2 workers) and each replica was called directly, see the drill records in [deploy-ha.md](deploy-ha.md); load balancing and the share of requests lost when a replica dies were not measured.
+- **The HA overlay behind Traefik** and the **`gateway-replica` chaos scenario**: the full overlay ran with production images (3 gateways, 2 control-api, 2 workers) and each replica was called directly, see the drill records in [deploy-ha.md](deploy-ha.md); behind Traefik the overlay itself has not been run; the `gateway-replica` chaos scenario was measured on the development stack with two replicas (0.32% failed, see [benchmarks/chaos.md](benchmarks/chaos.md)).
 - **Point-in-time recovery.**
 - **The dashboard pages in a real browser**, including the passkey (WebAuthn) flow. The API contracts are covered by the end-to-end run; UI behaviour is covered by unit tests only.
 

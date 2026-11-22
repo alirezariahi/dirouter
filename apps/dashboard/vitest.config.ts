@@ -7,6 +7,14 @@ import baseConfig from './vite.config';
 export default mergeConfig(
   baseConfig,
   defineConfig({
-    test: { environment: 'jsdom', globals: false, css: false, coverage: testCoverage() },
+    test: {
+      environment: 'jsdom',
+      globals: false,
+      css: false,
+      setupFiles: ['./src/test-setup.ts'],
+      // Room for the longer async waits configured in the setup file.
+      testTimeout: 30_000,
+      coverage: testCoverage(),
+    },
   }),
 );
