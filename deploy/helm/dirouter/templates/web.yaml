@@ -1,0 +1,47 @@
+{{- $full := include "dirouter.fullname" . }}
+{{- range $app := list "dashboard" "portal" }}
+{{- $v := index $.Values $app }}
+{{- if $v.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $full }}-{{ $app }}
+  labels: {{- include "dirouter.labels" $ | nindent 4 }}
+spec:
+  replicas: {{ $v.replicas }}
+  selector:
+    matchLabels: {{- include "dirouter.selector" (dict "ctx" $ "component" $app) | nindent 6 }}
+  template:
+    metadata:
+      labels: {{- include "dirouter.selector" (dict "ctx" $ "component" $app) | nindent 8 }}
+    spec:
+      {{- include "dirouter.pod" $ | nindent 6 }}
+      containers:
+        - name: {{ $app }}
+          image: {{ include "dirouter.image" (dict "ctx" $ "app" $app) }}
+          imagePullPolicy: {{ $.Values.image.pullPolicy }}
+          securityContext:
+            {{- include "dirouter.containerSecurity" $ | nindent 12 }}
+            # The nginx-unprivileged image runs as uid 101.
+            runAsUser: 101
+            runAsGroup: 101
+          ports: [{ name: http, containerPort: 8080 }]
+          env:
+            - { name: DIROUTER_API_URL, value: 'https://{{ include "dirouter.host" (dict "ctx" $ "name" "admin") }}/api/v1' }
+            - { name: DIROUTER_GATEWAY_URL, value: 'https://{{ include "dirouter.host" (dict "ctx" $ "name" "api") }}' }
+          readinessProbe:
+            httpGet: { path: /healthz, port: http }
+            periodSeconds: 10
+          resources: {{- toYaml $v.resources | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $full }}-{{ $app }}
+  labels: {{- include "dirouter.labels" $ | nindent 4 }}
+spec:
+  selector: {{- include "dirouter.selector" (dict "ctx" $ "component" $app) | nindent 4 }}
+  ports: [{ name: http, port: 8080, targetPort: http }]
+---
+{{- end }}
+{{- end }}

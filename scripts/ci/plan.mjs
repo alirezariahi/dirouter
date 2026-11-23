@@ -106,11 +106,17 @@ export function plan({ eventName, event = {}, ref = '', head }, run = execute) {
     }
     return changed.includes('deploy/docker/node.Dockerfile');
   });
+  // The Helm chart is installed on kind (card 22.6) when it or the images it runs change.
+  const hasHelm =
+    full ||
+    changed.some((file) => file.startsWith('deploy/helm/')) ||
+    include.some(({ app }) => ['gateway', 'control-api', 'worker', 'migrate'].includes(app));
   return {
     filter,
     matrix: { include },
     hasImages: include.length > 0,
     hasPackages: packages.size > 0,
+    hasHelm,
   };
 }
 
@@ -124,7 +130,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   });
   appendFileSync(
     process.env.GITHUB_OUTPUT,
-    `filter=${result.filter}\nmatrix=${JSON.stringify(result.matrix)}\nhas-images=${result.hasImages}\nhas-packages=${result.hasPackages}\n`,
+    `filter=${result.filter}\nmatrix=${JSON.stringify(result.matrix)}\nhas-images=${result.hasImages}\nhas-packages=${result.hasPackages}\nhas-helm=${result.hasHelm}\n`,
   );
   appendFileSync(
     process.env.GITHUB_STEP_SUMMARY,

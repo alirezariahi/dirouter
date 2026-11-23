@@ -1,0 +1,19 @@
+DiRouter {{ .Chart.AppVersion }} is installed as "{{ .Release.Name }}".
+
+  Gateway:   https://{{ include "dirouter.host" (dict "ctx" $ "name" "api") }}
+  Admin API: https://{{ include "dirouter.host" (dict "ctx" $ "name" "admin") }}
+{{- if .Values.dashboard.enabled }}
+  Dashboard: https://{{ include "dirouter.host" (dict "ctx" $ "name" "app") }}
+{{- end }}
+{{- if not (.Capabilities.APIVersions.Has "traefik.io/v1alpha1/IngressRoute") }}
+
+The Traefik CRDs are not installed, so no IngressRoute was created. Expose the services
+"{{ include "dirouter.fullname" . }}-gateway" (8080) and "{{ include "dirouter.fullname" . }}-control-api" (3000)
+with your own ingress.
+{{- end }}
+
+The first sign-in creates the platform organization: open the dashboard and follow the setup.
+{{- if not .Values.secrets.existingSecret }}
+Keys were generated into the Secret "{{ include "dirouter.secretName" . }}"; back it up, since
+stored provider credentials cannot be read without MASTER_KEY.
+{{- end }}

@@ -1,0 +1,37 @@
+{{- $full := include "dirouter.fullname" . }}
+{{- $v := .Values.worker }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $full }}-worker
+  labels: {{- include "dirouter.labels" . | nindent 4 }}
+spec:
+  replicas: {{ $v.replicas }}
+  selector:
+    matchLabels: {{- include "dirouter.selector" (dict "ctx" $ "component" "worker") | nindent 6 }}
+  template:
+    metadata:
+      labels: {{- include "dirouter.selector" (dict "ctx" $ "component" "worker") | nindent 8 }}
+      annotations:
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+    spec:
+      {{- include "dirouter.pod" . | nindent 6 }}
+      containers:
+        - name: worker
+          image: {{ include "dirouter.image" (dict "ctx" $ "app" "worker") }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext: {{- include "dirouter.containerSecurity" . | nindent 12 }}
+          ports: [{ name: http, containerPort: 3100 }]
+          env:
+            {{- include "dirouter.secretEnv" (dict "ctx" . "names" (list "DATABASE_URL")) | nindent 12 }}
+            - { name: PORT, value: '3100' }
+            - { name: VALKEY_URL, value: {{ include "dirouter.valkeyUrl" . | quote }} }
+            - { name: REQUEST_LOG_RETENTION_MONTHS, value: {{ $v.requestLogRetentionMonths | quote }} }
+          readinessProbe:
+            httpGet: { path: /readyz, port: http }
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: { path: /healthz, port: http }
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          resources: {{- toYaml $v.resources | nindent 12 }}

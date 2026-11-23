@@ -216,3 +216,16 @@ test('real Git and Turbo select only a changed app, expand shared dependents and
   assert.equal(documentation.hasImages, false);
   assert.equal(documentation.hasPackages, false);
 });
+
+test('the Helm chart is checked when it or the images it installs change', () => {
+  assert.equal(
+    plan(push, fixture({ files: ['deploy/helm/dirouter/values.yaml'] }).run).hasHelm,
+    true,
+  );
+  assert.equal(
+    plan(push, fixture({ files: ['apps/gateway/src/x.ts'], packages: ['@dirouter/gateway'] }).run)
+      .hasHelm,
+    true,
+  );
+  assert.equal(plan(push, fixture({ files: ['docs/ci.md'] }).run).hasHelm, false);
+});

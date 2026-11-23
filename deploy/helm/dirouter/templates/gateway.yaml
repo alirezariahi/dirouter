@@ -1,0 +1,87 @@
+{{- $full := include "dirouter.fullname" . }}
+{{- $v := .Values.gateway }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $full }}-gateway
+  labels: {{- include "dirouter.labels" . | nindent 4 }}
+spec:
+  {{- if not $v.autoscaling.enabled }}
+  replicas: {{ $v.replicas }}
+  {{- end }}
+  selector:
+    matchLabels: {{- include "dirouter.selector" (dict "ctx" $ "component" "gateway") | nindent 6 }}
+  strategy:
+    rollingUpdate: { maxUnavailable: 0, maxSurge: 1 }
+  template:
+    metadata:
+      labels: {{- include "dirouter.selector" (dict "ctx" $ "component" "gateway") | nindent 8 }}
+      annotations:
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+    spec:
+      {{- include "dirouter.pod" . | nindent 6 }}
+      # Ready delay + drain, plus room for the usage outbox to flush (ADR-0006).
+      terminationGracePeriodSeconds: {{ add (div (add $v.shutdownDrainMs $v.shutdownReadyDelayMs) 1000) 10 }}
+      containers:
+        - name: gateway
+          image: {{ include "dirouter.image" (dict "ctx" $ "app" "gateway") }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext: {{- include "dirouter.containerSecurity" . | nindent 12 }}
+          ports: [{ name: http, containerPort: 8080 }]
+          # No database access (ADR-0006): the gateway gets no DATABASE_URL.
+          env:
+            {{- include "dirouter.secretEnv" (dict "ctx" . "names" (list "MASTER_KEY" "KEY_PEPPER" "INTERNAL_TOKEN")) | nindent 12 }}
+            - { name: PORT, value: '8080' }
+            - { name: VALKEY_URL, value: {{ include "dirouter.valkeyUrl" . | quote }} }
+            - { name: CONTROL_API_URL, value: 'http://{{ $full }}-control-api:3000' }
+            - { name: DATA_DIR, value: /data }
+            - { name: SHUTDOWN_DRAIN_MS, value: {{ $v.shutdownDrainMs | quote }} }
+            - { name: SHUTDOWN_READY_DELAY_MS, value: {{ $v.shutdownReadyDelayMs | quote }} }
+          readinessProbe:
+            httpGet: { path: /readyz, port: http }
+            periodSeconds: 2
+          livenessProbe:
+            httpGet: { path: /healthz, port: http }
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          resources: {{- toYaml $v.resources | nindent 12 }}
+          volumeMounts: [{ name: data, mountPath: /data }]
+      volumes:
+        # Snapshot cache and usage outbox; the gateway rebuilds both from Valkey and control-api.
+        - { name: data, emptyDir: {} }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $full }}-gateway
+  labels: {{- include "dirouter.labels" . | nindent 4 }}
+spec:
+  selector: {{- include "dirouter.selector" (dict "ctx" $ "component" "gateway") | nindent 4 }}
+  ports: [{ name: http, port: 8080, targetPort: http }]
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ $full }}-gateway
+  labels: {{- include "dirouter.labels" . | nindent 4 }}
+spec:
+  minAvailable: {{ $v.pdb.minAvailable }}
+  selector:
+    matchLabels: {{- include "dirouter.selector" (dict "ctx" $ "component" "gateway") | nindent 6 }}
+{{- if $v.autoscaling.enabled }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ $full }}-gateway
+  labels: {{- include "dirouter.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef: { apiVersion: apps/v1, kind: Deployment, name: {{ $full }}-gateway }
+  minReplicas: {{ $v.autoscaling.minReplicas }}
+  maxReplicas: {{ $v.autoscaling.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target: { type: Utilization, averageUtilization: {{ $v.autoscaling.targetCPUUtilizationPercentage }} }
+{{- end }}

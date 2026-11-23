@@ -8,3 +8,6 @@ packages/db/generated
 deploy/traefik/dynamic/middlewares.yml
 apps/dashboard/src/api/generated.ts
 apps/dashboard/openapi.json
+
+# Helm templates are Go templates, not YAML until rendered; helm lint checks them (card 22.6).
+deploy/helm/*/templates/

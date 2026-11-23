@@ -1,0 +1,8 @@
+apiVersion: v2
+name: dirouter
+description: DiRouter — self-hosted LLM gateway and AI platform (card 22.6)
+type: application
+version: 1.0.0
+appVersion: '1.0.0'
+home: https://github.com/alirezariahi/dirouter
+sources: [https://github.com/alirezariahi/dirouter]

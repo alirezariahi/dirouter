@@ -1,0 +1,32 @@
+{{- if and .Values.ingressRoute.enabled (.Capabilities.APIVersions.Has "traefik.io/v1alpha1/IngressRoute") }}
+{{- $full := include "dirouter.fullname" . }}
+{{- $r := .Values.ingressRoute }}
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: {{ $full }}
+  labels: {{- include "dirouter.labels" . | nindent 4 }}
+spec:
+  entryPoints: {{- toYaml $r.entryPoints | nindent 4 }}
+  routes:
+    {{- range $route := list (list "api" "gateway" 8080) (list "admin" "control-api" 3000) (list "app" "dashboard" 8080) (list "portal" "portal" 8080) }}
+    {{- $name := index $route 0 }}{{- $svc := index $route 1 }}
+    {{- if or (has $svc (list "gateway" "control-api")) (index $.Values $svc).enabled }}
+    - kind: Rule
+      match: Host(`{{ include "dirouter.host" (dict "ctx" $ "name" $name) }}`)
+      {{- with $r.middlewares }}
+      middlewares: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      services:
+        - { name: {{ $full }}-{{ $svc }}, port: {{ index $route 2 }} }
+    {{- end }}
+    {{- end }}
+  tls:
+    {{- if $r.tlsSecret }}
+    secretName: {{ $r.tlsSecret }}
+    {{- else if $r.certResolver }}
+    certResolver: {{ $r.certResolver }}
+    {{- else }}
+    {}
+    {{- end }}
+{{- end }}

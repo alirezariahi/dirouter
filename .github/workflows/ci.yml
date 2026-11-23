@@ -32,6 +32,7 @@ jobs:
       matrix: ${{ steps.plan.outputs.matrix }}
       has-images: ${{ steps.plan.outputs.has-images }}
       has-packages: ${{ steps.plan.outputs.has-packages }}
+      has-helm: ${{ steps.plan.outputs.has-helm }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -277,9 +278,111 @@ jobs:
           fi
           echo "Signed, attested and verified $REF" >> "$GITHUB_STEP_SUMMARY"
 
+  helm:
+    name: Helm chart on kind
+    needs: [plan]
+    if: needs.plan.outputs.has-helm == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: azure/setup-helm@2f5e7bc67f1f9972ab16657bb795f36d8f04de0e # v5.1.0
+        with:
+          version: v3.22.1
+      - name: Lint and render (with the Traefik CRDs)
+        run: |
+          helm lint deploy/helm/dirouter --strict \
+            --set database.url=postgresql://u:p@db:5432/d --set valkeyUrl=redis://valkey:6379
+          helm template t deploy/helm/dirouter --set postgresql.enabled=true --set valkey.enabled=true \
+            --api-versions traefik.io/v1alpha1/IngressRoute > rendered.yaml
+          grep -q 'kind: IngressRoute' rendered.yaml
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: helm/kind-action@ea822c7bf1874f08e5a491df991c228edffc3376 # v1.15.2
+        with:
+          cluster_name: dirouter
+      - name: Build gateway image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: deploy/docker/node.Dockerfile
+          build-args: |
+            APP=gateway
+            PORT=8080
+          load: true
+          tags: dirouter-ci/gateway:ci
+          cache-from: type=gha,scope=gateway
+      - name: Build control-api image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: deploy/docker/node.Dockerfile
+          build-args: |
+            APP=control-api
+            PORT=3000
+          load: true
+          tags: dirouter-ci/control-api:ci
+          cache-from: type=gha,scope=control-api
+      - name: Build worker image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: deploy/docker/node.Dockerfile
+          build-args: |
+            APP=worker
+            PORT=3100
+          load: true
+          tags: dirouter-ci/worker:ci
+          cache-from: type=gha,scope=worker
+      - name: Build migrate image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: deploy/docker/migrate.Dockerfile
+          build-args: APP=migrate
+          load: true
+          tags: dirouter-ci/migrate:ci
+          cache-from: type=gha,scope=migrate
+      - name: Install the chart and check it is healthy
+        run: |
+          for app in gateway control-api worker migrate; do kind load docker-image "dirouter-ci/$app:ci" --name dirouter; done
+          values=(--set image.registry=dirouter-ci --set image.tag=ci --set image.pullPolicy=Never
+            --set postgresql.enabled=true --set valkey.enabled=true
+            --set dashboard.enabled=false --set portal.enabled=false
+            --set gateway.autoscaling.enabled=false --set gateway.replicas=1 --set controlApi.replicas=1
+            --set gateway.pdb.minAvailable=0 --set controlApi.pdb.minAvailable=0)
+          helm install dirouter deploy/helm/dirouter "${values[@]}" --wait --timeout 12m
+          kubectl get pods
+          kubectl port-forward svc/dirouter-gateway 18080:8080 > /dev/null &
+          kubectl port-forward svc/dirouter-control-api 13000:3000 > /dev/null &
+          sleep 3
+          curl -fsS http://127.0.0.1:18080/readyz
+          curl -fsS http://127.0.0.1:13000/readyz
+          # An upgrade keeps the generated keys (stored credentials depend on MASTER_KEY).
+          before=$(kubectl get secret dirouter-secrets -o jsonpath='{.data.MASTER_KEY}')
+          helm upgrade dirouter deploy/helm/dirouter "${values[@]}" --wait --timeout 8m
+          after=$(kubectl get secret dirouter-secrets -o jsonpath='{.data.MASTER_KEY}')
+          test -n "$before" && test "$before" = "$after"
+          echo "helm install and upgrade on kind: healthy, keys kept" >> "$GITHUB_STEP_SUMMARY"
+      - name: Diagnostics
+        if: failure()
+        run: |
+          {
+            echo '### Helm on kind failed'
+            echo '```'
+            kubectl get pods -o wide 2>&1
+            kubectl get events --sort-by=.lastTimestamp 2>&1 | tail -n 30
+            for pod in $(kubectl get pods -o name 2>/dev/null); do
+              echo "--- $pod"
+              kubectl logs "$pod" --all-containers --tail=25 2>&1
+            done
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
   ci:
     name: CI passed
-    needs: [plan, checks, integration, images, supply-chain]
+    needs: [plan, checks, integration, images, supply-chain, helm]
     if: always()
     runs-on: ubuntu-24.04
     timeout-minutes: 2
@@ -291,6 +394,8 @@ jobs:
           INTEGRATION: ${{ needs.integration.result }}
           IMAGES: ${{ needs.images.result }}
           SUPPLY_CHAIN: ${{ needs.supply-chain.result }}
+          HELM: ${{ needs.helm.result }}
+          HAS_HELM: ${{ needs.plan.outputs.has-helm }}
           HAS_PACKAGES: ${{ needs.plan.outputs.has-packages }}
           HAS_IMAGES: ${{ needs.plan.outputs.has-images }}
         run: |
@@ -301,6 +406,11 @@ jobs:
             test "$INTEGRATION" = success
           else
             test "$INTEGRATION" = skipped
+          fi
+          if [ "$HAS_HELM" = true ]; then
+            test "$HELM" = success
+          else
+            test "$HELM" = skipped
           fi
           if [ "$HAS_IMAGES" = true ]; then
             test "$IMAGES" = success

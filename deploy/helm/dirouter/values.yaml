@@ -1,0 +1,114 @@
+# DiRouter Helm values (card 22.6). Every key is documented here and in docs/helm.md.
+
+image:
+  # Images are published by CI as <registry>/<app>:<tag> and signed with cosign (see SECURITY.md).
+  registry: ghcr.io/alirezariahi/dirouter
+  # Defaults to the chart's appVersion.
+  tag: ''
+  pullPolicy: IfNotPresent
+imagePullSecrets: []
+
+# Public hostnames; used for the IngressRoute and the URLs the apps hand out.
+domain: example.com
+hosts:
+  api: '' # gateway, default api.<domain>
+  admin: '' # control-api, default admin.<domain>
+  app: '' # dashboard, default app.<domain>
+  portal: '' # portal, default portal.<domain>
+
+# Secrets. Leave empty to generate them on install; they are then kept on every upgrade
+# (rotating MASTER_KEY would make stored provider credentials unreadable).
+secrets:
+  # Name of an existing Secret with MASTER_KEY, KEY_PEPPER, JWT_SECRET, INTERNAL_TOKEN and
+  # DATABASE_URL; when set, nothing below is used and no Secret is created.
+  existingSecret: ''
+  masterKey: ''
+  keyPepper: ''
+  jwtSecret: ''
+  internalToken: ''
+
+# External PostgreSQL 17 and Valkey/Redis. For evaluation the chart can run single-instance
+# ones instead (postgresql.enabled / valkey.enabled); use managed, highly available services in
+# production (see docs/deploy-ha.md).
+database:
+  url: '' # postgresql://user:password@host:5432/dirouter
+valkeyUrl: '' # redis://host:6379
+
+postgresql:
+  enabled: false
+  image: postgres:17-alpine
+  database: dirouter
+  user: dirouter
+  password: '' # generated when empty
+  storage: 8Gi
+  storageClass: ''
+
+valkey:
+  enabled: false
+  image: valkey/valkey:8-alpine
+
+gateway:
+  replicas: 2
+  resources:
+    requests: { cpu: 250m, memory: 256Mi }
+    limits: { memory: 512Mi }
+  # ADR-0007: keep each replica under ~250 non-stream requests per second; scale on CPU.
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 60
+  pdb:
+    minAvailable: 1
+  shutdownDrainMs: 30000
+  shutdownReadyDelayMs: 5000
+
+controlApi:
+  replicas: 2
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits: { memory: 768Mi }
+  pdb:
+    minAvailable: 1
+  # Extra environment (e.g. SMTP_URL, STRIPE_SECRET_KEY, PORTAL_OIDC_*); see docs/env-reference.md.
+  extraEnv: {}
+
+worker:
+  replicas: 1
+  resources:
+    requests: { cpu: 100m, memory: 192Mi }
+    limits: { memory: 512Mi }
+  requestLogRetentionMonths: 3
+
+dashboard:
+  enabled: true
+  replicas: 1
+  resources:
+    requests: { cpu: 20m, memory: 32Mi }
+    limits: { memory: 128Mi }
+
+portal:
+  enabled: true
+  replicas: 1
+  resources:
+    requests: { cpu: 20m, memory: 32Mi }
+    limits: { memory: 128Mi }
+
+# Traefik IngressRoute (traefik.io/v1alpha1). Rendered only when the Traefik CRDs exist.
+ingressRoute:
+  enabled: true
+  entryPoints: [websecure]
+  # A Traefik certResolver name, or a TLS secret name; empty means Traefik's default certificate.
+  certResolver: ''
+  tlsSecret: ''
+  middlewares: []
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+  seccompProfile: { type: RuntimeDefault }
+nodeSelector: {}
+tolerations: []
+affinity: {}
