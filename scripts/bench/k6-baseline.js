@@ -12,7 +12,8 @@ const viaGateway = target === 'gateway' || target === 'combined';
 const rate = Number(__ENV.RATE || (viaGateway ? 1000 : 500));
 const stream = (__ENV.STREAM || 'false') === 'true';
 const mode = __ENV.MODE || (stream ? 'stream' : 'nonstream');
-const route = viaGateway ? 'gateway' : 'direct';
+// `litellm` (card 22.4) is measured like the direct run: no gateway routing header.
+const route = viaGateway ? 'gateway' : target === 'litellm' ? 'litellm' : 'direct';
 const latency = new Trend('request_latency_ms', true);
 const requests = new Counter('scenario_requests');
 const failedRequests = new Counter('failed_requests');

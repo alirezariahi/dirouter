@@ -19,11 +19,53 @@ export interface ModelStatsSnapshot {
 const DEFAULT_ALPHA = 0.2;
 const WINDOW_MS = 60_000;
 const PEAK_DECAY_MS = 60_000;
+const BUCKET_MS = 1_000;
+const BUCKETS = WINDOW_MS / BUCKET_MS;
+
+/**
+ * Requests in the last minute, in one-second buckets with a running total: recording and reading
+ * are O(1) (amortized), whatever the traffic. (A list of timestamps filtered on every request
+ * cost O(requests per minute) each time and was the top CPU consumer of the gateway, card 22.4.)
+ */
+class MinuteCounter {
+  readonly #counts = new Array<number>(BUCKETS).fill(0);
+  #sum = 0;
+  /** The newest second accounted for; buckets older than the window are already cleared. */
+  #second = -Infinity;
+
+  #advance(now: number): number {
+    const second = Math.floor(now / BUCKET_MS);
+    if (second > this.#second) {
+      // Clear the buckets that fell out of the window (all of them after a minute of silence,
+      // and on first use, when every bucket is still empty).
+      const stale = Number.isFinite(this.#second) ? Math.min(BUCKETS, second - this.#second) : 0;
+      for (let k = 1; k <= stale; k++) {
+        const i = (((this.#second + k) % BUCKETS) + BUCKETS) % BUCKETS;
+        this.#sum -= this.#counts[i] ?? 0;
+        this.#counts[i] = 0;
+      }
+      if (stale === BUCKETS) this.#sum = 0;
+      this.#second = second;
+    }
+    return second;
+  }
+
+  add(now: number): void {
+    const i = this.#advance(now) % BUCKETS;
+    this.#counts[i] = (this.#counts[i] ?? 0) + 1;
+    this.#sum += 1;
+  }
+
+  total(now: number): number {
+    this.#advance(now);
+    return this.#sum;
+  }
+}
 
 export class RouterStats {
   readonly #latency = new Map<string, number>();
   readonly #peak = new Map<string, { value: number; at: number }>();
-  readonly #requests = new Map<string, number[]>();
+  readonly #requests = new Map<string, MinuteCounter>();
   readonly #inFlight = new Map<string, number>();
   readonly #lastSuccess = new Map<string, number>();
   readonly #alpha: number;
@@ -67,13 +109,12 @@ export class RouterStats {
   }
 
   recordRequest(modelId: string): void {
-    const now = this.#now();
-    const list = this.#requests.get(modelId) ?? [];
-    list.push(now);
-    this.#requests.set(
-      modelId,
-      list.filter((t) => now - t < WINDOW_MS),
-    );
+    let counter = this.#requests.get(modelId);
+    if (!counter) {
+      counter = new MinuteCounter();
+      this.#requests.set(modelId, counter);
+    }
+    counter.add(this.#now());
   }
 
   begin(modelId: string): void {
@@ -88,13 +129,13 @@ export class RouterStats {
 
   snapshot(modelId: string): ModelStatsSnapshot {
     const now = this.#now();
-    const recent = (this.#requests.get(modelId) ?? []).filter((t) => now - t < WINDOW_MS);
+    const recent = this.#requests.get(modelId)?.total(now) ?? 0;
     const peak = this.peakLatency(modelId);
     const lastSuccess = this.#lastSuccess.get(modelId);
     return {
       ...(this.#latency.has(modelId) ? { latencyMs: this.#latency.get(modelId) } : {}),
       ...(peak !== undefined ? { peakLatencyMs: peak } : {}),
-      recentRequests: recent.length,
+      recentRequests: recent,
       inFlight: this.#inFlight.get(modelId) ?? 0,
       ...(lastSuccess !== undefined ? { lastSuccessAt: lastSuccess } : {}),
     };
