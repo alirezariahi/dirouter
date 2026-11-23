@@ -160,7 +160,7 @@ export class SecurityService {
   async securitySettings(org: OrgContext) {
     const row = await this.db.organization.findUnique({
       where: { id: org.organizationId },
-      select: { mfaRequiredRoles: true, passwordLoginDisabled: true },
+      select: { mfaRequiredRoles: true, passwordLoginDisabled: true, changeApprovalRequired: true },
     });
     if (!row) throw new DiRouterError('not_found');
     const connections = await this.db.ssoConnection.count({
@@ -169,13 +169,18 @@ export class SecurityService {
     return {
       mfaRequiredRoles: row.mfaRequiredRoles,
       passwordLoginDisabled: row.passwordLoginDisabled,
+      changeApprovalRequired: row.changeApprovalRequired,
       ssoEnabled: connections > 0,
     };
   }
 
   async updateSecuritySettings(
     org: OrgContext,
-    patch: { mfaRequiredRoles?: string[]; passwordLoginDisabled?: boolean },
+    patch: {
+      mfaRequiredRoles?: string[];
+      passwordLoginDisabled?: boolean;
+      changeApprovalRequired?: boolean;
+    },
   ) {
     if (patch.mfaRequiredRoles) {
       const invalid = patch.mfaRequiredRoles.filter((role) => !ROLES.includes(role as Role));
@@ -201,6 +206,9 @@ export class SecurityService {
           : {}),
         ...(patch.passwordLoginDisabled !== undefined
           ? { passwordLoginDisabled: patch.passwordLoginDisabled }
+          : {}),
+        ...(patch.changeApprovalRequired !== undefined
+          ? { changeApprovalRequired: patch.changeApprovalRequired }
           : {}),
       },
     });

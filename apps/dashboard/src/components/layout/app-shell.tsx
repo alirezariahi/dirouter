@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 import { logout, useSession } from '../../lib/session';
 import { useSettings } from '../../settings';
+import { ChangeRequestNotice } from '../change-request-notice';
 import { Button } from '../ui/button';
 import { lazy, Suspense } from 'react';
 
@@ -112,6 +113,7 @@ export function AppShell() {
           ) : null}
         </header>
         <main className="flex-1 p-6">
+          <ChangeRequestNotice />
           <Outlet />
         </main>
       </div>

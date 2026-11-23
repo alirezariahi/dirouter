@@ -8,6 +8,7 @@ import {
   Param,
   Patch,
   Post,
+  Res,
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiNoContentResponse, ApiTags } from '@nestjs/swagger';
@@ -17,6 +18,9 @@ import { AccessGuard } from '../auth/auth.guard.js';
 import { ApiZodBody, ApiZodOk, ZodPipe } from '../common/zod.js';
 import { Org, OrgGuard, type OrgContext, RequirePermission } from '../rbac/org.guard.js';
 import { PROVIDER_TYPES, ProvidersService } from './providers.service.js';
+import { ChangeRequestsService } from '../change-requests/change-requests.service.js';
+import { sendGated } from '../change-requests/gated.js';
+import type { FastifyReply } from 'fastify';
 
 const ProxyUrl = z
   .string()
@@ -121,7 +125,19 @@ const DiscoverResult = z.object({
 @Controller('orgs/:orgId/providers')
 @UseGuards(AccessGuard, OrgGuard)
 export class ProvidersController {
-  constructor(@Inject(ProvidersService) private readonly providers: ProvidersService) {}
+  constructor(
+    @Inject(ProvidersService) private readonly providers: ProvidersService,
+    @Inject(ChangeRequestsService) private readonly changes: ChangeRequestsService,
+  ) {
+    // Deleting a provider is sensitive (card 22.2): with four-eyes on, it waits for approval.
+    changes.register<{ providerId: string }>('provider.delete', {
+      permission: 'providers:write',
+      targetId: (p) => p.providerId,
+      describe: async (ctx, p) =>
+        `Delete provider ${(await this.providers.load(ctx, p.providerId)).name}`,
+      apply: (ctx, p) => this.providers.remove(ctx, p.providerId),
+    });
+  }
 
   @Get()
   @RequirePermission('providers:read')
@@ -172,8 +188,10 @@ export class ProvidersController {
   @HttpCode(204)
   @RequirePermission('providers:write')
   @ApiNoContentResponse()
-  async remove(@Org() org: OrgContext, @Param('id') id: string) {
-    await this.providers.remove(org, id);
+  async remove(@Org() org: OrgContext, @Param('id') id: string, @Res() reply: FastifyReply) {
+    await this.providers.load(org, id);
+    const gate = await this.changes.gate(org, 'provider.delete', { providerId: id });
+    return sendGated(reply, gate, () => this.providers.remove(org, id), 204);
   }
 
   @Post(':id/credentials')

@@ -6,6 +6,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { type ReactNode, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { ChangeRequests } from '../components/change-requests';
 import { ScimTokens } from '../components/scim-tokens';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
@@ -66,6 +67,7 @@ interface Policy {
   mfaRequiredRoles: Role[];
   passwordLoginDisabled: boolean;
   ssoEnabled: boolean;
+  changeApprovalRequired?: boolean;
 }
 interface SsoConnection {
   id: string;
@@ -134,8 +136,11 @@ function PolicySection({ base, canWrite }: { base: string; canWrite: boolean }) 
     queryFn: () => api<Policy>(`${base}/security`),
   });
   const save = useMutation({
-    mutationFn: (patch: Partial<Pick<Policy, 'mfaRequiredRoles' | 'passwordLoginDisabled'>>) =>
-      api<Policy>(`${base}/security`, { method: 'PATCH', body: patch }),
+    mutationFn: (
+      patch: Partial<
+        Pick<Policy, 'mfaRequiredRoles' | 'passwordLoginDisabled' | 'changeApprovalRequired'>
+      >,
+    ) => api<Policy>(`${base}/security`, { method: 'PATCH', body: patch }),
     onSuccess: () => {
       setNotice(t('s2.security.saved'));
       void qc.invalidateQueries({ queryKey: ['security', base] });
@@ -189,6 +194,19 @@ function PolicySection({ base, canWrite }: { base: string; canWrite: boolean }) 
           {t('s2.security.policy.passwordHelp')}{' '}
           {policy.ssoEnabled ? t('s2.security.policy.ssoOn') : t('s2.security.policy.ssoOff')}
         </p>
+      </fieldset>
+      <fieldset disabled={!canWrite || save.isPending} className="flex flex-col gap-1">
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={policy.changeApprovalRequired === true}
+            onChange={(event) => {
+              save.mutate({ changeApprovalRequired: event.target.checked });
+            }}
+          />
+          {t('s3.changes.require')}
+        </label>
+        <p className="text-xs text-muted">{t('s3.changes.requireHelp')}</p>
       </fieldset>
       {notice ? <p className="text-xs text-muted">{notice}</p> : null}
       {canWrite ? null : <p className="text-xs text-muted">{t('s2.security.readOnly')}</p>}
@@ -792,6 +810,7 @@ export default function SecurityPage() {
       <PolicySection base={base} canWrite={canWrite} />
       {canWrite ? <SsoSection base={base} canManage={isOwner} /> : null}
       {canWrite ? <ScimTokens base={base} canManage={isOwner} /> : null}
+      <ChangeRequests base={base} />
       <RolesSection base={base} canWrite={canWrite} />
       <AuditSection base={base} />
       {canWrite ? <RotateSection base={base} /> : null}

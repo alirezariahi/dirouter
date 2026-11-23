@@ -8,6 +8,7 @@ import {
   Patch,
   Post,
   Query,
+  Res,
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
@@ -17,6 +18,9 @@ import { AccessGuard } from '../auth/auth.guard.js';
 import { ApiZodBody, ApiZodOk, ApiZodQuery, ZodPipe } from '../common/zod.js';
 import { Org, OrgGuard, type OrgContext, RequirePermission } from '../rbac/org.guard.js';
 import { KeysService } from './keys.service.js';
+import { ChangeRequestsService } from '../change-requests/change-requests.service.js';
+import { sendGated } from '../change-requests/gated.js';
+import type { FastifyReply } from 'fastify';
 
 const Budget = z.object({
   period: z.enum(['daily', 'monthly']),
@@ -90,7 +94,19 @@ const WithSecret = KeyView.extend({ key: z.string().describe('کلید کامل�
 @Controller('orgs/:orgId/keys')
 @UseGuards(AccessGuard, OrgGuard)
 export class KeysController {
-  constructor(@Inject(KeysService) private readonly keys: KeysService) {}
+  constructor(
+    @Inject(KeysService) private readonly keys: KeysService,
+    @Inject(ChangeRequestsService) private readonly changes: ChangeRequestsService,
+  ) {
+    // Budget changes are sensitive (card 22.2); the whole patch waits for approval with them.
+    changes.register<{ keyId: string; patch: z.infer<typeof KeyPatch> }>('key.budgets', {
+      permission: 'keys:write',
+      targetId: (p) => p.keyId,
+      describe: async (ctx, p) =>
+        `Change the budgets of key ${(await this.keys.get(ctx, p.keyId)).name}`,
+      apply: (ctx, p) => this.keys.update(ctx, p.keyId, p.patch),
+    });
+  }
 
   @Get()
   @RequirePermission('keys:read')
@@ -119,12 +135,18 @@ export class KeysController {
   @RequirePermission('keys:write')
   @ApiZodBody(KeyPatch)
   @ApiZodOk(KeyView)
-  update(
+  async update(
     @Org() org: OrgContext,
     @Param('id') id: string,
     @Body(new ZodPipe(KeyPatch)) body: z.infer<typeof KeyPatch>,
+    @Res() reply: FastifyReply,
   ) {
-    return this.keys.update(org, id, body);
+    await this.keys.get(org, id);
+    const gate =
+      body.budgets !== undefined
+        ? await this.changes.gate(org, 'key.budgets', { keyId: id, patch: body })
+        : {};
+    return sendGated(reply, gate, () => this.keys.update(org, id, body));
   }
 
   @Post(':id/revoke')

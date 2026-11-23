@@ -1592,6 +1592,78 @@ try {
       );
     },
   );
+  await scenario(
+    '22.2 change requests: a second person approves, the requester cannot, the gateway follows',
+    async () => {
+      const org = (method, path, body, expected) =>
+        api(method, `orgs/org_dev/${path}`, body, expected);
+      // A second administrator, through the normal invitation flow.
+      const email = `s3-approver-${randomUUID().slice(0, 8)}@e2e.test`;
+      const invite = (await org('POST', 'invitations', { email, role: 'ADMIN' }, 201)).body;
+      const session = (
+        await adminClient('')(
+          'POST',
+          'auth/invitations/accept',
+          { token: invite.token, name: 'E2E approver', password: `Pw-${randomUUID()}` },
+          null,
+        )
+      ).body;
+      const approver = adminClient(session.accessToken);
+      cleanups.push(() => org('DELETE', `members/${session.user.id}`, undefined, null));
+      // Whatever happens below, the platform organization ends with four-eyes off.
+      cleanups.push(() =>
+        sql(`UPDATE organizations SET change_approval_required = false WHERE id = 'org_dev'`),
+      );
+
+      await org('PATCH', 'security', { changeApprovalRequired: true }, 200);
+      const provider = (
+        await org(
+          'POST',
+          'providers',
+          { name: `e2e-4eyes-${randomUUID().slice(0, 6)}`, type: 'openai', credentials: [] },
+          201,
+        )
+      ).body;
+      cleanups.push(() => org('DELETE', `providers/${provider.id}`, undefined, null));
+
+      const asked = await org('DELETE', `providers/${provider.id}`, undefined, 202);
+      const request = asked.body.changeRequest;
+      assert.equal(request.status, 'pending');
+      assert.match(request.summary, /^Delete provider e2e-4eyes-/);
+      await org('GET', `providers/${provider.id}`, undefined, 200);
+      const self = await org('POST', `change-requests/${request.id}/approve`, {}, 403);
+      assert.match(JSON.stringify(self.body), /someone other than its requester/);
+
+      const before = await configVersion();
+      const applied = (
+        await approver('POST', `orgs/org_dev/change-requests/${request.id}/approve`, {}, 200)
+      ).body;
+      assert.equal(applied.status, 'applied');
+      assert.equal(applied.decidedById, session.user.id);
+      await org('GET', `providers/${provider.id}`, undefined, 404);
+      await waitFor('a new snapshot after the approved delete', async () =>
+        (await configVersion()) > before ? true : undefined,
+      );
+
+      // Turning four-eyes off is itself approved by the second person.
+      const off = (await org('PATCH', 'security', { changeApprovalRequired: false }, 202)).body;
+      await approver(
+        'POST',
+        `orgs/org_dev/change-requests/${off.changeRequest.id}/approve`,
+        {},
+        200,
+      );
+      assert.equal(
+        (await org('GET', 'security', undefined, 200)).body.changeApprovalRequired,
+        false,
+      );
+      const audit = await sql(
+        `SELECT string_agg(action, ',' ORDER BY created_at) FROM audit_logs WHERE target_id = '${request.id}'`,
+      );
+      assert.equal(audit, 'change_request.created,change_request.applied');
+      console.log(`     four-eyes: ${request.summary} approved by ${email}`);
+    },
+  );
 } catch (error) {
   crashed = true;
   console.error(error);

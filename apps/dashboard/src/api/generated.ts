@@ -4650,6 +4650,128 @@ export type ScimTokensControllerCreate200 = {
   token: string;
 };
 
+export type ChangeRequestsControllerListParams = {
+  status?: ChangeRequestsControllerListStatus;
+};
+
+export type ChangeRequestsControllerListStatus = typeof ChangeRequestsControllerListStatus[keyof typeof ChangeRequestsControllerListStatus];
+
+
+export const ChangeRequestsControllerListStatus = {
+  pending: 'pending',
+  applied: 'applied',
+  failed: 'failed',
+  rejected: 'rejected',
+  cancelled: 'cancelled',
+  expired: 'expired',
+} as const;
+
+export type ChangeRequestsControllerList200ItemStatus = typeof ChangeRequestsControllerList200ItemStatus[keyof typeof ChangeRequestsControllerList200ItemStatus];
+
+
+export const ChangeRequestsControllerList200ItemStatus = {
+  pending: 'pending',
+  applied: 'applied',
+  failed: 'failed',
+  rejected: 'rejected',
+  cancelled: 'cancelled',
+  expired: 'expired',
+} as const;
+
+export type ChangeRequestsControllerList200Item = {
+  id: string;
+  kind: string;
+  /** @nullable */
+  targetId: string | null;
+  summary: string;
+  payload: unknown;
+  status: ChangeRequestsControllerList200ItemStatus;
+  requestedById: string;
+  /** @nullable */
+  decidedById: string | null;
+  /** @nullable */
+  decidedAt: string | null;
+  /** @nullable */
+  reason: string | null;
+  /** @nullable */
+  error: string | null;
+  expiresAt: string;
+  createdAt: string;
+};
+
+export type ChangeRequestsControllerApproveBody = { [key: string]: unknown };
+
+export type ChangeRequestsControllerApprove200Status = typeof ChangeRequestsControllerApprove200Status[keyof typeof ChangeRequestsControllerApprove200Status];
+
+
+export const ChangeRequestsControllerApprove200Status = {
+  pending: 'pending',
+  applied: 'applied',
+  failed: 'failed',
+  rejected: 'rejected',
+  cancelled: 'cancelled',
+  expired: 'expired',
+} as const;
+
+export type ChangeRequestsControllerApprove200 = {
+  id: string;
+  kind: string;
+  /** @nullable */
+  targetId: string | null;
+  summary: string;
+  payload: unknown;
+  status: ChangeRequestsControllerApprove200Status;
+  requestedById: string;
+  /** @nullable */
+  decidedById: string | null;
+  /** @nullable */
+  decidedAt: string | null;
+  /** @nullable */
+  reason: string | null;
+  /** @nullable */
+  error: string | null;
+  expiresAt: string;
+  createdAt: string;
+};
+
+export type ChangeRequestsControllerRejectBody = {
+  /** @maxLength 500 */
+  reason?: string;
+};
+
+export type ChangeRequestsControllerReject200Status = typeof ChangeRequestsControllerReject200Status[keyof typeof ChangeRequestsControllerReject200Status];
+
+
+export const ChangeRequestsControllerReject200Status = {
+  pending: 'pending',
+  applied: 'applied',
+  failed: 'failed',
+  rejected: 'rejected',
+  cancelled: 'cancelled',
+  expired: 'expired',
+} as const;
+
+export type ChangeRequestsControllerReject200 = {
+  id: string;
+  kind: string;
+  /** @nullable */
+  targetId: string | null;
+  summary: string;
+  payload: unknown;
+  status: ChangeRequestsControllerReject200Status;
+  requestedById: string;
+  /** @nullable */
+  decidedById: string | null;
+  /** @nullable */
+  decidedAt: string | null;
+  /** @nullable */
+  reason: string | null;
+  /** @nullable */
+  error: string | null;
+  expiresAt: string;
+  createdAt: string;
+};
+
 export type ConfigControllerList200Item = {[key: string]: unknown};
 
 export type ConfigControllerGet200 = {[key: string]: unknown};
@@ -4828,6 +4950,7 @@ export type SecurityControllerUpdateSettingsBody = {
   /** @maxItems 4 */
   mfaRequiredRoles?: SecurityControllerUpdateSettingsBodyMfaRequiredRolesItem[];
   passwordLoginDisabled?: boolean;
+  changeApprovalRequired?: boolean;
 };
 
 export type SecurityControllerUpdateSettings200 = {[key: string]: unknown};
@@ -22078,6 +22201,367 @@ export function useScimTokensControllerRevoke<TData = Awaited<ReturnType<typeof 
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getScimTokensControllerRevokeQueryOptions(orgId,id,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export type changeRequestsControllerListResponse200 = {
+  data: ChangeRequestsControllerList200Item[]
+  status: 200
+}
+
+export type changeRequestsControllerListResponseSuccess = (changeRequestsControllerListResponse200) & {
+  headers: Headers;
+};
+;
+
+export type changeRequestsControllerListResponse = (changeRequestsControllerListResponseSuccess)
+
+export const getChangeRequestsControllerListUrl = (orgId: string,
+    params?: ChangeRequestsControllerListParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/v1/orgs/${orgId}/change-requests?${stringifiedParams}` : `/api/v1/orgs/${orgId}/change-requests`
+}
+
+export const changeRequestsControllerList = async (orgId: string,
+    params?: ChangeRequestsControllerListParams, options?: Parameters<typeof orvalFetch>[1]): Promise<changeRequestsControllerListResponse> => {
+
+  return orvalFetch<changeRequestsControllerListResponse>(getChangeRequestsControllerListUrl(orgId,params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getChangeRequestsControllerListMutationKey = () => ['changeRequestsControllerList'] as const;
+
+export const getChangeRequestsControllerListMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof changeRequestsControllerList>>, TError,ChangeRequestsControllerListMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof changeRequestsControllerList>>, TError,ChangeRequestsControllerListMutationVariables, TContext> => {
+
+const mutationKey = getChangeRequestsControllerListMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof changeRequestsControllerList>>, ChangeRequestsControllerListMutationVariables> = (props) => {
+          const {orgId,params} = props ?? {};
+
+          return  changeRequestsControllerList(orgId,params,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ChangeRequestsControllerListMutationResult = NonNullable<Awaited<ReturnType<typeof changeRequestsControllerList>>>
+
+    export type ChangeRequestsControllerListMutationError = unknown
+    export type ChangeRequestsControllerListMutationVariables = {orgId: string;params?: ChangeRequestsControllerListParams}
+
+    export const useChangeRequestsControllerList = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof changeRequestsControllerList>>, TError,ChangeRequestsControllerListMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof changeRequestsControllerList>>,
+        TError,
+        ChangeRequestsControllerListMutationVariables,
+        TContext
+      > => {
+      return useMutation(getChangeRequestsControllerListMutationOptions(options), queryClient);
+    }
+
+export type changeRequestsControllerApproveResponse200 = {
+  data: ChangeRequestsControllerApprove200
+  status: 200
+}
+
+export type changeRequestsControllerApproveResponseSuccess = (changeRequestsControllerApproveResponse200) & {
+  headers: Headers;
+};
+;
+
+export type changeRequestsControllerApproveResponse = (changeRequestsControllerApproveResponseSuccess)
+
+export const getChangeRequestsControllerApproveUrl = (orgId: string,
+    id: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/change-requests/${id}/approve`
+}
+
+export const changeRequestsControllerApprove = async (orgId: string,
+    id: string,
+    changeRequestsControllerApproveBody: ChangeRequestsControllerApproveBody, options?: Parameters<typeof orvalFetch>[1]): Promise<changeRequestsControllerApproveResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return orvalFetch<changeRequestsControllerApproveResponse>(getChangeRequestsControllerApproveUrl(orgId,id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(changeRequestsControllerApproveBody)
+  }
+);}
+
+
+
+
+
+export const getChangeRequestsControllerApproveQueryKey = (orgId: string,
+    id: string,
+    changeRequestsControllerApproveBody?: ChangeRequestsControllerApproveBody,) => {
+    return [
+    'POST', `/api/v1/orgs/${orgId}/change-requests/${id}/approve`, changeRequestsControllerApproveBody
+    ] as const;
+    }
+
+
+export const getChangeRequestsControllerApproveQueryOptions = <TData = Awaited<ReturnType<typeof changeRequestsControllerApprove>>, TError = unknown>(orgId: string,
+    id: string,
+    changeRequestsControllerApproveBody: ChangeRequestsControllerApproveBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof changeRequestsControllerApprove>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getChangeRequestsControllerApproveQueryKey(orgId,id,changeRequestsControllerApproveBody);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof changeRequestsControllerApprove>>> = ({ signal }) => changeRequestsControllerApprove(orgId,id,changeRequestsControllerApproveBody, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: orgId !== null && orgId !== undefined && id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof changeRequestsControllerApprove>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type ChangeRequestsControllerApproveQueryResult = NonNullable<Awaited<ReturnType<typeof changeRequestsControllerApprove>>>
+export type ChangeRequestsControllerApproveQueryError = unknown
+
+
+export function useChangeRequestsControllerApprove<TData = Awaited<ReturnType<typeof changeRequestsControllerApprove>>, TError = unknown>(
+ orgId: string,
+    id: string,
+    changeRequestsControllerApproveBody: ChangeRequestsControllerApproveBody, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof changeRequestsControllerApprove>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof changeRequestsControllerApprove>>,
+          TError,
+          Awaited<ReturnType<typeof changeRequestsControllerApprove>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useChangeRequestsControllerApprove<TData = Awaited<ReturnType<typeof changeRequestsControllerApprove>>, TError = unknown>(
+ orgId: string,
+    id: string,
+    changeRequestsControllerApproveBody: ChangeRequestsControllerApproveBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof changeRequestsControllerApprove>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof changeRequestsControllerApprove>>,
+          TError,
+          Awaited<ReturnType<typeof changeRequestsControllerApprove>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useChangeRequestsControllerApprove<TData = Awaited<ReturnType<typeof changeRequestsControllerApprove>>, TError = unknown>(
+ orgId: string,
+    id: string,
+    changeRequestsControllerApproveBody: ChangeRequestsControllerApproveBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof changeRequestsControllerApprove>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useChangeRequestsControllerApprove<TData = Awaited<ReturnType<typeof changeRequestsControllerApprove>>, TError = unknown>(
+ orgId: string,
+    id: string,
+    changeRequestsControllerApproveBody: ChangeRequestsControllerApproveBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof changeRequestsControllerApprove>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getChangeRequestsControllerApproveQueryOptions(orgId,id,changeRequestsControllerApproveBody,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export type changeRequestsControllerRejectResponse200 = {
+  data: ChangeRequestsControllerReject200
+  status: 200
+}
+
+export type changeRequestsControllerRejectResponseSuccess = (changeRequestsControllerRejectResponse200) & {
+  headers: Headers;
+};
+;
+
+export type changeRequestsControllerRejectResponse = (changeRequestsControllerRejectResponseSuccess)
+
+export const getChangeRequestsControllerRejectUrl = (orgId: string,
+    id: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/change-requests/${id}/reject`
+}
+
+export const changeRequestsControllerReject = async (orgId: string,
+    id: string,
+    changeRequestsControllerRejectBody: ChangeRequestsControllerRejectBody, options?: Parameters<typeof orvalFetch>[1]): Promise<changeRequestsControllerRejectResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return orvalFetch<changeRequestsControllerRejectResponse>(getChangeRequestsControllerRejectUrl(orgId,id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(changeRequestsControllerRejectBody)
+  }
+);}
+
+
+
+
+
+export const getChangeRequestsControllerRejectQueryKey = (orgId: string,
+    id: string,
+    changeRequestsControllerRejectBody?: ChangeRequestsControllerRejectBody,) => {
+    return [
+    'POST', `/api/v1/orgs/${orgId}/change-requests/${id}/reject`, changeRequestsControllerRejectBody
+    ] as const;
+    }
+
+
+export const getChangeRequestsControllerRejectQueryOptions = <TData = Awaited<ReturnType<typeof changeRequestsControllerReject>>, TError = unknown>(orgId: string,
+    id: string,
+    changeRequestsControllerRejectBody: ChangeRequestsControllerRejectBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof changeRequestsControllerReject>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getChangeRequestsControllerRejectQueryKey(orgId,id,changeRequestsControllerRejectBody);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof changeRequestsControllerReject>>> = ({ signal }) => changeRequestsControllerReject(orgId,id,changeRequestsControllerRejectBody, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: orgId !== null && orgId !== undefined && id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof changeRequestsControllerReject>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type ChangeRequestsControllerRejectQueryResult = NonNullable<Awaited<ReturnType<typeof changeRequestsControllerReject>>>
+export type ChangeRequestsControllerRejectQueryError = unknown
+
+
+export function useChangeRequestsControllerReject<TData = Awaited<ReturnType<typeof changeRequestsControllerReject>>, TError = unknown>(
+ orgId: string,
+    id: string,
+    changeRequestsControllerRejectBody: ChangeRequestsControllerRejectBody, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof changeRequestsControllerReject>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof changeRequestsControllerReject>>,
+          TError,
+          Awaited<ReturnType<typeof changeRequestsControllerReject>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useChangeRequestsControllerReject<TData = Awaited<ReturnType<typeof changeRequestsControllerReject>>, TError = unknown>(
+ orgId: string,
+    id: string,
+    changeRequestsControllerRejectBody: ChangeRequestsControllerRejectBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof changeRequestsControllerReject>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof changeRequestsControllerReject>>,
+          TError,
+          Awaited<ReturnType<typeof changeRequestsControllerReject>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useChangeRequestsControllerReject<TData = Awaited<ReturnType<typeof changeRequestsControllerReject>>, TError = unknown>(
+ orgId: string,
+    id: string,
+    changeRequestsControllerRejectBody: ChangeRequestsControllerRejectBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof changeRequestsControllerReject>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useChangeRequestsControllerReject<TData = Awaited<ReturnType<typeof changeRequestsControllerReject>>, TError = unknown>(
+ orgId: string,
+    id: string,
+    changeRequestsControllerRejectBody: ChangeRequestsControllerRejectBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof changeRequestsControllerReject>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getChangeRequestsControllerRejectQueryOptions(orgId,id,changeRequestsControllerRejectBody,options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 

@@ -13848,6 +13848,374 @@
         ]
       }
     },
+    "/api/v1/orgs/{orgId}/change-requests": {
+      "get": {
+        "operationId": "ChangeRequestsController_list",
+        "parameters": [
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pending",
+                "applied",
+                "failed",
+                "rejected",
+                "cancelled",
+                "expired"
+              ]
+            }
+          },
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "kind": {
+                        "type": "string"
+                      },
+                      "targetId": {
+                        "nullable": true,
+                        "type": "string"
+                      },
+                      "summary": {
+                        "type": "string"
+                      },
+                      "payload": {},
+                      "status": {
+                        "type": "string",
+                        "enum": [
+                          "pending",
+                          "applied",
+                          "failed",
+                          "rejected",
+                          "cancelled",
+                          "expired"
+                        ]
+                      },
+                      "requestedById": {
+                        "type": "string"
+                      },
+                      "decidedById": {
+                        "nullable": true,
+                        "type": "string"
+                      },
+                      "decidedAt": {
+                        "nullable": true,
+                        "type": "string"
+                      },
+                      "reason": {
+                        "nullable": true,
+                        "type": "string"
+                      },
+                      "error": {
+                        "nullable": true,
+                        "type": "string"
+                      },
+                      "expiresAt": {
+                        "type": "string"
+                      },
+                      "createdAt": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "kind",
+                      "targetId",
+                      "summary",
+                      "payload",
+                      "status",
+                      "requestedById",
+                      "decidedById",
+                      "decidedAt",
+                      "reason",
+                      "error",
+                      "expiresAt",
+                      "createdAt"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "change-requests"
+        ]
+      }
+    },
+    "/api/v1/orgs/{orgId}/change-requests/{id}/approve": {
+      "post": {
+        "operationId": "ChangeRequestsController_approve",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {}
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "type": "string"
+                    },
+                    "targetId": {
+                      "nullable": true,
+                      "type": "string"
+                    },
+                    "summary": {
+                      "type": "string"
+                    },
+                    "payload": {},
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "pending",
+                        "applied",
+                        "failed",
+                        "rejected",
+                        "cancelled",
+                        "expired"
+                      ]
+                    },
+                    "requestedById": {
+                      "type": "string"
+                    },
+                    "decidedById": {
+                      "nullable": true,
+                      "type": "string"
+                    },
+                    "decidedAt": {
+                      "nullable": true,
+                      "type": "string"
+                    },
+                    "reason": {
+                      "nullable": true,
+                      "type": "string"
+                    },
+                    "error": {
+                      "nullable": true,
+                      "type": "string"
+                    },
+                    "expiresAt": {
+                      "type": "string"
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "kind",
+                    "targetId",
+                    "summary",
+                    "payload",
+                    "status",
+                    "requestedById",
+                    "decidedById",
+                    "decidedAt",
+                    "reason",
+                    "error",
+                    "expiresAt",
+                    "createdAt"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "change-requests"
+        ]
+      }
+    },
+    "/api/v1/orgs/{orgId}/change-requests/{id}/reject": {
+      "post": {
+        "operationId": "ChangeRequestsController_reject",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reason": {
+                    "type": "string",
+                    "maxLength": 500
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "type": "string"
+                    },
+                    "targetId": {
+                      "nullable": true,
+                      "type": "string"
+                    },
+                    "summary": {
+                      "type": "string"
+                    },
+                    "payload": {},
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "pending",
+                        "applied",
+                        "failed",
+                        "rejected",
+                        "cancelled",
+                        "expired"
+                      ]
+                    },
+                    "requestedById": {
+                      "type": "string"
+                    },
+                    "decidedById": {
+                      "nullable": true,
+                      "type": "string"
+                    },
+                    "decidedAt": {
+                      "nullable": true,
+                      "type": "string"
+                    },
+                    "reason": {
+                      "nullable": true,
+                      "type": "string"
+                    },
+                    "error": {
+                      "nullable": true,
+                      "type": "string"
+                    },
+                    "expiresAt": {
+                      "type": "string"
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "kind",
+                    "targetId",
+                    "summary",
+                    "payload",
+                    "status",
+                    "requestedById",
+                    "decidedById",
+                    "decidedAt",
+                    "reason",
+                    "error",
+                    "expiresAt",
+                    "createdAt"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "change-requests"
+        ]
+      }
+    },
     "/api/v1/orgs/{orgId}/config/versions": {
       "get": {
         "operationId": "ConfigController_list",
@@ -14596,6 +14964,9 @@
                     }
                   },
                   "passwordLoginDisabled": {
+                    "type": "boolean"
+                  },
+                  "changeApprovalRequired": {
                     "type": "boolean"
                   }
                 }

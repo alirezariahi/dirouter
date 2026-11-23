@@ -29,6 +29,8 @@ import {
 import { Org, OrgGuard, type OrgContext, RequirePermission } from '../rbac/org.guard.js';
 import { PERMISSIONS } from '../rbac/permissions.js';
 import { SecurityService } from './security.service.js';
+import { ChangeRequestsService } from '../change-requests/change-requests.service.js';
+import { sendGated } from '../change-requests/gated.js';
 
 const RoleSchema = z.enum(['OWNER', 'ADMIN', 'MEMBER', 'VIEWER']);
 const PermissionSchema = z.enum(PERMISSIONS);
@@ -43,6 +45,8 @@ const CustomRolePatch = CustomRoleBody.partial().refine(
 export const SecurityPatch = z.object({
   mfaRequiredRoles: z.array(RoleSchema).max(4).optional(),
   passwordLoginDisabled: z.boolean().optional(),
+  /** Four-eyes approval for sensitive changes (card 22.2). */
+  changeApprovalRequired: z.boolean().optional(),
 });
 const AuditQuery = z.object({
   limit: z.coerce.number().int().min(1).max(500).default(100),
@@ -70,7 +74,17 @@ function filters(q: z.infer<typeof AuditQuery>) {
 @Controller('orgs/:orgId')
 @UseGuards(AccessGuard, OrgGuard)
 export class SecurityController {
-  constructor(@Inject(SecurityService) private readonly service: SecurityService) {}
+  constructor(
+    @Inject(SecurityService) private readonly service: SecurityService,
+    @Inject(ChangeRequestsService) private readonly changes: ChangeRequestsService,
+  ) {
+    // Turning four-eyes off is itself a sensitive change.
+    changes.register<z.infer<typeof SecurityPatch>>('org.security', {
+      permission: 'security:write',
+      describe: (_ctx, p) => `Change security settings: ${Object.keys(p).join(', ')}`,
+      apply: (ctx, p) => this.service.updateSecuritySettings(ctx, p),
+    });
+  }
 
   @Get('custom-roles')
   @RequirePermission('members:read')
@@ -121,11 +135,16 @@ export class SecurityController {
   @RequirePermission('security:write')
   @ApiZodBody(SecurityPatch)
   @ApiZodOk(JsonObjectSchema)
-  updateSettings(
+  async updateSettings(
     @Org() org: OrgContext,
     @Body(new ZodPipe(SecurityPatch)) body: z.infer<typeof SecurityPatch>,
+    @Res() reply: FastifyReply,
   ) {
-    return this.service.updateSecuritySettings(org, body);
+    const gate =
+      body.changeApprovalRequired === false
+        ? await this.changes.gate(org, 'org.security', body)
+        : {};
+    return sendGated(reply, gate, () => this.service.updateSecuritySettings(org, body));
   }
 
   @Post('security/rotate-key')

@@ -8,6 +8,7 @@ import {
   Param,
   Patch,
   Post,
+  Res,
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiNoContentResponse, ApiTags } from '@nestjs/swagger';
@@ -17,6 +18,9 @@ import { AccessGuard } from '../auth/auth.guard.js';
 import { ApiZodBody, ApiZodOk, ZodPipe } from '../common/zod.js';
 import { Org, OrgGuard, type OrgContext, RequirePermission } from '../rbac/org.guard.js';
 import { OrgsService } from './orgs.service.js';
+import { ChangeRequestsService } from '../change-requests/change-requests.service.js';
+import { sendGated } from '../change-requests/gated.js';
+import type { FastifyReply } from 'fastify';
 
 const RoleSchema = z.enum(['OWNER', 'ADMIN', 'MEMBER', 'VIEWER']);
 const Name = z.string().trim().min(1).max(100);
@@ -66,7 +70,24 @@ const Invitation = z.object({
 @Controller('orgs/:orgId')
 @UseGuards(AccessGuard, OrgGuard)
 export class OrgsController {
-  constructor(@Inject(OrgsService) private readonly orgs: OrgsService) {}
+  constructor(
+    @Inject(OrgsService) private readonly orgs: OrgsService,
+    @Inject(ChangeRequestsService) private readonly changes: ChangeRequestsService,
+  ) {
+    changes.register<{
+      userId: string;
+      role: z.infer<typeof RoleSchema>;
+      customRoleId?: string | null;
+    }>('member.role', {
+      permission: 'members:write',
+      targetId: (p) => p.userId,
+      describe: async (ctx, p) => {
+        const member = (await this.orgs.members(ctx)).find((m) => m.userId === p.userId);
+        return `Change the role of ${member?.email ?? p.userId} to ${p.role}`;
+      },
+      apply: (ctx, p) => this.orgs.changeRole(ctx, p.userId, p.role, p.customRoleId),
+    });
+  }
 
   @Get()
   @RequirePermission('org:read')
@@ -94,12 +115,20 @@ export class OrgsController {
   @RequirePermission('members:write')
   @ApiZodBody(RoleBody)
   @ApiZodOk(z.object({ userId: z.string(), role: RoleSchema, customRoleId: z.string().nullable() }))
-  role(
+  async role(
     @Org() org: OrgContext,
     @Param('userId') userId: string,
     @Body(new ZodPipe(RoleBody)) body: z.infer<typeof RoleBody>,
+    @Res() reply: FastifyReply,
   ) {
-    return this.orgs.changeRole(org, userId, body.role, body.customRoleId);
+    const gate = await this.changes.gate(org, 'member.role', {
+      userId,
+      role: body.role,
+      ...(body.customRoleId !== undefined ? { customRoleId: body.customRoleId } : {}),
+    });
+    return sendGated(reply, gate, () =>
+      this.orgs.changeRole(org, userId, body.role, body.customRoleId),
+    );
   }
 
   @Delete('members/:userId')

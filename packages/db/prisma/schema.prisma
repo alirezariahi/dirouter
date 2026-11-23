@@ -29,6 +29,8 @@ model Organization {
   mfaRequiredRoles String[] @default([]) @map("mfa_required_roles")
   /// When SSO is enforced, password login is disabled for this organization (card 14.2).
   passwordLoginDisabled Boolean @default(false) @map("password_login_disabled")
+  /// Four-eyes principle (card 22.2): sensitive changes wait for a second person's approval.
+  changeApprovalRequired Boolean @default(false) @map("change_approval_required")
   /// The operator's own organization (created by setup). Its OWNER/ADMIN run billing for every
   /// customer organization: wallets, gift codes, pricing and invoices (sprint 3).
   isPlatform Boolean @default(false) @map("is_platform")
@@ -70,6 +72,7 @@ model Organization {
   scimTokens       ScimToken[]
   scimUsers        ScimUser[]
   scimGroups       ScimGroup[]
+  changeRequests   ChangeRequest[]
   @@map("organizations")
 }
 
@@ -684,6 +687,40 @@ model SsoConnection {
 
   @@index([organizationId])
   @@map("sso_connections")
+}
+
+enum ChangeRequestStatus {
+  PENDING   @map("pending")
+  APPLIED   @map("applied")
+  FAILED    @map("failed")
+  REJECTED  @map("rejected")
+  CANCELLED @map("cancelled")
+  EXPIRED   @map("expired")
+}
+
+/// A sensitive change waiting for a second person's approval (card 22.2).
+model ChangeRequest {
+  id             String              @id
+  organizationId String              @map("organization_id")
+  /// What to do, e.g. `provider.delete`; the payload holds its arguments.
+  kind           String
+  targetId       String?             @map("target_id")
+  payload        Json
+  summary        String
+  status         ChangeRequestStatus @default(PENDING)
+  requestedById  String              @map("requested_by_id")
+  decidedById    String?             @map("decided_by_id")
+  decidedAt      DateTime?           @map("decided_at") @db.Timestamptz(3)
+  reason         String?
+  /// Why applying failed (status FAILED).
+  error          String?
+  expiresAt      DateTime            @map("expires_at") @db.Timestamptz(3)
+  createdAt      DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, status, createdAt])
+  @@map("change_requests")
 }
 
 /// SCIM 2.0 provisioning (card 22.1): bearer tokens the identity provider uses, one org each.

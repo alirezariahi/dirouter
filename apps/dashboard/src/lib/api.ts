@@ -146,8 +146,18 @@ async function request(
   const data: unknown = isJson ? await res.json() : await res.text();
   if (!res.ok)
     throw new ApiError(isJson ? (data as Problem) : { status: res.status, detail: String(data) });
+  // A sensitive change that waits for a second person's approval (card 22.2): the page asked for
+  // the change, so tell the user it was queued instead of applied.
+  if (res.status === 202 && data && typeof data === 'object' && 'changeRequest' in data)
+    window.dispatchEvent(
+      new CustomEvent(CHANGE_REQUEST_EVENT, {
+        detail: data.changeRequest,
+      }),
+    );
   return { data, res };
 }
+
+export const CHANGE_REQUEST_EVENT = 'dirouter:change-request';
 
 export async function api<T>(path: string, opts: RequestOptions = {}): Promise<T> {
   return (await request(path, opts)).data as T;
