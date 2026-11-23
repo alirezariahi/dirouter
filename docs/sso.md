@@ -87,6 +87,37 @@ These values are public test credentials; never use this realm outside local dev
 
 > This overlay and realm file were validated with `docker compose config` and as JSON, but Keycloak has not been started with them yet. If the import fails on your Keycloak version, create the client and the mappers for `email`, `email_verified`, `preferred_username` and `groups` by hand in the admin console with the values above.
 
+## SAML 2.0 (card 22.1)
+
+Choose **SAML 2.0** as the protocol when adding a connection:
+
+| Field                     | Value                                                                          |
+| ------------------------- | ------------------------------------------------------------------------------ |
+| IdP entity ID (`issuer`)  | the identity provider's entity ID, e.g. `http://sso.localhost/realms/dirouter` |
+| SP entity ID (`clientId`) | DiRouter's entity ID as registered at the IdP, e.g. `dirouter-saml`            |
+| `samlSsoUrl`              | the IdP single sign-on URL (HTTP-Redirect binding)                             |
+| `samlCert`                | the IdP signing certificate (PEM or base64)                                    |
+
+The connection shows its **ACS URL** (`/api/v1/auth/sso/saml/<id>/acs`) and a **metadata URL** to give the IdP. Rules:
+
+- The assertion must be signed with the configured certificate and name our entity ID as audience.
+- `InResponseTo` must match a request this server started (kept ten minutes in Valkey, consumed once), and a replayed assertion is refused.
+- The email comes from the `email` attribute (or an email-format NameID); groups from the `groups` attribute. Group names map to roles exactly as with OIDC.
+- The IdP posts cross-site to the ACS, so the browser's state cookie is not sent there. The ACS validates the assertion, parks the identity under a one-time code for two minutes, and sends the browser back to the dashboard. The dashboard finishes the sign-in through `/auth/sso/callback`, where the cookie is checked.
+
+The local Keycloak realm has a SAML client `dirouter-saml`. `scripts/e2e/sprint-3.mjs 22.1` signs in alice with it.
+
+## SCIM 2.0 provisioning (card 22.1)
+
+An owner creates a SCIM token on the security page (`POST /orgs/:orgId/scim/tokens`; the token is shown once). The identity provider calls `/api/v1/scim/v2` with `Authorization: Bearer <token>`:
+
+- Endpoints: `Users` and `Groups` (GET with `filter=attr eq "value"`, POST, PUT, PATCH, DELETE), `ServiceProviderConfig` and `ResourceTypes`.
+- A user's role follows their groups through the organization's SSO connection group map (its default role when no group matches). OWNER is never assigned, and owners are never changed or deactivated through SCIM.
+- `active: false` or DELETE removes the membership and revokes the API keys the user created in the organization. If the account has no other organization, it is disabled and its sessions are revoked. The gateway refuses the keys after the next snapshot. `active: true` restores the membership.
+- An email that belongs to an account outside the organization is refused with 409, as with SSO.
+
+Keycloak 26 has no built-in SCIM client. Keycloak, Okta or Entra ID can provision through a SCIM extension or their SCIM app settings.
+
 ## Troubleshooting
 
 | Symptom                                            | Likely cause                                                                                                                                                  |

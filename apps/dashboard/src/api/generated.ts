@@ -4625,6 +4625,31 @@ export type AgentProfilesControllerSetup200 = {
   key: string;
 };
 
+export type ScimTokensControllerList200Item = {
+  id: string;
+  name: string;
+  prefix: string;
+  /** @nullable */
+  lastUsedAt: string | null;
+  /** @nullable */
+  revokedAt: string | null;
+  createdAt: string;
+};
+
+export type ScimTokensControllerCreateBody = {
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  name: string;
+};
+
+export type ScimTokensControllerCreate200 = {
+  id: string;
+  name: string;
+  token: string;
+};
+
 export type ConfigControllerList200Item = {[key: string]: unknown};
 
 export type ConfigControllerGet200 = {[key: string]: unknown};
@@ -4858,6 +4883,14 @@ export type SecurityControllerAudit200 = {[key: string]: unknown};
 
 export type SsoAdminControllerList200Item = {[key: string]: unknown};
 
+export type SsoAdminControllerCreateBodyProtocol = typeof SsoAdminControllerCreateBodyProtocol[keyof typeof SsoAdminControllerCreateBodyProtocol];
+
+
+export const SsoAdminControllerCreateBodyProtocol = {
+  oidc: 'oidc',
+  saml: 'saml',
+} as const;
+
 export type SsoAdminControllerCreateBodyDefaultRole = typeof SsoAdminControllerCreateBodyDefaultRole[keyof typeof SsoAdminControllerCreateBodyDefaultRole];
 
 
@@ -4875,7 +4908,11 @@ export type SsoAdminControllerCreateBody = {
      * @maxLength 100
      */
   name: string;
-  /** @maxLength 500 */
+  protocol?: SsoAdminControllerCreateBodyProtocol;
+  /**
+     * @minLength 1
+     * @maxLength 500
+     */
   issuer: string;
   /**
      * @minLength 1
@@ -4886,7 +4923,14 @@ export type SsoAdminControllerCreateBody = {
      * @minLength 1
      * @maxLength 2000
      */
-  clientSecret: string;
+  clientSecret?: string;
+  /** @maxLength 1000 */
+  samlSsoUrl?: string;
+  /**
+     * @minLength 1
+     * @maxLength 20000
+     */
+  samlCert?: string;
   enabled?: boolean;
   defaultRole?: SsoAdminControllerCreateBodyDefaultRole;
   /**
@@ -4918,13 +4962,28 @@ export type SsoAdminControllerUpdateBody = {
      * @maxLength 100
      */
   name?: string;
-  /** @maxLength 500 */
+  /**
+     * @minLength 1
+     * @maxLength 500
+     */
   issuer?: string;
   /**
      * @minLength 1
      * @maxLength 300
      */
   clientId?: string;
+  /**
+     * @minLength 1
+     * @maxLength 2000
+     */
+  clientSecret?: string;
+  /** @maxLength 1000 */
+  samlSsoUrl?: string;
+  /**
+     * @minLength 1
+     * @maxLength 20000
+     */
+  samlCert?: string;
   enabled?: boolean;
   defaultRole?: SsoAdminControllerUpdateBodyDefaultRole;
   /**
@@ -4935,11 +4994,6 @@ export type SsoAdminControllerUpdateBody = {
      */
   allowedDomains?: string[];
   groupRoleMap?: SsoAdminControllerUpdateBodyGroupRoleMap;
-  /**
-     * @minLength 1
-     * @maxLength 2000
-     */
-  clientSecret?: string;
 };
 
 export type SsoAdminControllerUpdate200 = {[key: string]: unknown};
@@ -21701,6 +21755,329 @@ export function useAgentProfilesControllerSetup<TData = Awaited<ReturnType<typeo
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getAgentProfilesControllerSetupQueryOptions(orgId,id,agentProfilesControllerSetupBody,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export type scimTokensControllerListResponse200 = {
+  data: ScimTokensControllerList200Item[]
+  status: 200
+}
+
+export type scimTokensControllerListResponseSuccess = (scimTokensControllerListResponse200) & {
+  headers: Headers;
+};
+;
+
+export type scimTokensControllerListResponse = (scimTokensControllerListResponseSuccess)
+
+export const getScimTokensControllerListUrl = (orgId: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/scim/tokens`
+}
+
+export const scimTokensControllerList = async (orgId: string, options?: Parameters<typeof orvalFetch>[1]): Promise<scimTokensControllerListResponse> => {
+
+  return orvalFetch<scimTokensControllerListResponse>(getScimTokensControllerListUrl(orgId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getScimTokensControllerListMutationKey = () => ['scimTokensControllerList'] as const;
+
+export const getScimTokensControllerListMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof scimTokensControllerList>>, TError,ScimTokensControllerListMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof scimTokensControllerList>>, TError,ScimTokensControllerListMutationVariables, TContext> => {
+
+const mutationKey = getScimTokensControllerListMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof scimTokensControllerList>>, ScimTokensControllerListMutationVariables> = (props) => {
+          const {orgId} = props ?? {};
+
+          return  scimTokensControllerList(orgId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ScimTokensControllerListMutationResult = NonNullable<Awaited<ReturnType<typeof scimTokensControllerList>>>
+
+    export type ScimTokensControllerListMutationError = unknown
+    export type ScimTokensControllerListMutationVariables = {orgId: string}
+
+    export const useScimTokensControllerList = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof scimTokensControllerList>>, TError,ScimTokensControllerListMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof scimTokensControllerList>>,
+        TError,
+        ScimTokensControllerListMutationVariables,
+        TContext
+      > => {
+      return useMutation(getScimTokensControllerListMutationOptions(options), queryClient);
+    }
+
+export type scimTokensControllerCreateResponse200 = {
+  data: ScimTokensControllerCreate200
+  status: 200
+}
+
+export type scimTokensControllerCreateResponseSuccess = (scimTokensControllerCreateResponse200) & {
+  headers: Headers;
+};
+;
+
+export type scimTokensControllerCreateResponse = (scimTokensControllerCreateResponseSuccess)
+
+export const getScimTokensControllerCreateUrl = (orgId: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/scim/tokens`
+}
+
+export const scimTokensControllerCreate = async (orgId: string,
+    scimTokensControllerCreateBody: ScimTokensControllerCreateBody, options?: Parameters<typeof orvalFetch>[1]): Promise<scimTokensControllerCreateResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return orvalFetch<scimTokensControllerCreateResponse>(getScimTokensControllerCreateUrl(orgId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(scimTokensControllerCreateBody)
+  }
+);}
+
+
+
+
+
+export const getScimTokensControllerCreateQueryKey = (orgId: string,
+    scimTokensControllerCreateBody?: ScimTokensControllerCreateBody,) => {
+    return [
+    'POST', `/api/v1/orgs/${orgId}/scim/tokens`, scimTokensControllerCreateBody
+    ] as const;
+    }
+
+
+export const getScimTokensControllerCreateQueryOptions = <TData = Awaited<ReturnType<typeof scimTokensControllerCreate>>, TError = unknown>(orgId: string,
+    scimTokensControllerCreateBody: ScimTokensControllerCreateBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof scimTokensControllerCreate>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getScimTokensControllerCreateQueryKey(orgId,scimTokensControllerCreateBody);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof scimTokensControllerCreate>>> = ({ signal }) => scimTokensControllerCreate(orgId,scimTokensControllerCreateBody, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: orgId !== null && orgId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof scimTokensControllerCreate>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type ScimTokensControllerCreateQueryResult = NonNullable<Awaited<ReturnType<typeof scimTokensControllerCreate>>>
+export type ScimTokensControllerCreateQueryError = unknown
+
+
+export function useScimTokensControllerCreate<TData = Awaited<ReturnType<typeof scimTokensControllerCreate>>, TError = unknown>(
+ orgId: string,
+    scimTokensControllerCreateBody: ScimTokensControllerCreateBody, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof scimTokensControllerCreate>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof scimTokensControllerCreate>>,
+          TError,
+          Awaited<ReturnType<typeof scimTokensControllerCreate>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useScimTokensControllerCreate<TData = Awaited<ReturnType<typeof scimTokensControllerCreate>>, TError = unknown>(
+ orgId: string,
+    scimTokensControllerCreateBody: ScimTokensControllerCreateBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof scimTokensControllerCreate>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof scimTokensControllerCreate>>,
+          TError,
+          Awaited<ReturnType<typeof scimTokensControllerCreate>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useScimTokensControllerCreate<TData = Awaited<ReturnType<typeof scimTokensControllerCreate>>, TError = unknown>(
+ orgId: string,
+    scimTokensControllerCreateBody: ScimTokensControllerCreateBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof scimTokensControllerCreate>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useScimTokensControllerCreate<TData = Awaited<ReturnType<typeof scimTokensControllerCreate>>, TError = unknown>(
+ orgId: string,
+    scimTokensControllerCreateBody: ScimTokensControllerCreateBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof scimTokensControllerCreate>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getScimTokensControllerCreateQueryOptions(orgId,scimTokensControllerCreateBody,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export type scimTokensControllerRevokeResponse204 = {
+  data: void
+  status: 204
+}
+
+export type scimTokensControllerRevokeResponseSuccess = (scimTokensControllerRevokeResponse204) & {
+  headers: Headers;
+};
+;
+
+export type scimTokensControllerRevokeResponse = (scimTokensControllerRevokeResponseSuccess)
+
+export const getScimTokensControllerRevokeUrl = (orgId: string,
+    id: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/scim/tokens/${id}`
+}
+
+export const scimTokensControllerRevoke = async (orgId: string,
+    id: string, options?: Parameters<typeof orvalFetch>[1]): Promise<scimTokensControllerRevokeResponse> => {
+
+  return orvalFetch<scimTokensControllerRevokeResponse>(getScimTokensControllerRevokeUrl(orgId,id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getScimTokensControllerRevokeQueryKey = (orgId: string,
+    id: string,) => {
+    return [
+    'DELETE', `/api/v1/orgs/${orgId}/scim/tokens/${id}`
+    ] as const;
+    }
+
+
+export const getScimTokensControllerRevokeQueryOptions = <TData = Awaited<ReturnType<typeof scimTokensControllerRevoke>>, TError = unknown>(orgId: string,
+    id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof scimTokensControllerRevoke>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getScimTokensControllerRevokeQueryKey(orgId,id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof scimTokensControllerRevoke>>> = ({ signal }) => scimTokensControllerRevoke(orgId,id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: orgId !== null && orgId !== undefined && id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof scimTokensControllerRevoke>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type ScimTokensControllerRevokeQueryResult = NonNullable<Awaited<ReturnType<typeof scimTokensControllerRevoke>>>
+export type ScimTokensControllerRevokeQueryError = unknown
+
+
+export function useScimTokensControllerRevoke<TData = Awaited<ReturnType<typeof scimTokensControllerRevoke>>, TError = unknown>(
+ orgId: string,
+    id: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof scimTokensControllerRevoke>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof scimTokensControllerRevoke>>,
+          TError,
+          Awaited<ReturnType<typeof scimTokensControllerRevoke>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useScimTokensControllerRevoke<TData = Awaited<ReturnType<typeof scimTokensControllerRevoke>>, TError = unknown>(
+ orgId: string,
+    id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof scimTokensControllerRevoke>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof scimTokensControllerRevoke>>,
+          TError,
+          Awaited<ReturnType<typeof scimTokensControllerRevoke>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useScimTokensControllerRevoke<TData = Awaited<ReturnType<typeof scimTokensControllerRevoke>>, TError = unknown>(
+ orgId: string,
+    id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof scimTokensControllerRevoke>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useScimTokensControllerRevoke<TData = Awaited<ReturnType<typeof scimTokensControllerRevoke>>, TError = unknown>(
+ orgId: string,
+    id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof scimTokensControllerRevoke>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getScimTokensControllerRevokeQueryOptions(orgId,id,options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 

@@ -13,7 +13,7 @@ import {
   Res,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiNoContentResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiExcludeEndpoint, ApiNoContentResponse, ApiTags } from '@nestjs/swagger';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 
@@ -42,9 +42,16 @@ export const SSO_STATE_COOKIE = 'dr_sso_state';
 const Role = z.enum(['ADMIN', 'MEMBER', 'VIEWER']);
 export const SsoBody = z.object({
   name: z.string().trim().min(1).max(100),
-  issuer: z.url().max(500),
+  /** `oidc` (default) or `saml` (card 22.1). */
+  protocol: z.enum(['oidc', 'saml']).optional(),
+  /** OIDC issuer URL, or the SAML IdP entity ID. */
+  issuer: z.string().trim().min(1).max(500),
+  /** OIDC client ID, or the SAML SP entity ID. */
   clientId: z.string().trim().min(1).max(300),
-  clientSecret: z.string().min(1).max(2000),
+  /** OIDC only. */
+  clientSecret: z.string().min(1).max(2000).optional(),
+  samlSsoUrl: z.url().max(1000).optional(),
+  samlCert: z.string().min(1).max(20_000).optional(),
   enabled: z.boolean().optional(),
   defaultRole: Role.optional(),
   allowedDomains: z
@@ -59,9 +66,8 @@ export const SsoBody = z.object({
     .max(50),
   groupRoleMap: z.record(z.string().max(200), Role).optional(),
 });
-const SsoPatch = SsoBody.omit({ clientSecret: true })
+const SsoPatch = SsoBody.omit({ protocol: true })
   .partial()
-  .extend({ clientSecret: z.string().min(1).max(2000).optional() })
   .refine((value) => Object.keys(value).length > 0, 'at least one field is required');
 const LookupBody = z.object({ email: z.email().max(254) });
 /** Optional and only checked: the redirect URI is derived from PUBLIC_DASHBOARD_URL. */
@@ -119,6 +125,33 @@ export class SsoPublicController {
       maxAge: STATE_TTL_SECONDS,
     });
     return { authorizationUrl: started.authorizationUrl, state: started.state };
+  }
+
+  /**
+   * SAML Assertion Consumer Service (card 22.1): validates the posted assertion and sends the
+   * browser back to the dashboard, which finishes the sign-in through `callback`.
+   */
+  @Post('saml/:connectionId/acs')
+  @ApiExcludeEndpoint()
+  async samlAcs(
+    @Param('connectionId') connectionId: string,
+    @Body() body: unknown,
+    @Res() reply: FastifyReply,
+  ) {
+    const back = await this.sso.acs(
+      connectionId,
+      body && typeof body === 'object' ? (body as Record<string, unknown>) : {},
+    );
+    await reply.status(303).header('location', back).send();
+  }
+
+  /** SP metadata (entity ID, ACS URL) to configure the identity provider with. */
+  @Get('saml/:connectionId/metadata')
+  @ApiExcludeEndpoint()
+  async samlMetadata(@Param('connectionId') connectionId: string, @Res() reply: FastifyReply) {
+    await reply
+      .header('content-type', 'application/samlmetadata+xml; charset=utf-8')
+      .send(await this.sso.samlMetadata(connectionId));
   }
 
   @Get('callback')

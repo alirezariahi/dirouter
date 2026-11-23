@@ -19,6 +19,9 @@ services:
       KC_HTTP_ENABLED: 'true'
       KC_PROXY_HEADERS: xforwarded
       KC_HEALTH_ENABLED: 'true'
+      # Keycloak sizes its heap from the memory it sees (the whole Docker VM); cap it so it fits
+      # next to the dev stack on a small machine.
+      JAVA_OPTS_KC_HEAP: ${KEYCLOAK_HEAP_OPTS:--XX:MaxHeapSize=512m -XX:InitialHeapSize=64m}
     volumes:
       - ./deploy/keycloak/dirouter-realm.json:/opt/keycloak/data/import/dirouter-realm.json:ro
     networks: [edge]

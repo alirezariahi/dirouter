@@ -13675,6 +13675,179 @@
         ]
       }
     },
+    "/api/v1/orgs/{orgId}/scim/tokens": {
+      "get": {
+        "operationId": "ScimTokensController_list",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "prefix": {
+                        "type": "string"
+                      },
+                      "lastUsedAt": {
+                        "nullable": true,
+                        "type": "string"
+                      },
+                      "revokedAt": {
+                        "nullable": true,
+                        "type": "string"
+                      },
+                      "createdAt": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "name",
+                      "prefix",
+                      "lastUsedAt",
+                      "revokedAt",
+                      "createdAt"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "security"
+        ]
+      },
+      "post": {
+        "operationId": "ScimTokensController_create",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  }
+                },
+                "required": [
+                  "name"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "token": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name",
+                    "token"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "security"
+        ]
+      }
+    },
+    "/api/v1/orgs/{orgId}/scim/tokens/{id}": {
+      "delete": {
+        "operationId": "ScimTokensController_revoke",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "security"
+        ]
+      }
+    },
     "/api/v1/orgs/{orgId}/config/versions": {
       "get": {
         "operationId": "ConfigController_list",
@@ -14721,10 +14894,17 @@
                     "minLength": 1,
                     "maxLength": 100
                   },
+                  "protocol": {
+                    "type": "string",
+                    "enum": [
+                      "oidc",
+                      "saml"
+                    ]
+                  },
                   "issuer": {
                     "type": "string",
-                    "maxLength": 500,
-                    "format": "uri"
+                    "minLength": 1,
+                    "maxLength": 500
                   },
                   "clientId": {
                     "type": "string",
@@ -14735,6 +14915,16 @@
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 2000
+                  },
+                  "samlSsoUrl": {
+                    "type": "string",
+                    "maxLength": 1000,
+                    "format": "uri"
+                  },
+                  "samlCert": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 20000
                   },
                   "enabled": {
                     "type": "boolean"
@@ -14773,7 +14963,6 @@
                   "name",
                   "issuer",
                   "clientId",
-                  "clientSecret",
                   "allowedDomains"
                 ]
               }
@@ -14838,13 +15027,28 @@
                   },
                   "issuer": {
                     "type": "string",
-                    "maxLength": 500,
-                    "format": "uri"
+                    "minLength": 1,
+                    "maxLength": 500
                   },
                   "clientId": {
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 300
+                  },
+                  "clientSecret": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2000
+                  },
+                  "samlSsoUrl": {
+                    "type": "string",
+                    "maxLength": 1000,
+                    "format": "uri"
+                  },
+                  "samlCert": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 20000
                   },
                   "enabled": {
                     "type": "boolean"
@@ -14877,11 +15081,6 @@
                         "VIEWER"
                       ]
                     }
-                  },
-                  "clientSecret": {
-                    "type": "string",
-                    "minLength": 1,
-                    "maxLength": 2000
                   }
                 }
               }

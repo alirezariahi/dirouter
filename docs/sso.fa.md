@@ -89,6 +89,37 @@ curl -X POST "$ADMIN/orgs/$ORG/sso" -H "authorization: Bearer $TOKEN" -H 'conten
 
 > این overlay و فایل realm با `docker compose config` و به‌عنوان JSON اعتبارسنجی شده‌اند، ولی Keycloak هنوز با آن‌ها راه‌اندازی نشده است. اگر import روی نسخهٔ Keycloak شما خطا داد، client و mapperهای `email`، `email_verified`، `preferred_username` و `groups` را با همین مقدارها دستی در کنسول مدیریت بسازید.
 
+## SAML 2.0 (کارت ۲۲.۱)
+
+هنگام افزودن اتصال، پروتکل **SAML 2.0** را انتخاب کنید:
+
+| فیلد                   | مقدار                                                              |
+| ---------------------- | ------------------------------------------------------------------ |
+| شناسهٔ IdP (`issuer`)  | entity ID سرویس هویت؛ مثلاً `http://sso.localhost/realms/dirouter` |
+| شناسهٔ SP (`clientId`) | entity ID دیروتر نزد IdP؛ مثلاً `dirouter-saml`                    |
+| `samlSsoUrl`           | آدرس ورود IdP (binding از نوع HTTP-Redirect)                       |
+| `samlCert`             | گواهی امضای IdP (PEM یا base64)                                    |
+
+اتصال، **آدرس ACS** (`/api/v1/auth/sso/saml/<id>/acs`) و **آدرس metadata** را برای تنظیم IdP نشان می‌دهد. قواعد:
+
+- assertion باید با گواهی ثبت‌شده امضا شده باشد و audience آن entity ID دیروتر باشد.
+- `InResponseTo` باید به درخواستی برسد که همین سرور شروع کرده؛ این درخواست ده دقیقه در Valkey می‌ماند و فقط یک بار مصرف می‌شود. assertion تکراری رد می‌شود.
+- ایمیل از attribute `email` (یا NameID با قالب ایمیل) و گروه‌ها از attribute `groups` خوانده می‌شوند. نگاشت گروه به نقش مثل OIDC است.
+- IdP از دامنهٔ خودش به ACS پست می‌کند، پس کوکی state مرورگر آنجا فرستاده نمی‌شود. ACS اعتبار assertion را بررسی می‌کند، هویت را دو دقیقه زیر یک کد یک‌بارمصرف نگه می‌دارد و مرورگر را به داشبورد برمی‌گرداند. داشبورد ورود را از طریق `/auth/sso/callback` تمام می‌کند، که کوکی همان‌جا بررسی می‌شود.
+
+realm محلی Keycloak یک کلاینت SAML به نام `dirouter-saml` دارد. سناریوی `scripts/e2e/sprint-3.mjs 22.1` با آن alice را وارد می‌کند.
+
+## همگام‌سازی SCIM 2.0 (کارت ۲۲.۱)
+
+مالک سازمان در صفحهٔ امنیت یک توکن SCIM می‌سازد (`POST /orgs/:orgId/scim/tokens`؛ توکن فقط یک بار نشان داده می‌شود). سرویس هویت با `Authorization: Bearer <token>` به `/api/v1/scim/v2` درخواست می‌دهد:
+
+- endpointها: `Users` و `Groups` (GET با `filter=attr eq "value"`، و POST، PUT، PATCH، DELETE)، به‌علاوهٔ `ServiceProviderConfig` و `ResourceTypes`.
+- نقش کاربر از گروه‌هایش و از طریق نگاشت گروه به نقشِ اتصال SSO سازمان تعیین می‌شود؛ اگر هیچ گروهی نگاشت نشود، نقش پیش‌فرض اتصال. OWNER هیچ‌وقت داده نمی‌شود و نقش مالک‌ها از طریق SCIM تغییر نمی‌کند یا غیرفعال نمی‌شود.
+- `active: false` یا DELETE عضویت را حذف و کلیدهای API ساخته‌شده توسط کاربر در سازمان را باطل می‌کند. اگر حساب عضو سازمان دیگری نباشد، غیرفعال می‌شود و نشست‌هایش باطل می‌شوند. گیت‌وی از snapshot بعدی کلیدها را رد می‌کند. `active: true` عضویت را برمی‌گرداند.
+- ایمیلی که متعلق به حسابی بیرون از سازمان باشد با 409 رد می‌شود (مثل SSO).
+
+Keycloak 26 کلاینت SCIM داخلی ندارد. Keycloak، Okta یا Entra ID از طریق افزونهٔ SCIM یا تنظیمات اپ SCIM خودشان می‌توانند همگام‌سازی کنند.
+
 ## عیب‌یابی
 
 | نشانه                                              | علت محتمل                                                                                                  |

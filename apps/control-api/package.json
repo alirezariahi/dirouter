@@ -2,7 +2,7 @@
   "name": "@dirouter/control-api",
   "version": "0.0.0",
   "private": true,
-  "description": "control plane \u2014 API \u0645\u062f\u06cc\u0631\u06cc\u062a\u06cc",
+  "description": "control plane — API مدیریتی",
   "type": "module",
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
@@ -34,6 +34,7 @@
     "@nestjs/platform-fastify": "^12.4.0",
     "@nestjs/swagger": "^12.1.1",
     "@node-rs/argon2": "^2.2.2",
+    "@node-saml/node-saml": "^5.2.0",
     "bullmq": "^6.7.2",
     "fastify": "^5.12.8",
     "ioredis": "^6.0.0",

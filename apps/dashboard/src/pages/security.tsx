@@ -6,6 +6,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { type ReactNode, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { ScimTokens } from '../components/scim-tokens';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
 import { Field, FormError } from '../components/ui/field';
@@ -74,6 +75,9 @@ interface SsoConnection {
   enabled: boolean;
   defaultRole?: Role;
   allowedDomains?: string[];
+  protocol?: 'oidc' | 'saml';
+  acsUrl?: string;
+  metadataUrl?: string;
 }
 interface CustomRole {
   id: string;
@@ -201,10 +205,13 @@ function SsoSection({ base, canManage }: { base: string; canManage: boolean }) {
   const qc = useQueryClient();
   const [domainError, setDomainError] = useState<string>();
   const empty = {
+    protocol: 'oidc' as 'oidc' | 'saml',
     name: '',
     issuer: '',
     clientId: '',
     clientSecret: '',
+    samlSsoUrl: '',
+    samlCert: '',
     defaultRole: 'MEMBER' as Role,
     domains: '',
   };
@@ -217,9 +224,12 @@ function SsoSection({ base, canManage }: { base: string; canManage: boolean }) {
         method: 'POST',
         body: {
           name: draft.name.trim(),
+          protocol: draft.protocol,
           issuer: draft.issuer.trim(),
           clientId: draft.clientId.trim(),
-          clientSecret: draft.clientSecret,
+          ...(draft.protocol === 'saml'
+            ? { samlSsoUrl: draft.samlSsoUrl.trim(), samlCert: draft.samlCert.trim() }
+            : { clientSecret: draft.clientSecret }),
           defaultRole: draft.defaultRole,
           allowedDomains: parseDomains(draft.domains),
         },
@@ -269,8 +279,17 @@ function SsoSection({ base, canManage }: { base: string; canManage: boolean }) {
               <div>
                 <p className="font-medium">{row.name}</p>
                 <p dir="ltr" className="text-xs text-muted">
+                  {row.protocol === 'saml' ? 'SAML · ' : ''}
                   {row.issuer}
                 </p>
+                {row.acsUrl ? (
+                  <p dir="ltr" className="text-xs text-muted">
+                    ACS: {row.acsUrl} ·{' '}
+                    <a className="underline" href={row.metadataUrl}>
+                      {t('s3.saml.metadata')}
+                    </a>
+                  </p>
+                ) : null}
                 {row.allowedDomains?.length ? (
                   <p dir="ltr" className="text-xs text-muted">
                     {row.allowedDomains.join(', ')}
@@ -326,6 +345,18 @@ function SsoSection({ base, canManage }: { base: string; canManage: boolean }) {
         }}
       >
         <fieldset disabled={!canManage} className="grid gap-3 md:grid-cols-2">
+          <label htmlFor="sso-protocol" className="flex flex-col gap-1 text-sm md:col-span-2">
+            <span className="font-medium">{t('s3.saml.protocol')}</span>
+            <select
+              id="sso-protocol"
+              value={draft.protocol}
+              onChange={set('protocol')}
+              className="h-10 rounded-md border border-border bg-surface px-3"
+            >
+              <option value="oidc">OpenID Connect</option>
+              <option value="saml">SAML 2.0</option>
+            </select>
+          </label>
           <Field
             name="sso-name"
             label={t('s2.security.sso.name')}
@@ -335,8 +366,10 @@ function SsoSection({ base, canManage }: { base: string; canManage: boolean }) {
           />
           <Field
             name="sso-issuer"
-            label={t('s2.security.sso.issuer')}
-            type="url"
+            label={
+              draft.protocol === 'saml' ? t('s3.saml.idpEntityId') : t('s2.security.sso.issuer')
+            }
+            type={draft.protocol === 'saml' ? 'text' : 'url'}
             dir="ltr"
             required
             value={draft.issuer}
@@ -344,22 +377,50 @@ function SsoSection({ base, canManage }: { base: string; canManage: boolean }) {
           />
           <Field
             name="sso-client-id"
-            label={t('s2.security.sso.clientId')}
+            label={
+              draft.protocol === 'saml' ? t('s3.saml.spEntityId') : t('s2.security.sso.clientId')
+            }
             dir="ltr"
             required
             value={draft.clientId}
             onChange={set('clientId')}
           />
-          <Field
-            name="sso-client-secret"
-            label={t('s2.security.sso.clientSecret')}
-            type="password"
-            dir="ltr"
-            autoComplete="off"
-            required
-            value={draft.clientSecret}
-            onChange={set('clientSecret')}
-          />
+          {draft.protocol === 'saml' ? (
+            <>
+              <Field
+                name="sso-saml-url"
+                label={t('s3.saml.ssoUrl')}
+                type="url"
+                dir="ltr"
+                required
+                value={draft.samlSsoUrl}
+                onChange={set('samlSsoUrl')}
+              />
+              <label htmlFor="sso-saml-cert" className="flex flex-col gap-1 text-sm md:col-span-2">
+                <span className="font-medium">{t('s3.saml.cert')}</span>
+                <textarea
+                  id="sso-saml-cert"
+                  dir="ltr"
+                  required
+                  rows={4}
+                  value={draft.samlCert}
+                  onChange={set('samlCert')}
+                  className="rounded-md border border-border bg-surface px-3 py-2 font-mono text-xs"
+                />
+              </label>
+            </>
+          ) : (
+            <Field
+              name="sso-client-secret"
+              label={t('s2.security.sso.clientSecret')}
+              type="password"
+              dir="ltr"
+              autoComplete="off"
+              required
+              value={draft.clientSecret}
+              onChange={set('clientSecret')}
+            />
+          )}
           <Field
             name="sso-domains"
             label={t('s2.security.sso.domains')}
@@ -730,6 +791,7 @@ export default function SecurityPage() {
       </header>
       <PolicySection base={base} canWrite={canWrite} />
       {canWrite ? <SsoSection base={base} canManage={isOwner} /> : null}
+      {canWrite ? <ScimTokens base={base} canManage={isOwner} /> : null}
       <RolesSection base={base} canWrite={canWrite} />
       <AuditSection base={base} />
       {canWrite ? <RotateSection base={base} /> : null}

@@ -40,6 +40,18 @@ export async function createApp(
 
   await app.register(fastifyCookie);
   const fastify = app.getHttpAdapter().getInstance();
+  // SCIM clients send application/scim+json (card 22.1); form posts (SAML) use Nest's parser.
+  fastify.addContentTypeParser(
+    'application/scim+json',
+    { parseAs: 'string', bodyLimit: 1024 * 1024 },
+    (_req, body, done) => {
+      try {
+        done(null, JSON.parse(String(body)) as unknown);
+      } catch {
+        done(Object.assign(new Error('invalid JSON'), { statusCode: 400 }), undefined);
+      }
+    },
+  );
   fastify.addHook('onSend', async (request, reply) => {
     void reply.header('x-request-id', request.id);
   });

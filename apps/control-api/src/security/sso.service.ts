@@ -1,5 +1,5 @@
 /**
- * OIDC single sign-on (card 14.2).
+ * Single sign-on: OIDC (card 14.2) and SAML 2.0 (card 22.1, see saml.ts).
  *
  * Flow: authorization code + PKCE (S256) + state + nonce. The state, PKCE verifier and nonce are kept
  * in Valkey for ten minutes and are single-use; the state is also bound to the browser that started
@@ -27,6 +27,14 @@ import { ValkeyService } from '../infra/valkey.service.js';
 import type { OrgContext } from '../rbac/org.guard.js';
 import type { Role } from '../rbac/permissions.js';
 import {
+  acsUrl,
+  identityFromProfile,
+  normalizeCert,
+  samlClient,
+  type SsoIdentity,
+  ValkeySamlCache,
+} from './saml.js';
+import {
   assertOutboundUrlAllowed,
   assertSsoRolesAllowed,
   emailDomainAllowed,
@@ -45,9 +53,16 @@ const DISCOVERY_TTL_MS = 5 * 60_000;
 
 export interface SsoInput {
   name: string;
+  /** OIDC issuer URL, or the SAML IdP entity ID. */
   issuer: string;
+  /** OIDC client ID, or the SAML SP entity ID (audience). */
   clientId: string;
-  clientSecret: string;
+  /** OIDC only. */
+  clientSecret?: string | undefined;
+  protocol?: 'oidc' | 'saml' | undefined;
+  /** SAML: the IdP's single sign-on URL (HTTP-Redirect binding) and signing certificate. */
+  samlSsoUrl?: string | undefined;
+  samlCert?: string | undefined;
   enabled?: boolean;
   defaultRole?: Role;
   allowedDomains?: string[];
@@ -68,7 +83,12 @@ interface StateRecord {
   nonce: string;
   /** SHA-256 of the random value in the browser's state cookie. */
   bindingHash: string;
+  protocol?: 'saml';
 }
+
+/** A validated SAML assertion waiting for the browser to finish the sign-in (two minutes). */
+const SAML_CODE_PREFIX = 'sso:saml-code:';
+const SAML_CODE_TTL_SECONDS = 120;
 
 const sha256 = (value: string) => createHash('sha256').update(value).digest('base64url');
 
@@ -175,8 +195,16 @@ export class SsoService {
     const defaultRole = input.defaultRole ?? 'MEMBER';
     assertSsoRolesAllowed(org.role, { defaultRole, groupRoleMap: input.groupRoleMap });
     const allowedDomains = normalizeAllowedDomains(input.allowedDomains);
-    const issuer = input.issuer.replace(/\/+$/, '');
-    await assertOutboundUrlAllowed(issuer, this.#production);
+    const saml = input.protocol === 'saml';
+    const issuer = saml ? input.issuer.trim() : input.issuer.replace(/\/+$/, '');
+    if (saml) this.#assertSaml(input.samlSsoUrl, input.samlCert);
+    else {
+      if (!input.clientSecret)
+        throw new DiRouterError('validation_failed', {
+          message: 'clientSecret is required for OIDC',
+        });
+      await assertOutboundUrlAllowed(issuer, this.#production);
+    }
     const id = prefixedId('sso');
     const row = await this.prisma.client.ssoConnection.create({
       data: {
@@ -185,8 +213,15 @@ export class SsoService {
         name: input.name,
         issuer,
         clientId: input.clientId,
-        clientSecretEnc: encrypt(this.env.MASTER_KEY, input.clientSecret, `sso:${id}`),
+        // SAML has no client secret; the column holds an empty value that is never decrypted.
+        clientSecretEnc: saml
+          ? ''
+          : encrypt(this.env.MASTER_KEY, input.clientSecret ?? '', `sso:${id}`),
         keyVersion: this.env.MASTER_KEY.currentVersion,
+        protocol: saml ? 'saml' : 'oidc',
+        ...(saml
+          ? { samlSsoUrl: input.samlSsoUrl ?? null, samlCert: normalizeCert(input.samlCert ?? '') }
+          : {}),
         enabled: input.enabled ?? true,
         defaultRole,
         allowedDomains,
@@ -195,6 +230,7 @@ export class SsoService {
     });
     await this.audit(org, 'sso.created', id, {
       name: row.name,
+      protocol: row.protocol,
       issuer: row.issuer,
       enabled: row.enabled,
       defaultRole: row.defaultRole,
@@ -219,8 +255,11 @@ export class SsoService {
     // A connection saved before domains became mandatory cannot stay enabled without them.
     if (!allowedDomains && (patch.enabled ?? current.enabled))
       normalizeAllowedDomains(current.allowedDomains);
-    const issuer = patch.issuer?.replace(/\/+$/, '');
-    if (issuer !== undefined) await assertOutboundUrlAllowed(issuer, this.#production);
+    const saml = current.protocol === 'saml';
+    const issuer = saml ? patch.issuer?.trim() : patch.issuer?.replace(/\/+$/, '');
+    if (saml && (patch.samlSsoUrl !== undefined || patch.samlCert !== undefined))
+      this.#assertSaml(patch.samlSsoUrl ?? current.samlSsoUrl, patch.samlCert ?? current.samlCert);
+    if (!saml && issuer !== undefined) await assertOutboundUrlAllowed(issuer, this.#production);
     const row = await this.prisma.client.ssoConnection.update({
       where: { id },
       data: {
@@ -232,6 +271,10 @@ export class SsoService {
               clientSecretEnc: encrypt(this.env.MASTER_KEY, patch.clientSecret, `sso:${id}`),
               keyVersion: this.env.MASTER_KEY.currentVersion,
             }
+          : {}),
+        ...(saml && patch.samlSsoUrl !== undefined ? { samlSsoUrl: patch.samlSsoUrl } : {}),
+        ...(saml && patch.samlCert !== undefined
+          ? { samlCert: normalizeCert(patch.samlCert) }
           : {}),
         ...(patch.enabled !== undefined ? { enabled: patch.enabled } : {}),
         ...(patch.defaultRole !== undefined ? { defaultRole: patch.defaultRole } : {}),
@@ -246,6 +289,7 @@ export class SsoService {
       ...(patch.name !== undefined ? { name: row.name } : {}),
       ...(issuer !== undefined ? { issuer: row.issuer, previousIssuer: current.issuer } : {}),
       ...(patch.clientId !== undefined ? { clientId: row.clientId } : {}),
+      ...(patch.samlSsoUrl !== undefined ? { samlSsoUrl: row.samlSsoUrl } : {}),
       ...(patch.enabled !== undefined ? { enabled: row.enabled } : {}),
       ...(patch.defaultRole !== undefined ? { defaultRole: row.defaultRole } : {}),
       ...(allowedDomains ? { allowedDomains } : {}),
@@ -288,6 +332,7 @@ export class SsoService {
       this.#production,
     );
     const connection = await this.enabled(connectionId);
+    if (connection.protocol === 'saml') return this.#startSaml(connection, redirectUri);
     const discovery = await this.discover(connection.issuer);
     const state = randomBytes(24).toString('base64url');
     const nonce = randomBytes(24).toString('base64url');
@@ -342,6 +387,18 @@ export class SsoService {
         message: 'SSO sign-in was not started in this browser',
       });
     const connection = await this.enabled(record.connectionId);
+    const identity =
+      record.protocol === 'saml'
+        ? await this.#samlIdentity(code, state)
+        : await this.#oidcIdentity(connection, code, record);
+    return this.#signIn(connection, identity, client);
+  }
+
+  async #oidcIdentity(
+    connection: Awaited<ReturnType<SsoService['enabled']>>,
+    code: string,
+    record: StateRecord,
+  ): Promise<SsoIdentity> {
     const discovery = await this.discover(connection.issuer);
     const secret = decrypt(this.env.MASTER_KEY, connection.clientSecretEnc, `sso:${connection.id}`);
 
@@ -360,16 +417,33 @@ export class SsoService {
         message: 'SSO did not return a verified email address',
       });
     }
+    return {
+      subject: payload.sub,
+      email: payload.email.toLowerCase(),
+      emailVerified: true,
+      ...(typeof payload.name === 'string' ? { name: payload.name } : {}),
+      groups: Array.isArray(payload.groups)
+        ? payload.groups.filter((group): group is string => typeof group === 'string')
+        : [],
+    };
+  }
 
-    const email = payload.email.toLowerCase();
+  /**
+   * Who may sign in, with which role, shared by OIDC and SAML: domain allowlist, existing accounts
+   * only when they are members already, just-in-time provisioning otherwise.
+   */
+  async #signIn(
+    connection: Awaited<ReturnType<SsoService['enabled']>>,
+    identity: SsoIdentity,
+    client: ClientInfo,
+  ): Promise<Session & { organizationId: string }> {
+    const email = identity.email;
     if (!emailDomainAllowed(email, connection.allowedDomains)) {
       throw new DiRouterError('forbidden', {
         message: 'This email domain is not allowed for the SSO connection',
       });
     }
-    const groups = Array.isArray(payload.groups)
-      ? payload.groups.filter((group): group is string => typeof group === 'string')
-      : [];
+    const groups = identity.groups;
     const resolved = resolveSsoRole(
       connection.groupRoleMap as Record<string, unknown>,
       groups,
@@ -408,10 +482,9 @@ export class SsoService {
         await db.membership.update({ where: { id: membership.id }, data: { role } });
     } else {
       role = resolved.role;
-      const name =
-        typeof payload.name === 'string' && payload.name.trim()
-          ? payload.name.trim().slice(0, 100)
-          : (email.split('@')[0] ?? email);
+      const name = identity.name?.trim()
+        ? identity.name.trim().slice(0, 100)
+        : (email.split('@')[0] ?? email);
       // JIT users have no password; a random hash keeps the column non-null and unusable.
       const passwordHash = await hashPassword(randomBytes(32).toString('hex'));
       user = await db.$transaction(async (tx) => {
@@ -441,7 +514,8 @@ export class SsoService {
         targetId: user.id,
         diff: {
           connectionId: connection.id,
-          subject: payload.sub,
+          protocol: connection.protocol,
+          subject: identity.subject,
           groups,
           role,
           provisioned: !existing,
@@ -451,6 +525,124 @@ export class SsoService {
     });
     const session = await this.auth.issueSsoSession(user, connection.organizationId, client);
     return { ...session, organizationId: connection.organizationId };
+  }
+
+  // ───────────── SAML (card 22.1) ─────────────
+
+  #assertSaml(ssoUrl: string | null | undefined, cert: string | null | undefined) {
+    let url: URL | undefined;
+    try {
+      url = ssoUrl ? new URL(ssoUrl) : undefined;
+    } catch {
+      url = undefined;
+    }
+    if (!url || (url.protocol !== 'https:' && (this.#production || url.protocol !== 'http:')))
+      throw new DiRouterError('validation_failed', {
+        message: 'samlSsoUrl must be an https URL',
+        param: 'samlSsoUrl',
+      });
+    const body = normalizeCert(cert ?? '');
+    if (!/^[A-Za-z0-9+/]{200,}={0,2}$/.test(body))
+      throw new DiRouterError('validation_failed', {
+        message: 'samlCert must be the IdP signing certificate (PEM or base64)',
+        param: 'samlCert',
+      });
+  }
+
+  #saml(connection: Awaited<ReturnType<SsoService['enabled']>>) {
+    return samlClient(
+      connection,
+      acsUrl(this.env.PUBLIC_API_URL, connection.id),
+      new ValkeySamlCache(this.valkey.client, connection.id),
+    );
+  }
+
+  async #startSaml(
+    connection: Awaited<ReturnType<SsoService['enabled']>>,
+    redirectUri: string,
+  ): Promise<{ authorizationUrl: string; state: string; binding: string }> {
+    const state = randomBytes(24).toString('base64url');
+    const binding = randomBytes(32).toString('base64url');
+    const record: StateRecord = {
+      connectionId: connection.id,
+      redirectUri,
+      verifier: '',
+      nonce: '',
+      bindingHash: sha256(binding),
+      protocol: 'saml',
+    };
+    await this.valkey.client.set(
+      `${STATE_PREFIX}${state}`,
+      JSON.stringify(record),
+      'EX',
+      STATE_TTL_SECONDS,
+      'NX',
+    );
+    // RelayState carries the state; the request ID is remembered for InResponseTo.
+    const authorizationUrl = await this.#saml(connection).getAuthorizeUrlAsync(
+      state,
+      undefined,
+      {},
+    );
+    return { state, binding, authorizationUrl };
+  }
+
+  /**
+   * Assertion Consumer Service. The IdP posts here from its own origin, so the browser's SameSite
+   * state cookie is not sent: the assertion is validated now and parked under a one-time code,
+   * and the browser goes back to the dashboard, which finishes through `callback` with the cookie.
+   */
+  async acs(connectionId: string, body: Record<string, unknown>): Promise<string> {
+    const relayState = typeof body.RelayState === 'string' ? body.RelayState : '';
+    const response = typeof body.SAMLResponse === 'string' ? body.SAMLResponse : '';
+    const raw = relayState ? await this.valkey.client.get(`${STATE_PREFIX}${relayState}`) : null;
+    const record = raw ? (JSON.parse(raw) as StateRecord) : undefined;
+    if (!record || record.protocol !== 'saml' || record.connectionId !== connectionId || !response)
+      throw new DiRouterError('invalid_request', {
+        message: 'invalid SAML response or RelayState',
+      });
+    const connection = await this.enabled(connectionId);
+    let identity: SsoIdentity | undefined;
+    try {
+      const { profile } = await this.#saml(connection).validatePostResponseAsync({
+        SAMLResponse: response,
+      });
+      identity = profile ? identityFromProfile(profile) : undefined;
+    } catch (error) {
+      throw new DiRouterError('unauthenticated', {
+        message: `SAML response rejected: ${(error as Error).message}`.slice(0, 300),
+      });
+    }
+    if (!identity)
+      throw new DiRouterError('unauthenticated', {
+        message: 'SAML assertion has no subject or email address',
+      });
+    const code = randomBytes(32).toString('base64url');
+    await this.valkey.client.set(
+      `${SAML_CODE_PREFIX}${code}`,
+      JSON.stringify({ state: relayState, identity }),
+      'EX',
+      SAML_CODE_TTL_SECONDS,
+    );
+    const back = new URL(record.redirectUri);
+    back.searchParams.set('code', code);
+    back.searchParams.set('state', relayState);
+    return back.toString();
+  }
+
+  async #samlIdentity(code: string, state: string): Promise<SsoIdentity> {
+    const raw = await this.valkey.client.getdel(`${SAML_CODE_PREFIX}${code}`);
+    const parked = raw ? (JSON.parse(raw) as { state: string; identity: SsoIdentity }) : undefined;
+    if (!parked || parked.state !== state)
+      throw new DiRouterError('invalid_request', { message: 'invalid SSO code' });
+    return parked.identity;
+  }
+
+  /** SP metadata for configuring the identity provider. */
+  async samlMetadata(connectionId: string): Promise<string> {
+    const connection = await this.enabled(connectionId);
+    if (connection.protocol !== 'saml') throw new DiRouterError('not_found');
+    return this.#saml(connection).generateServiceProviderMetadata(null);
   }
 
   readonly #discoveryCache = new Map<string, { until: number; value: Discovery }>();
@@ -505,19 +697,33 @@ export class SsoService {
     defaultRole: string;
     allowedDomains: string[];
     groupRoleMap: unknown;
+    protocol: string;
+    samlSsoUrl: string | null;
+    samlCert: string | null;
     createdAt: Date;
     updatedAt: Date;
   }) {
+    const saml = row.protocol === 'saml';
     return {
       id: row.id,
       name: row.name,
+      protocol: saml ? ('saml' as const) : ('oidc' as const),
       issuer: row.issuer,
       clientId: row.clientId,
+      ...(saml
+        ? {
+            samlSsoUrl: row.samlSsoUrl,
+            hasSamlCert: Boolean(row.samlCert),
+            // What the IdP needs: our entity ID (clientId), ACS URL and metadata.
+            acsUrl: acsUrl(this.env.PUBLIC_API_URL, row.id),
+            metadataUrl: `${this.env.PUBLIC_API_URL.replace(/\/+$/, '')}/api/v1/auth/sso/saml/${row.id}/metadata`,
+          }
+        : {}),
       enabled: row.enabled,
       defaultRole: row.defaultRole,
       allowedDomains: row.allowedDomains,
       groupRoleMap: row.groupRoleMap,
-      hasClientSecret: true,
+      hasClientSecret: !saml,
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
     };

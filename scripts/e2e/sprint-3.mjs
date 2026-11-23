@@ -28,6 +28,7 @@ import {
   skip,
   sql,
   urls,
+  configVersion,
   valkey,
   waitFor,
 } from './harness.mjs';
@@ -1367,6 +1368,228 @@ try {
       });
       assert.equal(row, `${created.id}|7|6|0.00001900`);
       console.log(`     workers-ai plugin: ${row}`);
+    },
+  );
+
+  // ───────────── Epic 22: enterprise identity ─────────────
+  await scenario(
+    '22.1 SAML with Keycloak: signed assertion, group role, and the browser-bound finish',
+    async () => {
+      const sso = process.env.E2E_SSO_URL ?? 'http://sso.localhost';
+      const descriptor = await fetch(`${sso}/realms/dirouter/protocol/saml/descriptor`).catch(
+        () => undefined,
+      );
+      if (!descriptor?.ok) skip('Keycloak is not running (compose.sso.yaml overlay)');
+      const xml = await descriptor.text();
+      const cert = /<(?:ds:)?X509Certificate>([^<]+)</.exec(xml)?.[1];
+      const ssoUrl = /SingleSignOnService[^>]+HTTP-Redirect"[^>]+Location="([^"]+)"/.exec(xml)?.[1];
+      assert.ok(cert && ssoUrl, 'IdP descriptor');
+
+      const org = (method, path, body, expected) =>
+        api(method, `orgs/org_dev/${path}`, body, expected);
+      // Keycloak's test users are alice@example.com (dirouter-admins) and bob@example.com.
+      for (const old of (await org('GET', 'sso')).body)
+        if (old.protocol === 'saml' && old.clientId === 'dirouter-saml')
+          await org('DELETE', `sso/${old.id}`, undefined, null);
+      const connection = (
+        await org(
+          'POST',
+          'sso',
+          {
+            name: 'Keycloak SAML',
+            protocol: 'saml',
+            issuer: `${sso}/realms/dirouter`,
+            clientId: 'dirouter-saml',
+            samlSsoUrl: ssoUrl,
+            samlCert: cert,
+            allowedDomains: ['example.com'],
+            defaultRole: 'VIEWER',
+            groupRoleMap: { 'dirouter-admins': 'ADMIN' },
+          },
+          201,
+        )
+      ).body;
+      cleanups.push(() => org('DELETE', `sso/${connection.id}`, undefined, null));
+      // An earlier run (or the OIDC scenario) may have left the accounts without a membership.
+      await sql(
+        `INSERT INTO memberships (id, user_id, organization_id, role, created_at)
+         SELECT 'mem_e2e_' || substr(md5(random()::text), 1, 12), u.id, 'org_dev', 'VIEWER', now()
+         FROM users u WHERE u.email = 'alice@example.com'
+           AND NOT EXISTS (SELECT 1 FROM memberships m WHERE m.user_id = u.id AND m.organization_id = 'org_dev')`,
+      );
+
+      // A minimal browser with cookies per host.
+      const jar = new Map();
+      const browse = async (url, options = {}) => {
+        const host = new URL(url).host;
+        const store = jar.get(host) ?? new Map();
+        const response = await fetch(url, {
+          redirect: 'manual',
+          ...options,
+          headers: {
+            ...(options.headers ?? {}),
+            cookie: [...store].map(([k, v]) => `${k}=${v}`).join('; '),
+          },
+        });
+        for (const line of response.headers.getSetCookie?.() ?? []) {
+          const [pair] = line.split(';');
+          store.set(pair.slice(0, pair.indexOf('=')), pair.slice(pair.indexOf('=') + 1));
+        }
+        jar.set(host, store);
+        return response;
+      };
+      const adminBase = `${urls.admin}/api/v1`;
+      const form = (fields) => ({
+        method: 'POST',
+        headers: { 'content-type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams(fields).toString(),
+      });
+      const decode = (s) =>
+        s.replaceAll('&amp;', '&').replaceAll('&#x2f;', '/').replaceAll('&#x3a;', ':');
+
+      const start = await browse(`${adminBase}/auth/sso/${connection.id}/start`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: '{}',
+      });
+      assert.equal(start.status, 200);
+      const { authorizationUrl, state } = await start.json();
+      assert.ok(new URL(authorizationUrl).searchParams.get('SAMLRequest'));
+      const login = await browse(authorizationUrl);
+      const loginHtml = await login.text();
+      const action = /<form[^>]+action="([^"]+)"/.exec(loginHtml)?.[1];
+      assert.ok(action, `Keycloak login form (HTTP ${login.status})`);
+      const posted = await browse(
+        decode(action),
+        form({ username: 'alice@example.com', password: 'alice-dev-password', credentialId: '' }),
+      );
+      // Keycloak answers with an auto-submitting form that posts the signed response to the ACS.
+      const autoPost = await posted.text();
+      const acs = /<form[^>]+action="([^"]+)"/.exec(autoPost)?.[1];
+      const samlResponse = /name="SAMLResponse"\s+value="([^"]+)"/.exec(autoPost)?.[1];
+      const relay = /name="RelayState"\s+value="([^"]+)"/.exec(autoPost)?.[1];
+      assert.ok(acs && samlResponse, `Keycloak SAML response (HTTP ${posted.status})`);
+      assert.equal(decode(acs), `${adminBase}/auth/sso/saml/${connection.id}/acs`);
+      assert.equal(decode(relay ?? ''), state);
+      const acsReply = await browse(
+        decode(acs),
+        form({ SAMLResponse: decode(samlResponse), RelayState: decode(relay ?? '') }),
+      );
+      assert.equal(acsReply.status, 303, await acsReply.text());
+      const back = new URL(acsReply.headers.get('location'));
+      assert.equal(back.pathname, '/login');
+      assert.equal(back.searchParams.get('state'), state);
+
+      // Replaying the same response is refused (InResponseTo is consumed, the assertion ID seen).
+      const replay = await fetch(
+        decode(acs),
+        form({ SAMLResponse: decode(samlResponse), RelayState: decode(relay ?? '') }),
+      );
+      assert.notEqual(replay.status, 303, 'replayed SAML response');
+      // The browser that started the flow finishes it: an organization-scoped session.
+      const done = await browse(
+        `${adminBase}/auth/sso/callback?code=${encodeURIComponent(back.searchParams.get('code'))}&state=${encodeURIComponent(state)}`,
+      );
+      const session = await done.json();
+      assert.equal(done.status, 200, JSON.stringify(session));
+      assert.equal(session.organizationId, 'org_dev');
+      assert.equal(session.user.email, 'alice@example.com');
+      const role = await sql(
+        `SELECT m.role FROM memberships m JOIN users u ON u.id = m.user_id
+         WHERE u.email = 'alice@example.com' AND m.organization_id = 'org_dev'`,
+      );
+      assert.equal(role, 'ADMIN', 'dirouter-admins maps to ADMIN');
+      const audit = await sql(
+        `SELECT diff->>'protocol' FROM audit_logs WHERE action = 'auth.sso_login'
+         AND diff->>'connectionId' = '${connection.id}' ORDER BY created_at DESC LIMIT 1`,
+      );
+      assert.equal(audit, 'saml');
+      console.log(
+        `     Keycloak SAML: alice signed in as ${role}; replay refused (HTTP ${String(replay.status)})`,
+      );
+    },
+  );
+  await scenario(
+    '22.1 SCIM: provisioning, group roles, and deprovisioning revokes keys at the gateway',
+    async () => {
+      const org = (method, path, body, expected) =>
+        api(method, `orgs/org_dev/${path}`, body, expected);
+      const token = (
+        await org('POST', 'scim/tokens', { name: `e2e-${randomUUID().slice(0, 6)}` }, 201)
+      ).body;
+      cleanups.push(() => org('DELETE', `scim/tokens/${token.id}`, undefined, null));
+      const scim = async (method, path, body) => {
+        const response = await fetch(`${urls.admin}/api/v1/scim/v2/${path}`, {
+          method,
+          headers: {
+            authorization: `Bearer ${token.token}`,
+            ...(body ? { 'content-type': 'application/scim+json' } : {}),
+          },
+          ...(body ? { body: JSON.stringify(body) } : {}),
+        });
+        return {
+          status: response.status,
+          body: response.status === 204 ? null : await response.json(),
+        };
+      };
+      const email = `scim-${randomUUID().slice(0, 8)}@example.com`;
+      const user = await scim('POST', 'Users', {
+        schemas: ['urn:ietf:params:scim:schemas:core:2.0:User'],
+        userName: email,
+        name: { givenName: 'Sam', familyName: 'Scim' },
+        emails: [{ value: email, primary: true }],
+        active: true,
+      });
+      assert.equal(user.status, 201, JSON.stringify(user.body));
+      cleanups.push(() => scim('DELETE', `Users/${user.body.id}`));
+      const group = await scim('POST', 'Groups', {
+        displayName: `e2e-group-${randomUUID().slice(0, 6)}`,
+        members: [{ value: user.body.id }],
+      });
+      assert.equal(group.status, 201);
+      cleanups.push(() => scim('DELETE', `Groups/${group.body.id}`));
+      const userId = await sql(`SELECT id FROM users WHERE email = '${email}'`);
+      assert.equal(
+        await sql(
+          `SELECT role FROM memberships WHERE user_id = '${userId}' AND organization_id = 'org_dev'`,
+        ),
+        'MEMBER',
+      );
+
+      // A key the provisioned user owns works at the gateway until the IdP deactivates them.
+      const key = (
+        await published(() =>
+          org('POST', 'keys', { name: `scim-${email}`, projectId: 'prj_dev' }, 201),
+        )
+      ).body;
+      await sql(`UPDATE api_keys SET created_by_id = '${userId}' WHERE id = '${key.id}'`);
+      const ask = () =>
+        chat(key.key, {
+          model: 'mock/small',
+          max_tokens: 5,
+          messages: [{ role: 'user', content: 'hi' }],
+        });
+      assert.equal((await ask()).response.status, 200);
+
+      const before = await configVersion();
+      const off = await scim('PATCH', `Users/${user.body.id}`, {
+        schemas: ['urn:ietf:params:scim:api:messages:2.0:PatchOp'],
+        Operations: [{ op: 'replace', path: 'active', value: false }],
+      });
+      assert.equal(off.body.active, false);
+      assert.equal(await sql(`SELECT status FROM api_keys WHERE id = '${key.id}'`), 'REVOKED');
+      assert.equal(await sql(`SELECT count(*) FROM memberships WHERE user_id = '${userId}'`), '0');
+      assert.equal(await sql(`SELECT is_active FROM users WHERE id = '${userId}'`), 'f');
+      await waitFor('a new snapshot after deprovisioning', async () =>
+        (await configVersion()) > before ? true : undefined,
+      );
+      const refused = await waitFor('the gateway to refuse the revoked key', async () => {
+        const res = await ask();
+        return res.response.status === 401 ? res : undefined;
+      });
+      console.log(
+        `     SCIM: deactivated ${email}; its key now gets HTTP ${String(refused.response.status)}`,
+      );
     },
   );
 } catch (error) {

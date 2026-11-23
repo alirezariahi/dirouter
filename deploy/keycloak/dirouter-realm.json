@@ -204,6 +204,52 @@
       },
       "defaultClientScopes": ["basic", "profile", "email", "groups"],
       "optionalClientScopes": []
+    },
+    {
+      "clientId": "dirouter-saml",
+      "name": "DiRouter (SAML)",
+      "description": "SAML 2.0 service provider for card 22.1. DiRouter's SP entity ID is this clientId.",
+      "protocol": "saml",
+      "enabled": true,
+      "frontchannelLogout": true,
+      "redirectUris": [
+        "http://admin.localhost/api/v1/auth/sso/saml/*",
+        "https://admin.localhost/api/v1/auth/sso/saml/*"
+      ],
+      "attributes": {
+        "saml.assertion.signature": "true",
+        "saml.server.signature": "false",
+        "saml.client.signature": "false",
+        "saml.authnstatement": "true",
+        "saml.signature.algorithm": "RSA_SHA256",
+        "saml_force_name_id_format": "true",
+        "saml_name_id_format": "email",
+        "saml.force.post.binding": "true"
+      },
+      "protocolMappers": [
+        {
+          "name": "email",
+          "protocol": "saml",
+          "protocolMapper": "saml-user-property-mapper",
+          "config": {
+            "user.attribute": "email",
+            "attribute.name": "email",
+            "attribute.nameformat": "Basic",
+            "friendly.name": "email"
+          }
+        },
+        {
+          "name": "groups",
+          "protocol": "saml",
+          "protocolMapper": "saml-group-membership-mapper",
+          "config": {
+            "attribute.name": "groups",
+            "attribute.nameformat": "Basic",
+            "full.path": "false",
+            "single": "false"
+          }
+        }
+      ]
     }
   ],
   "users": [
