@@ -39,12 +39,15 @@ import {
 } from './errors.js';
 import { presetFor } from './presets.js';
 import { BedrockAdapter } from './bedrock.js';
+import { MediaOnlyAdapter } from './media.js';
 
 export interface UpstreamRequest {
   url: string;
   method: 'POST' | 'GET';
   headers: Record<string, string>;
   body?: string;
+  /** Binary body (multipart form or raw audio), sent instead of `body` (card 21.1). */
+  bytes?: Uint8Array;
 }
 
 export interface BuildContext {
@@ -442,14 +445,14 @@ class GeminiDecoder implements StreamDecoder {
   }
 }
 
-function geminiVersion(provider: ProviderConfig): string {
+export function geminiVersion(provider: ProviderConfig): string {
   return typeof provider.options.apiVersion === 'string'
     ? provider.options.apiVersion
     : GEMINI_API_VERSION;
 }
 
 /** Model name without the `models/` prefix (both forms are accepted in config). */
-const geminiModel = (name: string) => name.replace(/^models\//, '');
+export const geminiModel = (name: string) => name.replace(/^models\//, '');
 
 /** Google gRPC status codes → equivalent HTTP status for classification. */
 const GOOGLE_STATUS: Readonly<Record<string, number>> = {
@@ -1127,6 +1130,9 @@ const ADAPTERS: Partial<Record<ProviderType, ProviderAdapter>> = {
   mistral: new OpenAICompatibleAdapter('mistral'),
   voyage: new VoyageAdapter(),
   jina: new JinaAdapter(),
+  elevenlabs: new MediaOnlyAdapter('elevenlabs'),
+  deepgram: new MediaOnlyAdapter('deepgram'),
+  fal: new MediaOnlyAdapter('fal'),
 };
 
 export function adapterFor(type: ProviderType): ProviderAdapter {

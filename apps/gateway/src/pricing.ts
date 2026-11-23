@@ -8,7 +8,7 @@
  * Without sale settings every multiplier is 1, so the charge equals the cost. All arithmetic is
  * fixed-point (1 USD = 10^8 units), like the rest of the money code.
  */
-import type { CanonicalUsage, ModelPricing, SalePrice } from '@dirouter/contracts';
+import type { CanonicalUsage, MediaUsage, ModelPricing, SalePrice } from '@dirouter/contracts';
 import { computeCost } from '@dirouter/model-catalog';
 import { formatUsd, parseUsd, type UsdUnits } from '@dirouter/shared';
 
@@ -27,16 +27,23 @@ export interface PricedModel {
   sale?: SalePrice | undefined;
 }
 
+export interface ChargeOptions {
+  groupMultiplier?: string | undefined;
+  cacheHit?: boolean | undefined;
+  /** Images, characters or audio seconds of a media request (card 21.1). */
+  media?: MediaUsage | undefined;
+}
+
 export function chargeUnits(
   usage: CanonicalUsage,
   model: PricedModel,
-  options: { groupMultiplier?: string | undefined; cacheHit?: boolean | undefined } = {},
+  options: ChargeOptions = {},
 ): UsdUnits {
   const sale = model.sale;
   const list =
     sale?.perRequestUsd !== undefined
       ? parseUsd(sale.perRequestUsd)
-      : scale(computeCost(usage, model.pricing).total, sale?.multiplier);
+      : scale(computeCost(usage, model.pricing, options.media).total, sale?.multiplier);
   const grouped = scale(list, options.groupMultiplier);
   return options.cacheHit ? scale(grouped, sale?.cacheMultiplier ?? '0') : grouped;
 }
@@ -44,7 +51,7 @@ export function chargeUnits(
 export function chargeUsd(
   usage: CanonicalUsage,
   model: PricedModel,
-  options: { groupMultiplier?: string | undefined; cacheHit?: boolean | undefined } = {},
+  options: ChargeOptions = {},
 ): string {
   return formatUsd(chargeUnits(usage, model, options));
 }

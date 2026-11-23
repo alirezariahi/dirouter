@@ -195,7 +195,11 @@ export async function callUpstream(
     const response = await fetch(up.url, {
       method: up.method,
       headers: up.headers,
-      ...(up.body !== undefined ? { body: up.body } : {}),
+      ...(up.bytes !== undefined
+        ? { body: up.bytes }
+        : up.body !== undefined
+          ? { body: up.body }
+          : {}),
       signal: controller.signal,
       dispatcher: dispatcherFor(provider, timeouts.connectMs, proxyUrl),
     });

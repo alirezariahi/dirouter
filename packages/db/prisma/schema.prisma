@@ -255,6 +255,9 @@ enum ProviderType {
   MISTRAL        @map("mistral")
   VOYAGE         @map("voyage")
   JINA           @map("jina")
+  ELEVENLABS     @map("elevenlabs")
+  DEEPGRAM       @map("deepgram")
+  FAL            @map("fal")
   MOCK           @map("mock")
 }
 
@@ -330,6 +333,10 @@ model Model {
   cacheReadPrice   Decimal?  @map("cache_read_price") @db.Decimal(18, 8)
   cacheWritePrice  Decimal?  @map("cache_write_price") @db.Decimal(18, 8)
   reasoningPrice   Decimal?  @map("reasoning_price") @db.Decimal(18, 8)
+  /// Media prices (card 21.1): per image, per million characters of speech, per second of audio.
+  imagePrice       Decimal?  @map("image_price") @db.Decimal(18, 8)
+  charPrice        Decimal?  @map("char_price") @db.Decimal(18, 8)
+  secondPrice      Decimal?  @map("second_price") @db.Decimal(18, 8)
   /// { streaming, tools, vision, reasoning, jsonMode }
   capabilities     Json      @default("{}")
   /// Catalog entry key (packages/model-catalog), if it came from the catalog.
@@ -521,6 +528,8 @@ model RequestLog {
   hedgeAttempts    Int      @default(0) @map("hedge_attempts")
   /// How an `auto*` alias was resolved (card 20.4): target, task type, source and reasons.
   routing          Json?
+  /// Images, characters or audio seconds of a media request (card 21.1).
+  media            Json?
 
   @@id([id, createdAt])
   @@index([projectId, createdAt])

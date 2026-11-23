@@ -27,6 +27,10 @@ const Pricing = z.object({
   cacheReadPerMTok: Usd.optional(),
   cacheWritePerMTok: Usd.optional(),
   reasoningPerMTok: Usd.optional(),
+  /** Media prices (card 21.1). */
+  perImageUsd: Usd.optional(),
+  perMCharUsd: Usd.optional(),
+  perSecondUsd: Usd.optional(),
 });
 const Capabilities = z.object({
   streaming: z.boolean().optional(),
@@ -34,6 +38,10 @@ const Capabilities = z.object({
   vision: z.boolean().optional(),
   reasoning: z.boolean().optional(),
   jsonMode: z.boolean().optional(),
+  embeddings: z.boolean().optional(),
+  images: z.boolean().optional(),
+  speech: z.boolean().optional(),
+  transcription: z.boolean().optional(),
 });
 const Multiplier = z.string().regex(/^\d{1,6}(\.\d{1,8})?$/, 'a non-negative decimal');
 /** Sale price (card 19.4); only meaningful on the platform organization's public models. */

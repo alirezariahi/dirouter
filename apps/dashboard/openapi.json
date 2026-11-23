@@ -2068,6 +2068,9 @@
                           "mistral",
                           "voyage",
                           "jina",
+                          "elevenlabs",
+                          "deepgram",
+                          "fal",
                           "mock"
                         ]
                       },
@@ -2250,7 +2253,10 @@
                       "cohere",
                       "mistral",
                       "voyage",
-                      "jina"
+                      "jina",
+                      "elevenlabs",
+                      "deepgram",
+                      "fal"
                     ]
                   },
                   "baseUrl": {
@@ -2389,6 +2395,9 @@
                         "mistral",
                         "voyage",
                         "jina",
+                        "elevenlabs",
+                        "deepgram",
+                        "fal",
                         "mock"
                       ]
                     },
@@ -2582,6 +2591,9 @@
                         "mistral",
                         "voyage",
                         "jina",
+                        "elevenlabs",
+                        "deepgram",
+                        "fal",
                         "mock"
                       ]
                     },
@@ -2849,6 +2861,9 @@
                         "mistral",
                         "voyage",
                         "jina",
+                        "elevenlabs",
+                        "deepgram",
+                        "fal",
                         "mock"
                       ]
                     },
@@ -3120,6 +3135,9 @@
                         "mistral",
                         "voyage",
                         "jina",
+                        "elevenlabs",
+                        "deepgram",
+                        "fal",
                         "mock"
                       ]
                     },
@@ -3368,6 +3386,9 @@
                         "mistral",
                         "voyage",
                         "jina",
+                        "elevenlabs",
+                        "deepgram",
+                        "fal",
                         "mock"
                       ]
                     },
@@ -5452,6 +5473,18 @@
                           "reasoningPerMTok": {
                             "type": "string",
                             "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
+                          },
+                          "perImageUsd": {
+                            "type": "string",
+                            "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
+                          },
+                          "perMCharUsd": {
+                            "type": "string",
+                            "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
+                          },
+                          "perSecondUsd": {
+                            "type": "string",
+                            "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
                           }
                         },
                         "required": [
@@ -5593,6 +5626,18 @@
                       "reasoningPerMTok": {
                         "type": "string",
                         "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
+                      },
+                      "perImageUsd": {
+                        "type": "string",
+                        "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
+                      },
+                      "perMCharUsd": {
+                        "type": "string",
+                        "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
+                      },
+                      "perSecondUsd": {
+                        "type": "string",
+                        "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
                       }
                     }
                   },
@@ -5612,6 +5657,18 @@
                         "type": "boolean"
                       },
                       "jsonMode": {
+                        "type": "boolean"
+                      },
+                      "embeddings": {
+                        "type": "boolean"
+                      },
+                      "images": {
+                        "type": "boolean"
+                      },
+                      "speech": {
+                        "type": "boolean"
+                      },
+                      "transcription": {
                         "type": "boolean"
                       }
                     }
@@ -5710,6 +5767,18 @@
                           "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
                         },
                         "reasoningPerMTok": {
+                          "type": "string",
+                          "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
+                        },
+                        "perImageUsd": {
+                          "type": "string",
+                          "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
+                        },
+                        "perMCharUsd": {
+                          "type": "string",
+                          "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
+                        },
+                        "perSecondUsd": {
                           "type": "string",
                           "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
                         }
@@ -5909,6 +5978,18 @@
                         "reasoningPerMTok": {
                           "type": "string",
                           "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
+                        },
+                        "perImageUsd": {
+                          "type": "string",
+                          "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
+                        },
+                        "perMCharUsd": {
+                          "type": "string",
+                          "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
+                        },
+                        "perSecondUsd": {
+                          "type": "string",
+                          "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
                         }
                       },
                       "required": [
@@ -6049,6 +6130,18 @@
                       "reasoningPerMTok": {
                         "type": "string",
                         "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
+                      },
+                      "perImageUsd": {
+                        "type": "string",
+                        "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
+                      },
+                      "perMCharUsd": {
+                        "type": "string",
+                        "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
+                      },
+                      "perSecondUsd": {
+                        "type": "string",
+                        "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
                       }
                     }
                   },
@@ -6068,6 +6161,18 @@
                         "type": "boolean"
                       },
                       "jsonMode": {
+                        "type": "boolean"
+                      },
+                      "embeddings": {
+                        "type": "boolean"
+                      },
+                      "images": {
+                        "type": "boolean"
+                      },
+                      "speech": {
+                        "type": "boolean"
+                      },
+                      "transcription": {
                         "type": "boolean"
                       }
                     }
@@ -6162,6 +6267,18 @@
                           "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
                         },
                         "reasoningPerMTok": {
+                          "type": "string",
+                          "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
+                        },
+                        "perImageUsd": {
+                          "type": "string",
+                          "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
+                        },
+                        "perMCharUsd": {
+                          "type": "string",
+                          "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
+                        },
+                        "perSecondUsd": {
                           "type": "string",
                           "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
                         }

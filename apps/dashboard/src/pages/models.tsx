@@ -17,7 +17,15 @@ import { currentOrg, useSession } from '../lib/session';
  */
 
 type Strategy = 'priority' | 'weighted' | 'round-robin';
-type Capability = 'streaming' | 'tools' | 'vision' | 'reasoning' | 'jsonMode';
+type Capability =
+  | 'streaming'
+  | 'tools'
+  | 'vision'
+  | 'reasoning'
+  | 'jsonMode'
+  | 'images'
+  | 'speech'
+  | 'transcription';
 type TimeoutKey = 'connectMs' | 'firstByteMs' | 'idleMs' | 'totalMs';
 
 interface Pricing {
@@ -26,6 +34,9 @@ interface Pricing {
   cacheReadPerMTok?: string;
   cacheWritePerMTok?: string;
   reasoningPerMTok?: string;
+  perImageUsd?: string;
+  perMCharUsd?: string;
+  perSecondUsd?: string;
 }
 interface Model {
   id: string;
@@ -110,6 +121,9 @@ interface ModelDraft {
   cacheReadPerMTok: string;
   cacheWritePerMTok: string;
   reasoningPerMTok: string;
+  perImageUsd: string;
+  perMCharUsd: string;
+  perSecondUsd: string;
   capabilities: Record<Capability, boolean>;
   catalogKey: string;
 }
@@ -133,7 +147,16 @@ export const FALLBACK_CLASSES = [
   'content_filter',
   'not_found',
 ] as const;
-const CAPABILITIES: Capability[] = ['streaming', 'tools', 'vision', 'reasoning', 'jsonMode'];
+const CAPABILITIES: Capability[] = [
+  'streaming',
+  'tools',
+  'vision',
+  'reasoning',
+  'jsonMode',
+  'images',
+  'speech',
+  'transcription',
+];
 const TIMEOUT_KEYS: TimeoutKey[] = ['connectMs', 'firstByteMs', 'idleMs', 'totalMs'];
 
 const integer = (value: string) => /^[1-9]\d*$/.test(value) && Number.isSafeInteger(Number(value));
@@ -178,6 +201,9 @@ function modelDraft(model: Model | undefined, providers: Provider[]): ModelDraft
     cacheReadPerMTok: model?.pricing.cacheReadPerMTok ?? '',
     cacheWritePerMTok: model?.pricing.cacheWritePerMTok ?? '',
     reasoningPerMTok: model?.pricing.reasoningPerMTok ?? '',
+    perImageUsd: model?.pricing.perImageUsd ?? '',
+    perMCharUsd: model?.pricing.perMCharUsd ?? '',
+    perSecondUsd: model?.pricing.perSecondUsd ?? '',
     capabilities: Object.fromEntries(
       CAPABILITIES.map((key) => [key, caps[key] === true]),
     ) as Record<Capability, boolean>,
@@ -798,6 +824,9 @@ function ModelEditor({
     'cacheReadPerMTok',
     'cacheWritePerMTok',
     'reasoningPerMTok',
+    'perImageUsd',
+    'perMCharUsd',
+    'perSecondUsd',
   ] as const;
 
   function chooseCatalog(key: string) {

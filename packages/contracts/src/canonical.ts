@@ -110,8 +110,21 @@ export const InboundApi = z.enum([
   'openai.responses',
   'gemini.generate',
   'openai.embeddings',
+  'openai.images',
+  'openai.speech',
+  'openai.transcriptions',
 ]);
 export type InboundApi = z.infer<typeof InboundApi>;
+
+/** What a non-text request consumed (card 21.1), priced by the model's per-unit prices. */
+export const MediaUsage = z.object({
+  images: z.int().nonnegative().optional(),
+  /** Input characters of a speech request. */
+  characters: z.int().nonnegative().optional(),
+  /** Seconds of audio transcribed (fractional). */
+  seconds: z.number().nonnegative().optional(),
+});
+export type MediaUsage = z.infer<typeof MediaUsage>;
 
 export const CanonicalRequest = z.object({
   inboundApi: InboundApi,

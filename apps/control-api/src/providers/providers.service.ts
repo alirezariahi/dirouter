@@ -25,6 +25,9 @@ export const PROVIDER_TYPES = [
   'mistral',
   'voyage',
   'jina',
+  'elevenlabs',
+  'deepgram',
+  'fal',
 ] as const;
 export type ProviderTypeName = (typeof PROVIDER_TYPES)[number];
 
@@ -40,6 +43,9 @@ const TO_DB = {
   mistral: 'MISTRAL',
   voyage: 'VOYAGE',
   jina: 'JINA',
+  elevenlabs: 'ELEVENLABS',
+  deepgram: 'DEEPGRAM',
+  fal: 'FAL',
   mock: 'MOCK',
 } as const;
 const FROM_DB = Object.fromEntries(Object.entries(TO_DB).map(([k, v]) => [v, k])) as Record<
@@ -56,6 +62,9 @@ const DEFAULT_BASE: Partial<Record<ProviderTypeName, string>> = {
   mistral: 'https://api.mistral.ai/v1',
   voyage: 'https://api.voyageai.com/v1',
   jina: 'https://api.jina.ai/v1',
+  elevenlabs: 'https://api.elevenlabs.io/v1',
+  deepgram: 'https://api.deepgram.com/v1',
+  fal: 'https://fal.run',
 };
 
 export interface TimeoutsInput {

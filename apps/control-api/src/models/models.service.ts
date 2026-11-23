@@ -121,6 +121,9 @@ export class ModelsService {
         ...(m.cacheReadPrice ? { cacheReadPerMTok: dec(m.cacheReadPrice) } : {}),
         ...(m.cacheWritePrice ? { cacheWritePerMTok: dec(m.cacheWritePrice) } : {}),
         ...(m.reasoningPrice ? { reasoningPerMTok: dec(m.reasoningPrice) } : {}),
+        ...(m.imagePrice ? { perImageUsd: dec(m.imagePrice) } : {}),
+        ...(m.charPrice ? { perMCharUsd: dec(m.charPrice) } : {}),
+        ...(m.secondPrice ? { perSecondUsd: dec(m.secondPrice) } : {}),
       },
       capabilities: m.capabilities,
       catalogKey: m.catalogKey,
@@ -216,6 +219,9 @@ export class ModelsService {
         cacheReadPrice: pricing.cacheReadPerMTok ?? null,
         cacheWritePrice: pricing.cacheWritePerMTok ?? null,
         reasoningPrice: pricing.reasoningPerMTok ?? null,
+        imagePrice: pricing.perImageUsd ?? null,
+        charPrice: pricing.perMCharUsd ?? null,
+        secondPrice: pricing.perSecondUsd ?? null,
         capabilities: { ...entry?.capabilities, ...input.capabilities },
         catalogKey: input.catalogKey ?? null,
         isPublic: input.isPublic ?? false,
@@ -248,6 +254,9 @@ export class ModelsService {
         ...(p.cacheReadPerMTok ? { cacheReadPrice: p.cacheReadPerMTok } : {}),
         ...(p.cacheWritePerMTok ? { cacheWritePrice: p.cacheWritePerMTok } : {}),
         ...(p.reasoningPerMTok ? { reasoningPrice: p.reasoningPerMTok } : {}),
+        ...(p.perImageUsd ? { imagePrice: p.perImageUsd } : {}),
+        ...(p.perMCharUsd ? { charPrice: p.perMCharUsd } : {}),
+        ...(p.perSecondUsd ? { secondPrice: p.perSecondUsd } : {}),
         ...(input.capabilities
           ? {
               capabilities: {
@@ -577,5 +586,8 @@ function normalizePricing(p: ModelPricing) {
     ...(p.cacheReadPerMTok ? { cacheReadPerMTok: n(p.cacheReadPerMTok) } : {}),
     ...(p.cacheWritePerMTok ? { cacheWritePerMTok: n(p.cacheWritePerMTok) } : {}),
     ...(p.reasoningPerMTok ? { reasoningPerMTok: n(p.reasoningPerMTok) } : {}),
+    ...(p.perImageUsd ? { perImageUsd: n(p.perImageUsd) } : {}),
+    ...(p.perMCharUsd ? { perMCharUsd: n(p.perMCharUsd) } : {}),
+    ...(p.perSecondUsd ? { perSecondUsd: n(p.perSecondUsd) } : {}),
   };
 }

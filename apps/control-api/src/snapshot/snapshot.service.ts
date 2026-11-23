@@ -42,6 +42,9 @@ const TYPE: Record<string, string> = {
   MISTRAL: 'mistral',
   VOYAGE: 'voyage',
   JINA: 'jina',
+  ELEVENLABS: 'elevenlabs',
+  DEEPGRAM: 'deepgram',
+  FAL: 'fal',
   MOCK: 'mock',
 };
 const STRATEGY: Record<
@@ -264,6 +267,9 @@ export class SnapshotService implements OnModuleInit, OnModuleDestroy {
           ...(m.cacheReadPrice ? { cacheReadPerMTok: usd(m.cacheReadPrice) } : {}),
           ...(m.cacheWritePrice ? { cacheWritePerMTok: usd(m.cacheWritePrice) } : {}),
           ...(m.reasoningPrice ? { reasoningPerMTok: usd(m.reasoningPrice) } : {}),
+          ...(m.imagePrice ? { perImageUsd: usd(m.imagePrice) } : {}),
+          ...(m.charPrice ? { perMCharUsd: usd(m.charPrice) } : {}),
+          ...(m.secondPrice ? { perSecondUsd: usd(m.secondPrice) } : {}),
         },
         capabilities: m.capabilities as Record<string, boolean>,
         ...(m.isPublic && m.organizationId === platformId ? { public: true } : {}),

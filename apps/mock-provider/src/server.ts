@@ -14,6 +14,7 @@ import {
 } from './scenario.js';
 import { registerA2a } from './a2a.js';
 import { registerMcp } from './mcp.js';
+import { registerMedia } from './media.js';
 import { type PaymentMockOptions, registerPayments } from './payments.js';
 
 type Api = 'openai' | 'anthropic' | 'gemini';
@@ -593,6 +594,7 @@ export function buildServer(options: MockServerOptions = {}) {
   registerPayments(app, options.payments);
   registerMcp(app);
   registerA2a(app);
+  registerMedia(app);
 
   app.get('/healthz', () => ({ status: 'ok' }));
   app.get('/__mock/stats', () => stats);

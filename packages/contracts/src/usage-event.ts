@@ -4,7 +4,7 @@
  */
 import { z } from 'zod';
 
-import { CanonicalUsage, InboundApi } from './canonical.js';
+import { CanonicalUsage, InboundApi, MediaUsage } from './canonical.js';
 import { IsoDateTime, NonNegativeInt, Ulid, UsdAmount } from './common.js';
 
 export const USAGE_EVENT_SCHEMA_VERSION = 1 as const;
@@ -90,6 +90,8 @@ export const UsageEvent = z.object({
       classifierMicros: NonNegativeInt.optional(),
     })
     .optional(),
+  /** Images, characters or audio seconds of a media request (card 21.1). */
+  media: MediaUsage.optional(),
   /** Additional upstream attempts started by request hedging (card 12.2). */
   hedgeAttempts: NonNegativeInt.optional(),
 

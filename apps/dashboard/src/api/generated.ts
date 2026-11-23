@@ -536,6 +536,9 @@ export const ProvidersControllerList200ItemType = {
   mistral: 'mistral',
   voyage: 'voyage',
   jina: 'jina',
+  elevenlabs: 'elevenlabs',
+  deepgram: 'deepgram',
+  fal: 'fal',
   mock: 'mock',
 } as const;
 
@@ -631,6 +634,9 @@ export const ProvidersControllerCreateBodyType = {
   mistral: 'mistral',
   voyage: 'voyage',
   jina: 'jina',
+  elevenlabs: 'elevenlabs',
+  deepgram: 'deepgram',
+  fal: 'fal',
 } as const;
 
 /**
@@ -734,6 +740,9 @@ export const ProvidersControllerCreate200Type = {
   mistral: 'mistral',
   voyage: 'voyage',
   jina: 'jina',
+  elevenlabs: 'elevenlabs',
+  deepgram: 'deepgram',
+  fal: 'fal',
   mock: 'mock',
 } as const;
 
@@ -829,6 +838,9 @@ export const ProvidersControllerGet200Type = {
   mistral: 'mistral',
   voyage: 'voyage',
   jina: 'jina',
+  elevenlabs: 'elevenlabs',
+  deepgram: 'deepgram',
+  fal: 'fal',
   mock: 'mock',
 } as const;
 
@@ -980,6 +992,9 @@ export const ProvidersControllerUpdate200Type = {
   mistral: 'mistral',
   voyage: 'voyage',
   jina: 'jina',
+  elevenlabs: 'elevenlabs',
+  deepgram: 'deepgram',
+  fal: 'fal',
   mock: 'mock',
 } as const;
 
@@ -1102,6 +1117,9 @@ export const ProvidersControllerAddCredential200Type = {
   mistral: 'mistral',
   voyage: 'voyage',
   jina: 'jina',
+  elevenlabs: 'elevenlabs',
+  deepgram: 'deepgram',
+  fal: 'fal',
   mock: 'mock',
 } as const;
 
@@ -1233,6 +1251,9 @@ export const ProvidersControllerUpdateCredential200Type = {
   mistral: 'mistral',
   voyage: 'voyage',
   jina: 'jina',
+  elevenlabs: 'elevenlabs',
+  deepgram: 'deepgram',
+  fal: 'fal',
   mock: 'mock',
 } as const;
 
@@ -2174,6 +2195,12 @@ export type ModelsControllerList200ItemPricing = {
   cacheWritePerMTok?: string;
   /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
   reasoningPerMTok?: string;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  perImageUsd?: string;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  perMCharUsd?: string;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  perSecondUsd?: string;
 };
 
 export type ModelsControllerList200ItemSale = {
@@ -2222,6 +2249,12 @@ export type ModelsControllerCreateBodyPricing = {
   cacheWritePerMTok?: string;
   /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
   reasoningPerMTok?: string;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  perImageUsd?: string;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  perMCharUsd?: string;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  perSecondUsd?: string;
 };
 
 export type ModelsControllerCreateBodyCapabilities = {
@@ -2230,6 +2263,10 @@ export type ModelsControllerCreateBodyCapabilities = {
   vision?: boolean;
   reasoning?: boolean;
   jsonMode?: boolean;
+  embeddings?: boolean;
+  images?: boolean;
+  speech?: boolean;
+  transcription?: boolean;
 };
 
 export type ModelsControllerCreateBodySale = {
@@ -2293,6 +2330,12 @@ export type ModelsControllerCreate200Pricing = {
   cacheWritePerMTok?: string;
   /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
   reasoningPerMTok?: string;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  perImageUsd?: string;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  perMCharUsd?: string;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  perSecondUsd?: string;
 };
 
 export type ModelsControllerCreate200Sale = {
@@ -2350,6 +2393,12 @@ export type ModelsControllerGet200Pricing = {
   cacheWritePerMTok?: string;
   /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
   reasoningPerMTok?: string;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  perImageUsd?: string;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  perMCharUsd?: string;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  perSecondUsd?: string;
 };
 
 export type ModelsControllerGet200Sale = {
@@ -2398,6 +2447,12 @@ export type ModelsControllerUpdateBodyPricing = {
   cacheWritePerMTok?: string;
   /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
   reasoningPerMTok?: string;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  perImageUsd?: string;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  perMCharUsd?: string;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  perSecondUsd?: string;
 };
 
 export type ModelsControllerUpdateBodyCapabilities = {
@@ -2406,6 +2461,10 @@ export type ModelsControllerUpdateBodyCapabilities = {
   vision?: boolean;
   reasoning?: boolean;
   jsonMode?: boolean;
+  embeddings?: boolean;
+  images?: boolean;
+  speech?: boolean;
+  transcription?: boolean;
 };
 
 export type ModelsControllerUpdateBodySale = {
@@ -2463,6 +2522,12 @@ export type ModelsControllerUpdate200Pricing = {
   cacheWritePerMTok?: string;
   /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
   reasoningPerMTok?: string;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  perImageUsd?: string;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  perMCharUsd?: string;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  perSecondUsd?: string;
 };
 
 export type ModelsControllerUpdate200Sale = {

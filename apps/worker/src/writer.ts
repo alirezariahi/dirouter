@@ -66,6 +66,7 @@ export function toRequestLogRow(e: UsageEvent) {
     savedInputTokens: e.savedInputTokens ?? 0,
     hedgeAttempts: e.hedgeAttempts ?? 0,
     ...(e.routing ? { routing: e.routing } : {}),
+    ...(e.media ? { media: e.media } : {}),
   };
 }
 

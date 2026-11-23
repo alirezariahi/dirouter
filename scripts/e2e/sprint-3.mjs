@@ -1125,6 +1125,164 @@ try {
       console.log(`     requests by model: ${used.replaceAll('\n', ', ')}`);
     },
   );
+
+  // ───────────── Epic 21: media ─────────────
+  await scenario(
+    '21.1 images, speech and transcription: every service is priced and logged correctly',
+    async () => {
+      const tag = randomUUID().slice(0, 6);
+      const provider = async (type, baseUrl) => {
+        const created = (
+          await operator(
+            'POST',
+            'providers',
+            {
+              name: `e2e-${type}-${tag}`,
+              type,
+              baseUrl,
+              credentials: [{ name: 'k', secret: 'mock-secret' }],
+            },
+            201,
+          )
+        ).body;
+        cleanups.push(() => operator('DELETE', `providers/${created.id}`, undefined, null));
+        return created.id;
+      };
+      const model = async (providerId, upstreamModel, slug, pricing, capabilities) => {
+        const created = (
+          await operator(
+            'POST',
+            'models',
+            {
+              providerId,
+              upstreamModel,
+              slug: `e2e-${tag}/${slug}`,
+              pricing: { inputPerMTok: '0', outputPerMTok: '0', ...pricing },
+              capabilities,
+            },
+            201,
+          )
+        ).body;
+        cleanups.push(() => operator('DELETE', `models/${created.id}`, undefined, null));
+        return created.slug;
+      };
+      const openai = await provider('openai', 'http://mock-provider:8090/v1');
+      const deepgram = await provider('deepgram', 'http://mock-provider:8090/v1');
+      const fal = await provider('fal', 'http://mock-provider:8090');
+      const image = await model(
+        openai,
+        'gpt-image-1',
+        'image',
+        { inputPerMTok: '5', outputPerMTok: '40', perImageUsd: '0.01' },
+        { images: true },
+      );
+      const flux = await model(
+        fal,
+        'fal-ai/flux/dev',
+        'flux',
+        { perImageUsd: '0.025' },
+        { images: true },
+      );
+      const tts = await model(openai, 'tts-1', 'tts', { perMCharUsd: '15' }, { speech: true });
+      const stt = await model(
+        deepgram,
+        'nova-3',
+        'stt',
+        { perSecondUsd: '0.0001' },
+        { transcription: true },
+      );
+      const key = (
+        await published(() =>
+          operator('POST', 'keys', { name: `s3-media-${tag}`, projectId: 'prj_dev' }, 201),
+        )
+      ).body;
+      cleanups.push(() => operator('POST', `keys/${key.id}/revoke`, undefined, null));
+      const call = (path, body, headers = { 'content-type': 'application/json' }) =>
+        fetch(`${urls.gateway}${path}`, {
+          method: 'POST',
+          headers: { authorization: `Bearer ${key.key}`, ...headers },
+          body: body instanceof Uint8Array ? body : JSON.stringify(body),
+        });
+      const logged = (res) => {
+        const id = res.headers.get('x-request-id');
+        return waitFor(`request ${String(id)} in request_log`, async () => {
+          const row = await sql(
+            `SELECT inbound_api, cost_usd, charge_usd, media::text FROM request_log WHERE id = '${String(id)}'`,
+          );
+          if (!row) return undefined;
+          const [api, cost, charge, media] = row.split('|');
+          return { api, cost, charge, media: JSON.parse(media ?? 'null') };
+        });
+      };
+      const usd = (value) => value.toFixed(8);
+
+      const images = await call('/v1/images/generations', {
+        model: image,
+        prompt: 'a red fox',
+        n: 2,
+        response_format: 'b64_json',
+      });
+      assert.equal(images.status, 200, await images.clone().text());
+      assert.equal((await images.json()).data.length, 2);
+      // 3 input tokens × $5/M + 544 output tokens × $40/M + 2 images × $0.01
+      assert.deepEqual(await logged(images), {
+        api: 'openai.images',
+        cost: '0.04177500',
+        charge: '0.04177500',
+        media: { images: 2 },
+      });
+
+      const fluxRes = await call('/v1/images/generations', { model: flux, prompt: 'a fox', n: 3 });
+      assert.equal(fluxRes.status, 200);
+      assert.equal((await logged(fluxRes)).cost, '0.07500000');
+
+      const input = 'Hello from DiRouter, speaking through the gateway.';
+      const speech = await call('/v1/audio/speech', {
+        model: tts,
+        input,
+        voice: 'alloy',
+        response_format: 'wav',
+      });
+      assert.equal(speech.status, 200);
+      const audio = new Uint8Array(await speech.arrayBuffer());
+      assert.equal(new TextDecoder().decode(audio.slice(0, 4)), 'RIFF');
+      const speechCost = usd((input.length * 15) / 1_000_000);
+      assert.deepEqual(await logged(speech), {
+        api: 'openai.speech',
+        cost: speechCost,
+        charge: speechCost,
+        media: { characters: input.length },
+      });
+
+      // The speech just produced, transcribed: its length decides the price.
+      const seconds = new DataView(audio.buffer).getUint32(40, true) / 32_000;
+      const boundary = `e2e-${tag}`;
+      const part = (name, value) =>
+        `--${boundary}\r\nContent-Disposition: form-data; name="${name}"\r\n\r\n${value}\r\n`;
+      const form = Buffer.concat([
+        Buffer.from(
+          `${part('model', stt)}${part('response_format', 'srt')}--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="speech.wav"\r\nContent-Type: audio/wav\r\n\r\n`,
+        ),
+        Buffer.from(audio),
+        Buffer.from(`\r\n--${boundary}--\r\n`),
+      ]);
+      const transcript = await call('/v1/audio/transcriptions', form, {
+        'content-type': `multipart/form-data; boundary=${boundary}`,
+      });
+      assert.equal(transcript.status, 200, await transcript.clone().text());
+      assert.match(
+        await transcript.text(),
+        /^1\n00:00:00,000 --> .*\nHello from the DiRouter mock transcriber\.\n$/,
+      );
+      const row = await logged(transcript);
+      assert.equal(row.api, 'openai.transcriptions');
+      assert.ok(Math.abs(row.media.seconds - seconds) < 0.001, JSON.stringify(row.media));
+      assert.equal(row.cost, usd((Math.round(seconds * 1000) * 0.0001) / 1000));
+      console.log(
+        `     images $0.041775 and $0.075, speech ${String(input.length)} chars $${speechCost}, transcription ${seconds.toFixed(2)} s $${row.cost}`,
+      );
+    },
+  );
 } catch (error) {
   crashed = true;
   console.error(error);

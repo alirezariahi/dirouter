@@ -101,6 +101,14 @@ describe('usage batch writer', () => {
     expect(hourOf('2026-11-07T10:59:59.999Z')).toBe('2026-11-07T10:00:00.000Z');
   });
 
+  it('keeps the media units of image and audio requests (card 21.1)', () => {
+    const row = toRequestLogRow(
+      event(2, { inboundApi: 'openai.transcriptions', media: { seconds: 2.5 } }),
+    );
+    expect(row).toMatchObject({ inboundApi: 'openai.transcriptions', media: { seconds: 2.5 } });
+    expect(toRequestLogRow(event(3))).not.toHaveProperty('media');
+  });
+
   it('writes concurrent events in one transaction and reports the touched hours', async () => {
     const f = fakeDb();
     const marked: string[] = [];

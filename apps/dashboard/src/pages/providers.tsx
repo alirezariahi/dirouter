@@ -17,7 +17,15 @@ import { text } from '../lib/form';
 import { currentOrg, useSession } from '../lib/session';
 import { useSettings } from '../settings';
 
-type ProviderType = 'openai' | 'azure-openai' | 'openai-compatible' | 'anthropic' | 'gemini';
+type ProviderType =
+  | 'openai'
+  | 'azure-openai'
+  | 'openai-compatible'
+  | 'anthropic'
+  | 'gemini'
+  | 'elevenlabs'
+  | 'deepgram'
+  | 'fal';
 type CredentialStatus = 'ACTIVE' | 'DISABLED';
 
 interface Timeouts {
@@ -116,6 +124,9 @@ const PRESETS = [
   { id: 'anthropic', type: 'anthropic', baseUrl: 'https://api.anthropic.com' },
   { id: 'gemini', type: 'gemini', baseUrl: 'https://generativelanguage.googleapis.com' },
   { id: 'azure-openai', type: 'azure-openai', baseUrl: '' },
+  { id: 'elevenlabs', type: 'elevenlabs', baseUrl: 'https://api.elevenlabs.io/v1' },
+  { id: 'deepgram', type: 'deepgram', baseUrl: 'https://api.deepgram.com/v1' },
+  { id: 'fal', type: 'fal', baseUrl: 'https://fal.run' },
   { id: 'custom', type: 'openai-compatible', baseUrl: '' },
   { id: 'openrouter', type: 'openai-compatible', baseUrl: 'https://openrouter.ai/api/v1' },
   { id: 'deepseek', type: 'openai-compatible', baseUrl: 'https://api.deepseek.com/v1' },

@@ -4,9 +4,11 @@
  * - Regular input = inputTokens − cacheRead − cacheWrite, priced at the input rate
  * - cache read/write at their own rates (if absent, the input rate)
  * - Regular output = outputTokens − reasoning, priced at the output rate; reasoning at its own rate or the output rate
+ * - Media (card 21.1): images × per-image price, characters at the per-million-characters price and
+ *   audio seconds (to the millisecond) at the per-second price, added to any token cost
  */
-import type { CanonicalUsage, ModelPricing } from '@dirouter/contracts';
-import { costForTokens, formatUsd, type UsdUnits } from '@dirouter/shared';
+import type { CanonicalUsage, MediaUsage, ModelPricing } from '@dirouter/contracts';
+import { costForTokens, formatUsd, parseUsd, type UsdUnits } from '@dirouter/shared';
 
 export interface CostBreakdown {
   input: UsdUnits;
@@ -14,10 +16,29 @@ export interface CostBreakdown {
   cacheWrite: UsdUnits;
   output: UsdUnits;
   reasoning: UsdUnits;
+  media: UsdUnits;
   total: UsdUnits;
 }
 
-export function computeCost(usage: CanonicalUsage, pricing: ModelPricing): CostBreakdown {
+export function mediaCost(media: MediaUsage | undefined, pricing: ModelPricing): UsdUnits {
+  if (!media) return 0n;
+  let total = 0n;
+  if (media.images && pricing.perImageUsd)
+    total += BigInt(media.images) * parseUsd(pricing.perImageUsd);
+  if (media.characters && pricing.perMCharUsd)
+    total += costForTokens(media.characters, pricing.perMCharUsd);
+  if (media.seconds && pricing.perSecondUsd) {
+    const ms = BigInt(Math.round(media.seconds * 1_000));
+    total += (ms * parseUsd(pricing.perSecondUsd) + 500n) / 1_000n;
+  }
+  return total;
+}
+
+export function computeCost(
+  usage: CanonicalUsage,
+  pricing: ModelPricing,
+  media?: MediaUsage,
+): CostBreakdown {
   const plainInput = Math.max(
     0,
     usage.inputTokens - usage.cacheReadTokens - usage.cacheWriteTokens,
@@ -37,16 +58,22 @@ export function computeCost(usage: CanonicalUsage, pricing: ModelPricing): CostB
     usage.reasoningTokens,
     pricing.reasoningPerMTok ?? pricing.outputPerMTok,
   );
+  const mediaUnits = mediaCost(media, pricing);
   return {
     input,
     cacheRead,
     cacheWrite,
     output,
     reasoning,
-    total: input + cacheRead + cacheWrite + output + reasoning,
+    media: mediaUnits,
+    total: input + cacheRead + cacheWrite + output + reasoning + mediaUnits,
   };
 }
 
-export function computeCostUsd(usage: CanonicalUsage, pricing: ModelPricing): string {
-  return formatUsd(computeCost(usage, pricing).total);
+export function computeCostUsd(
+  usage: CanonicalUsage,
+  pricing: ModelPricing,
+  media?: MediaUsage,
+): string {
+  return formatUsd(computeCost(usage, pricing, media).total);
 }

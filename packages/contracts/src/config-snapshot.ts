@@ -30,6 +30,9 @@ export const ProviderType = z.enum([
   'mistral',
   'voyage',
   'jina',
+  'elevenlabs',
+  'deepgram',
+  'fal',
   'mock',
 ]);
 export type ProviderType = z.infer<typeof ProviderType>;
@@ -117,6 +120,12 @@ export const ModelPricing = z.object({
   cacheWritePerMTok: UsdAmount.optional(),
   /** If absent, reasoning tokens are priced at the output rate. */
   reasoningPerMTok: UsdAmount.optional(),
+  /** Images (card 21.1): price per generated image, added to any token price. */
+  perImageUsd: UsdAmount.optional(),
+  /** Text to speech: price per million input characters. */
+  perMCharUsd: UsdAmount.optional(),
+  /** Speech to text: price per second of input audio. */
+  perSecondUsd: UsdAmount.optional(),
 });
 export type ModelPricing = z.infer<typeof ModelPricing>;
 
@@ -128,6 +137,10 @@ export const ModelCapabilities = z.object({
   jsonMode: z.boolean().default(false),
   /** Model can serve `/v1/embeddings` (card 11.4). */
   embeddings: z.boolean().default(false),
+  /** `/v1/images/generations`, `/v1/audio/speech` and `/v1/audio/transcriptions` (card 21.1). */
+  images: z.boolean().optional(),
+  speech: z.boolean().optional(),
+  transcription: z.boolean().optional(),
 });
 export type ModelCapabilities = z.infer<typeof ModelCapabilities>;
 

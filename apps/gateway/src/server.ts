@@ -39,6 +39,7 @@ import { A2aAgent } from './a2a/agent.js';
 import { RateLimiter } from './rate-limiter.js';
 import { ExactCache, SemanticCacheClient } from './cache.js';
 import { handleEmbeddings, handleGeminiEmbeddings } from './embeddings.js';
+import { registerMediaRoutes } from './media.js';
 import { Tracer } from './tracing.js';
 import { geminiRequestToCanonical } from '@dirouter/translator';
 import { estimateRequestTokens } from '@dirouter/model-catalog';
@@ -251,6 +252,7 @@ export function buildGateway(opts: GatewayOptions) {
   // Sprint 2 inbound APIs (cards 11.1, 11.2 and 11.4).
   app.post('/v1/responses', (req, reply) => handleProxy('openai.responses', req, reply, deps));
   app.post('/v1/embeddings', (req, reply) => handleEmbeddings(req, reply, deps));
+  registerMediaRoutes(app, deps);
   app.post('/v1beta/models/:modelAction', (req, reply) => {
     const param = (req.params as { modelAction?: string }).modelAction ?? '';
     const [rawModel = '', action = ''] = param.split(':');

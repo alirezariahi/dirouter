@@ -4,6 +4,7 @@ import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { createApp } from '../bootstrap.js';
+import { SnapshotService } from '../snapshot/snapshot.service.js';
 import { envSchema } from '../env.js';
 import { PrismaService } from '../infra/prisma.service.js';
 import { ValkeyService } from '../infra/valkey.service.js';
@@ -130,6 +131,55 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('models, aliases and combos over H
         })
       ).statusCode,
     ).toBe(404);
+  });
+
+  it('media providers and models: per-unit prices and capabilities reach the snapshot (card 21.1)', async () => {
+    const deepgram = await call('POST', 'providers', {
+      name: 'Deepgram',
+      type: 'deepgram',
+      credentials: [{ name: 'k', secret: 'dg-x' }],
+    });
+    expect(deepgram.statusCode).toBe(201);
+    expect(deepgram.json()).toMatchObject({
+      type: 'deepgram',
+      baseUrl: 'https://api.deepgram.com/v1',
+    });
+    const nova = await call('POST', 'models', {
+      providerId: deepgram.json<{ id: string }>().id,
+      upstreamModel: 'nova-3',
+      pricing: { inputPerMTok: '0', outputPerMTok: '0', perSecondUsd: '0.0000716' },
+      capabilities: { transcription: true },
+    });
+    expect(nova.statusCode).toBe(201);
+    expect(nova.json()).toMatchObject({
+      pricing: { perSecondUsd: '0.0000716' },
+      capabilities: { transcription: true },
+    });
+    const image = await call('POST', 'models', {
+      providerId: provider,
+      upstreamModel: 'gpt-image-1',
+      pricing: { inputPerMTok: '5', outputPerMTok: '40', perImageUsd: '0.01' },
+      capabilities: { images: true },
+    });
+    const patched = await call('PATCH', `models/${image.json<{ id: string }>().id}`, {
+      pricing: { perMCharUsd: '15' },
+    });
+    expect(patched.json()).toMatchObject({ pricing: { perImageUsd: '0.01', perMCharUsd: '15' } });
+
+    await app.get(SnapshotService).rebuild('test');
+    const snap = (await app.get(SnapshotService).latest())?.snapshot as {
+      providers: { type: string }[];
+      models: { upstreamModel: string; pricing: object; capabilities: object }[];
+    };
+    expect(snap.providers.map((p) => p.type)).toContain('deepgram');
+    expect(snap.models.find((x) => x.upstreamModel === 'nova-3')).toMatchObject({
+      pricing: { perSecondUsd: '0.0000716' },
+      capabilities: { transcription: true },
+    });
+    expect(snap.models.find((x) => x.upstreamModel === 'gpt-image-1')?.pricing).toMatchObject({
+      perImageUsd: '0.01',
+      perMCharUsd: '15',
+    });
   });
 
   it('a combo with three targets is created and validated', async () => {
