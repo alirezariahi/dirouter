@@ -119,6 +119,20 @@ No custom secret, dtask token, provider key, or production variable is needed fo
 If the GHCR package already exists, enable Actions access for this repository in its settings.
 To prevent merging without review, enable the required check named `CI passed` for main.
 
+## Supply chain (card 22.3)
+
+- **`supply-chain` job** (every run): Trivy, from its image pinned by digest, scans dependencies
+  and committed files for Critical vulnerabilities and secrets, and fails on any finding. It first
+  scans `scripts/ci/fixtures/trivy-canary` (lodash 4.17.4, a known Critical) and requires Trivy's
+  "vulnerabilities found" exit code, so a broken scanner cannot pass silently.
+- **`images` job**: each image is built and loaded, scanned (fails on fixable Critical
+  vulnerabilities), and gets an SPDX SBOM from Syft, kept as the `sbom-<app>` artifact for 90
+  days. On trusted pushes the image is published, signed keylessly with cosign (`id-token: write`),
+  the SBOM is attached as a signed attestation, and the signature is verified in the same step.
+- `ci` (required) also needs `supply-chain`.
+
+See [SECURITY.md](../SECURITY.md) for verifying a signature before deploying.
+
 ## Acceptance status
 
 Local check on 2026-11-07: all 40 quality/build tasks succeeded; 62 existing unit tests, 9 package-selection tests (including real Git and Turbo), and 2 real service tests passed. ESLint for the CI tooling, Prettier, `actionlint`, and `git diff --check` also passed.

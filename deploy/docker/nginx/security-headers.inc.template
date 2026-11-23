@@ -1,0 +1,8 @@
+# Security headers for every response (card 22.3). nginx drops inherited add_header lines in any
+# block that sets its own, so each location includes this file. Rendered by the image's envsubst
+# step to /etc/nginx/conf.d/security-headers.inc (not auto-included: it is not a .conf file).
+add_header X-Content-Type-Options "nosniff" always;
+add_header X-Frame-Options "DENY" always;
+add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
+add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self' ${DIROUTER_API_URL}; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'" always;

@@ -109,6 +109,7 @@ const gateway = buildGateway({
   pepper: env.KEY_PEPPER,
   dataDir: env.DATA_DIR,
   plugins: { dir: env.PLUGINS_DIR, enabled: env.PLUGINS_ENABLED },
+  blockPrivateUpstreams: env.NODE_ENV === 'production',
   ...(env.CONTROL_API_URL ? { controlApiUrl: env.CONTROL_API_URL } : {}),
   ...(env.INTERNAL_TOKEN ? { internalToken: env.INTERNAL_TOKEN } : {}),
   // Separate connection with offline queue disabled: during a Valkey outage commands fail immediately and the local limiter takes over.

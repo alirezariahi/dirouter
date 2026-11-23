@@ -17,6 +17,10 @@ concurrency:
 env:
   CI: 'true'
   TURBO_TELEMETRY_DISABLED: '1'
+  # Supply-chain tools (card 22.3) run from their official images, pinned by digest.
+  TRIVY_IMAGE: aquasec/trivy:0.76.2@sha256:8f6bb947dbc528902e11f2f5be52f7b519f6a39d5d148f41166f2040499768fb
+  SYFT_IMAGE: anchore/syft:v1.57.2@sha256:e97e20b6e6d1699c60296b66ab337941724f9bd06ac279d893eda89601fc4b2a
+  COSIGN_IMAGE: ghcr.io/sigstore/cosign/cosign:v3.1.4@sha256:0f06154836d2de34f887a5c273506d52ca43edaa1d9e53e6510fa78a48f69c2d
 
 jobs:
   plan:
@@ -117,6 +121,28 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+  supply-chain:
+    name: Supply chain (dependencies and secrets)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: The gate works (a known Critical vulnerability is reported)
+        # Exit code 3 means "vulnerabilities found"; anything else (a download error, say) fails.
+        run: |
+          status=0
+          docker run --rm -v trivy-cache:/root/.cache \
+            -v "$PWD/scripts/ci/fixtures/trivy-canary:/src:ro" "$TRIVY_IMAGE" \
+            fs --scanners vuln --severity CRITICAL --exit-code 3 /src || status=$?
+          test "$status" = 3
+      - name: Dependencies and secrets (fails on Critical)
+        run: |
+          docker run --rm -v trivy-cache:/root/.cache -v "$PWD:/src:ro" "$TRIVY_IMAGE" \
+            fs --scanners vuln,secret --severity CRITICAL --ignore-unfixed --exit-code 1 \
+            --skip-dirs /src/scripts/ci/fixtures --skip-dirs /src/node_modules /src
+
   images:
     name: Image (${{ matrix.app }})
     needs: [plan, checks, integration]
@@ -129,6 +155,8 @@ jobs:
     permissions:
       contents: read
       packages: write
+      # Keyless cosign signing with the workflow's OIDC identity (card 22.3).
+      id-token: write
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
@@ -163,7 +191,7 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Build image (publish only on trusted pushes)
+      - name: Build image
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
@@ -172,15 +200,65 @@ jobs:
             APP=${{ matrix.app }}
             ${{ matrix.port != '' && format('PORT={0}', matrix.port) || '' }}
           platforms: linux/amd64
-          push: ${{ github.event_name == 'push' }}
+          load: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=${{ matrix.app }}
           cache-to: type=gha,mode=max,scope=${{ matrix.app }}
+      - name: Scan the image (fails on Critical)
+        env:
+          IMAGE: ${{ steps.image.outputs.name }}:sha-${{ github.sha }}
+        run: |
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v trivy-cache:/root/.cache \
+            "$TRIVY_IMAGE" image --scanners vuln --severity CRITICAL --ignore-unfixed --exit-code 1 "$IMAGE"
+      - name: SBOM (SPDX)
+        env:
+          IMAGE: ${{ steps.image.outputs.name }}:sha-${{ github.sha }}
+        run: |
+          mkdir -p sbom
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$PWD/sbom:/out" \
+            "$SYFT_IMAGE" "docker:$IMAGE" -o "spdx-json=/out/${{ matrix.app }}.spdx.json"
+      - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: sbom-${{ matrix.app }}
+          path: sbom/${{ matrix.app }}.spdx.json
+          retention-days: 90
+      - name: Publish image (trusted pushes only)
+        id: push
+        if: github.event_name == 'push'
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          build-args: |
+            APP=${{ matrix.app }}
+            ${{ matrix.port != '' && format('PORT={0}', matrix.port) || '' }}
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.app }}
+      - name: Sign the image and attach the SBOM (keyless, Sigstore)
+        if: github.event_name == 'push'
+        env:
+          REF: ${{ steps.image.outputs.name }}@${{ steps.push.outputs.digest }}
+          IDENTITY: ^https://github.com/${{ github.repository }}/\.github/workflows/ci\.yml@
+        run: |
+          cosign() {
+            docker run --rm -e COSIGN_YES=true \
+              -e ACTIONS_ID_TOKEN_REQUEST_URL -e ACTIONS_ID_TOKEN_REQUEST_TOKEN \
+              -v "$HOME/.docker/config.json:/root/.docker/config.json:ro" -v "$PWD/sbom:/sbom:ro" \
+              "$COSIGN_IMAGE" "$@"
+          }
+          cosign sign "$REF"
+          cosign attest --type spdxjson --predicate "/sbom/${{ matrix.app }}.spdx.json" "$REF"
+          cosign verify --certificate-identity-regexp "$IDENTITY" \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com "$REF" > /dev/null
+          echo "Signed and verified $REF" >> "$GITHUB_STEP_SUMMARY"
 
   ci:
     name: CI passed
-    needs: [plan, checks, integration, images]
+    needs: [plan, checks, integration, images, supply-chain]
     if: always()
     runs-on: ubuntu-24.04
     timeout-minutes: 2
@@ -191,11 +269,13 @@ jobs:
           CHECKS: ${{ needs.checks.result }}
           INTEGRATION: ${{ needs.integration.result }}
           IMAGES: ${{ needs.images.result }}
+          SUPPLY_CHAIN: ${{ needs.supply-chain.result }}
           HAS_PACKAGES: ${{ needs.plan.outputs.has-packages }}
           HAS_IMAGES: ${{ needs.plan.outputs.has-images }}
         run: |
           test "$PLAN" = success
           test "$CHECKS" = success
+          test "$SUPPLY_CHAIN" = success
           if [ "$HAS_PACKAGES" = true ]; then
             test "$INTEGRATION" = success
           else

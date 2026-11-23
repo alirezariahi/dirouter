@@ -10,6 +10,7 @@ import { Prisma } from '@dirouter/db';
 import { Inject, Injectable } from '@nestjs/common';
 
 import { slugify } from '../common/ids.js';
+import { assertPublicUrls } from './public-urls.js';
 import { ENV, type Env } from '../env.js';
 import { PrismaService } from '../infra/prisma.service.js';
 import type { OrgContext } from '../rbac/org.guard.js';
@@ -171,6 +172,24 @@ export class ProvidersService {
     return rows.map((p) => this.view(p));
   }
 
+  /**
+   * SSRF guard (card 22.3): in production a customer organization's provider and proxy URLs must
+   * resolve to public addresses, so a tenant cannot make the gateway call cloud metadata or the
+   * platform's internal services. The platform organization (the operator) may use private
+   * addresses for self-hosted models. The gateway checks again when it connects (DNS rebinding).
+   */
+  async #assertPublicUrls(ctx: OrgContext, urls: (string | null | undefined)[]) {
+    if (this.env.NODE_ENV !== 'production') return;
+    const targets = urls.filter((u): u is string => typeof u === 'string' && u !== '');
+    if (targets.length === 0) return;
+    const org = await this.db.organization.findUnique({
+      where: { id: ctx.organizationId },
+      select: { isPlatform: true },
+    });
+    if (org?.isPlatform) return;
+    await assertPublicUrls(targets);
+  }
+
   /** Provider plugins the operator enabled (manifests only; no plugin code runs here). */
   async plugins() {
     const list = await readPlugins(this.env.PLUGINS_DIR, enabledPlugins(this.env.PLUGINS_ENABLED));
@@ -248,6 +267,11 @@ export class ProvidersService {
       throw new DiRouterError('validation_failed', {
         message: `baseUrl is required for ${input.type}`,
       });
+    await this.#assertPublicUrls(ctx, [
+      baseUrl,
+      input.proxyUrl,
+      ...(input.credentials ?? []).map((c) => c.proxyUrl),
+    ]);
     const id = prefixedId('prv');
     await this.db.$transaction(async (tx) => {
       await tx.provider.create({
@@ -299,6 +323,7 @@ export class ProvidersService {
     input: Partial<Omit<ProviderInput, 'credentials' | 'type'>>,
   ) {
     const current = await this.load(ctx, id);
+    await this.#assertPublicUrls(ctx, [input.baseUrl, input.proxyUrl]);
     const plugin =
       current.type === 'PLUGIN' && input.options !== undefined
         ? await this.#pluginOptions(
@@ -355,6 +380,7 @@ export class ProvidersService {
 
   async addCredential(ctx: OrgContext, providerId: string, c: CredentialInput) {
     await this.load(ctx, providerId);
+    await this.#assertPublicUrls(ctx, [c.proxyUrl]);
     const cid = prefixedId('cred');
     await this.db.credential.create({
       data: {
@@ -382,6 +408,7 @@ export class ProvidersService {
   ) {
     const p = await this.load(ctx, providerId);
     if (!p.credentials.some((x) => x.id === credentialId)) throw notFound();
+    await this.#assertPublicUrls(ctx, [c.proxyUrl]);
     await this.db.credential.update({
       where: { id: credentialId },
       data: {

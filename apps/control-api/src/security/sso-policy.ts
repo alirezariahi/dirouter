@@ -4,9 +4,9 @@
  * send the browser back. Kept free of I/O (except the DNS lookup helper) so the rules are unit tested.
  */
 import { lookup } from 'node:dns/promises';
-import { BlockList, isIP } from 'node:net';
+import { isIP } from 'node:net';
 
-import { DiRouterError } from '@dirouter/shared';
+import { DiRouterError, isBlockedAddress } from '@dirouter/shared';
 
 import { ROLE_RANK, type Role } from '../rbac/permissions.js';
 
@@ -113,38 +113,7 @@ export function emailDomainAllowed(email: string, allowedDomains: readonly strin
 
 // Addresses a server-side fetch must never reach on behalf of a tenant: loopback, private ranges,
 // link-local (cloud metadata lives there), carrier-grade NAT, multicast and other reserved space.
-const BLOCKED = new BlockList();
-for (const [network, prefix] of [
-  ['0.0.0.0', 8],
-  ['10.0.0.0', 8],
-  ['100.64.0.0', 10],
-  ['127.0.0.0', 8],
-  ['169.254.0.0', 16],
-  ['172.16.0.0', 12],
-  ['192.0.0.0', 24],
-  ['192.168.0.0', 16],
-  ['198.18.0.0', 15],
-  ['224.0.0.0', 3],
-] as const)
-  BLOCKED.addSubnet(network, prefix, 'ipv4');
-for (const [network, prefix] of [
-  ['::', 127], // unspecified and loopback
-  ['64:ff9b::', 96], // NAT64
-  ['fc00::', 7], // unique local
-  ['fe80::', 10], // link-local
-  ['ff00::', 8], // multicast
-] as const)
-  BLOCKED.addSubnet(network, prefix, 'ipv6');
-
-export function isBlockedAddress(address: string): boolean {
-  const family = isIP(address);
-  if (family === 0) return true;
-  if (family === 4) return BLOCKED.check(address, 'ipv4');
-  // IPv4-mapped IPv6 (::ffff:a.b.c.d) is judged by its IPv4 address.
-  const mapped = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/i.exec(address);
-  if (mapped?.[1]) return BLOCKED.check(mapped[1], 'ipv4');
-  return BLOCKED.check(address, 'ipv6');
-}
+export { isBlockedAddress } from '@dirouter/shared';
 
 export type Resolver = (hostname: string) => Promise<string[]>;
 

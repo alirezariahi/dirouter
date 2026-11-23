@@ -4,6 +4,10 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+overrides:
+  effect@<3.22.1: ^3.22.1
+  deepmerge-ts@<8.0.0: ^8.0.0
+
 importers:
 
   .:
@@ -189,7 +193,7 @@ importers:
         version: 31.0.0
       orval:
         specifier: ^8.46.0
-        version: 8.46.0(@tanstack/react-query@5.107.1(@types/react@19.3.0)(react@19.3.1))(effect@3.21.0)(prettier@3.9.10)(zod@4.6.7)
+        version: 8.46.0(@tanstack/react-query@5.107.1(@types/react@19.3.0)(react@19.3.1))(effect@3.22.5)(prettier@3.9.10)(zod@4.6.7)
       tailwindcss:
         specifier: ^4.3.5
         version: 4.3.5
@@ -1281,7 +1285,7 @@ packages:
   '@orval/effect@8.46.0':
     resolution: {integrity: sha512-WmCMOFxDa90Etdf9qEffIhU5xKsbuzOu3oiNE7WX6zRMTw4LehAb280KqJWrGshiRc14yUnOeH6VgF953J9keQ==}
     peerDependencies:
-      effect: '>=3'
+      effect: ^3.22.1
     peerDependenciesMeta:
       effect:
         optional: true
@@ -2341,9 +2345,9 @@ packages:
   deep-is@0.1.4:
     resolution: {integrity: sha512-oIPzksmTg4/MriiaYGO+okXDT7ztn/w3Eptv/+gSIdMdKsJo0u4CfYNFJPy+4SKMuCqGw2wxnA+URMg3t8a/bQ==}
 
-  deepmerge-ts@7.1.5:
-    resolution: {integrity: sha512-HOJkrhaYsweh+W+e74Yn7YStZOilkoPb6fycpwNLKzSPtruFs48nYis0zy5yJz1+ktUhHxoRDJ27RQAWLIJVJw==}
-    engines: {node: '>=16.0.0'}
+  deepmerge-ts@8.0.2:
+    resolution: {integrity: sha512-uqbvqLUMrc6p0MO+WBRtTxY55hmyh94WRwI5a++PZe54X+bfVh59FSN7uWCBCW1CCVjzjnrwzfI8zidE2obMMw==}
+    engines: {node: '>=16.9.0'}
 
   defu@6.1.7:
     resolution: {integrity: sha512-7z22QmUWiQ/2d0KkdYmANbRUVABpZ9SNYyH5vx6PZ+nE5bcC0l7uFvEfHlyld/HcGBFTL536ClDt3DEcSlEJAQ==}
@@ -2377,8 +2381,8 @@ packages:
     resolution: {integrity: sha512-uBq4egWHTcTt33a72vpSG0z3HnPuIl6NqYcTrKEg2azoEyl2hpW0zqlxysq2pK9HlDIHyHyakeYaYnSAwd8bow==}
     engines: {node: '>=12'}
 
-  effect@3.21.0:
-    resolution: {integrity: sha512-PPN80qRokCd1f015IANNhrwOnLO7GrrMQfk4/lnZRE/8j7UPWrNNjPV0uBrZutI/nHzernbW+J0hdqQysHiSnQ==}
+  effect@3.22.5:
+    resolution: {integrity: sha512-AdIU4llI19BzhJ4xUBZix7kS8oiYSlCsJ61j3UM3UyJw9ecDrsrrweDFm/Ku1nHbJWMLoynK+1Me4it3Zkmjpw==}
 
   electron-to-chromium@1.5.478:
     resolution: {integrity: sha512-pftG+ma5Lm8O6/p45bhYT6StBN5ziQymaRzmCZwFl8DwWHKPPD93FdOmP1aqftcepolQYvrcyTLa17kE8Yf+jg==}
@@ -4501,11 +4505,11 @@ snapshots:
       jsesc: 3.1.0
       tinyglobby: 0.2.17
 
-  '@orval/effect@8.46.0(effect@3.21.0)':
+  '@orval/effect@8.46.0(effect@3.22.5)':
     dependencies:
       '@orval/core': 8.46.0
     optionalDependencies:
-      effect: 3.21.0
+      effect: 3.22.5
     transitivePeerDependencies:
       - '@faker-js/faker'
       - '@modelcontextprotocol/server'
@@ -4608,8 +4612,8 @@ snapshots:
   '@prisma/config@6.19.3':
     dependencies:
       c12: 3.1.0
-      deepmerge-ts: 7.1.5
-      effect: 3.21.0
+      deepmerge-ts: 8.0.2
+      effect: 3.22.5
       empathic: 2.0.0
     transitivePeerDependencies:
       - magicast
@@ -5481,7 +5485,7 @@ snapshots:
 
   deep-is@0.1.4: {}
 
-  deepmerge-ts@7.1.5: {}
+  deepmerge-ts@8.0.2: {}
 
   defu@6.1.7: {}
 
@@ -5501,7 +5505,7 @@ snapshots:
 
   dotenv@16.6.1: {}
 
-  effect@3.21.0:
+  effect@3.22.5:
     dependencies:
       '@standard-schema/spec': 1.1.0
       fast-check: 3.23.2
@@ -6169,13 +6173,13 @@ snapshots:
       type-check: 0.4.0
       word-wrap: 1.2.5
 
-  orval@8.46.0(@tanstack/react-query@5.107.1(@types/react@19.3.0)(react@19.3.1))(effect@3.21.0)(prettier@3.9.10)(zod@4.6.7):
+  orval@8.46.0(@tanstack/react-query@5.107.1(@types/react@19.3.0)(react@19.3.1))(effect@3.22.5)(prettier@3.9.10)(zod@4.6.7):
     dependencies:
       '@commander-js/extra-typings': 15.0.0(commander@15.1.0)
       '@orval/angular': 8.46.0
       '@orval/axios': 8.46.0
       '@orval/core': 8.46.0
-      '@orval/effect': 8.46.0(effect@3.21.0)
+      '@orval/effect': 8.46.0(effect@3.22.5)
       '@orval/fetch': 8.46.0
       '@orval/hono': 8.46.0(zod@4.6.7)
       '@orval/mcp': 8.46.0(zod@4.6.7)

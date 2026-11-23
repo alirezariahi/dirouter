@@ -40,6 +40,7 @@ import { RateLimiter } from './rate-limiter.js';
 import { ExactCache, SemanticCacheClient } from './cache.js';
 import { handleEmbeddings, handleGeminiEmbeddings } from './embeddings.js';
 import { registerMediaRoutes } from './media.js';
+import { configureUpstreamGuard } from './upstream.js';
 import { Tracer } from './tracing.js';
 import { geminiRequestToCanonical } from '@dirouter/translator';
 import { estimateRequestTokens } from '@dirouter/model-catalog';
@@ -71,6 +72,8 @@ export interface GatewayOptions {
   limiterWindowMs?: number;
   /** Provider plugins to load at start (card 21.2). */
   plugins?: { dir: string; enabled: string };
+  /** SSRF guard: customer providers reach public addresses only (production, card 22.3). */
+  blockPrivateUpstreams?: boolean;
 }
 
 export function buildGateway(opts: GatewayOptions) {
@@ -86,6 +89,10 @@ export function buildGateway(opts: GatewayOptions) {
     logger: opts.logger,
     ...(opts.controlApiUrl ? { controlApiUrl: opts.controlApiUrl } : {}),
     ...(opts.internalToken ? { internalToken: opts.internalToken } : {}),
+  });
+  configureUpstreamGuard({
+    enabled: opts.blockPrivateUpstreams === true,
+    platformOrganizationId: () => store.current?.snapshot.platformOrganizationId,
   });
   const metrics = createGatewayMetrics({
     ...(opts.outbox ? { outbox: { size: opts.outbox.backlogSize.bind(opts.outbox) } } : {}),
