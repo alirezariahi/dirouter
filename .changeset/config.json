@@ -1,0 +1,35 @@
+{
+  "$schema": "https://unpkg.com/@changesets/config@3.1.1/schema.json",
+  "changelog": "@changesets/cli/changelog",
+  "commit": false,
+  "fixed": [
+    [
+      "@dirouter/contracts",
+      "@dirouter/control-api",
+      "@dirouter/dashboard",
+      "@dirouter/db",
+      "@dirouter/docs",
+      "@dirouter/eslint-config",
+      "@dirouter/gateway",
+      "@dirouter/mock-provider",
+      "@dirouter/model-catalog",
+      "@dirouter/portal",
+      "@dirouter/providers",
+      "@dirouter/routing",
+      "@dirouter/shared",
+      "@dirouter/translator",
+      "@dirouter/tsconfig",
+      "@dirouter/ui",
+      "@dirouter/worker"
+    ]
+  ],
+  "linked": [],
+  "access": "restricted",
+  "baseBranch": "main",
+  "updateInternalDependencies": "patch",
+  "ignore": ["@dirouter/website"],
+  "privatePackages": {
+    "version": true,
+    "tag": false
+  }
+}

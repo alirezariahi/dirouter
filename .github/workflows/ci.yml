@@ -110,6 +110,8 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          # The MVP upgrade test (card 22.7) reads the MVP's migrations from git history.
+          fetch-depth: 0
           persist-credentials: false
       - uses: ./.github/actions/setup
       - name: Install isolated Testcontainers runner

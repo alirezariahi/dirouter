@@ -1,6 +1,6 @@
 {
   "name": "dirouter",
-  "description": "DiRouter \u2014 \u06af\u06cc\u062a\u200c\u0648\u06cc \u0647\u0648\u0634\u0645\u0646\u062f \u0648 \u062a\u0627\u0628\u200c\u0622\u0648\u0631 LLM",
+  "description": "DiRouter — گیت‌وی هوشمند و تاب‌آور LLM",
   "private": true,
   "packageManager": "pnpm@10.13.1",
   "engines": {
@@ -40,6 +40,7 @@
     }
   },
   "devDependencies": {
+    "@changesets/cli": "^2.31.1",
     "@commitlint/cli": "^21.2.4",
     "@commitlint/config-conventional": "^21.2.4",
     "@dirouter/eslint-config": "workspace:*",
