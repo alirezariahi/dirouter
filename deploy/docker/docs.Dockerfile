@@ -1,7 +1,8 @@
 # syntax=docker/dockerfile:1.7
 # Documentation site (card 22.5): Astro Starlight built from docs/, adr/ and the OpenAPI document,
 # served by nginx-unprivileged.
-ARG NODE_VERSION=22.17
+# Astro 7 needs Node 22.23.4 or newer (Astro 6 has a Critical advisory).
+ARG NODE_VERSION=22.23
 
 FROM node:${NODE_VERSION}-alpine AS base
 ENV PNPM_HOME=/pnpm \

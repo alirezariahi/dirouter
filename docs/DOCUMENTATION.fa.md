@@ -28,6 +28,6 @@
 - `scripts/sync.mjs` هر جفت `name.md` و `name.fa.md` را به دو صفحهٔ یک سند تبدیل می‌کند. H1 عنوان صفحه می‌شود، خط تعویض زبان حذف می‌شود، لینک‌های بین اسناد به لینک‌های سایت و لینک‌های دیگر فایل‌های مخزن به گیت‌هاب تبدیل می‌شوند. `adr/` زیر `/decisions/` می‌آید.
 - مرجع API (`/api/reference/`) از `apps/dashboard/openapi.json` ساخته می‌شود.
 - build با یک بررسی لینک تمام می‌شود: هر سند باید صفحهٔ خود را داشته باشد و هیچ صفحه‌ای نباید به صفحهٔ ناموجود لینک بدهد. CI هر وقت `docs/`، `adr/` یا `apps/docs` تغییر کند آن را اجرا می‌کند.
-- اجرای محلی با `pnpm --filter @dirouter/docs dev`؛ استقرار با `docker compose --profile docs up -d docs` که پشت Traefik در `docs.<DOMAIN>` سرو می‌شود.
+- به Node نسخهٔ 22.23.4 یا جدیدتر نیاز دارد (Astro 7). اجرای محلی با `pnpm --filter @dirouter/docs dev`؛ استقرار با `docker compose --profile docs up -d docs` که پشت Traefik در `docs.<DOMAIN>` سرو می‌شود.
 
 </div>

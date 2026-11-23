@@ -31,5 +31,5 @@ Persian (RTL) at `/fa/` (card 22.5). Nothing is copied by hand:
 - The API reference (`/api/reference/`) is generated from `apps/dashboard/openapi.json`.
 - The build ends with a link check: every document must have its page, and no page may link to a
   missing one. CI runs it whenever `docs/`, `adr/` or `apps/docs` change.
-- Run it locally with `pnpm --filter @dirouter/docs dev`; deploy it with
+- It needs Node 22.23.4 or newer (Astro 7). Run it locally with `pnpm --filter @dirouter/docs dev`; deploy it with
   `docker compose --profile docs up -d docs`, served at `docs.<DOMAIN>` behind Traefik.
