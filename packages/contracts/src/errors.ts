@@ -184,6 +184,13 @@ export const ERROR_CODES = {
     anthropic: 'billing_error',
     title: 'Budget exceeded',
   },
+  /** Prepaid wallet cannot cover the request's reservation (card 19.1). */
+  insufficient_credit: {
+    status: 402,
+    openai: 'insufficient_quota',
+    anthropic: 'billing_error',
+    title: 'Insufficient credit',
+  },
   // upstream
   upstream_error: {
     status: 502,

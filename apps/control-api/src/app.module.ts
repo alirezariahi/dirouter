@@ -3,6 +3,7 @@ import { type DynamicModule, Module } from '@nestjs/common';
 
 import { AuthModule } from './auth/auth.module.js';
 import { AlertsModule } from './alerts/alerts.module.js';
+import { BillingModule } from './billing/billing.module.js';
 import { ConfigModule } from './config/config.module.js';
 import { ENV, type Env } from './env.js';
 import { GuardrailsModule } from './guardrails/guardrails.module.js';
@@ -36,6 +37,7 @@ export class AppModule {
         StatsModule,
         GuardrailsModule,
         AlertsModule,
+        BillingModule,
         ConfigModule,
         SecurityModule,
         SemanticCacheModule,

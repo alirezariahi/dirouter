@@ -29,6 +29,10 @@ export const PERMISSIONS = [
   'config:write',
   /** SSO, custom roles and MASTER_KEY rotation (cards 14.2-14.5). */
   'security:write',
+  /** Wallets and the ledger (sprint 3). On the platform organization, `billing:write` runs billing
+   * for every customer: credit adjustments, prepaid mode, gift codes, pricing and invoices. */
+  'billing:read',
+  'billing:write',
   /** Manual reset of the breaker and cooldown on the Health page (card 7.8); OWNER and ADMIN only. */
   'health:write',
 ] as const;

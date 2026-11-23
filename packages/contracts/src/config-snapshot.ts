@@ -264,6 +264,8 @@ export const VirtualKeyConfig = z.object({
   ipAllowlist: z.array(z.string()).default([]),
   rateLimit: RateLimitConfig.optional(),
   budgets: z.array(BudgetConfig).default([]),
+  /** Prepaid organizations: the wallet the gateway reserves credit from (card 19.1). */
+  walletId: z.string().optional(),
 });
 export type VirtualKeyConfig = z.infer<typeof VirtualKeyConfig>;
 

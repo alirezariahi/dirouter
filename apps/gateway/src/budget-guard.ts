@@ -238,7 +238,8 @@ export class BudgetGuard {
   }
 }
 
-function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+/** Rejects when a Valkey command takes longer than the hot path can wait. */
+export function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
       reject(new Error(`Valkey timeout after ${String(ms)}ms`));

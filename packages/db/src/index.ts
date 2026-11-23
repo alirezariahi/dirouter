@@ -22,3 +22,4 @@ export function createPrismaClient(options: CreatePrismaOptions): PrismaClient {
   });
   return new PrismaClient({ adapter });
 }
+export * from './ledger.js';

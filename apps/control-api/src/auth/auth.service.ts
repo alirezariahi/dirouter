@@ -73,6 +73,8 @@ export class AuthService {
           id: prefixedId('org'),
           name: input.organizationName,
           slug: slugify(input.organizationName),
+          // The setup organization is the operator's (sprint 3 billing).
+          isPlatform: true,
         },
       });
       const created = await tx.user.create({

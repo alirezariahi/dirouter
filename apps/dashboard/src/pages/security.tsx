@@ -55,6 +55,8 @@ const PERMISSIONS = [
   'config:write',
   'security:write',
   'health:write',
+  'billing:read',
+  'billing:write',
 ] as const;
 
 interface Policy {

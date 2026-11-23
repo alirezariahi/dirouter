@@ -128,30 +128,46 @@ export class SnapshotService implements OnModuleInit, OnModuleDestroy {
 
   async build(): Promise<Content> {
     const db = this.prisma.client;
-    const [providers, models, combos, aliases, keys, projects, budgets, policies, guardrails] =
-      await Promise.all([
-        db.provider.findMany({
-          where: { deletedAt: null },
-          include: { credentials: true },
-          orderBy: { id: 'asc' },
-        }),
-        db.model.findMany({ where: { deletedAt: null }, orderBy: { id: 'asc' } }),
-        db.combo.findMany({
-          where: { deletedAt: null },
-          include: { targets: true },
-          orderBy: { id: 'asc' },
-        }),
-        db.modelAlias.findMany({ orderBy: { id: 'asc' } }),
-        // Revoked or expired keys are no longer needed; their absence means rejected.
-        db.apiKey.findMany({
-          where: { status: 'ACTIVE', OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] },
-          orderBy: { id: 'asc' },
-        }),
-        db.project.findMany({ select: { id: true, teamId: true } }),
-        db.budget.findMany({ orderBy: { id: 'asc' } }),
-        db.rateLimitPolicy.findMany({ orderBy: { id: 'asc' } }),
-        db.guardrailPolicy.findMany({ where: { enabled: true }, orderBy: { id: 'asc' } }),
-      ]);
+    const [
+      providers,
+      models,
+      combos,
+      aliases,
+      keys,
+      projects,
+      budgets,
+      policies,
+      guardrails,
+      wallets,
+    ] = await Promise.all([
+      db.provider.findMany({
+        where: { deletedAt: null },
+        include: { credentials: true },
+        orderBy: { id: 'asc' },
+      }),
+      db.model.findMany({ where: { deletedAt: null }, orderBy: { id: 'asc' } }),
+      db.combo.findMany({
+        where: { deletedAt: null },
+        include: { targets: true },
+        orderBy: { id: 'asc' },
+      }),
+      db.modelAlias.findMany({ orderBy: { id: 'asc' } }),
+      // Revoked or expired keys are no longer needed; their absence means rejected.
+      db.apiKey.findMany({
+        where: { status: 'ACTIVE', OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] },
+        orderBy: { id: 'asc' },
+      }),
+      db.project.findMany({ select: { id: true, teamId: true } }),
+      db.budget.findMany({ orderBy: { id: 'asc' } }),
+      db.rateLimitPolicy.findMany({ orderBy: { id: 'asc' } }),
+      db.guardrailPolicy.findMany({ where: { enabled: true }, orderBy: { id: 'asc' } }),
+      // Prepaid organizations (card 19.1): their keys carry the wallet to reserve credit from.
+      db.wallet.findMany({
+        where: { kind: 'CUSTOMER', organization: { prepaid: true, deletedAt: null } },
+        select: { id: true, organizationId: true },
+      }),
+    ]);
+    const walletOf = new Map(wallets.map((w) => [w.organizationId, w.id]));
     const teamOf = new Map(projects.map((p) => [p.id, p.teamId]));
     const budgetsFor = (scope: string, id: string) =>
       budgets
@@ -252,20 +268,24 @@ export class SnapshotService implements OnModuleInit, OnModuleDestroy {
             ? { kind: 'combo' as const, comboId: a.comboId }
             : { kind: 'model' as const, modelId: a.modelId ?? '' },
         })),
-      virtualKeys: keys.map((k) => ({
-        id: k.id,
-        hash: k.hash,
-        prefix: k.prefix,
-        organizationId: k.organizationId,
-        teamId: teamOf.get(k.projectId) ?? null,
-        projectId: k.projectId,
-        enabled: true,
-        expiresAt: k.expiresAt?.toISOString() ?? null,
-        allowedModels: k.allowedModels,
-        ipAllowlist: k.ipAllowlist,
-        ...rateLimit(k),
-        budgets: budgetsFor('API_KEY', k.id),
-      })),
+      virtualKeys: keys.map((k) => {
+        const walletId = walletOf.get(k.organizationId);
+        return {
+          id: k.id,
+          hash: k.hash,
+          prefix: k.prefix,
+          organizationId: k.organizationId,
+          teamId: teamOf.get(k.projectId) ?? null,
+          projectId: k.projectId,
+          enabled: true,
+          expiresAt: k.expiresAt?.toISOString() ?? null,
+          allowedModels: k.allowedModels,
+          ipAllowlist: k.ipAllowlist,
+          ...rateLimit(k),
+          budgets: budgetsFor('API_KEY', k.id),
+          ...(walletId ? { walletId } : {}),
+        };
+      }),
       limits: [
         ...policies
           .filter((p) => p.scope !== 'API_KEY')

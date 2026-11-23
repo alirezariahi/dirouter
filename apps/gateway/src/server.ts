@@ -30,6 +30,7 @@ import { createGatewayMetrics } from './metrics.js';
 import { probeProvider } from './probe.js';
 import { handleCountTokens, handleProxy } from './proxy.js';
 import { BudgetGuard } from './budget-guard.js';
+import { WalletGuard } from './wallet-guard.js';
 import { RateLimiter } from './rate-limiter.js';
 import { ExactCache, SemanticCacheClient } from './cache.js';
 import { handleEmbeddings, handleGeminiEmbeddings } from './embeddings.js';
@@ -114,6 +115,11 @@ export function buildGateway(opts: GatewayOptions) {
     hedgeBudgets: new Map(),
     lifecycle,
     budgets: new BudgetGuard({
+      logger: opts.logger,
+      failMode: () => store.current?.snapshot.settings.failMode ?? 'open',
+      ...(opts.limiterRedis ? { redis: opts.limiterRedis } : {}),
+    }),
+    wallets: new WalletGuard({
       logger: opts.logger,
       failMode: () => store.current?.snapshot.settings.failMode ?? 'open',
       ...(opts.limiterRedis ? { redis: opts.limiterRedis } : {}),
@@ -334,6 +340,7 @@ export function buildGateway(opts: GatewayOptions) {
           bulkheads: deps.bulkheads.snapshot(),
           rateLimiter: { ...deps.limiter.stats, nodes: deps.limiter.nodes },
           budgets: deps.budgets.stats,
+          wallets: deps.wallets.stats,
         }
       : reply.status(404).send(notFound),
   );

@@ -139,7 +139,10 @@ export function createGatewayMetrics(options: GatewayMetricOptions) {
       const { provider, model, outcome } = attempt;
       attemptDuration.observe({ provider, model, outcome }, attempt.latencyMs / 1_000);
     },
-    reject(guard: 'rate_limit' | 'budget' | 'concurrency' | 'guardrail', reason: string) {
+    reject(
+      guard: 'rate_limit' | 'budget' | 'wallet' | 'concurrency' | 'guardrail',
+      reason: string,
+    ) {
       rejected.inc({ guard, reason });
     },
     cacheHit(kind: 'exact' | 'semantic') {

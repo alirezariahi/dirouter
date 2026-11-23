@@ -10,7 +10,7 @@
     "start": "node dist/main.js",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
-    "test:integration": "vitest run --config vitest.integration.config.ts --coverage src/health-sync.test.ts src/rate-limiter.test.ts src/rate-limiter.unit.test.ts src/budget-guard.test.ts",
+    "test:integration": "vitest run --config vitest.integration.config.ts --coverage src/health-sync.test.ts src/rate-limiter.test.ts src/rate-limiter.unit.test.ts src/budget-guard.test.ts src/wallet-guard.test.ts",
     "test": "vitest run --coverage --coverage.thresholds.lines=0 --coverage.thresholds.statements=0 --coverage.thresholds.branches=0 --coverage.thresholds.functions=0 --passWithNoTests",
     "clean": "rm -rf dist .turbo"
   },

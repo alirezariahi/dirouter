@@ -29,6 +29,12 @@ model Organization {
   mfaRequiredRoles String[] @default([]) @map("mfa_required_roles")
   /// When SSO is enforced, password login is disabled for this organization (card 14.2).
   passwordLoginDisabled Boolean @default(false) @map("password_login_disabled")
+  /// The operator's own organization (created by setup). Its OWNER/ADMIN run billing for every
+  /// customer organization: wallets, gift codes, pricing and invoices (sprint 3).
+  isPlatform Boolean @default(false) @map("is_platform")
+  /// Prepaid organizations pay from their wallet: the gateway reserves credit before each request
+  /// and the worker debits the real charge afterwards (card 19.1).
+  prepaid Boolean @default(false)
 
   memberships  Membership[]
   invitations  Invitation[]
@@ -49,6 +55,7 @@ model Organization {
   channels     NotificationChannel[]
   alertRules   AlertRule[]
   alertEvents  AlertEvent[]
+  wallet       Wallet?
 
   @@map("organizations")
 }
@@ -790,4 +797,71 @@ model AuditLog {
   @@index([organizationId, createdAt])
   @@index([actorUserId])
   @@map("audit_logs")
+}
+
+// ───────────── Sprint 3: billing ─────────────
+
+enum WalletKind {
+  CUSTOMER @map("customer")
+  SYSTEM   @map("system")
+}
+
+/// Credit account (card 19.1). A customer wallet belongs to one organization and can never go
+/// below zero (CHECK constraint). System wallets are the other side of every posting: `revenue`
+/// (usage sold), `funding` (money received), `promo` (gift credit) and `writeoff` (usage that
+/// could not be collected); they may go negative.
+model Wallet {
+  id             String     @id
+  kind           WalletKind
+  organizationId String?    @unique @map("organization_id")
+  /// System wallet code; null for customer wallets.
+  code           String?    @unique
+  /// Cached sum of this wallet's entries, updated in the same transaction as every posting.
+  balanceUsd     Decimal    @default(0) @map("balance_usd") @db.Decimal(18, 8)
+  /// Incremented by every posting; Valkey keeps the copy with the highest version.
+  version        Int        @default(0)
+  createdAt      DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  entries      WalletEntry[]
+
+  @@map("wallets")
+}
+
+/// One balanced journal entry: its entries always sum to zero (deferred constraint trigger).
+model WalletTransaction {
+  id             String   @id
+  /// usage | topup | gift | adjustment | refund
+  kind           String
+  /// Makes every posting idempotent (`usage:<requestId>`, `payment:<id>`, ...).
+  idempotencyKey String   @unique @map("idempotency_key")
+  description    String?
+  metadata       Json     @default("{}")
+  createdById    String?  @map("created_by_id")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  entries WalletEntry[]
+
+  @@index([kind, createdAt])
+  @@map("wallet_transactions")
+}
+
+/// One leg of a transaction. Positive credits the wallet, negative debits it.
+model WalletEntry {
+  id            String   @id
+  transactionId String   @map("transaction_id")
+  walletId      String   @map("wallet_id")
+  amountUsd     Decimal  @map("amount_usd") @db.Decimal(18, 8)
+  /// Customer wallet balance right after this entry (running balance for statements); null on
+  /// system wallets, whose balance is not cached.
+  balanceAfter  Decimal? @map("balance_after") @db.Decimal(18, 8)
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  transaction WalletTransaction @relation(fields: [transactionId], references: [id], onDelete: Restrict)
+  wallet      Wallet            @relation(fields: [walletId], references: [id], onDelete: Restrict)
+
+  @@index([walletId, createdAt])
+  @@index([transactionId])
+  @@map("wallet_entries")
 }

@@ -12,3 +12,4 @@ export * from './usage-event.js';
 export * from './errors.js';
 export * from './json-schema.js';
 export * from './budget.js';
+export * from './wallet.js';

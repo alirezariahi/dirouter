@@ -74,6 +74,7 @@ import { authenticate, extractApiKey } from './auth.js';
 import type { ConfigStore, LoadedConfig } from './config-store.js';
 import type { GatewayMetrics } from './metrics.js';
 import type { BudgetGuard, ScopedBudget } from './budget-guard.js';
+import { type WalletGuard, worstCaseChargeUsd } from './wallet-guard.js';
 import type { LimitScope, RateLimiter } from './rate-limiter.js';
 import {
   cacheKeyFor,
@@ -97,6 +98,8 @@ export interface ProxyDeps {
   bulkheads?: BulkheadRegistry;
   /** Budget for key, project and team (card 6.3). */
   budgets?: BudgetGuard;
+  /** Prepaid wallet reservations (card 19.1). */
+  wallets?: WalletGuard;
   /** Distributed rate limiter (card 6.1). */
   limiter?: RateLimiter;
   /** Shutdown state (card 5.8): during drain, connections are closed after the response. */
@@ -660,6 +663,38 @@ export async function handleProxy(
     return;
   }
 
+  // Prepaid wallet (card 19.1): reserve the worst-case charge so concurrent requests cannot spend
+  // the same credit; the reservation becomes the real charge when the request ends.
+  const walletId = key.walletId;
+  if (walletId && deps.wallets) {
+    const reservation = await deps.wallets.reserve(
+      walletId,
+      requestId,
+      worstCaseChargeUsd(route.candidates, estimatedInputTokens, canonical.maxOutputTokens),
+    );
+    if (!reservation.ok) {
+      admission?.settle(0);
+      admission?.release();
+      sendError(
+        reply,
+        api,
+        new DiRouterError('insufficient_credit', {
+          message: reservation.unavailable
+            ? 'Wallet check unavailable (fail-closed), retry shortly'
+            : `Insufficient credit: this request may cost up to USD ${reservation.neededUsd}, available USD ${reservation.availableUsd}`,
+        }),
+        requestId,
+      );
+      deps.metrics?.reject('wallet', reservation.unavailable ? 'unavailable' : 'insufficient');
+      finishSpan('error', { 'gateway.error': 'insufficient_credit' });
+      observeEarly(reply.statusCode);
+      return;
+    }
+  }
+  const settleWallet = (chargeUsd: string) => {
+    if (walletId) deps.wallets?.settle(walletId, requestId, chargeUsd);
+  };
+
   // Response caches (cards 13.1 and 13.2): exact first (cheap), then semantic (control-api,
   // fail-open and time-boxed). A hit skips the provider entirely and is billed at zero. The lookup
   // runs after the rate limit and the budget check, so a throttled or over-budget key gets no
@@ -710,6 +745,7 @@ export async function handleProxy(
   if (cached) {
     admission?.settle(0);
     admission?.release();
+    settleWallet('0');
     // A cached answer can be continued with previous_response_id like a fresh one.
     storeResponseState(deps, api, key, canonical, cached);
     deps.metrics?.cacheHit(cacheKind ?? 'exact');
@@ -779,6 +815,7 @@ export async function handleProxy(
   if (!releaseKey) {
     admission?.settle(0);
     admission?.release();
+    settleWallet('0');
     finishSpan('error', { 'gateway.error': 'concurrency' });
     if (clientGone.signal.aborted) {
       observeEarly(499);
@@ -798,7 +835,7 @@ export async function handleProxy(
     observeEarly(reply.statusCode);
     return;
   }
-  let spent = { tokens: 0, costUsd: '0' };
+  let spent: { tokens: number; costUsd: string; chargeUsd?: string } = { tokens: 0, costUsd: '0' };
   if (canonical.stream) deps.metrics?.streamStarted();
   try {
     spent = await runRoute(
@@ -840,6 +877,7 @@ export async function handleProxy(
     admission?.settle(spent.tokens);
     admission?.release();
     deps.budgets?.record(budgets, spent.costUsd, spent.tokens);
+    settleWallet(spent.chargeUsd ?? spent.costUsd);
   }
 }
 
@@ -1565,7 +1603,13 @@ function emitUsageEvent(
   e: {
     api: InboundApi;
     requestId: string;
-    key: { id: string; organizationId: string; teamId: string | null; projectId: string };
+    key: {
+      id: string;
+      organizationId: string;
+      teamId: string | null;
+      projectId: string;
+      walletId?: string | undefined;
+    };
     canonical: CanonicalRequest;
     started: number;
     candidate: Candidate | undefined;
@@ -1609,6 +1653,7 @@ function emitUsageEvent(
       teamId: e.key.teamId,
       projectId: e.key.projectId,
       virtualKeyId: e.key.id,
+      ...(e.key.walletId ? { walletId: e.key.walletId } : {}),
       ...(e.canonical.user ? { endUser: e.canonical.user } : {}),
       inboundApi: e.api,
       requestedModel: e.canonical.model,

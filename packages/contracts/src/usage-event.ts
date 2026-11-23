@@ -68,6 +68,10 @@ export const UsageEvent = z.object({
   usage: CanonicalUsage,
   /** Cost in dollars (decimal string, 8 digits). */
   costUsd: UsdAmount,
+  /** Prepaid wallet charged for this request (card 19.1); absent for postpaid organizations. */
+  walletId: z.string().optional(),
+  /** What the customer pays (sale price, card 19.4); defaults to costUsd when absent. */
+  chargeUsd: UsdAmount.optional(),
   /** true when tokens are estimated (the provider did not return usage). */
   usageEstimated: z.boolean().default(false),
   /** Served from the exact or semantic response cache (cards 13.1 and 13.2). */
