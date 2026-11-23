@@ -37,6 +37,8 @@ export const KeyBody = z.object({
     .max(200)
     .optional(),
   ipAllowlist: z.array(z.string().max(64)).max(100).optional(),
+  /** DiRouter's admin MCP server (card 20.2); only owners and admins may grant read or write. */
+  mcpAdmin: z.enum(['none', 'read', 'write']).optional(),
   rpm: z.int().positive().nullable().optional(),
   tpm: z.int().positive().nullable().optional(),
   maxConcurrency: z.int().positive().nullable().optional(),
@@ -61,6 +63,7 @@ const KeyView = z.object({
   state: z.enum(['active', 'rotating', 'expired', 'revoked']),
   allowedModels: z.array(z.string()),
   mcpTools: z.array(z.string()),
+  mcpAdmin: z.enum(['none', 'read', 'write']),
   ipAllowlist: z.array(z.string()),
   rpm: z.int().nullable(),
   tpm: z.int().nullable(),

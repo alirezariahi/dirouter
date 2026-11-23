@@ -6,6 +6,7 @@ import { AlertsModule } from './alerts/alerts.module.js';
 import { BillingModule } from './billing/billing.module.js';
 import { PortalModule } from './portal/portal.module.js';
 import { McpModule } from './mcp/mcp.module.js';
+import { AdminMcpModule } from './admin-mcp/admin-mcp.module.js';
 import { ConfigModule } from './config/config.module.js';
 import { ENV, type Env } from './env.js';
 import { GuardrailsModule } from './guardrails/guardrails.module.js';
@@ -42,6 +43,7 @@ export class AppModule {
         BillingModule,
         PortalModule,
         McpModule,
+        AdminMcpModule,
         ConfigModule,
         SecurityModule,
         SemanticCacheModule,

@@ -3826,6 +3826,14 @@
                           "type": "string"
                         }
                       },
+                      "mcpAdmin": {
+                        "type": "string",
+                        "enum": [
+                          "none",
+                          "read",
+                          "write"
+                        ]
+                      },
                       "ipAllowlist": {
                         "type": "array",
                         "items": {
@@ -3921,6 +3929,7 @@
                       "state",
                       "allowedModels",
                       "mcpTools",
+                      "mcpAdmin",
                       "ipAllowlist",
                       "rpm",
                       "tpm",
@@ -3999,6 +4008,14 @@
                       "type": "string",
                       "maxLength": 64
                     }
+                  },
+                  "mcpAdmin": {
+                    "type": "string",
+                    "enum": [
+                      "none",
+                      "read",
+                      "write"
+                    ]
                   },
                   "rpm": {
                     "nullable": true,
@@ -4115,6 +4132,14 @@
                         "type": "string"
                       }
                     },
+                    "mcpAdmin": {
+                      "type": "string",
+                      "enum": [
+                        "none",
+                        "read",
+                        "write"
+                      ]
+                    },
                     "ipAllowlist": {
                       "type": "array",
                       "items": {
@@ -4214,6 +4239,7 @@
                     "state",
                     "allowedModels",
                     "mcpTools",
+                    "mcpAdmin",
                     "ipAllowlist",
                     "rpm",
                     "tpm",
@@ -4302,6 +4328,14 @@
                       "items": {
                         "type": "string"
                       }
+                    },
+                    "mcpAdmin": {
+                      "type": "string",
+                      "enum": [
+                        "none",
+                        "read",
+                        "write"
+                      ]
                     },
                     "ipAllowlist": {
                       "type": "array",
@@ -4398,6 +4432,7 @@
                     "state",
                     "allowedModels",
                     "mcpTools",
+                    "mcpAdmin",
                     "ipAllowlist",
                     "rpm",
                     "tpm",
@@ -4479,6 +4514,14 @@
                       "type": "string",
                       "maxLength": 64
                     }
+                  },
+                  "mcpAdmin": {
+                    "type": "string",
+                    "enum": [
+                      "none",
+                      "read",
+                      "write"
+                    ]
                   },
                   "rpm": {
                     "nullable": true,
@@ -4591,6 +4634,14 @@
                         "type": "string"
                       }
                     },
+                    "mcpAdmin": {
+                      "type": "string",
+                      "enum": [
+                        "none",
+                        "read",
+                        "write"
+                      ]
+                    },
                     "ipAllowlist": {
                       "type": "array",
                       "items": {
@@ -4686,6 +4737,7 @@
                     "state",
                     "allowedModels",
                     "mcpTools",
+                    "mcpAdmin",
                     "ipAllowlist",
                     "rpm",
                     "tpm",
@@ -4774,6 +4826,14 @@
                         "type": "string"
                       }
                     },
+                    "mcpAdmin": {
+                      "type": "string",
+                      "enum": [
+                        "none",
+                        "read",
+                        "write"
+                      ]
+                    },
                     "ipAllowlist": {
                       "type": "array",
                       "items": {
@@ -4869,6 +4929,7 @@
                     "state",
                     "allowedModels",
                     "mcpTools",
+                    "mcpAdmin",
                     "ipAllowlist",
                     "rpm",
                     "tpm",
@@ -4974,6 +5035,14 @@
                       "items": {
                         "type": "string"
                       }
+                    },
+                    "mcpAdmin": {
+                      "type": "string",
+                      "enum": [
+                        "none",
+                        "read",
+                        "write"
+                      ]
                     },
                     "ipAllowlist": {
                       "type": "array",
@@ -5101,6 +5170,14 @@
                             "type": "string"
                           }
                         },
+                        "mcpAdmin": {
+                          "type": "string",
+                          "enum": [
+                            "none",
+                            "read",
+                            "write"
+                          ]
+                        },
                         "ipAllowlist": {
                           "type": "array",
                           "items": {
@@ -5196,6 +5273,7 @@
                         "state",
                         "allowedModels",
                         "mcpTools",
+                        "mcpAdmin",
                         "ipAllowlist",
                         "rpm",
                         "tpm",
@@ -5217,6 +5295,7 @@
                     "state",
                     "allowedModels",
                     "mcpTools",
+                    "mcpAdmin",
                     "ipAllowlist",
                     "rpm",
                     "tpm",

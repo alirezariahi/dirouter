@@ -1389,6 +1389,15 @@ export const KeysControllerList200ItemState = {
   revoked: 'revoked',
 } as const;
 
+export type KeysControllerList200ItemMcpAdmin = typeof KeysControllerList200ItemMcpAdmin[keyof typeof KeysControllerList200ItemMcpAdmin];
+
+
+export const KeysControllerList200ItemMcpAdmin = {
+  none: 'none',
+  read: 'read',
+  write: 'write',
+} as const;
+
 export type KeysControllerList200ItemBudgetsItemPeriod = typeof KeysControllerList200ItemBudgetsItemPeriod[keyof typeof KeysControllerList200ItemBudgetsItemPeriod];
 
 
@@ -1423,6 +1432,7 @@ export type KeysControllerList200Item = {
   state: KeysControllerList200ItemState;
   allowedModels: string[];
   mcpTools: string[];
+  mcpAdmin: KeysControllerList200ItemMcpAdmin;
   ipAllowlist: string[];
   /**
      * @minimum -9007199254740991
@@ -1453,6 +1463,15 @@ export type KeysControllerList200Item = {
   createdAt: string;
   budgets: KeysControllerList200ItemBudgetsItem[];
 };
+
+export type KeysControllerCreateBodyMcpAdmin = typeof KeysControllerCreateBodyMcpAdmin[keyof typeof KeysControllerCreateBodyMcpAdmin];
+
+
+export const KeysControllerCreateBodyMcpAdmin = {
+  none: 'none',
+  read: 'read',
+  write: 'write',
+} as const;
 
 export type KeysControllerCreateBodyBudgetsItemPeriod = typeof KeysControllerCreateBodyBudgetsItemPeriod[keyof typeof KeysControllerCreateBodyBudgetsItemPeriod];
 
@@ -1503,6 +1522,7 @@ export type KeysControllerCreateBody = {
      * @items.maxLength 64
      */
   ipAllowlist?: string[];
+  mcpAdmin?: KeysControllerCreateBodyMcpAdmin;
   /**
      * @maximum 9007199254740991
      * @exclusiveMinimum 0
@@ -1540,6 +1560,15 @@ export const KeysControllerCreate200State = {
   revoked: 'revoked',
 } as const;
 
+export type KeysControllerCreate200McpAdmin = typeof KeysControllerCreate200McpAdmin[keyof typeof KeysControllerCreate200McpAdmin];
+
+
+export const KeysControllerCreate200McpAdmin = {
+  none: 'none',
+  read: 'read',
+  write: 'write',
+} as const;
+
 export type KeysControllerCreate200BudgetsItemPeriod = typeof KeysControllerCreate200BudgetsItemPeriod[keyof typeof KeysControllerCreate200BudgetsItemPeriod];
 
 
@@ -1574,6 +1603,7 @@ export type KeysControllerCreate200 = {
   state: KeysControllerCreate200State;
   allowedModels: string[];
   mcpTools: string[];
+  mcpAdmin: KeysControllerCreate200McpAdmin;
   ipAllowlist: string[];
   /**
      * @minimum -9007199254740991
@@ -1617,6 +1647,15 @@ export const KeysControllerGet200State = {
   revoked: 'revoked',
 } as const;
 
+export type KeysControllerGet200McpAdmin = typeof KeysControllerGet200McpAdmin[keyof typeof KeysControllerGet200McpAdmin];
+
+
+export const KeysControllerGet200McpAdmin = {
+  none: 'none',
+  read: 'read',
+  write: 'write',
+} as const;
+
 export type KeysControllerGet200BudgetsItemPeriod = typeof KeysControllerGet200BudgetsItemPeriod[keyof typeof KeysControllerGet200BudgetsItemPeriod];
 
 
@@ -1651,6 +1690,7 @@ export type KeysControllerGet200 = {
   state: KeysControllerGet200State;
   allowedModels: string[];
   mcpTools: string[];
+  mcpAdmin: KeysControllerGet200McpAdmin;
   ipAllowlist: string[];
   /**
      * @minimum -9007199254740991
@@ -1681,6 +1721,15 @@ export type KeysControllerGet200 = {
   createdAt: string;
   budgets: KeysControllerGet200BudgetsItem[];
 };
+
+export type KeysControllerUpdateBodyMcpAdmin = typeof KeysControllerUpdateBodyMcpAdmin[keyof typeof KeysControllerUpdateBodyMcpAdmin];
+
+
+export const KeysControllerUpdateBodyMcpAdmin = {
+  none: 'none',
+  read: 'read',
+  write: 'write',
+} as const;
 
 export type KeysControllerUpdateBodyBudgetsItemPeriod = typeof KeysControllerUpdateBodyBudgetsItemPeriod[keyof typeof KeysControllerUpdateBodyBudgetsItemPeriod];
 
@@ -1729,6 +1778,7 @@ export type KeysControllerUpdateBody = {
      * @items.maxLength 64
      */
   ipAllowlist?: string[];
+  mcpAdmin?: KeysControllerUpdateBodyMcpAdmin;
   /**
      * @maximum 9007199254740991
      * @exclusiveMinimum 0
@@ -1766,6 +1816,15 @@ export const KeysControllerUpdate200State = {
   revoked: 'revoked',
 } as const;
 
+export type KeysControllerUpdate200McpAdmin = typeof KeysControllerUpdate200McpAdmin[keyof typeof KeysControllerUpdate200McpAdmin];
+
+
+export const KeysControllerUpdate200McpAdmin = {
+  none: 'none',
+  read: 'read',
+  write: 'write',
+} as const;
+
 export type KeysControllerUpdate200BudgetsItemPeriod = typeof KeysControllerUpdate200BudgetsItemPeriod[keyof typeof KeysControllerUpdate200BudgetsItemPeriod];
 
 
@@ -1800,6 +1859,7 @@ export type KeysControllerUpdate200 = {
   state: KeysControllerUpdate200State;
   allowedModels: string[];
   mcpTools: string[];
+  mcpAdmin: KeysControllerUpdate200McpAdmin;
   ipAllowlist: string[];
   /**
      * @minimum -9007199254740991
@@ -1841,6 +1901,15 @@ export const KeysControllerRevoke200State = {
   revoked: 'revoked',
 } as const;
 
+export type KeysControllerRevoke200McpAdmin = typeof KeysControllerRevoke200McpAdmin[keyof typeof KeysControllerRevoke200McpAdmin];
+
+
+export const KeysControllerRevoke200McpAdmin = {
+  none: 'none',
+  read: 'read',
+  write: 'write',
+} as const;
+
 export type KeysControllerRevoke200BudgetsItemPeriod = typeof KeysControllerRevoke200BudgetsItemPeriod[keyof typeof KeysControllerRevoke200BudgetsItemPeriod];
 
 
@@ -1875,6 +1944,7 @@ export type KeysControllerRevoke200 = {
   state: KeysControllerRevoke200State;
   allowedModels: string[];
   mcpTools: string[];
+  mcpAdmin: KeysControllerRevoke200McpAdmin;
   ipAllowlist: string[];
   /**
      * @minimum -9007199254740991
@@ -1924,6 +1994,15 @@ export const KeysControllerRotate200State = {
   revoked: 'revoked',
 } as const;
 
+export type KeysControllerRotate200McpAdmin = typeof KeysControllerRotate200McpAdmin[keyof typeof KeysControllerRotate200McpAdmin];
+
+
+export const KeysControllerRotate200McpAdmin = {
+  none: 'none',
+  read: 'read',
+  write: 'write',
+} as const;
+
 export type KeysControllerRotate200BudgetsItemPeriod = typeof KeysControllerRotate200BudgetsItemPeriod[keyof typeof KeysControllerRotate200BudgetsItemPeriod];
 
 
@@ -1960,6 +2039,15 @@ export const KeysControllerRotate200PreviousState = {
   revoked: 'revoked',
 } as const;
 
+export type KeysControllerRotate200PreviousMcpAdmin = typeof KeysControllerRotate200PreviousMcpAdmin[keyof typeof KeysControllerRotate200PreviousMcpAdmin];
+
+
+export const KeysControllerRotate200PreviousMcpAdmin = {
+  none: 'none',
+  read: 'read',
+  write: 'write',
+} as const;
+
 export type KeysControllerRotate200PreviousBudgetsItemPeriod = typeof KeysControllerRotate200PreviousBudgetsItemPeriod[keyof typeof KeysControllerRotate200PreviousBudgetsItemPeriod];
 
 
@@ -1994,6 +2082,7 @@ export type KeysControllerRotate200Previous = {
   state: KeysControllerRotate200PreviousState;
   allowedModels: string[];
   mcpTools: string[];
+  mcpAdmin: KeysControllerRotate200PreviousMcpAdmin;
   ipAllowlist: string[];
   /**
      * @minimum -9007199254740991
@@ -2033,6 +2122,7 @@ export type KeysControllerRotate200 = {
   state: KeysControllerRotate200State;
   allowedModels: string[];
   mcpTools: string[];
+  mcpAdmin: KeysControllerRotate200McpAdmin;
   ipAllowlist: string[];
   /**
      * @minimum -9007199254740991

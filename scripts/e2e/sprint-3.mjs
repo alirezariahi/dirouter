@@ -757,6 +757,120 @@ try {
       assert.match(listed, /dirouter: .*\/mcp \(HTTP\) - [✓✔] Connected/);
     },
   );
+  await scenario(
+    '20.2 admin MCP: read tools for everyone granted, write only with write',
+    async () => {
+      const key = async (name, mcpAdmin) => {
+        const created = (
+          await published(() =>
+            operator(
+              'POST',
+              'keys',
+              {
+                name: `s3-amcp-${name}-${randomUUID().slice(0, 6)}`,
+                projectId: 'prj_dev',
+                mcpAdmin,
+              },
+              201,
+            ),
+          )
+        ).body;
+        cleanups.push(() => operator('POST', `keys/${created.id}/revoke`, undefined, null));
+        return created;
+      };
+      const reader = await key('read', 'read');
+      const writer = await key('write', 'write');
+      const mcp = async (k, method, params) =>
+        request(`${urls.admin}/api/v1/mcp`, {
+          method: 'POST',
+          headers: { authorization: `Bearer ${k.key}`, 'content-type': 'application/json' },
+          body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+        });
+      const names = async (k) =>
+        (await mcp(k, 'tools/list')).body.result.tools.map((t) => t.name).sort();
+      assert.deepEqual(await names(reader), [
+        'health_status',
+        'list_models',
+        'simulate_route',
+        'usage_summary',
+      ]);
+      assert.ok((await names(writer)).includes('create_api_key'));
+      const refused = await mcp(reader, 'tools/call', {
+        name: 'create_api_key',
+        arguments: { name: 'x' },
+      });
+      assert.equal(refused.body.error.code, -32602);
+
+      // A real routing simulation through a gateway replica.
+      const sim = (
+        await mcp(reader, 'tools/call', {
+          name: 'simulate_route',
+          arguments: { model: 'mock/small' },
+        })
+      ).body.result;
+      assert.equal(sim.isError, undefined, JSON.stringify(sim));
+      assert.ok(sim.structuredContent.candidates.length > 0);
+
+      // The child key works on the gateway once the snapshot is published.
+      const child = (
+        await published(() =>
+          mcp(writer, 'tools/call', {
+            name: 'create_api_key',
+            arguments: { name: 's3-amcp-child', expiresInDays: 1 },
+          }),
+        )
+      ).body.result.structuredContent;
+      cleanups.push(() => operator('POST', `keys/${child.id}/revoke`, undefined, null));
+      await waitFor(
+        'the gateway to accept the new key',
+        async () =>
+          (
+            await fetch(`${urls.gateway}/v1/models`, {
+              headers: { authorization: `Bearer ${child.key}` },
+            })
+          ).status === 200,
+      );
+      assert.equal((await mcp(child, 'initialize')).response.status, 403);
+
+      // Claude Code connects to the admin server with the read key (throwaway configuration).
+      const dir = await mkdtemp(join(tmpdir(), 'dirouter-claude-amcp-'));
+      const run = (args) =>
+        new Promise((done, fail) => {
+          execFile(
+            'claude',
+            args,
+            {
+              cwd: dir,
+              timeout: 90_000,
+              env: { ...process.env, CLAUDE_CONFIG_DIR: join(dir, 'config') },
+            },
+            (error, stdout, stderr) =>
+              error ? fail(new Error(`${error.message}\n${stderr}`)) : done(stdout),
+          );
+        });
+      await run([
+        'mcp',
+        'add',
+        '--scope',
+        'user',
+        '--transport',
+        'http',
+        'dirouter-admin',
+        `${urls.admin}/api/v1/mcp`,
+        '--header',
+        `Authorization: Bearer ${reader.key}`,
+      ]);
+      const listed = await run(['mcp', 'list']);
+      console.log(
+        `     claude mcp list: ${listed
+          .trim()
+          .split('\n')
+          .filter((l) => l.includes('dirouter-admin'))
+          .join(' ')}`,
+      );
+      assert.match(listed, /dirouter-admin: .*\/api\/v1\/mcp \(HTTP\) - [✓✔] Connected/);
+    },
+  );
 } catch (error) {
   crashed = true;
   console.error(error);

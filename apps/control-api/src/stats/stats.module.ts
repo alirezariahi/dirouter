@@ -4,5 +4,9 @@ import { OrgGuard } from '../rbac/org.guard.js';
 import { StatsController } from './stats.controller.js';
 import { StatsService } from './stats.service.js';
 
-@Module({ controllers: [StatsController], providers: [StatsService, OrgGuard] })
+@Module({
+  controllers: [StatsController],
+  providers: [StatsService, OrgGuard],
+  exports: [StatsService],
+})
 export class StatsModule {}

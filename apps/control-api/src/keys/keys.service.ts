@@ -6,12 +6,13 @@
 import { randomBytes } from 'node:crypto';
 import { isIP } from 'node:net';
 
-import { DiRouterError, hashApiKey, prefixedId } from '@dirouter/shared';
+import { DiRouterError, ForbiddenError, hashApiKey, prefixedId } from '@dirouter/shared';
 import { Inject, Injectable } from '@nestjs/common';
 
 import { ENV, type Env } from '../env.js';
 import { PrismaService } from '../infra/prisma.service.js';
 import type { OrgContext } from '../rbac/org.guard.js';
+import { canAny } from '../rbac/permissions.js';
 
 const ALPHABET = 'abcdefghijkmnopqrstuvwxyz23456789'; // no l, 0, or 1, for readability
 const randomString = (n: number) => {
@@ -47,6 +48,7 @@ export interface KeyInput {
   projectId: string;
   allowedModels?: string[] | undefined;
   mcpTools?: string[] | undefined;
+  mcpAdmin?: 'none' | 'read' | 'write' | undefined;
   ipAllowlist?: string[] | undefined;
   rpm?: number | null | undefined;
   tpm?: number | null | undefined;
@@ -99,6 +101,7 @@ export class KeysService {
       state,
       allowedModels: k.allowedModels,
       mcpTools: k.mcpTools,
+      mcpAdmin: k.mcpAdmin as 'none' | 'read' | 'write',
       ipAllowlist: k.ipAllowlist,
       rpm: k.rpm,
       tpm: k.tpm,
@@ -144,7 +147,18 @@ export class KeysService {
     return this.#view(await this.load(ctx, id), await this.budgetRows(id));
   }
 
-  #check(input: Partial<KeyInput>) {
+  #check(input: Partial<KeyInput>, ctx?: OrgContext) {
+    // Admin scope on DiRouter's MCP server (card 20.2) is granted by owners and admins only: a
+    // member who may create keys must not mint one that manages the organization.
+    if (
+      ctx &&
+      input.mcpAdmin !== undefined &&
+      input.mcpAdmin !== 'none' &&
+      !canAny(ctx.role, ctx.customPermissions, 'org:write')
+    )
+      throw new ForbiddenError('forbidden', {
+        message: 'Only owners and admins can grant MCP admin access to a key',
+      });
     for (const ip of input.ipAllowlist ?? [])
       if (!validCidr(ip))
         throw new DiRouterError('validation_failed', { message: `invalid IP or CIDR: ${ip}` });
@@ -161,7 +175,7 @@ export class KeysService {
   }
 
   async create(ctx: OrgContext, input: KeyInput) {
-    this.#check(input);
+    this.#check(input, ctx);
     await this.#project(ctx, input.projectId);
     const { key, prefix } = newApiKey();
     const id = prefixedId('key');
@@ -176,6 +190,7 @@ export class KeysService {
           hash: hashApiKey(key, this.env.KEY_PEPPER),
           allowedModels: input.allowedModels ?? [],
           mcpTools: input.mcpTools ?? [],
+          mcpAdmin: input.mcpAdmin ?? 'none',
           ipAllowlist: input.ipAllowlist ?? [],
           rpm: input.rpm ?? null,
           tpm: input.tpm ?? null,
@@ -196,7 +211,7 @@ export class KeysService {
   }
 
   async update(ctx: OrgContext, id: string, input: Partial<Omit<KeyInput, 'projectId'>>) {
-    this.#check(input);
+    this.#check(input, ctx);
     await this.load(ctx, id);
     await this.db.$transaction(async (tx) => {
       await tx.apiKey.update({
@@ -205,6 +220,7 @@ export class KeysService {
           ...(input.name !== undefined ? { name: input.name } : {}),
           ...(input.allowedModels !== undefined ? { allowedModels: input.allowedModels } : {}),
           ...(input.mcpTools !== undefined ? { mcpTools: input.mcpTools } : {}),
+          ...(input.mcpAdmin !== undefined ? { mcpAdmin: input.mcpAdmin } : {}),
           ...(input.ipAllowlist !== undefined ? { ipAllowlist: input.ipAllowlist } : {}),
           ...(input.rpm !== undefined ? { rpm: input.rpm } : {}),
           ...(input.tpm !== undefined ? { tpm: input.tpm } : {}),
@@ -261,6 +277,7 @@ export class KeysService {
           hash: hashApiKey(key, this.env.KEY_PEPPER),
           allowedModels: old.allowedModels,
           mcpTools: old.mcpTools,
+          mcpAdmin: old.mcpAdmin,
           ipAllowlist: old.ipAllowlist,
           rpm: old.rpm,
           tpm: old.tpm,
