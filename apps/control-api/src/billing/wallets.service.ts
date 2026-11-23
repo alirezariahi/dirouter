@@ -93,6 +93,14 @@ export class WalletsService implements OnApplicationBootstrap {
         .catch(() => undefined);
   }
 
+  /** The organization's wallet, created and mirrored to Valkey on first use. */
+  async ensure(organizationId: string) {
+    const wallet = await ensureWallet(this.db, organizationId);
+    if (wallet.version === 0)
+      await this.mirror([{ walletId: wallet.id, balanceUsd: '0.00000000', version: 0 }]);
+    return wallet;
+  }
+
   /** Balance as the gateway sees it: the ledger balance minus open reservations. */
   async #held(walletId: string): Promise<string> {
     const held = await this.#redis.hget(walletKey(walletId), 'held').catch(() => null);
@@ -170,7 +178,7 @@ export class WalletsService implements OnApplicationBootstrap {
       select: { id: true },
     });
     if (!org) throw new DiRouterError('not_found', { message: 'Organization not found' });
-    return ensureWallet(this.db, org.id);
+    return this.ensure(org.id);
   }
 
   /** Prepaid mode on or off. The snapshot rebuild then adds or removes the keys' wallet. */

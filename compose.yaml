@@ -116,6 +116,14 @@ services:
       SEMANTIC_CACHE_EMBEDDING_MODEL: ${SEMANTIC_CACHE_EMBEDDING_MODEL:-text-embedding-3-small}
       SMTP_URL: ${SMTP_URL:-}
       SMTP_FROM: ${SMTP_FROM:-DiRouter <noreply@${DOMAIN:-localhost}>}
+      # Online top-ups (card 19.2): a provider is offered only when its credentials are set.
+      PUBLIC_API_URL: ${PUBLIC_API_URL:-https://admin.${DOMAIN:-localhost}}
+      PAYMENT_RETURN_ORIGINS: ${PAYMENT_RETURN_ORIGINS:-}
+      ZARINPAL_MERCHANT_ID: ${ZARINPAL_MERCHANT_ID:-}
+      ZARINPAL_BASE_URL: ${ZARINPAL_BASE_URL:-}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      STRIPE_BASE_URL: ${STRIPE_BASE_URL:-}
     networks: [edge, internal]
     depends_on:
       postgres: { condition: service_healthy }

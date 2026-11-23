@@ -34,9 +34,8 @@ export async function createApp(
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule.forRoot(env, logger),
     adapter,
-    {
-      logger: false,
-    },
+    // rawBody: signed webhooks (Stripe, card 19.2) are verified over the exact bytes received.
+    { logger: false, rawBody: true },
   );
 
   await app.register(fastifyCookie);

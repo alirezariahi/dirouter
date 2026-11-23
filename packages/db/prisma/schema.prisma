@@ -56,6 +56,7 @@ model Organization {
   alertRules   AlertRule[]
   alertEvents  AlertEvent[]
   wallet       Wallet?
+  payments     Payment[]
 
   @@map("organizations")
 }
@@ -864,4 +865,57 @@ model WalletEntry {
   @@index([walletId, createdAt])
   @@index([transactionId])
   @@map("wallet_entries")
+}
+
+enum PaymentStatus {
+  PENDING   @map("pending")
+  SUCCEEDED @map("succeeded")
+  FAILED    @map("failed")
+  EXPIRED   @map("expired")
+}
+
+/// Online wallet top-up (card 19.2). The credit is posted to the ledger exactly once, in the same
+/// database transaction that moves the payment from PENDING to SUCCEEDED.
+model Payment {
+  id             String        @id
+  organizationId String        @map("organization_id")
+  /// zarinpal | stripe
+  provider       String
+  status         PaymentStatus @default(PENDING)
+  /// Credit added to the wallet on success.
+  amountUsd      Decimal       @map("amount_usd") @db.Decimal(18, 8)
+  /// What the provider charges: ISO currency and integer minor units (rials, cents).
+  currency       String
+  amountMinor    BigInt        @map("amount_minor")
+  /// Units of `currency` per USD used for this payment (frozen at creation).
+  exchangeRate   Decimal       @map("exchange_rate") @db.Decimal(24, 8)
+  /// Zarinpal authority or Stripe Checkout Session id.
+  providerRef    String?       @map("provider_ref")
+  /// Zarinpal ref_id or Stripe payment_intent, once paid.
+  providerTxId   String?       @map("provider_tx_id")
+  returnUrl      String?       @map("return_url")
+  failureReason  String?       @map("failure_reason")
+  transactionId  String?       @unique @map("transaction_id")
+  createdById    String?       @map("created_by_id")
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+  completedAt    DateTime?     @map("completed_at") @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@unique([provider, providerRef])
+  @@index([organizationId, createdAt])
+  @@index([status, createdAt])
+  @@map("payments")
+}
+
+/// Operator billing settings (single row, id = "global"): exchange rates, top-up limits and the
+/// payment providers offered to customers. Edited from the platform organization without a deploy.
+model BillingSetting {
+  id        String   @id @default("global")
+  settings  Json     @default("{}")
+  updatedBy String?  @map("updated_by")
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+
+  @@map("billing_settings")
 }

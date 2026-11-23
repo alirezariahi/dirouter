@@ -118,6 +118,14 @@ services:
       SEMANTIC_CACHE_EMBEDDING_KEY: ${SEMANTIC_CACHE_EMBEDDING_KEY:-}
       SEMANTIC_CACHE_EMBEDDING_MODEL: ${SEMANTIC_CACHE_EMBEDDING_MODEL:-text-embedding-3-small}
       SMTP_URL: smtp://mailpit:1025
+      # Payments (card 19.2) go to the fake Zarinpal and Stripe in mock-provider.
+      PUBLIC_API_URL: http://admin.${DOMAIN:-localhost}
+      PAYMENT_RETURN_ORIGINS: http://app.${DOMAIN:-localhost},http://portal.${DOMAIN:-localhost},https://portal.${DOMAIN:-localhost}
+      ZARINPAL_MERCHANT_ID: 00000000-0000-0000-0000-00000000dev0
+      ZARINPAL_BASE_URL: http://mock-provider:8090/zarinpal
+      STRIPE_SECRET_KEY: sk_test_dev
+      STRIPE_WEBHOOK_SECRET: whsec_dev
+      STRIPE_BASE_URL: http://mock-provider:8090/stripe
     command: ['pnpm', '--filter', '@dirouter/control-api', 'dev']
     labels:
       # In dev the router takes HTTPS only; a separate router handles plain HTTP.
@@ -191,6 +199,9 @@ services:
     environment:
       NODE_ENV: development
       PORT: '8090'
+      MOCK_PUBLIC_URL: http://mock.${DOMAIN:-localhost}
+      MOCK_STRIPE_WEBHOOK_URL: http://control-api:3000/api/v1/payments/stripe/webhook
+      MOCK_STRIPE_WEBHOOK_SECRET: whsec_dev
     command: ['pnpm', '--filter', '@dirouter/mock-provider', 'dev']
     networks: [edge]
     labels:

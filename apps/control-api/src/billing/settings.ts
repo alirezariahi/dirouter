@@ -1,0 +1,22 @@
+/**
+ * Operator billing settings (card 19.2, extended by 19.4): stored as one JSON row and read on every
+ * use, so a change applies at once without a deploy.
+ */
+import { z } from 'zod';
+
+const Decimal = z
+  .string()
+  .trim()
+  .regex(/^\d{1,10}(\.\d{1,8})?$/, 'a non-negative decimal with at most 8 decimals');
+
+export const BillingSettings = z.object({
+  /** Units of each currency per USD, e.g. `{ "IRR": "1050000" }`. USD is always 1. */
+  exchangeRates: z.record(z.string().regex(/^[A-Z]{3}$/), Decimal).default({}),
+  topup: z
+    .object({ minUsd: Decimal.default('1'), maxUsd: Decimal.default('1000') })
+    .default({ minUsd: '1', maxUsd: '1000' }),
+  /** Payment providers offered to customers (each also needs its credentials in env). */
+  providers: z.array(z.enum(['zarinpal', 'stripe'])).default([]),
+});
+export type BillingSettings = z.infer<typeof BillingSettings>;
+export type BillingSettingsInput = z.input<typeof BillingSettings>;

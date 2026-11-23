@@ -18,6 +18,7 @@
   },
   "devDependencies": {
     "@dirouter/eslint-config": "workspace:*",
+    "@dirouter/mock-provider": "workspace:*",
     "@dirouter/tsconfig": "workspace:*"
   },
   "dependencies": {

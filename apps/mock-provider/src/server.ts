@@ -12,6 +12,7 @@ import {
   sampleLatency,
   type Scenario,
 } from './scenario.js';
+import { type PaymentMockOptions, registerPayments } from './payments.js';
 
 type Api = 'openai' | 'anthropic' | 'gemini';
 
@@ -83,6 +84,8 @@ const ERROR_TYPES: Record<number, { openai: string; anthropic: string; message: 
 
 export interface MockServerOptions {
   defaultDirectives?: string;
+  /** Fake Zarinpal and Stripe (card 19.2). */
+  payments?: PaymentMockOptions;
 }
 
 export function buildServer(options: MockServerOptions = {}) {
@@ -584,6 +587,8 @@ export function buildServer(options: MockServerOptions = {}) {
       })),
     };
   });
+
+  registerPayments(app, options.payments);
 
   app.get('/healthz', () => ({ status: 'ok' }));
   app.get('/__mock/stats', () => stats);

@@ -111,6 +111,9 @@ importers:
       '@dirouter/eslint-config':
         specifier: workspace:*
         version: link:../../packages/eslint-config
+      '@dirouter/mock-provider':
+        specifier: workspace:*
+        version: link:../mock-provider
       '@dirouter/tsconfig':
         specifier: workspace:*
         version: link:../../packages/tsconfig

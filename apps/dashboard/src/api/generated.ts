@@ -3749,6 +3749,41 @@ export type WalletControllerStatementParams = {
 
 export type WalletControllerStatement200Item = {[key: string]: unknown};
 
+export type WalletPaymentsControllerOptions200 = {[key: string]: unknown};
+
+export type WalletPaymentsControllerCreateBodyProvider = typeof WalletPaymentsControllerCreateBodyProvider[keyof typeof WalletPaymentsControllerCreateBodyProvider];
+
+
+export const WalletPaymentsControllerCreateBodyProvider = {
+  zarinpal: 'zarinpal',
+  stripe: 'stripe',
+} as const;
+
+export type WalletPaymentsControllerCreateBody = {
+  provider: WalletPaymentsControllerCreateBodyProvider;
+  /** @pattern ^\d{1,10}(\.\d{1,2})?$ */
+  amountUsd: string;
+  /** @maxLength 2000 */
+  returnUrl?: string;
+};
+
+export type WalletPaymentsControllerCreate200 = {
+  paymentId: string;
+  redirectUrl: string;
+};
+
+export type WalletPaymentsControllerListParams = {
+  /**
+   * @minimum 1
+   * @maximum 500
+   */
+  limit?: number;
+};
+
+export type WalletPaymentsControllerList200Item = {[key: string]: unknown};
+
+export type WalletPaymentsControllerGet200 = {[key: string]: unknown};
+
 export type BillingAdminControllerList200Item = {[key: string]: unknown};
 
 export type BillingAdminControllerWallet200 = {[key: string]: unknown};
@@ -3789,6 +3824,56 @@ export type BillingAdminControllerAdjustBody = {
 export type BillingAdminControllerAdjust200 = {[key: string]: unknown};
 
 export type BillingAdminControllerLedgerCheck200 = {[key: string]: unknown};
+
+export type BillingPaymentsAdminControllerListParams = {
+  /**
+   * @minimum 1
+   * @maximum 500
+   */
+  limit?: number;
+  status?: BillingPaymentsAdminControllerListStatus;
+};
+
+export type BillingPaymentsAdminControllerListStatus = typeof BillingPaymentsAdminControllerListStatus[keyof typeof BillingPaymentsAdminControllerListStatus];
+
+
+export const BillingPaymentsAdminControllerListStatus = {
+  pending: 'pending',
+  succeeded: 'succeeded',
+  failed: 'failed',
+  expired: 'expired',
+} as const;
+
+export type BillingPaymentsAdminControllerList200Item = {[key: string]: unknown};
+
+export type BillingPaymentsAdminControllerReconcile200 = {[key: string]: unknown};
+
+export type BillingPaymentsAdminControllerSettings200 = {[key: string]: unknown};
+
+export type BillingPaymentsAdminControllerPutSettingsBodyExchangeRates = {[key: string]: string};
+
+export type BillingPaymentsAdminControllerPutSettingsBodyTopup = {
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  minUsd?: string;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  maxUsd?: string;
+};
+
+export type BillingPaymentsAdminControllerPutSettingsBodyProvidersItem = typeof BillingPaymentsAdminControllerPutSettingsBodyProvidersItem[keyof typeof BillingPaymentsAdminControllerPutSettingsBodyProvidersItem];
+
+
+export const BillingPaymentsAdminControllerPutSettingsBodyProvidersItem = {
+  zarinpal: 'zarinpal',
+  stripe: 'stripe',
+} as const;
+
+export type BillingPaymentsAdminControllerPutSettingsBody = {
+  exchangeRates?: BillingPaymentsAdminControllerPutSettingsBodyExchangeRates;
+  topup?: BillingPaymentsAdminControllerPutSettingsBodyTopup;
+  providers?: BillingPaymentsAdminControllerPutSettingsBodyProvidersItem[];
+};
+
+export type BillingPaymentsAdminControllerPutSettings200 = {[key: string]: unknown};
 
 export type ConfigControllerList200Item = {[key: string]: unknown};
 
@@ -14887,6 +14972,385 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       return useMutation(getWalletControllerStatementMutationOptions(options), queryClient);
     }
 
+export type walletPaymentsControllerOptionsResponse200 = {
+  data: WalletPaymentsControllerOptions200
+  status: 200
+}
+
+export type walletPaymentsControllerOptionsResponseSuccess = (walletPaymentsControllerOptionsResponse200) & {
+  headers: Headers;
+};
+;
+
+export type walletPaymentsControllerOptionsResponse = (walletPaymentsControllerOptionsResponseSuccess)
+
+export const getWalletPaymentsControllerOptionsUrl = (orgId: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/wallet/payment-options`
+}
+
+export const walletPaymentsControllerOptions = async (orgId: string, options?: Parameters<typeof orvalFetch>[1]): Promise<walletPaymentsControllerOptionsResponse> => {
+
+  return orvalFetch<walletPaymentsControllerOptionsResponse>(getWalletPaymentsControllerOptionsUrl(orgId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getWalletPaymentsControllerOptionsMutationKey = () => ['walletPaymentsControllerOptions'] as const;
+
+export const getWalletPaymentsControllerOptionsMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof walletPaymentsControllerOptions>>, TError,WalletPaymentsControllerOptionsMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof walletPaymentsControllerOptions>>, TError,WalletPaymentsControllerOptionsMutationVariables, TContext> => {
+
+const mutationKey = getWalletPaymentsControllerOptionsMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof walletPaymentsControllerOptions>>, WalletPaymentsControllerOptionsMutationVariables> = (props) => {
+          const {orgId} = props ?? {};
+
+          return  walletPaymentsControllerOptions(orgId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type WalletPaymentsControllerOptionsMutationResult = NonNullable<Awaited<ReturnType<typeof walletPaymentsControllerOptions>>>
+
+    export type WalletPaymentsControllerOptionsMutationError = unknown
+    export type WalletPaymentsControllerOptionsMutationVariables = {orgId: string}
+
+    export const useWalletPaymentsControllerOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof walletPaymentsControllerOptions>>, TError,WalletPaymentsControllerOptionsMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof walletPaymentsControllerOptions>>,
+        TError,
+        WalletPaymentsControllerOptionsMutationVariables,
+        TContext
+      > => {
+      return useMutation(getWalletPaymentsControllerOptionsMutationOptions(options), queryClient);
+    }
+
+export type walletPaymentsControllerCreateResponse200 = {
+  data: WalletPaymentsControllerCreate200
+  status: 200
+}
+
+export type walletPaymentsControllerCreateResponseSuccess = (walletPaymentsControllerCreateResponse200) & {
+  headers: Headers;
+};
+;
+
+export type walletPaymentsControllerCreateResponse = (walletPaymentsControllerCreateResponseSuccess)
+
+export const getWalletPaymentsControllerCreateUrl = (orgId: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/wallet/payments`
+}
+
+export const walletPaymentsControllerCreate = async (orgId: string,
+    walletPaymentsControllerCreateBody: WalletPaymentsControllerCreateBody, options?: Parameters<typeof orvalFetch>[1]): Promise<walletPaymentsControllerCreateResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return orvalFetch<walletPaymentsControllerCreateResponse>(getWalletPaymentsControllerCreateUrl(orgId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(walletPaymentsControllerCreateBody)
+  }
+);}
+
+
+
+
+
+export const getWalletPaymentsControllerCreateQueryKey = (orgId: string,
+    walletPaymentsControllerCreateBody?: WalletPaymentsControllerCreateBody,) => {
+    return [
+    'POST', `/api/v1/orgs/${orgId}/wallet/payments`, walletPaymentsControllerCreateBody
+    ] as const;
+    }
+
+
+export const getWalletPaymentsControllerCreateQueryOptions = <TData = Awaited<ReturnType<typeof walletPaymentsControllerCreate>>, TError = unknown>(orgId: string,
+    walletPaymentsControllerCreateBody: WalletPaymentsControllerCreateBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof walletPaymentsControllerCreate>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getWalletPaymentsControllerCreateQueryKey(orgId,walletPaymentsControllerCreateBody);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof walletPaymentsControllerCreate>>> = ({ signal }) => walletPaymentsControllerCreate(orgId,walletPaymentsControllerCreateBody, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: orgId !== null && orgId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof walletPaymentsControllerCreate>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type WalletPaymentsControllerCreateQueryResult = NonNullable<Awaited<ReturnType<typeof walletPaymentsControllerCreate>>>
+export type WalletPaymentsControllerCreateQueryError = unknown
+
+
+export function useWalletPaymentsControllerCreate<TData = Awaited<ReturnType<typeof walletPaymentsControllerCreate>>, TError = unknown>(
+ orgId: string,
+    walletPaymentsControllerCreateBody: WalletPaymentsControllerCreateBody, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof walletPaymentsControllerCreate>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof walletPaymentsControllerCreate>>,
+          TError,
+          Awaited<ReturnType<typeof walletPaymentsControllerCreate>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useWalletPaymentsControllerCreate<TData = Awaited<ReturnType<typeof walletPaymentsControllerCreate>>, TError = unknown>(
+ orgId: string,
+    walletPaymentsControllerCreateBody: WalletPaymentsControllerCreateBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof walletPaymentsControllerCreate>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof walletPaymentsControllerCreate>>,
+          TError,
+          Awaited<ReturnType<typeof walletPaymentsControllerCreate>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useWalletPaymentsControllerCreate<TData = Awaited<ReturnType<typeof walletPaymentsControllerCreate>>, TError = unknown>(
+ orgId: string,
+    walletPaymentsControllerCreateBody: WalletPaymentsControllerCreateBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof walletPaymentsControllerCreate>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useWalletPaymentsControllerCreate<TData = Awaited<ReturnType<typeof walletPaymentsControllerCreate>>, TError = unknown>(
+ orgId: string,
+    walletPaymentsControllerCreateBody: WalletPaymentsControllerCreateBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof walletPaymentsControllerCreate>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getWalletPaymentsControllerCreateQueryOptions(orgId,walletPaymentsControllerCreateBody,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export type walletPaymentsControllerListResponse200 = {
+  data: WalletPaymentsControllerList200Item[]
+  status: 200
+}
+
+export type walletPaymentsControllerListResponseSuccess = (walletPaymentsControllerListResponse200) & {
+  headers: Headers;
+};
+;
+
+export type walletPaymentsControllerListResponse = (walletPaymentsControllerListResponseSuccess)
+
+export const getWalletPaymentsControllerListUrl = (orgId: string,
+    params?: WalletPaymentsControllerListParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/v1/orgs/${orgId}/wallet/payments?${stringifiedParams}` : `/api/v1/orgs/${orgId}/wallet/payments`
+}
+
+export const walletPaymentsControllerList = async (orgId: string,
+    params?: WalletPaymentsControllerListParams, options?: Parameters<typeof orvalFetch>[1]): Promise<walletPaymentsControllerListResponse> => {
+
+  return orvalFetch<walletPaymentsControllerListResponse>(getWalletPaymentsControllerListUrl(orgId,params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getWalletPaymentsControllerListMutationKey = () => ['walletPaymentsControllerList'] as const;
+
+export const getWalletPaymentsControllerListMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof walletPaymentsControllerList>>, TError,WalletPaymentsControllerListMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof walletPaymentsControllerList>>, TError,WalletPaymentsControllerListMutationVariables, TContext> => {
+
+const mutationKey = getWalletPaymentsControllerListMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof walletPaymentsControllerList>>, WalletPaymentsControllerListMutationVariables> = (props) => {
+          const {orgId,params} = props ?? {};
+
+          return  walletPaymentsControllerList(orgId,params,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type WalletPaymentsControllerListMutationResult = NonNullable<Awaited<ReturnType<typeof walletPaymentsControllerList>>>
+
+    export type WalletPaymentsControllerListMutationError = unknown
+    export type WalletPaymentsControllerListMutationVariables = {orgId: string;params?: WalletPaymentsControllerListParams}
+
+    export const useWalletPaymentsControllerList = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof walletPaymentsControllerList>>, TError,WalletPaymentsControllerListMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof walletPaymentsControllerList>>,
+        TError,
+        WalletPaymentsControllerListMutationVariables,
+        TContext
+      > => {
+      return useMutation(getWalletPaymentsControllerListMutationOptions(options), queryClient);
+    }
+
+export type walletPaymentsControllerGetResponse200 = {
+  data: WalletPaymentsControllerGet200
+  status: 200
+}
+
+export type walletPaymentsControllerGetResponseSuccess = (walletPaymentsControllerGetResponse200) & {
+  headers: Headers;
+};
+;
+
+export type walletPaymentsControllerGetResponse = (walletPaymentsControllerGetResponseSuccess)
+
+export const getWalletPaymentsControllerGetUrl = (orgId: string,
+    id: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/wallet/payments/${id}`
+}
+
+export const walletPaymentsControllerGet = async (orgId: string,
+    id: string, options?: Parameters<typeof orvalFetch>[1]): Promise<walletPaymentsControllerGetResponse> => {
+
+  return orvalFetch<walletPaymentsControllerGetResponse>(getWalletPaymentsControllerGetUrl(orgId,id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getWalletPaymentsControllerGetMutationKey = () => ['walletPaymentsControllerGet'] as const;
+
+export const getWalletPaymentsControllerGetMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof walletPaymentsControllerGet>>, TError,WalletPaymentsControllerGetMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof walletPaymentsControllerGet>>, TError,WalletPaymentsControllerGetMutationVariables, TContext> => {
+
+const mutationKey = getWalletPaymentsControllerGetMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof walletPaymentsControllerGet>>, WalletPaymentsControllerGetMutationVariables> = (props) => {
+          const {orgId,id} = props ?? {};
+
+          return  walletPaymentsControllerGet(orgId,id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type WalletPaymentsControllerGetMutationResult = NonNullable<Awaited<ReturnType<typeof walletPaymentsControllerGet>>>
+
+    export type WalletPaymentsControllerGetMutationError = unknown
+    export type WalletPaymentsControllerGetMutationVariables = {orgId: string;id: string}
+
+    export const useWalletPaymentsControllerGet = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof walletPaymentsControllerGet>>, TError,WalletPaymentsControllerGetMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof walletPaymentsControllerGet>>,
+        TError,
+        WalletPaymentsControllerGetMutationVariables,
+        TContext
+      > => {
+      return useMutation(getWalletPaymentsControllerGetMutationOptions(options), queryClient);
+    }
+
 export type billingAdminControllerListResponse200 = {
   data: BillingAdminControllerList200Item[]
   status: 200
@@ -15491,6 +15955,410 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       > => {
       return useMutation(getBillingAdminControllerLedgerCheckMutationOptions(options), queryClient);
     }
+
+export type billingPaymentsAdminControllerListResponse200 = {
+  data: BillingPaymentsAdminControllerList200Item[]
+  status: 200
+}
+
+export type billingPaymentsAdminControllerListResponseSuccess = (billingPaymentsAdminControllerListResponse200) & {
+  headers: Headers;
+};
+;
+
+export type billingPaymentsAdminControllerListResponse = (billingPaymentsAdminControllerListResponseSuccess)
+
+export const getBillingPaymentsAdminControllerListUrl = (orgId: string,
+    params?: BillingPaymentsAdminControllerListParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/v1/orgs/${orgId}/billing/payments?${stringifiedParams}` : `/api/v1/orgs/${orgId}/billing/payments`
+}
+
+export const billingPaymentsAdminControllerList = async (orgId: string,
+    params?: BillingPaymentsAdminControllerListParams, options?: Parameters<typeof orvalFetch>[1]): Promise<billingPaymentsAdminControllerListResponse> => {
+
+  return orvalFetch<billingPaymentsAdminControllerListResponse>(getBillingPaymentsAdminControllerListUrl(orgId,params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getBillingPaymentsAdminControllerListMutationKey = () => ['billingPaymentsAdminControllerList'] as const;
+
+export const getBillingPaymentsAdminControllerListMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof billingPaymentsAdminControllerList>>, TError,BillingPaymentsAdminControllerListMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof billingPaymentsAdminControllerList>>, TError,BillingPaymentsAdminControllerListMutationVariables, TContext> => {
+
+const mutationKey = getBillingPaymentsAdminControllerListMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof billingPaymentsAdminControllerList>>, BillingPaymentsAdminControllerListMutationVariables> = (props) => {
+          const {orgId,params} = props ?? {};
+
+          return  billingPaymentsAdminControllerList(orgId,params,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type BillingPaymentsAdminControllerListMutationResult = NonNullable<Awaited<ReturnType<typeof billingPaymentsAdminControllerList>>>
+
+    export type BillingPaymentsAdminControllerListMutationError = unknown
+    export type BillingPaymentsAdminControllerListMutationVariables = {orgId: string;params?: BillingPaymentsAdminControllerListParams}
+
+    export const useBillingPaymentsAdminControllerList = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof billingPaymentsAdminControllerList>>, TError,BillingPaymentsAdminControllerListMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof billingPaymentsAdminControllerList>>,
+        TError,
+        BillingPaymentsAdminControllerListMutationVariables,
+        TContext
+      > => {
+      return useMutation(getBillingPaymentsAdminControllerListMutationOptions(options), queryClient);
+    }
+
+export type billingPaymentsAdminControllerReconcileResponse200 = {
+  data: BillingPaymentsAdminControllerReconcile200
+  status: 200
+}
+
+export type billingPaymentsAdminControllerReconcileResponseSuccess = (billingPaymentsAdminControllerReconcileResponse200) & {
+  headers: Headers;
+};
+;
+
+export type billingPaymentsAdminControllerReconcileResponse = (billingPaymentsAdminControllerReconcileResponseSuccess)
+
+export const getBillingPaymentsAdminControllerReconcileUrl = (orgId: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/billing/payments/reconcile`
+}
+
+export const billingPaymentsAdminControllerReconcile = async (orgId: string, options?: Parameters<typeof orvalFetch>[1]): Promise<billingPaymentsAdminControllerReconcileResponse> => {
+
+  return orvalFetch<billingPaymentsAdminControllerReconcileResponse>(getBillingPaymentsAdminControllerReconcileUrl(orgId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getBillingPaymentsAdminControllerReconcileQueryKey = (orgId: string,) => {
+    return [
+    'POST', `/api/v1/orgs/${orgId}/billing/payments/reconcile`
+    ] as const;
+    }
+
+
+export const getBillingPaymentsAdminControllerReconcileQueryOptions = <TData = Awaited<ReturnType<typeof billingPaymentsAdminControllerReconcile>>, TError = unknown>(orgId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof billingPaymentsAdminControllerReconcile>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getBillingPaymentsAdminControllerReconcileQueryKey(orgId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof billingPaymentsAdminControllerReconcile>>> = ({ signal }) => billingPaymentsAdminControllerReconcile(orgId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: orgId !== null && orgId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof billingPaymentsAdminControllerReconcile>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type BillingPaymentsAdminControllerReconcileQueryResult = NonNullable<Awaited<ReturnType<typeof billingPaymentsAdminControllerReconcile>>>
+export type BillingPaymentsAdminControllerReconcileQueryError = unknown
+
+
+export function useBillingPaymentsAdminControllerReconcile<TData = Awaited<ReturnType<typeof billingPaymentsAdminControllerReconcile>>, TError = unknown>(
+ orgId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof billingPaymentsAdminControllerReconcile>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof billingPaymentsAdminControllerReconcile>>,
+          TError,
+          Awaited<ReturnType<typeof billingPaymentsAdminControllerReconcile>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useBillingPaymentsAdminControllerReconcile<TData = Awaited<ReturnType<typeof billingPaymentsAdminControllerReconcile>>, TError = unknown>(
+ orgId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof billingPaymentsAdminControllerReconcile>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof billingPaymentsAdminControllerReconcile>>,
+          TError,
+          Awaited<ReturnType<typeof billingPaymentsAdminControllerReconcile>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useBillingPaymentsAdminControllerReconcile<TData = Awaited<ReturnType<typeof billingPaymentsAdminControllerReconcile>>, TError = unknown>(
+ orgId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof billingPaymentsAdminControllerReconcile>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useBillingPaymentsAdminControllerReconcile<TData = Awaited<ReturnType<typeof billingPaymentsAdminControllerReconcile>>, TError = unknown>(
+ orgId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof billingPaymentsAdminControllerReconcile>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getBillingPaymentsAdminControllerReconcileQueryOptions(orgId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export type billingPaymentsAdminControllerSettingsResponse200 = {
+  data: BillingPaymentsAdminControllerSettings200
+  status: 200
+}
+
+export type billingPaymentsAdminControllerSettingsResponseSuccess = (billingPaymentsAdminControllerSettingsResponse200) & {
+  headers: Headers;
+};
+;
+
+export type billingPaymentsAdminControllerSettingsResponse = (billingPaymentsAdminControllerSettingsResponseSuccess)
+
+export const getBillingPaymentsAdminControllerSettingsUrl = (orgId: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/billing/settings`
+}
+
+export const billingPaymentsAdminControllerSettings = async (orgId: string, options?: Parameters<typeof orvalFetch>[1]): Promise<billingPaymentsAdminControllerSettingsResponse> => {
+
+  return orvalFetch<billingPaymentsAdminControllerSettingsResponse>(getBillingPaymentsAdminControllerSettingsUrl(orgId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getBillingPaymentsAdminControllerSettingsMutationKey = () => ['billingPaymentsAdminControllerSettings'] as const;
+
+export const getBillingPaymentsAdminControllerSettingsMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof billingPaymentsAdminControllerSettings>>, TError,BillingPaymentsAdminControllerSettingsMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof billingPaymentsAdminControllerSettings>>, TError,BillingPaymentsAdminControllerSettingsMutationVariables, TContext> => {
+
+const mutationKey = getBillingPaymentsAdminControllerSettingsMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof billingPaymentsAdminControllerSettings>>, BillingPaymentsAdminControllerSettingsMutationVariables> = (props) => {
+          const {orgId} = props ?? {};
+
+          return  billingPaymentsAdminControllerSettings(orgId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type BillingPaymentsAdminControllerSettingsMutationResult = NonNullable<Awaited<ReturnType<typeof billingPaymentsAdminControllerSettings>>>
+
+    export type BillingPaymentsAdminControllerSettingsMutationError = unknown
+    export type BillingPaymentsAdminControllerSettingsMutationVariables = {orgId: string}
+
+    export const useBillingPaymentsAdminControllerSettings = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof billingPaymentsAdminControllerSettings>>, TError,BillingPaymentsAdminControllerSettingsMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof billingPaymentsAdminControllerSettings>>,
+        TError,
+        BillingPaymentsAdminControllerSettingsMutationVariables,
+        TContext
+      > => {
+      return useMutation(getBillingPaymentsAdminControllerSettingsMutationOptions(options), queryClient);
+    }
+
+export type billingPaymentsAdminControllerPutSettingsResponse200 = {
+  data: BillingPaymentsAdminControllerPutSettings200
+  status: 200
+}
+
+export type billingPaymentsAdminControllerPutSettingsResponseSuccess = (billingPaymentsAdminControllerPutSettingsResponse200) & {
+  headers: Headers;
+};
+;
+
+export type billingPaymentsAdminControllerPutSettingsResponse = (billingPaymentsAdminControllerPutSettingsResponseSuccess)
+
+export const getBillingPaymentsAdminControllerPutSettingsUrl = (orgId: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/billing/settings`
+}
+
+export const billingPaymentsAdminControllerPutSettings = async (orgId: string,
+    billingPaymentsAdminControllerPutSettingsBody: BillingPaymentsAdminControllerPutSettingsBody, options?: Parameters<typeof orvalFetch>[1]): Promise<billingPaymentsAdminControllerPutSettingsResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return orvalFetch<billingPaymentsAdminControllerPutSettingsResponse>(getBillingPaymentsAdminControllerPutSettingsUrl(orgId),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(billingPaymentsAdminControllerPutSettingsBody)
+  }
+);}
+
+
+
+
+
+export const getBillingPaymentsAdminControllerPutSettingsQueryKey = (orgId: string,
+    billingPaymentsAdminControllerPutSettingsBody?: BillingPaymentsAdminControllerPutSettingsBody,) => {
+    return [
+    'PUT', `/api/v1/orgs/${orgId}/billing/settings`, billingPaymentsAdminControllerPutSettingsBody
+    ] as const;
+    }
+
+
+export const getBillingPaymentsAdminControllerPutSettingsQueryOptions = <TData = Awaited<ReturnType<typeof billingPaymentsAdminControllerPutSettings>>, TError = unknown>(orgId: string,
+    billingPaymentsAdminControllerPutSettingsBody: BillingPaymentsAdminControllerPutSettingsBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof billingPaymentsAdminControllerPutSettings>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getBillingPaymentsAdminControllerPutSettingsQueryKey(orgId,billingPaymentsAdminControllerPutSettingsBody);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof billingPaymentsAdminControllerPutSettings>>> = ({ signal }) => billingPaymentsAdminControllerPutSettings(orgId,billingPaymentsAdminControllerPutSettingsBody, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: orgId !== null && orgId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof billingPaymentsAdminControllerPutSettings>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type BillingPaymentsAdminControllerPutSettingsQueryResult = NonNullable<Awaited<ReturnType<typeof billingPaymentsAdminControllerPutSettings>>>
+export type BillingPaymentsAdminControllerPutSettingsQueryError = unknown
+
+
+export function useBillingPaymentsAdminControllerPutSettings<TData = Awaited<ReturnType<typeof billingPaymentsAdminControllerPutSettings>>, TError = unknown>(
+ orgId: string,
+    billingPaymentsAdminControllerPutSettingsBody: BillingPaymentsAdminControllerPutSettingsBody, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof billingPaymentsAdminControllerPutSettings>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof billingPaymentsAdminControllerPutSettings>>,
+          TError,
+          Awaited<ReturnType<typeof billingPaymentsAdminControllerPutSettings>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useBillingPaymentsAdminControllerPutSettings<TData = Awaited<ReturnType<typeof billingPaymentsAdminControllerPutSettings>>, TError = unknown>(
+ orgId: string,
+    billingPaymentsAdminControllerPutSettingsBody: BillingPaymentsAdminControllerPutSettingsBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof billingPaymentsAdminControllerPutSettings>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof billingPaymentsAdminControllerPutSettings>>,
+          TError,
+          Awaited<ReturnType<typeof billingPaymentsAdminControllerPutSettings>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useBillingPaymentsAdminControllerPutSettings<TData = Awaited<ReturnType<typeof billingPaymentsAdminControllerPutSettings>>, TError = unknown>(
+ orgId: string,
+    billingPaymentsAdminControllerPutSettingsBody: BillingPaymentsAdminControllerPutSettingsBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof billingPaymentsAdminControllerPutSettings>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useBillingPaymentsAdminControllerPutSettings<TData = Awaited<ReturnType<typeof billingPaymentsAdminControllerPutSettings>>, TError = unknown>(
+ orgId: string,
+    billingPaymentsAdminControllerPutSettingsBody: BillingPaymentsAdminControllerPutSettingsBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof billingPaymentsAdminControllerPutSettings>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getBillingPaymentsAdminControllerPutSettingsQueryOptions(orgId,billingPaymentsAdminControllerPutSettingsBody,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export type configControllerListResponse200 = {
   data: ConfigControllerList200Item[]
