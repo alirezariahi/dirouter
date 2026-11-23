@@ -19,6 +19,8 @@ export const envSchema = baseEnvSchema.extend({
   PUBLIC_DASHBOARD_URL: z.string().default('https://app.localhost'),
   /** Gateway for testing the connection and discovering provider models (card 3.6). */
   GATEWAY_INTERNAL_URL: z.string().default('http://gateway:8080'),
+  /** Public gateway origin written into generated agent configurations (card 20.5). */
+  PUBLIC_GATEWAY_URL: z.string().default('https://api.localhost'),
   /** Public origin of this API, used in payment callback URLs (card 19.2). */
   PUBLIC_API_URL: z.string().default('https://admin.localhost'),
   /** Extra origins a payment may send the payer back to (comma-separated; the dashboard is always allowed). */

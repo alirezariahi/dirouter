@@ -2,6 +2,7 @@ import { keyMessagesFa } from './key-messages';
 import { modelMessagesFa } from './model-messages';
 import { guidesFa, organizationFa, providersFa } from './page-messages';
 import { s2Fa } from './s2';
+import { s3Fa } from './s3';
 export const fa = {
   app: { name: 'دی‌روتر', tagline: 'درگاه هوشمند مدل‌های زبانی' },
   nav: {
@@ -214,6 +215,7 @@ export const fa = {
   organization: organizationFa,
   guides: guidesFa,
   s2: s2Fa,
+  s3: s3Fa,
 } as const;
 
 export type Messages = typeof fa;

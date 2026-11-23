@@ -118,6 +118,7 @@ services:
       SMTP_FROM: ${SMTP_FROM:-DiRouter <noreply@${DOMAIN:-localhost}>}
       # Online top-ups (card 19.2): a provider is offered only when its credentials are set.
       PUBLIC_API_URL: ${PUBLIC_API_URL:-https://admin.${DOMAIN:-localhost}}
+      PUBLIC_GATEWAY_URL: ${PUBLIC_GATEWAY_URL:-https://api.${DOMAIN:-localhost}}
       # Self-service portal (card 19.5) and its optional OIDC sign-in (e.g. Google).
       PUBLIC_PORTAL_URL: ${PUBLIC_PORTAL_URL:-https://portal.${DOMAIN:-localhost}}
       PORTAL_OIDC_ISSUER: ${PORTAL_OIDC_ISSUER:-}

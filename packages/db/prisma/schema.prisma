@@ -64,6 +64,7 @@ model Organization {
   subscription    Subscription?
   invoices        Invoice[]
   mcpServers      McpServer[]
+  agentProfiles   AgentProfile[]
 
   @@index([customerGroupId])
   @@map("organizations")
@@ -1151,4 +1152,24 @@ model McpToolCall {
   @@index([organizationId, occurredAt])
   @@index([apiKeyId, occurredAt])
   @@map("mcp_tool_calls")
+}
+
+/// A coding-agent setup (card 20.5): tool, main model and the fast model for background tasks.
+model AgentProfile {
+  id             String   @id
+  organizationId String   @map("organization_id")
+  name           String
+  /// claude-code | codex | opencode | gemini-cli | aider | env
+  tool           String
+  mainModel      String   @map("main_model")
+  fastModel      String   @map("fast_model")
+  options        Json     @default("{}")
+  createdById    String?  @map("created_by_id")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, name])
+  @@map("agent_profiles")
 }

@@ -4409,6 +4409,117 @@ export const McpControllerCallsStatus = {
 
 export type McpControllerCalls200Item = {[key: string]: unknown};
 
+export type AgentProfilesControllerList200Item = {[key: string]: unknown};
+
+export type AgentProfilesControllerCreateBodyTool = typeof AgentProfilesControllerCreateBodyTool[keyof typeof AgentProfilesControllerCreateBodyTool];
+
+
+export const AgentProfilesControllerCreateBodyTool = {
+  'claude-code': 'claude-code',
+  codex: 'codex',
+  opencode: 'opencode',
+  'gemini-cli': 'gemini-cli',
+  aider: 'aider',
+  env: 'env',
+} as const;
+
+export type AgentProfilesControllerCreateBodyOptions = {
+  disableNonessentialTraffic?: boolean;
+};
+
+export type AgentProfilesControllerCreateBody = {
+  /**
+     * @minLength 1
+     * @maxLength 60
+     */
+  name: string;
+  tool: AgentProfilesControllerCreateBodyTool;
+  /**
+     * @minLength 1
+     * @maxLength 128
+     */
+  mainModel: string;
+  /**
+     * @minLength 1
+     * @maxLength 128
+     */
+  fastModel?: string;
+  options?: AgentProfilesControllerCreateBodyOptions;
+};
+
+export type AgentProfilesControllerCreate200 = {[key: string]: unknown};
+
+export type AgentProfilesControllerUpdateBodyTool = typeof AgentProfilesControllerUpdateBodyTool[keyof typeof AgentProfilesControllerUpdateBodyTool];
+
+
+export const AgentProfilesControllerUpdateBodyTool = {
+  'claude-code': 'claude-code',
+  codex: 'codex',
+  opencode: 'opencode',
+  'gemini-cli': 'gemini-cli',
+  aider: 'aider',
+  env: 'env',
+} as const;
+
+export type AgentProfilesControllerUpdateBodyOptions = {
+  disableNonessentialTraffic?: boolean;
+};
+
+export type AgentProfilesControllerUpdateBody = {
+  /**
+     * @minLength 1
+     * @maxLength 60
+     */
+  name?: string;
+  tool?: AgentProfilesControllerUpdateBodyTool;
+  /**
+     * @minLength 1
+     * @maxLength 128
+     */
+  mainModel?: string;
+  /**
+     * @minLength 1
+     * @maxLength 128
+     */
+  fastModel?: string;
+  options?: AgentProfilesControllerUpdateBodyOptions;
+};
+
+export type AgentProfilesControllerUpdate200 = {[key: string]: unknown};
+
+export type AgentProfilesControllerPreview200FilesItem = {
+  name: string;
+  content: string;
+  description: string;
+  launcher?: string;
+};
+
+export type AgentProfilesControllerPreview200 = {
+  files: AgentProfilesControllerPreview200FilesItem[];
+  script: string;
+};
+
+export type AgentProfilesControllerSetupBody = {
+  /** @minLength 1 */
+  projectId: string;
+  /** @pattern ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d+)?(?:Z))$ */
+  expiresAt?: string;
+};
+
+export type AgentProfilesControllerSetup200FilesItem = {
+  name: string;
+  content: string;
+  description: string;
+  launcher?: string;
+};
+
+export type AgentProfilesControllerSetup200 = {
+  files: AgentProfilesControllerSetup200FilesItem[];
+  script: string;
+  keyId: string;
+  key: string;
+};
+
 export type ConfigControllerList200Item = {[key: string]: unknown};
 
 export type ConfigControllerGet200 = {[key: string]: unknown};
@@ -20739,6 +20850,683 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       > => {
       return useMutation(getMcpControllerCallsMutationOptions(options), queryClient);
     }
+
+export type agentProfilesControllerListResponse200 = {
+  data: AgentProfilesControllerList200Item[]
+  status: 200
+}
+
+export type agentProfilesControllerListResponseSuccess = (agentProfilesControllerListResponse200) & {
+  headers: Headers;
+};
+;
+
+export type agentProfilesControllerListResponse = (agentProfilesControllerListResponseSuccess)
+
+export const getAgentProfilesControllerListUrl = (orgId: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/agent-profiles`
+}
+
+export const agentProfilesControllerList = async (orgId: string, options?: Parameters<typeof orvalFetch>[1]): Promise<agentProfilesControllerListResponse> => {
+
+  return orvalFetch<agentProfilesControllerListResponse>(getAgentProfilesControllerListUrl(orgId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getAgentProfilesControllerListMutationKey = () => ['agentProfilesControllerList'] as const;
+
+export const getAgentProfilesControllerListMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof agentProfilesControllerList>>, TError,AgentProfilesControllerListMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof agentProfilesControllerList>>, TError,AgentProfilesControllerListMutationVariables, TContext> => {
+
+const mutationKey = getAgentProfilesControllerListMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof agentProfilesControllerList>>, AgentProfilesControllerListMutationVariables> = (props) => {
+          const {orgId} = props ?? {};
+
+          return  agentProfilesControllerList(orgId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AgentProfilesControllerListMutationResult = NonNullable<Awaited<ReturnType<typeof agentProfilesControllerList>>>
+
+    export type AgentProfilesControllerListMutationError = unknown
+    export type AgentProfilesControllerListMutationVariables = {orgId: string}
+
+    export const useAgentProfilesControllerList = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof agentProfilesControllerList>>, TError,AgentProfilesControllerListMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof agentProfilesControllerList>>,
+        TError,
+        AgentProfilesControllerListMutationVariables,
+        TContext
+      > => {
+      return useMutation(getAgentProfilesControllerListMutationOptions(options), queryClient);
+    }
+
+export type agentProfilesControllerCreateResponse200 = {
+  data: AgentProfilesControllerCreate200
+  status: 200
+}
+
+export type agentProfilesControllerCreateResponseSuccess = (agentProfilesControllerCreateResponse200) & {
+  headers: Headers;
+};
+;
+
+export type agentProfilesControllerCreateResponse = (agentProfilesControllerCreateResponseSuccess)
+
+export const getAgentProfilesControllerCreateUrl = (orgId: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/agent-profiles`
+}
+
+export const agentProfilesControllerCreate = async (orgId: string,
+    agentProfilesControllerCreateBody: AgentProfilesControllerCreateBody, options?: Parameters<typeof orvalFetch>[1]): Promise<agentProfilesControllerCreateResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return orvalFetch<agentProfilesControllerCreateResponse>(getAgentProfilesControllerCreateUrl(orgId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(agentProfilesControllerCreateBody)
+  }
+);}
+
+
+
+
+
+export const getAgentProfilesControllerCreateQueryKey = (orgId: string,
+    agentProfilesControllerCreateBody?: AgentProfilesControllerCreateBody,) => {
+    return [
+    'POST', `/api/v1/orgs/${orgId}/agent-profiles`, agentProfilesControllerCreateBody
+    ] as const;
+    }
+
+
+export const getAgentProfilesControllerCreateQueryOptions = <TData = Awaited<ReturnType<typeof agentProfilesControllerCreate>>, TError = unknown>(orgId: string,
+    agentProfilesControllerCreateBody: AgentProfilesControllerCreateBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof agentProfilesControllerCreate>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getAgentProfilesControllerCreateQueryKey(orgId,agentProfilesControllerCreateBody);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof agentProfilesControllerCreate>>> = ({ signal }) => agentProfilesControllerCreate(orgId,agentProfilesControllerCreateBody, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: orgId !== null && orgId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof agentProfilesControllerCreate>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type AgentProfilesControllerCreateQueryResult = NonNullable<Awaited<ReturnType<typeof agentProfilesControllerCreate>>>
+export type AgentProfilesControllerCreateQueryError = unknown
+
+
+export function useAgentProfilesControllerCreate<TData = Awaited<ReturnType<typeof agentProfilesControllerCreate>>, TError = unknown>(
+ orgId: string,
+    agentProfilesControllerCreateBody: AgentProfilesControllerCreateBody, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof agentProfilesControllerCreate>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof agentProfilesControllerCreate>>,
+          TError,
+          Awaited<ReturnType<typeof agentProfilesControllerCreate>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useAgentProfilesControllerCreate<TData = Awaited<ReturnType<typeof agentProfilesControllerCreate>>, TError = unknown>(
+ orgId: string,
+    agentProfilesControllerCreateBody: AgentProfilesControllerCreateBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof agentProfilesControllerCreate>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof agentProfilesControllerCreate>>,
+          TError,
+          Awaited<ReturnType<typeof agentProfilesControllerCreate>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useAgentProfilesControllerCreate<TData = Awaited<ReturnType<typeof agentProfilesControllerCreate>>, TError = unknown>(
+ orgId: string,
+    agentProfilesControllerCreateBody: AgentProfilesControllerCreateBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof agentProfilesControllerCreate>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useAgentProfilesControllerCreate<TData = Awaited<ReturnType<typeof agentProfilesControllerCreate>>, TError = unknown>(
+ orgId: string,
+    agentProfilesControllerCreateBody: AgentProfilesControllerCreateBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof agentProfilesControllerCreate>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getAgentProfilesControllerCreateQueryOptions(orgId,agentProfilesControllerCreateBody,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export type agentProfilesControllerUpdateResponse200 = {
+  data: AgentProfilesControllerUpdate200
+  status: 200
+}
+
+export type agentProfilesControllerUpdateResponseSuccess = (agentProfilesControllerUpdateResponse200) & {
+  headers: Headers;
+};
+;
+
+export type agentProfilesControllerUpdateResponse = (agentProfilesControllerUpdateResponseSuccess)
+
+export const getAgentProfilesControllerUpdateUrl = (orgId: string,
+    id: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/agent-profiles/${id}`
+}
+
+export const agentProfilesControllerUpdate = async (orgId: string,
+    id: string,
+    agentProfilesControllerUpdateBody: AgentProfilesControllerUpdateBody, options?: Parameters<typeof orvalFetch>[1]): Promise<agentProfilesControllerUpdateResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return orvalFetch<agentProfilesControllerUpdateResponse>(getAgentProfilesControllerUpdateUrl(orgId,id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(agentProfilesControllerUpdateBody)
+  }
+);}
+
+
+
+
+
+export const getAgentProfilesControllerUpdateQueryKey = (orgId: string,
+    id: string,
+    agentProfilesControllerUpdateBody?: AgentProfilesControllerUpdateBody,) => {
+    return [
+    'PATCH', `/api/v1/orgs/${orgId}/agent-profiles/${id}`, agentProfilesControllerUpdateBody
+    ] as const;
+    }
+
+
+export const getAgentProfilesControllerUpdateQueryOptions = <TData = Awaited<ReturnType<typeof agentProfilesControllerUpdate>>, TError = unknown>(orgId: string,
+    id: string,
+    agentProfilesControllerUpdateBody: AgentProfilesControllerUpdateBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof agentProfilesControllerUpdate>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getAgentProfilesControllerUpdateQueryKey(orgId,id,agentProfilesControllerUpdateBody);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof agentProfilesControllerUpdate>>> = ({ signal }) => agentProfilesControllerUpdate(orgId,id,agentProfilesControllerUpdateBody, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: orgId !== null && orgId !== undefined && id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof agentProfilesControllerUpdate>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type AgentProfilesControllerUpdateQueryResult = NonNullable<Awaited<ReturnType<typeof agentProfilesControllerUpdate>>>
+export type AgentProfilesControllerUpdateQueryError = unknown
+
+
+export function useAgentProfilesControllerUpdate<TData = Awaited<ReturnType<typeof agentProfilesControllerUpdate>>, TError = unknown>(
+ orgId: string,
+    id: string,
+    agentProfilesControllerUpdateBody: AgentProfilesControllerUpdateBody, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof agentProfilesControllerUpdate>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof agentProfilesControllerUpdate>>,
+          TError,
+          Awaited<ReturnType<typeof agentProfilesControllerUpdate>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useAgentProfilesControllerUpdate<TData = Awaited<ReturnType<typeof agentProfilesControllerUpdate>>, TError = unknown>(
+ orgId: string,
+    id: string,
+    agentProfilesControllerUpdateBody: AgentProfilesControllerUpdateBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof agentProfilesControllerUpdate>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof agentProfilesControllerUpdate>>,
+          TError,
+          Awaited<ReturnType<typeof agentProfilesControllerUpdate>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useAgentProfilesControllerUpdate<TData = Awaited<ReturnType<typeof agentProfilesControllerUpdate>>, TError = unknown>(
+ orgId: string,
+    id: string,
+    agentProfilesControllerUpdateBody: AgentProfilesControllerUpdateBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof agentProfilesControllerUpdate>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useAgentProfilesControllerUpdate<TData = Awaited<ReturnType<typeof agentProfilesControllerUpdate>>, TError = unknown>(
+ orgId: string,
+    id: string,
+    agentProfilesControllerUpdateBody: AgentProfilesControllerUpdateBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof agentProfilesControllerUpdate>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getAgentProfilesControllerUpdateQueryOptions(orgId,id,agentProfilesControllerUpdateBody,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export type agentProfilesControllerRemoveResponse204 = {
+  data: void
+  status: 204
+}
+
+export type agentProfilesControllerRemoveResponseSuccess = (agentProfilesControllerRemoveResponse204) & {
+  headers: Headers;
+};
+;
+
+export type agentProfilesControllerRemoveResponse = (agentProfilesControllerRemoveResponseSuccess)
+
+export const getAgentProfilesControllerRemoveUrl = (orgId: string,
+    id: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/agent-profiles/${id}`
+}
+
+export const agentProfilesControllerRemove = async (orgId: string,
+    id: string, options?: Parameters<typeof orvalFetch>[1]): Promise<agentProfilesControllerRemoveResponse> => {
+
+  return orvalFetch<agentProfilesControllerRemoveResponse>(getAgentProfilesControllerRemoveUrl(orgId,id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getAgentProfilesControllerRemoveQueryKey = (orgId: string,
+    id: string,) => {
+    return [
+    'DELETE', `/api/v1/orgs/${orgId}/agent-profiles/${id}`
+    ] as const;
+    }
+
+
+export const getAgentProfilesControllerRemoveQueryOptions = <TData = Awaited<ReturnType<typeof agentProfilesControllerRemove>>, TError = unknown>(orgId: string,
+    id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof agentProfilesControllerRemove>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getAgentProfilesControllerRemoveQueryKey(orgId,id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof agentProfilesControllerRemove>>> = ({ signal }) => agentProfilesControllerRemove(orgId,id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: orgId !== null && orgId !== undefined && id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof agentProfilesControllerRemove>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type AgentProfilesControllerRemoveQueryResult = NonNullable<Awaited<ReturnType<typeof agentProfilesControllerRemove>>>
+export type AgentProfilesControllerRemoveQueryError = unknown
+
+
+export function useAgentProfilesControllerRemove<TData = Awaited<ReturnType<typeof agentProfilesControllerRemove>>, TError = unknown>(
+ orgId: string,
+    id: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof agentProfilesControllerRemove>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof agentProfilesControllerRemove>>,
+          TError,
+          Awaited<ReturnType<typeof agentProfilesControllerRemove>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useAgentProfilesControllerRemove<TData = Awaited<ReturnType<typeof agentProfilesControllerRemove>>, TError = unknown>(
+ orgId: string,
+    id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof agentProfilesControllerRemove>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof agentProfilesControllerRemove>>,
+          TError,
+          Awaited<ReturnType<typeof agentProfilesControllerRemove>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useAgentProfilesControllerRemove<TData = Awaited<ReturnType<typeof agentProfilesControllerRemove>>, TError = unknown>(
+ orgId: string,
+    id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof agentProfilesControllerRemove>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useAgentProfilesControllerRemove<TData = Awaited<ReturnType<typeof agentProfilesControllerRemove>>, TError = unknown>(
+ orgId: string,
+    id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof agentProfilesControllerRemove>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getAgentProfilesControllerRemoveQueryOptions(orgId,id,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export type agentProfilesControllerPreviewResponse200 = {
+  data: AgentProfilesControllerPreview200
+  status: 200
+}
+
+export type agentProfilesControllerPreviewResponseSuccess = (agentProfilesControllerPreviewResponse200) & {
+  headers: Headers;
+};
+;
+
+export type agentProfilesControllerPreviewResponse = (agentProfilesControllerPreviewResponseSuccess)
+
+export const getAgentProfilesControllerPreviewUrl = (orgId: string,
+    id: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/agent-profiles/${id}/preview`
+}
+
+export const agentProfilesControllerPreview = async (orgId: string,
+    id: string, options?: Parameters<typeof orvalFetch>[1]): Promise<agentProfilesControllerPreviewResponse> => {
+
+  return orvalFetch<agentProfilesControllerPreviewResponse>(getAgentProfilesControllerPreviewUrl(orgId,id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getAgentProfilesControllerPreviewMutationKey = () => ['agentProfilesControllerPreview'] as const;
+
+export const getAgentProfilesControllerPreviewMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof agentProfilesControllerPreview>>, TError,AgentProfilesControllerPreviewMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof agentProfilesControllerPreview>>, TError,AgentProfilesControllerPreviewMutationVariables, TContext> => {
+
+const mutationKey = getAgentProfilesControllerPreviewMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof agentProfilesControllerPreview>>, AgentProfilesControllerPreviewMutationVariables> = (props) => {
+          const {orgId,id} = props ?? {};
+
+          return  agentProfilesControllerPreview(orgId,id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AgentProfilesControllerPreviewMutationResult = NonNullable<Awaited<ReturnType<typeof agentProfilesControllerPreview>>>
+
+    export type AgentProfilesControllerPreviewMutationError = unknown
+    export type AgentProfilesControllerPreviewMutationVariables = {orgId: string;id: string}
+
+    export const useAgentProfilesControllerPreview = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof agentProfilesControllerPreview>>, TError,AgentProfilesControllerPreviewMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof agentProfilesControllerPreview>>,
+        TError,
+        AgentProfilesControllerPreviewMutationVariables,
+        TContext
+      > => {
+      return useMutation(getAgentProfilesControllerPreviewMutationOptions(options), queryClient);
+    }
+
+export type agentProfilesControllerSetupResponse200 = {
+  data: AgentProfilesControllerSetup200
+  status: 200
+}
+
+export type agentProfilesControllerSetupResponseSuccess = (agentProfilesControllerSetupResponse200) & {
+  headers: Headers;
+};
+;
+
+export type agentProfilesControllerSetupResponse = (agentProfilesControllerSetupResponseSuccess)
+
+export const getAgentProfilesControllerSetupUrl = (orgId: string,
+    id: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/agent-profiles/${id}/setup`
+}
+
+export const agentProfilesControllerSetup = async (orgId: string,
+    id: string,
+    agentProfilesControllerSetupBody: AgentProfilesControllerSetupBody, options?: Parameters<typeof orvalFetch>[1]): Promise<agentProfilesControllerSetupResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return orvalFetch<agentProfilesControllerSetupResponse>(getAgentProfilesControllerSetupUrl(orgId,id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(agentProfilesControllerSetupBody)
+  }
+);}
+
+
+
+
+
+export const getAgentProfilesControllerSetupQueryKey = (orgId: string,
+    id: string,
+    agentProfilesControllerSetupBody?: AgentProfilesControllerSetupBody,) => {
+    return [
+    'POST', `/api/v1/orgs/${orgId}/agent-profiles/${id}/setup`, agentProfilesControllerSetupBody
+    ] as const;
+    }
+
+
+export const getAgentProfilesControllerSetupQueryOptions = <TData = Awaited<ReturnType<typeof agentProfilesControllerSetup>>, TError = unknown>(orgId: string,
+    id: string,
+    agentProfilesControllerSetupBody: AgentProfilesControllerSetupBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof agentProfilesControllerSetup>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getAgentProfilesControllerSetupQueryKey(orgId,id,agentProfilesControllerSetupBody);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof agentProfilesControllerSetup>>> = ({ signal }) => agentProfilesControllerSetup(orgId,id,agentProfilesControllerSetupBody, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: orgId !== null && orgId !== undefined && id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof agentProfilesControllerSetup>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type AgentProfilesControllerSetupQueryResult = NonNullable<Awaited<ReturnType<typeof agentProfilesControllerSetup>>>
+export type AgentProfilesControllerSetupQueryError = unknown
+
+
+export function useAgentProfilesControllerSetup<TData = Awaited<ReturnType<typeof agentProfilesControllerSetup>>, TError = unknown>(
+ orgId: string,
+    id: string,
+    agentProfilesControllerSetupBody: AgentProfilesControllerSetupBody, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof agentProfilesControllerSetup>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof agentProfilesControllerSetup>>,
+          TError,
+          Awaited<ReturnType<typeof agentProfilesControllerSetup>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useAgentProfilesControllerSetup<TData = Awaited<ReturnType<typeof agentProfilesControllerSetup>>, TError = unknown>(
+ orgId: string,
+    id: string,
+    agentProfilesControllerSetupBody: AgentProfilesControllerSetupBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof agentProfilesControllerSetup>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof agentProfilesControllerSetup>>,
+          TError,
+          Awaited<ReturnType<typeof agentProfilesControllerSetup>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useAgentProfilesControllerSetup<TData = Awaited<ReturnType<typeof agentProfilesControllerSetup>>, TError = unknown>(
+ orgId: string,
+    id: string,
+    agentProfilesControllerSetupBody: AgentProfilesControllerSetupBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof agentProfilesControllerSetup>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useAgentProfilesControllerSetup<TData = Awaited<ReturnType<typeof agentProfilesControllerSetup>>, TError = unknown>(
+ orgId: string,
+    id: string,
+    agentProfilesControllerSetupBody: AgentProfilesControllerSetupBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof agentProfilesControllerSetup>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getAgentProfilesControllerSetupQueryOptions(orgId,id,agentProfilesControllerSetupBody,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export type configControllerListResponse200 = {
   data: ConfigControllerList200Item[]

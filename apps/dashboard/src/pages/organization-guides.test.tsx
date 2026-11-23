@@ -20,6 +20,19 @@ const KEY = {
   projectId: PROJECT.id,
   state: 'active',
 };
+const PROFILE = {
+  id: 'apf_1',
+  name: 'Team Claude',
+  tool: 'claude-code',
+  mainModel: 'main-model',
+  fastModel: 'fast-model',
+};
+const generated = (key: string) => ({
+  files: [
+    { name: 'claude-code.env', description: 'env', content: `ANTHROPIC_AUTH_TOKEN='${key}'` },
+  ],
+  script: `#!/bin/sh\n# ${key}`,
+});
 
 function mockApi(
   role: Role,
@@ -69,6 +82,12 @@ function mockApi(
       if (!response && path.endsWith('/teams')) response = { status: 200, body: [TEAM] };
       if (!response && path.endsWith('/projects')) response = { status: 200, body: [PROJECT] };
       if (!response && path.endsWith('/keys')) response = { status: 200, body: [KEY] };
+      if (!response && path.endsWith('/agent-profiles'))
+        response = { status: 200, body: [PROFILE] };
+      if (!response && path.endsWith('/preview'))
+        response = { status: 200, body: generated('<YOUR_DIROUTER_KEY>') };
+      if (!response && path.endsWith('/setup'))
+        response = { status: 201, body: { keyId: 'key_2', key: 'dr-new', ...generated('dr-new') } };
       response ??= { status: 200, body: {} };
       return Promise.resolve(
         new Response(response.body === undefined ? null : JSON.stringify(response.body), {
@@ -314,5 +333,34 @@ describe('tool connection guides (card 7.10)', () => {
     await renderPage(<GuidesPage />);
     expect((await screen.findByRole('alert')).textContent).toContain('No access');
     expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy();
+  });
+
+  it('agent profiles: previews keyless files and sets up with a new key in the chosen project', async () => {
+    const calls = mockApi('OWNER');
+    await renderPage(<GuidesPage />);
+    const panel = within(await screen.findByTestId('agent-profiles'));
+    expect(await panel.findByText('Team Claude')).toBeTruthy();
+
+    fireEvent.click(panel.getByRole('button', { name: 'Preview' }));
+    const preview = await screen.findByTestId('agent-profile-output');
+    expect(preview.textContent).toContain('<YOUR_DIROUTER_KEY>');
+    expect(preview.textContent).not.toContain('shown only this once');
+
+    fireEvent.click(panel.getByRole('button', { name: 'Set up with a new key' }));
+    await waitFor(() => {
+      expect(screen.getByTestId('agent-profile-output').textContent).toContain('dr-new');
+    });
+    expect(screen.getByText(/shown only this once/)).toBeTruthy();
+    const setup = calls.find((c) => c.path.endsWith('/agent-profiles/apf_1/setup'));
+    expect(JSON.parse(setup?.init.body as string)).toEqual({ projectId: PROJECT.id });
+  });
+
+  it('agent profiles: viewers can preview but not set up or create', async () => {
+    mockApi('VIEWER');
+    await renderPage(<GuidesPage />);
+    const panel = within(await screen.findByTestId('agent-profiles'));
+    expect(await panel.findByRole('button', { name: 'Preview' })).toBeTruthy();
+    expect(panel.queryByRole('button', { name: 'Set up with a new key' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Create profile' })).toBeNull();
   });
 });

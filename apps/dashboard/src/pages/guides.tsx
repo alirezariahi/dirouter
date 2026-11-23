@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { AgentProfiles } from '../components/agent-profiles';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
 import { Field, FormError } from '../components/ui/field';
@@ -329,6 +330,7 @@ export default function GuidesPage() {
           ) : null}
         </Card>
       </div>
+      <AgentProfiles base={base} projects={projects.data ?? []} canWrite={canCreateKey} />
     </section>
   );
 }

@@ -123,6 +123,7 @@ services:
       SMTP_URL: smtp://mailpit:1025
       # Payments (card 19.2) go to the fake Zarinpal and Stripe in mock-provider.
       PUBLIC_API_URL: http://admin.${DOMAIN:-localhost}
+      PUBLIC_GATEWAY_URL: http://api.${DOMAIN:-localhost}
       PAYMENT_RETURN_ORIGINS: http://app.${DOMAIN:-localhost},https://portal.${DOMAIN:-localhost}
       ZARINPAL_MERCHANT_ID: 00000000-0000-0000-0000-00000000dev0
       ZARINPAL_BASE_URL: http://mock-provider:8090/zarinpal

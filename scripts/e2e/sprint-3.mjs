@@ -13,7 +13,7 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { mkdtemp } from 'node:fs/promises';
+import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -1049,6 +1049,80 @@ try {
       );
       const detail = (await operator('GET', `logs/${id}`)).body;
       assert.equal(detail.routing.target, 'mock/claude');
+    },
+  );
+  await scenario(
+    '20.5 agent profiles: one-click setup, and Claude Code really runs on it',
+    async () => {
+      const name = `S3 Claude ${randomUUID().slice(0, 6)}`;
+      const profile = (
+        await operator(
+          'POST',
+          'agent-profiles',
+          {
+            name,
+            tool: 'claude-code',
+            mainModel: 'mock/claude',
+            fastModel: 'mock/small',
+            options: { disableNonessentialTraffic: true },
+          },
+          201,
+        )
+      ).body;
+      cleanups.push(() => operator('DELETE', `agent-profiles/${profile.id}`, undefined, null));
+      const preview = (await operator('GET', `agent-profiles/${profile.id}/preview`)).body;
+      assert.match(preview.files[0].content, /<YOUR_DIROUTER_KEY>/);
+      const setup = (
+        await published(() =>
+          operator('POST', `agent-profiles/${profile.id}/setup`, { projectId: 'prj_dev' }, 201),
+        )
+      ).body;
+      cleanups.push(() => operator('POST', `keys/${setup.keyId}/revoke`, undefined, null));
+      const key = (await operator('GET', `keys/${setup.keyId}`)).body;
+      assert.deepEqual(key.allowedModels.sort(), ['mock/claude', 'mock/small']);
+      await waitFor(
+        'the gateway to know the profile key',
+        async () =>
+          (
+            await fetch(`${urls.gateway}/v1/models`, {
+              headers: { authorization: `Bearer ${setup.key}` },
+            })
+          ).status === 200,
+      );
+
+      // Install into a throwaway HOME: the user's own Claude Code configuration is never touched.
+      const home = await mkdtemp(join(tmpdir(), 'dirouter-profile-home-'));
+      await writeFile(join(home, 'install.sh'), setup.script);
+      const run = (file, args, timeout = 180_000) =>
+        new Promise((done, fail) => {
+          execFile(
+            file,
+            args,
+            { cwd: home, timeout, env: { ...process.env, HOME: home } },
+            (error, stdout, stderr) =>
+              error ? fail(new Error(`${error.message}\n${stdout}\n${stderr}`)) : done(stdout),
+          );
+        });
+      await run('sh', [join(home, 'install.sh')]);
+      const claude = await new Promise((done) => {
+        execFile('claude', ['--version'], (error) => done(!error));
+      });
+      if (!claude) skip('Claude Code CLI is not installed');
+      const answer = await run(join(home, '.local/bin/claude-dirouter'), [
+        '-p',
+        'Reply with the word OK',
+        '--max-turns',
+        '1',
+      ]);
+      console.log(`     claude-dirouter answered: ${answer.trim().slice(0, 80)}`);
+      assert.match(answer, /DiRouter mock provider/);
+      const used = await waitFor('Claude Code requests in request_log', async () => {
+        const rows = await sql(
+          `SELECT requested_model, count(*) FROM request_log WHERE api_key_id = '${setup.keyId}' GROUP BY 1 ORDER BY 1`,
+        );
+        return rows.includes('mock/claude') ? rows : undefined;
+      });
+      console.log(`     requests by model: ${used.replaceAll('\n', ', ')}`);
     },
   );
 } catch (error) {
