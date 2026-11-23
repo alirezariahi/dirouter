@@ -65,6 +65,7 @@ export function toRequestLogRow(e: UsageEvent) {
     cacheKind: e.cacheKind ?? null,
     savedInputTokens: e.savedInputTokens ?? 0,
     hedgeAttempts: e.hedgeAttempts ?? 0,
+    ...(e.routing ? { routing: e.routing } : {}),
   };
 }
 

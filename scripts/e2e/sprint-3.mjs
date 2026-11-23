@@ -976,6 +976,81 @@ try {
       });
     },
   );
+  await scenario(
+    '20.4 auto routing: the decision and its reasons are recorded with the request',
+    async () => {
+      const stored = (await operator('GET', 'config/settings')).body.stored ?? {};
+      cleanups.push(() => published(() => operator('PUT', 'config/settings', stored)));
+      await published(() =>
+        operator('PUT', 'config/settings', {
+          ...stored,
+          autoRouting: {
+            enabled: true,
+            targets: {
+              coding: 'mock/claude',
+              chat: 'mock/small',
+              reasoning: 'mock/claude',
+              summarization: 'mock/small',
+            },
+            pool: ['mock/small', 'mock/claude', 'mock/gemini'],
+          },
+        }),
+      );
+      const key = (
+        await published(() =>
+          operator(
+            'POST',
+            'keys',
+            { name: `s3-auto-${randomUUID().slice(0, 6)}`, projectId: 'prj_dev' },
+            201,
+          ),
+        )
+      ).body;
+      cleanups.push(() => operator('POST', `keys/${key.id}/revoke`, undefined, null));
+      const ask = (model, content) =>
+        chat(key.key, { model, max_tokens: 20, messages: [{ role: 'user', content }] });
+
+      const coding = await ask(
+        'auto',
+        'This Python function throws a TypeError, please debug it:\n```py\ndef f(x): return x + "1"\n```',
+      );
+      assert.equal(coding.response.status, 200, coding.text);
+      assert.equal(coding.response.headers.get('x-dirouter-auto'), 'mock/claude; type=coding');
+      const summary = await ask('auto', 'لطفاً این گزارش را در سه جمله خلاصه کن');
+      assert.equal(
+        summary.response.headers.get('x-dirouter-auto'),
+        'mock/small; type=summarization',
+      );
+      const cheap = await ask('auto/cheap', 'hi');
+      assert.equal(cheap.response.status, 200, cheap.text);
+
+      const id = coding.response.headers.get('x-request-id');
+      const row = await waitFor('the routing decision in request_log', async () => {
+        const out = await sql(
+          `SELECT requested_model, routing::text FROM request_log WHERE id = '${id}'`,
+        );
+        return out === '' ? undefined : out;
+      });
+      const [requested, routing] = [
+        row.slice(0, row.indexOf('|')),
+        JSON.parse(row.slice(row.indexOf('|') + 1)),
+      ];
+      assert.equal(requested, 'auto');
+      assert.equal(routing.target, 'mock/claude');
+      assert.equal(routing.taskType, 'coding');
+      assert.ok(routing.reasons.includes('code block'), JSON.stringify(routing.reasons));
+      assert.ok(routing.reasons.includes('task type coding → mock/claude'));
+      assert.ok(
+        routing.classifierMicros < 2_000,
+        `classifier took ${String(routing.classifierMicros)} µs`,
+      );
+      console.log(
+        `     auto: ${routing.reasons.join(' | ')} (${String(routing.classifierMicros)} µs)`,
+      );
+      const detail = (await operator('GET', `logs/${id}`)).body;
+      assert.equal(detail.routing.target, 'mock/claude');
+    },
+  );
 } catch (error) {
   crashed = true;
   console.error(error);

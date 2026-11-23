@@ -3361,6 +3361,9 @@ export type StatsControllerLog200 = {
   gatewayInstance: string;
   /** همهٔ تلاش‌ها: provider، مدل، credential، نتیجه، status و latency */
   attempts: unknown;
+  /** Auto-routing decision (card 20.4): alias, target, task type, source and reasons */
+  routing: unknown;
+  chargeUsd: string;
 };
 
 export type StatsControllerCostParams = {
@@ -4312,6 +4315,7 @@ export type McpControllerCreateBodyTransport = typeof McpControllerCreateBodyTra
 export const McpControllerCreateBodyTransport = {
   'streamable-http': 'streamable-http',
   sse: 'sse',
+  a2a: 'a2a',
 } as const;
 
 /**
@@ -4351,6 +4355,7 @@ export type McpControllerUpdateBodyTransport = typeof McpControllerUpdateBodyTra
 export const McpControllerUpdateBodyTransport = {
   'streamable-http': 'streamable-http',
   sse: 'sse',
+  a2a: 'a2a',
 } as const;
 
 /**

@@ -144,6 +144,10 @@ const LogDetail = LogItem.extend({
   attempts: z
     .unknown()
     .describe('همهٔ تلاش‌ها: provider، مدل، credential، نتیجه، status و latency'),
+  routing: z
+    .unknown()
+    .describe('Auto-routing decision (card 20.4): alias, target, task type, source and reasons'),
+  chargeUsd: z.string(),
 });
 const Breaker = z
   .object({ state: z.string(), total: z.int(), errors: z.int(), reopensAt: z.string().nullable() })

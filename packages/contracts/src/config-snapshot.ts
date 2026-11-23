@@ -379,6 +379,30 @@ export const HealthProbeSettings = z.object({
 export type HealthProbeSettings = z.infer<typeof HealthProbeSettings>;
 
 export const GatewaySettings = z.object({
+  /**
+   * Automatic model choice (card 20.4) for the aliases `auto`, `auto/coding`, `auto/smart`,
+   * `auto/fast` and `auto/cheap`. Targets are model, alias or combo names as clients use them.
+   */
+  autoRouting: z
+    .object({
+      enabled: z.boolean().default(false),
+      /** Where `auto` sends each task type; `smart` is also `auto/smart`, `coding` is `auto/coding`. */
+      targets: z
+        .object({
+          coding: z.string().min(1).optional(),
+          reasoning: z.string().min(1).optional(),
+          summarization: z.string().min(1).optional(),
+          chat: z.string().min(1).optional(),
+          smart: z.string().min(1).optional(),
+        })
+        .default({}),
+      /** Candidates for `auto/fast` and `auto/cheap`, and the fallback when a target lacks a capability. */
+      pool: z.array(z.string().min(1)).default([]),
+      /** Optional small model asked when the rules are unsure (confidence below the threshold). */
+      classifierModel: z.string().min(1).optional(),
+      classifierThreshold: z.number().min(0).max(1).default(0.5),
+    })
+    .optional(),
   /** DiRouter as an A2A agent (card 20.3): the model that answers when a request names none. */
   a2a: z.object({ defaultModel: z.string().min(1).optional() }).optional(),
   /** Limiter/budget behavior when Valkey is unavailable. */

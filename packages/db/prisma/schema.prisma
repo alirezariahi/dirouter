@@ -518,6 +518,8 @@ model RequestLog {
   cacheKind        String?  @map("cache_kind")
   savedInputTokens Int      @default(0) @map("saved_input_tokens")
   hedgeAttempts    Int      @default(0) @map("hedge_attempts")
+  /// How an `auto*` alias was resolved (card 20.4): target, task type, source and reasons.
+  routing          Json?
 
   @@id([id, createdAt])
   @@index([projectId, createdAt])

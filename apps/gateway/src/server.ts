@@ -7,6 +7,7 @@ import { timingSafeEqual } from 'node:crypto';
 import { hostname } from 'node:os';
 
 import {
+  type CanonicalRequest,
   GeminiGenerateContentRequest,
   type McpCallRecord,
   type UsageEvent,
@@ -18,6 +19,7 @@ import {
   HealthRegistry,
   isRouteError,
   RetryBudget,
+  type TaskType,
 } from '@dirouter/routing';
 import { type Keyring, type Logger, prefixedId } from '@dirouter/shared';
 import { setTimeout as sleep } from 'node:timers/promises';
@@ -140,6 +142,51 @@ export function buildGateway(opts: GatewayOptions) {
     logger: opts.logger,
     metrics,
     onRequestComplete: opts.onRequestComplete,
+    // Auto routing's optional small-model classifier (card 20.4): one word through the gateway's
+    // own endpoint with the caller's key, so it is billed and limited like any request. Unsure or
+    // slow (over 1.5 s) means the rules decide.
+    classifyWithModel: async (model: string, request: CanonicalRequest, req: FastifyRequest) => {
+      const last = [...request.messages].reverse().find((m) => m.role === 'user');
+      const text = (last?.content ?? [])
+        .map((p) => (p.type === 'text' ? p.text : ''))
+        .join('\n')
+        .slice(0, 2_000);
+      const call = app.inject({
+        method: 'POST',
+        url: '/v1/chat/completions',
+        headers: {
+          authorization: req.headers.authorization ?? `Bearer ${extractApiKey(req.headers) ?? ''}`,
+          'content-type': 'application/json',
+        },
+        payload: {
+          model,
+          temperature: 0,
+          max_tokens: 4,
+          messages: [
+            {
+              role: 'system',
+              content:
+                'Classify the request. Answer with exactly one word: coding, reasoning, summarization or chat.',
+            },
+            { role: 'user', content: text },
+          ],
+        },
+      });
+      const res = await Promise.race([
+        call,
+        new Promise<undefined>((resolve) => {
+          setTimeout(() => {
+            resolve(undefined);
+          }, 1_500).unref();
+        }),
+      ]);
+      if (res?.statusCode !== 200) return undefined;
+      const answer = res
+        .json<{ choices?: { message?: { content?: string } }[] }>()
+        .choices?.[0]?.message?.content?.toLowerCase();
+      return /\b(coding|reasoning|summarization|chat)\b/.exec(answer ?? '')?.[1] as
+        TaskType | undefined;
+    },
     // Response caches and tracing (cards 13.1, 13.2 and 17.2); settings are read per snapshot.
     cache: new ExactCache({
       ...(opts.limiterRedis ? { redis: opts.limiterRedis } : {}),

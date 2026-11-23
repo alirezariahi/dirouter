@@ -212,6 +212,19 @@ export class Router {
     return this.#index;
   }
 
+  /**
+   * The models behind a name in the key's scope (one for a model, the targets of a combo), as
+   * the router would find them; undefined when the name does not exist there (card 20.4).
+   */
+  modelsFor(key: VirtualKeyConfig, name: string): ModelConfig[] | undefined {
+    const found = this.#index.lookup(key.organizationId, name);
+    if (!found) return undefined;
+    if ('model' in found) return [found.model];
+    return found.combo.targets
+      .map((t) => this.#index.modelsById.get(t.modelId))
+      .filter((m): m is ModelConfig => m !== undefined);
+  }
+
   resolve(
     key: VirtualKeyConfig,
     requested: string,

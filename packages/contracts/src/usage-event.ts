@@ -79,6 +79,17 @@ export const UsageEvent = z.object({
   cacheKind: z.enum(['exact', 'semantic']).optional(),
   /** Estimated input tokens removed by context compression (card 13.3). */
   savedInputTokens: NonNegativeInt.optional(),
+  /** How an `auto*` alias was resolved (card 20.4): the decision and the reasons for it. */
+  routing: z
+    .object({
+      alias: z.string(),
+      target: z.string(),
+      taskType: z.string().optional(),
+      source: z.enum(['rules', 'model', 'fixed']),
+      reasons: z.array(z.string()),
+      classifierMicros: NonNegativeInt.optional(),
+    })
+    .optional(),
   /** Additional upstream attempts started by request hedging (card 12.2). */
   hedgeAttempts: NonNegativeInt.optional(),
 

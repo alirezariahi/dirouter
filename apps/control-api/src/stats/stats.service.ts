@@ -390,6 +390,9 @@ export class StatsService {
       configVersion: row.configVersion,
       gatewayInstance: row.gatewayInstance,
       attempts: row.attempts,
+      // The auto-routing decision (card 20.4), when the client named an `auto*` alias.
+      routing: row.routing ?? null,
+      chargeUsd: row.chargeUsd.toString(),
     };
   }
 

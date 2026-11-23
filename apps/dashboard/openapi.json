@@ -8305,6 +8305,12 @@
                     },
                     "attempts": {
                       "description": "همهٔ تلاش‌ها: provider، مدل، credential، نتیجه، status و latency"
+                    },
+                    "routing": {
+                      "description": "Auto-routing decision (card 20.4): alias, target, task type, source and reasons"
+                    },
+                    "chargeUsd": {
+                      "type": "string"
                     }
                   },
                   "required": [
@@ -8334,7 +8340,9 @@
                     "reasoningTokens",
                     "configVersion",
                     "gatewayInstance",
-                    "attempts"
+                    "attempts",
+                    "routing",
+                    "chargeUsd"
                   ]
                 }
               }
@@ -12703,7 +12711,8 @@
                     "type": "string",
                     "enum": [
                       "streamable-http",
-                      "sse"
+                      "sse",
+                      "a2a"
                     ]
                   },
                   "url": {
@@ -12846,7 +12855,8 @@
                     "type": "string",
                     "enum": [
                       "streamable-http",
-                      "sse"
+                      "sse",
+                      "a2a"
                     ]
                   },
                   "url": {

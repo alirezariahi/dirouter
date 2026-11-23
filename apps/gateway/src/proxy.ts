@@ -33,12 +33,16 @@ import {
   type AttemptResult,
   type BulkheadRegistry,
   type Candidate,
+  classifyRequest,
+  decideAuto,
   executeWithFallback,
   executeWithHedging,
   HedgeBudget,
+  isAutoAlias,
   isRouteError,
   type ResolvedRoute,
   type RetryBudget,
+  type TaskType,
 } from '@dirouter/routing';
 import {
   DiRouterError,
@@ -125,6 +129,12 @@ export interface ProxyDeps {
   stateRedis?: Redis;
   /** OTLP tracer (card 17.2). */
   tracer?: Tracer;
+  /** Asks a small model for the task type when the rules are unsure (card 20.4). */
+  classifyWithModel?: (
+    model: string,
+    request: CanonicalRequest,
+    req: FastifyRequest,
+  ) => Promise<TaskType | undefined>;
 }
 
 interface StreamOutcome {
@@ -565,15 +575,76 @@ export async function handleProxy(
       : affinity?.enabled
         ? promptPrefixSessionKey(key.id, canonical)
         : undefined;
-  const route = config.router.resolve(key, canonical.model, {
-    estimatedInputTokens,
-    ...(canonical.maxOutputTokens !== undefined
-      ? { maxOutputTokens: canonical.maxOutputTokens }
-      : {}),
-    ...(sessionKey ? { sessionKey } : {}),
-    // Power-of-two-choices for `latency` combos (card 12.1); other strategies ignore it.
-    p2c: true,
-  });
+  // Automatic model choice for the `auto*` aliases (card 20.4), unless the organization defines a
+  // model, alias or combo of that name itself, or the key may not use the alias.
+  let routing: UsageEvent['routing'];
+  const autoRouting = settings.autoRouting;
+  if (
+    autoRouting?.enabled &&
+    isAutoAlias(canonical.model) &&
+    !config.router.modelsFor(key, canonical.model) &&
+    (key.allowedModels.length === 0 || key.allowedModels.includes(canonical.model))
+  ) {
+    const alias = canonical.model;
+    const startedAt = performance.now();
+    const classification = classifyRequest(canonical, estimatedInputTokens);
+    let source: 'rules' | 'model' = 'rules';
+    let classifierElapsed = performance.now() - startedAt;
+    if (
+      alias === 'auto' &&
+      autoRouting.classifierModel &&
+      classification.confidence < autoRouting.classifierThreshold &&
+      deps.classifyWithModel
+    ) {
+      const asked = await deps.classifyWithModel(autoRouting.classifierModel, canonical, req);
+      if (asked) {
+        classification.reasons.push(`${autoRouting.classifierModel} says ${asked}`);
+        classification.taskType = asked;
+        source = 'model';
+      }
+    }
+    const decision = decideAuto(
+      alias,
+      autoRouting,
+      classification,
+      {
+        modelsOf: (name) => config.router.modelsFor(key, name),
+        stats: config.router.stats,
+        estimatedInputTokens,
+        maxOutputTokens: canonical.maxOutputTokens ?? 1_024,
+      },
+      source,
+    );
+    if (source === 'rules') classifierElapsed = performance.now() - startedAt;
+    if ('error' in decision) {
+      sendError(
+        reply,
+        api,
+        new NotFoundError('model_not_found', { message: decision.error, param: 'model' }),
+        requestId,
+      );
+      finishSpan('error', { 'gateway.error': 'auto_routing' });
+      observeEarly(reply.statusCode);
+      return;
+    }
+    routing = { ...decision, classifierMicros: Math.round(classifierElapsed * 1_000) };
+    void reply.header('x-dirouter-auto', `${decision.target}; type=${classification.taskType}`);
+    deps.logger.debug({ requestId, routing }, 'auto routing decision');
+  }
+  // The alias was checked against the key above; the target is the gateway's choice, not the client's.
+  const route = config.router.resolve(
+    routing ? { ...key, allowedModels: [] } : key,
+    routing?.target ?? canonical.model,
+    {
+      estimatedInputTokens,
+      ...(canonical.maxOutputTokens !== undefined
+        ? { maxOutputTokens: canonical.maxOutputTokens }
+        : {}),
+      ...(sessionKey ? { sessionKey } : {}),
+      // Power-of-two-choices for `latency` combos (card 12.1); other strategies ignore it.
+      p2c: true,
+    },
+  );
   if (isRouteError(route)) {
     const error =
       route.error === 'model_not_found'
@@ -870,6 +941,7 @@ export async function handleProxy(
         ...(savedCompressedChars > 0
           ? { savedInputTokens: Math.round(savedCompressedChars / 4) }
           : {}),
+        ...(routing ? { routing } : {}),
         finishSpan,
         ...(span ? { span } : {}),
       },
@@ -966,6 +1038,8 @@ async function runRoute(
     sessionKey?: string;
     savedInputTokens?: number;
     cacheBypass?: boolean;
+    /** How an `auto*` alias was resolved (card 20.4). */
+    routing?: UsageEvent['routing'];
     finishSpan: (status: 'ok' | 'error', extra?: Record<string, string | number>) => void;
     /** Request span; every upstream attempt becomes a child of it. */
     span?: TraceSpan;
@@ -1367,6 +1441,7 @@ async function runRoute(
     metricProvider: resolvedProvider?.slug ?? candidate?.provider.slug,
     metricModel: resolvedModel?.slug ?? candidate?.model.slug,
     savedInputTokens: ctx.savedInputTokens ?? 0,
+    ...(ctx.routing ? { routing: ctx.routing } : {}),
     hedgeAttempts: result.ok ? ((result as { hedgeAttempts?: number }).hedgeAttempts ?? 0) : 0,
   });
   return { tokens: usage ? usage.inputTokens + usage.outputTokens : 0, costUsd, chargeUsd };
@@ -1634,6 +1709,7 @@ function emitUsageEvent(
     cacheKind?: 'exact' | 'semantic';
     savedInputTokens?: number;
     hedgeAttempts?: number;
+    routing?: UsageEvent['routing'];
   },
 ): { costUsd: string; chargeUsd: string } {
   try {
@@ -1690,6 +1766,7 @@ function emitUsageEvent(
         ? { savedInputTokens: e.savedInputTokens }
         : {}),
       ...(e.hedgeAttempts && e.hedgeAttempts > 0 ? { hedgeAttempts: e.hedgeAttempts } : {}),
+      ...(e.routing ? { routing: e.routing } : {}),
       latencyMs: Date.now() - e.started,
       ...(e.ttftMs !== undefined ? { ttftMs: e.ttftMs } : {}),
       attempts: e.attempts
