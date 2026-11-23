@@ -33,6 +33,8 @@ export const ProviderType = z.enum([
   'elevenlabs',
   'deepgram',
   'fal',
+  /** A provider plugin from PLUGINS_DIR, named in `options.plugin` (card 21.2). */
+  'plugin',
   'mock',
 ]);
 export type ProviderType = z.infer<typeof ProviderType>;

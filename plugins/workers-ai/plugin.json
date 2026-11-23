@@ -1,0 +1,9 @@
+{
+  "name": "workers-ai",
+  "version": "1.0.0",
+  "displayName": "Cloudflare Workers AI (reference plugin)",
+  "description": "Reference provider plugin: Workers AI's native /ai/run/{model} API, translated from and to the OpenAI chat format. Set options.accountId on the provider.",
+  "entry": "index.js",
+  "hosts": ["api.cloudflare.com"],
+  "defaultBaseUrl": "https://api.cloudflare.com/client/v4"
+}

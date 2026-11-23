@@ -5,7 +5,7 @@
  */
 import { ProviderConfig } from '@dirouter/contracts';
 import { findByUpstream } from '@dirouter/model-catalog';
-import { adapterFor, classifyNetworkError } from '@dirouter/providers';
+import { adapterForProvider, classifyNetworkError } from '@dirouter/providers';
 import { decrypt, type Keyring, ValidationError } from '@dirouter/shared';
 import { z } from 'zod';
 
@@ -36,7 +36,7 @@ export async function probeProvider(body: unknown, keyring: Keyring): Promise<Pr
     ? provider.credentials.find((c) => c.id === credentialId)
     : provider.credentials.find((c) => c.enabled);
   const secret = credential ? decrypt(keyring, credential.secret, credential.id) : '';
-  const adapter = adapterFor(provider.type);
+  const adapter = adapterForProvider(provider);
   const req = adapter.listModelsRequest(provider, secret);
   const proxyUrl = credential?.proxy?.url ?? provider.proxy?.url ?? parsed.data.proxyUrl;
   const timeouts = mergeTimeouts(

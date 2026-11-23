@@ -53,6 +53,18 @@ export const ProviderBody = z.object({
   options: z.record(z.string(), z.unknown()).optional(),
   maxConcurrency: z.int().positive().max(10_000).nullable().optional(),
   credentials: z.array(CredentialBody).max(50).optional(),
+  /** Required when the provider uses a plugin with a terms warning (card 21.2). */
+  acceptTerms: z.boolean().optional(),
+});
+const PluginView = z.object({
+  name: z.string(),
+  status: z.enum(['available', 'loaded', 'failed']),
+  error: z.string().optional(),
+  displayName: z.string().optional(),
+  version: z.string().optional(),
+  description: z.string().nullable().optional(),
+  defaultBaseUrl: z.string().nullable().optional(),
+  termsWarning: z.object({ text: z.string(), url: z.string().optional() }).nullable().optional(),
 });
 export const ProviderPatch = ProviderBody.omit({ credentials: true, type: true }).partial();
 const TestBody = z.object({ credentialId: z.string().optional() }).optional();
@@ -116,6 +128,14 @@ export class ProvidersController {
   @ApiZodOk(z.array(ProviderView))
   list(@Org() org: OrgContext) {
     return this.providers.list(org);
+  }
+
+  /** Plugins enabled on this server, with any terms warning to show before use (card 21.2). */
+  @Get('plugins')
+  @RequirePermission('providers:read')
+  @ApiZodOk(z.array(PluginView))
+  plugins() {
+    return this.providers.plugins();
   }
 
   @Post()

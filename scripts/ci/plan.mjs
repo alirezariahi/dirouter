@@ -59,7 +59,12 @@ export function plan({ eventName, event = {}, ref = '', head }, run = execute) {
   const changed = full
     ? []
     : run('git', ['diff', '--name-only', '-z', base, head]).split('\0').filter(Boolean);
-  if (changed.some((file) => globalFiles.has(file) || /^(?:\.github|scripts\/ci)\//.test(file))) {
+  // The reference provider plugin (plugins/) is loaded by the providers and gateway tests.
+  if (
+    changed.some(
+      (file) => globalFiles.has(file) || /^(?:\.github|scripts\/ci|plugins)\//.test(file),
+    )
+  ) {
     full = true;
   }
 

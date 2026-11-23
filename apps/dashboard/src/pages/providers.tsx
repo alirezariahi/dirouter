@@ -6,10 +6,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type ReactNode, type SyntheticEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { PluginPicker } from '../components/plugin-picker';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
 import { Field, FormError } from '../components/ui/field';
 import { Empty, ErrorState, Loading } from '../components/ui/states';
+import { type PluginChoice, pluginChoiceReady } from '../lib/plugins';
 import { api } from '../lib/api';
 import { formatDate } from '../lib/date';
 import { errorMessage } from '../lib/errors';
@@ -25,7 +27,8 @@ type ProviderType =
   | 'gemini'
   | 'elevenlabs'
   | 'deepgram'
-  | 'fal';
+  | 'fal'
+  | 'plugin';
 type CredentialStatus = 'ACTIVE' | 'DISABLED';
 
 interface Timeouts {
@@ -110,6 +113,7 @@ interface ProviderBody {
   options?: Record<string, unknown>;
   maxConcurrency?: number;
   credentials?: (CredentialBody & { secret: string })[];
+  acceptTerms?: boolean;
 }
 type CredentialBody = {
   name: string;
@@ -127,6 +131,7 @@ const PRESETS = [
   { id: 'elevenlabs', type: 'elevenlabs', baseUrl: 'https://api.elevenlabs.io/v1' },
   { id: 'deepgram', type: 'deepgram', baseUrl: 'https://api.deepgram.com/v1' },
   { id: 'fal', type: 'fal', baseUrl: 'https://fal.run' },
+  { id: 'plugin', type: 'plugin', baseUrl: '' },
   { id: 'custom', type: 'openai-compatible', baseUrl: '' },
   { id: 'openrouter', type: 'openai-compatible', baseUrl: 'https://openrouter.ai/api/v1' },
   { id: 'deepseek', type: 'openai-compatible', baseUrl: 'https://api.deepseek.com/v1' },
@@ -144,7 +149,8 @@ const PRESETS = [
   { id: 'vllm', type: 'openai-compatible', baseUrl: 'http://localhost:8000/v1' },
 ] as const;
 type PresetId = (typeof PRESETS)[number]['id'];
-const preset = (id: PresetId) => PRESETS.find((p) => p.id === id) ?? PRESETS[4];
+const CUSTOM_PRESET = PRESETS.find((p) => p.id === 'custom') ?? PRESETS[0];
+const preset = (id: PresetId) => PRESETS.find((p) => p.id === id) ?? CUSTOM_PRESET;
 
 const PROVIDER_PATH = (org: string, id = '') => `/orgs/${org}/providers${id ? `/${id}` : ''}`;
 const optionalText = (value: string) => value.trim() || undefined;
@@ -404,6 +410,7 @@ export default function ProvidersPage() {
   const [wizard, setWizard] = useState(false);
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [presetId, setPresetId] = useState<PresetId>('openai');
+  const [pluginChoice, setPluginChoice] = useState<PluginChoice>({ acceptTerms: false });
   const [wizardProvider, setWizardProvider] = useState<ProviderBody>();
   const [editing, setEditing] = useState<Provider>();
   const [credentialProvider, setCredentialProvider] = useState<Provider>();
@@ -1068,8 +1075,14 @@ export default function ProvidersPage() {
                     <p className="rounded-md bg-border/30 p-3 text-sm text-muted">
                       {t(`providers.presetHelp.${activePreset.type}`)}
                     </p>
+                    {activePreset.type === 'plugin' ? (
+                      <PluginPicker org={org} choice={pluginChoice} onChange={setPluginChoice} />
+                    ) : null}
                     <div className="flex justify-end">
                       <Button
+                        disabled={
+                          activePreset.type === 'plugin' && !pluginChoiceReady(pluginChoice)
+                        }
                         onClick={() => {
                           setStep(2);
                         }}
@@ -1102,6 +1115,12 @@ export default function ProvidersPage() {
                         activePreset.id !== 'custom'
                           ? { options: { preset: activePreset.id } }
                           : {}),
+                        ...(activePreset.type === 'plugin' && pluginChoice.plugin
+                          ? {
+                              options: { plugin: pluginChoice.plugin.name },
+                              ...(pluginChoice.plugin.termsWarning ? { acceptTerms: true } : {}),
+                            }
+                          : {}),
                       });
                       setStep(3);
                     }}
@@ -1121,7 +1140,12 @@ export default function ProvidersPage() {
                       type="url"
                       required
                       dir="ltr"
-                      defaultValue={wizardProvider?.baseUrl ?? activePreset.baseUrl}
+                      defaultValue={
+                        wizardProvider?.baseUrl ??
+                        (activePreset.type === 'plugin'
+                          ? (pluginChoice.plugin?.defaultBaseUrl ?? '')
+                          : activePreset.baseUrl)
+                      }
                     />
                     <NetworkFields />
                     <div className="flex justify-between">

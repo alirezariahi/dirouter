@@ -45,6 +45,7 @@ const TYPE: Record<string, string> = {
   ELEVENLABS: 'elevenlabs',
   DEEPGRAM: 'deepgram',
   FAL: 'fal',
+  PLUGIN: 'plugin',
   MOCK: 'mock',
 };
 const STRATEGY: Record<

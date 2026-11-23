@@ -96,6 +96,7 @@ export const providersEn = {
     elevenlabs: 'ElevenLabs text to speech and speech to text.',
     deepgram: 'Deepgram speech to text and text to speech.',
     fal: 'Fal image generation.',
+    plugin: 'A provider plugin installed on this server.',
   },
   presets: {
     openai: 'OpenAI',
@@ -105,6 +106,7 @@ export const providersEn = {
     elevenlabs: 'ElevenLabs',
     deepgram: 'Deepgram',
     fal: 'Fal',
+    plugin: 'Plugin',
     custom: 'Custom OpenAI-compatible',
     openrouter: 'OpenRouter',
     deepseek: 'DeepSeek',
@@ -296,6 +298,7 @@ export const providersFa: typeof providersEn = {
     elevenlabs: 'تبدیل متن به گفتار و گفتار به متن ElevenLabs.',
     deepgram: 'تبدیل گفتار به متن و متن به گفتار Deepgram.',
     fal: 'تولید تصویر Fal.',
+    plugin: 'افزونهٔ provider نصب‌شده روی این سرور.',
   },
   presets: {
     openai: 'OpenAI',
@@ -305,6 +308,7 @@ export const providersFa: typeof providersEn = {
     elevenlabs: 'ElevenLabs',
     deepgram: 'Deepgram',
     fal: 'Fal',
+    plugin: 'افزونه',
     custom: 'سفارشی (سازگار با OpenAI)',
     openrouter: 'OpenRouter',
     deepseek: 'DeepSeek',

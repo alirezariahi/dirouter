@@ -3,7 +3,7 @@
  * pipeline. Gemini's `:embedContent` reuses the same core and only changes the response shape.
  */
 import type { EmbeddingsRequest } from '@dirouter/contracts';
-import { adapterFor, type EmbeddingsResult, maxEmbeddingBatch } from '@dirouter/providers';
+import { adapterForProvider, type EmbeddingsResult, maxEmbeddingBatch } from '@dirouter/providers';
 import type { Candidate } from '@dirouter/routing';
 import { DiRouterError, ValidationError } from '@dirouter/shared';
 import type { FastifyReply, FastifyRequest } from 'fastify';
@@ -64,7 +64,7 @@ async function embed(
       });
     },
     build: (candidate, apiKey) =>
-      adapterFor(candidate.provider.type).buildEmbeddingsRequest?.({
+      adapterForProvider(candidate.provider).buildEmbeddingsRequest?.({
         provider: candidate.provider,
         model: candidate.model,
         apiKey,
@@ -74,7 +74,7 @@ async function embed(
         credentialHeaders: candidate.credential.headers,
       }),
     read: async (response, candidate) => {
-      const adapter = adapterFor(candidate.provider.type);
+      const adapter = adapterForProvider(candidate.provider);
       if (!adapter.parseEmbeddingsResponse) throw new Error('embeddings not supported');
       return adapter.parseEmbeddingsResponse(await response.json());
     },

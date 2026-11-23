@@ -4,6 +4,7 @@
  * shows only `••••last4`. The connection test and model discovery go through the gateway (`/internal/providers/probe`)
  * so the same adapter, proxy, and timeout used for real traffic apply.
  */
+import { enabledPlugins, readPlugins } from '@dirouter/providers';
 import { DiRouterError, encrypt, keyVersionOf, prefixedId } from '@dirouter/shared';
 import { Prisma } from '@dirouter/db';
 import { Inject, Injectable } from '@nestjs/common';
@@ -28,6 +29,7 @@ export const PROVIDER_TYPES = [
   'elevenlabs',
   'deepgram',
   'fal',
+  'plugin',
 ] as const;
 export type ProviderTypeName = (typeof PROVIDER_TYPES)[number];
 
@@ -46,6 +48,7 @@ const TO_DB = {
   elevenlabs: 'ELEVENLABS',
   deepgram: 'DEEPGRAM',
   fal: 'FAL',
+  plugin: 'PLUGIN',
   mock: 'MOCK',
 } as const;
 const FROM_DB = Object.fromEntries(Object.entries(TO_DB).map(([k, v]) => [v, k])) as Record<
@@ -91,7 +94,12 @@ export interface ProviderInput {
   options?: Record<string, unknown> | undefined;
   maxConcurrency?: number | null | undefined;
   credentials?: CredentialInput[] | undefined;
+  /** Plugins with a terms warning (card 21.2): the operator's explicit acceptance. */
+  acceptTerms?: boolean | undefined;
 }
+
+/** Set by the server only, never taken from a request. */
+const TERMS_OPTIONS = ['termsAcceptedAt', 'termsAcceptedBy'];
 
 type ProviderRow = Awaited<ReturnType<ProvidersService['load']>>;
 
@@ -163,8 +171,79 @@ export class ProvidersService {
     return rows.map((p) => this.view(p));
   }
 
+  /** Provider plugins the operator enabled (manifests only; no plugin code runs here). */
+  async plugins() {
+    const list = await readPlugins(this.env.PLUGINS_DIR, enabledPlugins(this.env.PLUGINS_ENABLED));
+    return list.map((p) => ({
+      name: p.name,
+      status: p.status,
+      ...(p.error ? { error: p.error } : {}),
+      ...(p.manifest
+        ? {
+            displayName: p.manifest.displayName,
+            version: p.manifest.version,
+            description: p.manifest.description ?? null,
+            defaultBaseUrl: p.manifest.defaultBaseUrl ?? null,
+            termsWarning: p.manifest.termsWarning ?? null,
+          }
+        : {}),
+    }));
+  }
+
+  /**
+   * Options of a plugin provider: the plugin must be enabled, and one with a terms warning needs
+   * the operator's explicit acceptance, recorded with who accepted and when. Acceptance carries
+   * over while the provider keeps the same plugin.
+   */
+  async #pluginOptions(
+    ctx: OrgContext,
+    options: Record<string, unknown>,
+    acceptTerms: boolean | undefined,
+    previous?: Record<string, unknown>,
+  ) {
+    const clean = Object.fromEntries(
+      Object.entries(options).filter(([key]) => !TERMS_OPTIONS.includes(key)),
+    );
+    const name = typeof clean.plugin === 'string' ? clean.plugin : '';
+    const plugin = (await this.plugins()).find((p) => p.name === name);
+    if (!plugin || plugin.status !== 'available')
+      throw new DiRouterError('validation_failed', {
+        message: name
+          ? `plugin '${name}' is not enabled on this server${plugin?.error ? ` (${plugin.error})` : ''}`
+          : 'options.plugin is required for plugin providers',
+        param: 'options.plugin',
+      });
+    if (!plugin.termsWarning) return { options: clean, plugin, accepted: false };
+    if (previous?.plugin === name && typeof previous.termsAcceptedAt === 'string' && !acceptTerms)
+      return {
+        options: {
+          ...clean,
+          termsAcceptedAt: previous.termsAcceptedAt,
+          termsAcceptedBy: previous.termsAcceptedBy,
+        },
+        plugin,
+        accepted: false,
+      };
+    if (acceptTerms !== true)
+      throw new DiRouterError('validation_failed', {
+        message: `plugin '${name}' requires accepting its terms warning: ${plugin.termsWarning.text}`,
+        param: 'acceptTerms',
+      });
+    return {
+      options: { ...clean, termsAcceptedAt: new Date().toISOString(), termsAcceptedBy: ctx.userId },
+      plugin,
+      accepted: true,
+    };
+  }
+
   async create(ctx: OrgContext, input: ProviderInput) {
-    const baseUrl = input.baseUrl ?? DEFAULT_BASE[input.type];
+    const plugin =
+      input.type === 'plugin'
+        ? await this.#pluginOptions(ctx, input.options ?? {}, input.acceptTerms)
+        : undefined;
+    const options = plugin?.options ?? input.options ?? {};
+    const baseUrl =
+      input.baseUrl ?? DEFAULT_BASE[input.type] ?? plugin?.plugin.defaultBaseUrl ?? undefined;
     if (!baseUrl)
       throw new DiRouterError('validation_failed', {
         message: `baseUrl is required for ${input.type}`,
@@ -182,7 +261,7 @@ export class ProvidersService {
           enabled: input.enabled ?? true,
           proxyUrl: input.proxyUrl ?? null,
           ...(input.timeouts ? { timeouts: input.timeouts as Prisma.InputJsonObject } : {}),
-          options: (input.options ?? {}) as Prisma.InputJsonObject,
+          options: options as Prisma.InputJsonObject,
           maxConcurrency: input.maxConcurrency ?? null,
         },
       });
@@ -203,7 +282,13 @@ export class ProvidersService {
       await this.#audit(tx, ctx, 'provider.created', 'provider', id, {
         name: input.name,
         type: input.type,
+        ...(plugin ? { plugin: plugin.plugin.name } : {}),
       });
+      if (plugin?.accepted)
+        await this.#audit(tx, ctx, 'provider.terms_accepted', 'provider', id, {
+          plugin: plugin.plugin.name,
+          terms: plugin.plugin.termsWarning?.text,
+        });
     });
     return this.view(await this.load(ctx, id));
   }
@@ -213,7 +298,23 @@ export class ProvidersService {
     id: string,
     input: Partial<Omit<ProviderInput, 'credentials' | 'type'>>,
   ) {
-    await this.load(ctx, id);
+    const current = await this.load(ctx, id);
+    const plugin =
+      current.type === 'PLUGIN' && input.options !== undefined
+        ? await this.#pluginOptions(
+            ctx,
+            input.options,
+            input.acceptTerms,
+            current.options as Record<string, unknown>,
+          )
+        : undefined;
+    const options =
+      plugin?.options ??
+      (input.options === undefined
+        ? undefined
+        : Object.fromEntries(
+            Object.entries(input.options).filter(([key]) => !TERMS_OPTIONS.includes(key)),
+          ));
     await this.db.provider.update({
       where: { id },
       data: {
@@ -230,13 +331,16 @@ export class ProvidersService {
                   : (input.timeouts as Prisma.InputJsonObject),
             }
           : {}),
-        ...(input.options !== undefined
-          ? { options: input.options as Prisma.InputJsonObject }
-          : {}),
+        ...(options !== undefined ? { options: options as Prisma.InputJsonObject } : {}),
         ...(input.maxConcurrency !== undefined ? { maxConcurrency: input.maxConcurrency } : {}),
       },
     });
     await this.#audit(this.db, ctx, 'provider.updated', 'provider', id, redactInput(input));
+    if (plugin?.accepted)
+      await this.#audit(this.db, ctx, 'provider.terms_accepted', 'provider', id, {
+        plugin: plugin.plugin.name,
+        terms: plugin.plugin.termsWarning?.text,
+      });
     return this.view(await this.load(ctx, id));
   }
 

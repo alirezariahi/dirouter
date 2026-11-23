@@ -1283,6 +1283,92 @@ try {
       );
     },
   );
+  await scenario(
+    '21.2 provider plugins: the reference plugin serves chat; a plugin not enabled is refused',
+    async () => {
+      const plugins = (await operator('GET', 'providers/plugins')).body;
+      const reference = plugins.find((p) => p.name === 'workers-ai');
+      assert.equal(reference?.status, 'available', JSON.stringify(plugins));
+      const tag = randomUUID().slice(0, 6);
+      const created = (
+        await operator(
+          'POST',
+          'providers',
+          {
+            name: `e2e-plugin-${tag}`,
+            type: 'plugin',
+            baseUrl: 'http://mock-provider:8090/workers-ai',
+            options: { plugin: 'workers-ai', accountId: 'acc' },
+            credentials: [{ name: 'k', secret: 'cf-token' }],
+          },
+          201,
+        )
+      ).body;
+      cleanups.push(() => operator('DELETE', `providers/${created.id}`, undefined, null));
+      const model = (
+        await operator(
+          'POST',
+          'models',
+          {
+            providerId: created.id,
+            upstreamModel: '@cf/meta/llama-3.1-8b-instruct',
+            slug: `e2e-${tag}/workers`,
+            pricing: { inputPerMTok: '1', outputPerMTok: '2' },
+          },
+          201,
+        )
+      ).body;
+      cleanups.push(() => operator('DELETE', `models/${model.id}`, undefined, null));
+      // A plugin that is not enabled on the server is refused at configuration time.
+      await operator(
+        'POST',
+        'providers',
+        {
+          name: `e2e-nope-${tag}`,
+          type: 'plugin',
+          baseUrl: 'https://x.test',
+          options: { plugin: 'nope' },
+        },
+        422,
+      );
+      const key = (
+        await published(() =>
+          operator('POST', 'keys', { name: `s3-plugin-${tag}`, projectId: 'prj_dev' }, 201),
+        )
+      ).body;
+      cleanups.push(() => operator('POST', `keys/${key.id}/revoke`, undefined, null));
+
+      const res = await chat(key.key, {
+        model: model.slug,
+        messages: [{ role: 'user', content: 'hi' }],
+      });
+      assert.equal(res.response.status, 200, res.text);
+      assert.equal(
+        JSON.parse(res.text).choices[0].message.content,
+        'Hello from the Workers AI mock.',
+      );
+      const streamed = await chat(key.key, {
+        model: model.slug,
+        stream: true,
+        messages: [{ role: 'user', content: 'hi' }],
+      });
+      const text = streamed.text
+        .split('\n')
+        .filter((line) => line.startsWith('data: {'))
+        .map((line) => JSON.parse(line.slice(6)).choices[0]?.delta?.content ?? '')
+        .join('');
+      assert.equal(text, 'Hello from the Workers AI mock.');
+      const id = res.response.headers.get('x-request-id');
+      const row = await waitFor('the plugin request in request_log', async () => {
+        const out = await sql(
+          `SELECT provider_id, input_tokens, output_tokens, cost_usd FROM request_log WHERE id = '${String(id)}'`,
+        );
+        return out || undefined;
+      });
+      assert.equal(row, `${created.id}|7|6|0.00001900`);
+      console.log(`     workers-ai plugin: ${row}`);
+    },
+  );
 } catch (error) {
   crashed = true;
   console.error(error);

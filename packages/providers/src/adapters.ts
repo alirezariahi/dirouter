@@ -40,6 +40,7 @@ import {
 import { presetFor } from './presets.js';
 import { BedrockAdapter } from './bedrock.js';
 import { MediaOnlyAdapter } from './media.js';
+import { MissingPluginAdapter } from './plugins/adapter.js';
 
 export interface UpstreamRequest {
   url: string;
@@ -1143,4 +1144,29 @@ export function adapterFor(type: ProviderType): ProviderAdapter {
 
 export function hasAdapter(type: ProviderType): boolean {
   return ADAPTERS[type] !== undefined;
+}
+
+// ───────────── Provider plugins (card 21.2) ─────────────
+
+const PLUGIN_ADAPTERS = new Map<string, ProviderAdapter>();
+
+export function registerPluginAdapter(name: string, adapter: ProviderAdapter): void {
+  PLUGIN_ADAPTERS.set(name, adapter);
+}
+
+export function clearPluginAdapters(): void {
+  PLUGIN_ADAPTERS.clear();
+}
+
+/**
+ * The adapter for a provider: its type's built-in adapter, or for `plugin` providers the plugin
+ * named in `options.plugin`. A plugin that is not loaded gets an adapter that fails every call,
+ * so the request falls back to the next target instead of breaking.
+ */
+export function adapterForProvider(
+  provider: Pick<ProviderConfig, 'type' | 'options'>,
+): ProviderAdapter {
+  if (provider.type !== 'plugin') return adapterFor(provider.type);
+  const name = typeof provider.options.plugin === 'string' ? provider.options.plugin : '';
+  return PLUGIN_ADAPTERS.get(name) ?? new MissingPluginAdapter(name);
 }

@@ -124,6 +124,9 @@ services:
       # Payments (card 19.2) go to the fake Zarinpal and Stripe in mock-provider.
       PUBLIC_API_URL: http://admin.${DOMAIN:-localhost}
       PUBLIC_GATEWAY_URL: http://api.${DOMAIN:-localhost}
+      # The reference provider plugin is on in development (card 21.2).
+      PLUGINS_DIR: /repo/plugins
+      PLUGINS_ENABLED: ${PLUGINS_ENABLED:-workers-ai}
       PAYMENT_RETURN_ORIGINS: http://app.${DOMAIN:-localhost},https://portal.${DOMAIN:-localhost}
       ZARINPAL_MERCHANT_ID: 00000000-0000-0000-0000-00000000dev0
       ZARINPAL_BASE_URL: http://mock-provider:8090/zarinpal
@@ -154,6 +157,9 @@ services:
       INTERNAL_TOKEN: ${INTERNAL_TOKEN}
       CONTROL_API_URL: http://control-api:3000
       DATA_DIR: /repo/.data/gateway
+      # The reference provider plugin is on in development (card 21.2).
+      PLUGINS_DIR: /repo/plugins
+      PLUGINS_ENABLED: ${PLUGINS_ENABLED:-workers-ai}
     command: ['pnpm', '--filter', '@dirouter/gateway', 'dev']
     labels:
       traefik.http.routers.gateway-http.rule: Host(`api.${DOMAIN:-localhost}`)

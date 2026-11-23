@@ -149,3 +149,20 @@ export function registerMedia(app: FastifyInstance): void {
     };
   });
 }
+
+/** Cloudflare Workers AI's native chat API, for the reference provider plugin (card 21.2). */
+export function registerWorkersAi(app: FastifyInstance): void {
+  app.post('/workers-ai/accounts/:account/ai/run/*', async (req, reply) => {
+    if (!authorized(req, 'authorization', 'Bearer ')) return reply.status(401).send({});
+    const body = (req.body ?? {}) as { messages?: { content?: string }[]; stream?: boolean };
+    const text = 'Hello from the Workers AI mock.';
+    const usage = { prompt_tokens: 7, completion_tokens: 6 };
+    if (!body.stream) return { success: true, result: { response: text, usage } };
+    reply.raw.writeHead(200, { 'content-type': 'text/event-stream' });
+    for (const piece of ['Hello from ', 'the Workers AI ', 'mock.'])
+      reply.raw.write(`data: ${JSON.stringify({ response: piece })}\n\n`);
+    reply.raw.write(`data: ${JSON.stringify({ response: '', usage })}\n\n`);
+    reply.raw.end('data: [DONE]\n\n');
+    return reply;
+  });
+}

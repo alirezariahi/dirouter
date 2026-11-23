@@ -25,7 +25,7 @@ import {
 } from '@dirouter/model-catalog';
 import {
   type ClassifiedError,
-  adapterFor,
+  adapterForProvider,
   classified,
   classifyNetworkError,
 } from '@dirouter/providers';
@@ -1086,7 +1086,7 @@ async function runRoute(
     traceparent: string | undefined,
     claim: (() => boolean) | undefined,
   ): Promise<AttemptResult<Outcome>> => {
-    const adapter = adapterFor(candidate.provider.type);
+    const adapter = adapterForProvider(candidate.provider);
     const timeouts = mergeTimeouts(baseTimeouts, candidate.provider.timeouts);
     let apiKey: string;
     try {
@@ -1103,22 +1103,41 @@ async function runRoute(
         },
       };
     }
-    const up = adapter.buildRequest({
-      provider: candidate.provider,
-      model: candidate.model,
-      apiKey,
-      request: canonical,
-      credentialHeaders: candidate.credential.headers,
-      clientHeaders: {
-        'anthropic-beta':
-          typeof req.headers['anthropic-beta'] === 'string'
-            ? req.headers['anthropic-beta']
-            : undefined,
-      },
-      onDrop: (field, reason) => {
-        deps.logger.debug({ requestId, field, reason }, 'field dropped for provider');
-      },
-    });
+    let up;
+    try {
+      up = adapter.buildRequest({
+        provider: candidate.provider,
+        model: candidate.model,
+        apiKey,
+        request: canonical,
+        credentialHeaders: candidate.credential.headers,
+        clientHeaders: {
+          'anthropic-beta':
+            typeof req.headers['anthropic-beta'] === 'string'
+              ? req.headers['anthropic-beta']
+              : undefined,
+        },
+        onDrop: (field, reason) => {
+          deps.logger.debug({ requestId, field, reason }, 'field dropped for provider');
+        },
+      });
+    } catch (error) {
+      // A request the adapter cannot build (a failing plugin, say) is a fault of this target, not
+      // of the client: it counts as a server error, so the request falls back to the next target.
+      deps.logger.warn(
+        { requestId, provider: candidate.provider.slug, error: (error as Error).message },
+        'provider request could not be built',
+      );
+      return {
+        ok: false,
+        error: {
+          class: 'server',
+          retryable: false,
+          fallbackAllowed: true,
+          message: (error as Error).message,
+        },
+      };
+    }
 
     let call;
     try {
@@ -1481,7 +1500,7 @@ async function pipeStream(
   api: InboundApi,
   canonical: CanonicalRequest,
   candidate: Candidate,
-  decoder: ReturnType<ReturnType<typeof adapterFor>['createStreamDecoder']>,
+  decoder: ReturnType<ReturnType<typeof adapterForProvider>['createStreamDecoder']>,
   call: Awaited<ReturnType<typeof callUpstream>>,
   reply: FastifyReply,
   opts: {

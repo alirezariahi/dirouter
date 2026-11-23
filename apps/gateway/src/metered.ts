@@ -8,7 +8,11 @@
 import type { CanonicalUsage, InboundApi, MediaUsage, UsageEvent } from '@dirouter/contracts';
 import { USAGE_EVENT_SCHEMA_VERSION } from '@dirouter/contracts';
 import { computeCostUsd } from '@dirouter/model-catalog';
-import { adapterFor, classifyNetworkError, type UpstreamRequest } from '@dirouter/providers';
+import {
+  adapterForProvider,
+  classifyNetworkError,
+  type UpstreamRequest,
+} from '@dirouter/providers';
 import { type Candidate, executeWithFallback, isRouteError } from '@dirouter/routing';
 import {
   DiRouterError,
@@ -254,7 +258,21 @@ export async function runMetered<T>(
         },
       };
     }
-    const upstream = input.build(candidate, apiKey);
+    let upstream;
+    try {
+      upstream = input.build(candidate, apiKey);
+    } catch (error) {
+      // An adapter that cannot build the request is this target's fault: fall back.
+      return {
+        ok: false as const,
+        error: {
+          class: 'server' as const,
+          retryable: false,
+          fallbackAllowed: true,
+          message: (error as Error).message,
+        },
+      };
+    }
     if (!upstream)
       return {
         ok: false as const,
@@ -278,7 +296,7 @@ export async function runMetered<T>(
         if (!call.response.ok)
           return {
             ok: false as const,
-            error: adapterFor(candidate.provider.type).classifyError({
+            error: adapterForProvider(candidate.provider).classifyError({
               status: call.response.status,
               headers: call.response.headers,
               body: await readErrorBody(call.response),

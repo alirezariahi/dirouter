@@ -258,6 +258,7 @@ enum ProviderType {
   ELEVENLABS     @map("elevenlabs")
   DEEPGRAM       @map("deepgram")
   FAL            @map("fal")
+  PLUGIN         @map("plugin")
   MOCK           @map("mock")
 }
 

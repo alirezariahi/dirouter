@@ -119,6 +119,9 @@ services:
       # Online top-ups (card 19.2): a provider is offered only when its credentials are set.
       PUBLIC_API_URL: ${PUBLIC_API_URL:-https://admin.${DOMAIN:-localhost}}
       PUBLIC_GATEWAY_URL: ${PUBLIC_GATEWAY_URL:-https://api.${DOMAIN:-localhost}}
+      # Provider plugins (card 21.2): none load unless named in PLUGINS_ENABLED.
+      PLUGINS_DIR: /plugins
+      PLUGINS_ENABLED: ${PLUGINS_ENABLED:-}
       # Self-service portal (card 19.5) and its optional OIDC sign-in (e.g. Google).
       PUBLIC_PORTAL_URL: ${PUBLIC_PORTAL_URL:-https://portal.${DOMAIN:-localhost}}
       PORTAL_OIDC_ISSUER: ${PORTAL_OIDC_ISSUER:-}
@@ -132,6 +135,8 @@ services:
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
       STRIPE_BASE_URL: ${STRIPE_BASE_URL:-}
     networks: [edge, internal]
+    volumes:
+      - ${PLUGINS_PATH:-./plugins}:/plugins:ro
     depends_on:
       postgres: { condition: service_healthy }
       valkey: { condition: service_healthy }
@@ -163,6 +168,9 @@ services:
       INTERNAL_TOKEN: ${INTERNAL_TOKEN:?INTERNAL_TOKEN is required}
       CONTROL_API_URL: http://control-api:3000
       DATA_DIR: /data
+      # Provider plugins (card 21.2): none load unless named in PLUGINS_ENABLED.
+      PLUGINS_DIR: /plugins
+      PLUGINS_ENABLED: ${PLUGINS_ENABLED:-}
       SHUTDOWN_DRAIN_MS: ${GATEWAY_SHUTDOWN_DRAIN_MS:-30000}
       # More than two Traefik health check rounds (2 seconds), so the replica leaves rotation before it closes.
       SHUTDOWN_READY_DELAY_MS: ${GATEWAY_SHUTDOWN_READY_DELAY_MS:-5000}
@@ -172,6 +180,7 @@ services:
     stop_grace_period: 45s
     volumes:
       - gateway-data:/data
+      - ${PLUGINS_PATH:-./plugins}:/plugins:ro
     depends_on:
       valkey: { condition: service_healthy }
     labels:

@@ -59,6 +59,9 @@ importers:
       '@dirouter/model-catalog':
         specifier: workspace:*
         version: link:../../packages/model-catalog
+      '@dirouter/providers':
+        specifier: workspace:*
+        version: link:../../packages/providers
       '@dirouter/shared':
         specifier: workspace:*
         version: link:../../packages/shared

@@ -43,6 +43,7 @@ import { registerMediaRoutes } from './media.js';
 import { Tracer } from './tracing.js';
 import { geminiRequestToCanonical } from '@dirouter/translator';
 import { estimateRequestTokens } from '@dirouter/model-catalog';
+import { enabledPlugins, loadPlugins } from '@dirouter/providers';
 
 export interface GatewayOptions {
   logger: Logger;
@@ -68,6 +69,8 @@ export interface GatewayOptions {
   outbox?: { backlogSize(): Promise<number> };
   /** Tests only: limiter window length. */
   limiterWindowMs?: number;
+  /** Provider plugins to load at start (card 21.2). */
+  plugins?: { dir: string; enabled: string };
 }
 
 export function buildGateway(opts: GatewayOptions) {
@@ -536,6 +539,22 @@ export function buildGateway(opts: GatewayOptions) {
     limiter: deps.limiter,
     budgets: deps.budgets,
     async start() {
+      if (opts.plugins) {
+        const names = enabledPlugins(opts.plugins.enabled);
+        for (const plugin of await loadPlugins(opts.plugins.dir, names)) {
+          if (plugin.status === 'loaded')
+            opts.logger.info(
+              { plugin: plugin.name, version: plugin.manifest?.version },
+              'provider plugin loaded',
+            );
+          // A broken plugin is reported and skipped; its providers fall back to other targets.
+          else
+            opts.logger.error(
+              { plugin: plugin.name, error: plugin.error },
+              'provider plugin failed to load',
+            );
+        }
+      }
       await store.start();
       if (opts.limiterRedis) deps.limiter.startNodeCount();
     },

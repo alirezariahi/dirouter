@@ -34,6 +34,9 @@ const env = loadEnvOrExit(
     /** Pause after readyz=503 so Traefik (health check every 2 seconds) takes this replica out of rotation. */
     SHUTDOWN_READY_DELAY_MS: z.coerce.number().int().min(0).default(5_000),
     VALKEY_URL: z.string().optional(),
+    /** Provider plugins (card 21.2): folder, and the names to load (none by default). */
+    PLUGINS_DIR: z.string().default('./plugins'),
+    PLUGINS_ENABLED: z.string().default(''),
   }),
 );
 const logger = createLogger({ service: 'gateway', level: env.LOG_LEVEL });
@@ -105,6 +108,7 @@ const gateway = buildGateway({
   keyring: env.MASTER_KEY,
   pepper: env.KEY_PEPPER,
   dataDir: env.DATA_DIR,
+  plugins: { dir: env.PLUGINS_DIR, enabled: env.PLUGINS_ENABLED },
   ...(env.CONTROL_API_URL ? { controlApiUrl: env.CONTROL_API_URL } : {}),
   ...(env.INTERNAL_TOKEN ? { internalToken: env.INTERNAL_TOKEN } : {}),
   // Separate connection with offline queue disabled: during a Valkey outage commands fail immediately and the local limiter takes over.

@@ -539,6 +539,7 @@ export const ProvidersControllerList200ItemType = {
   elevenlabs: 'elevenlabs',
   deepgram: 'deepgram',
   fal: 'fal',
+  plugin: 'plugin',
   mock: 'mock',
 } as const;
 
@@ -637,6 +638,7 @@ export const ProvidersControllerCreateBodyType = {
   elevenlabs: 'elevenlabs',
   deepgram: 'deepgram',
   fal: 'fal',
+  plugin: 'plugin',
 } as const;
 
 /**
@@ -723,6 +725,7 @@ export type ProvidersControllerCreateBody = {
   maxConcurrency?: number | null;
   /** @maxItems 50 */
   credentials?: ProvidersControllerCreateBodyCredentialsItem[];
+  acceptTerms?: boolean;
 };
 
 export type ProvidersControllerCreate200Type = typeof ProvidersControllerCreate200Type[keyof typeof ProvidersControllerCreate200Type];
@@ -743,6 +746,7 @@ export const ProvidersControllerCreate200Type = {
   elevenlabs: 'elevenlabs',
   deepgram: 'deepgram',
   fal: 'fal',
+  plugin: 'plugin',
   mock: 'mock',
 } as const;
 
@@ -823,6 +827,37 @@ export type ProvidersControllerCreate200 = {
   createdAt: string;
 };
 
+export type ProvidersControllerPlugins200ItemStatus = typeof ProvidersControllerPlugins200ItemStatus[keyof typeof ProvidersControllerPlugins200ItemStatus];
+
+
+export const ProvidersControllerPlugins200ItemStatus = {
+  available: 'available',
+  loaded: 'loaded',
+  failed: 'failed',
+} as const;
+
+/**
+ * @nullable
+ */
+export type ProvidersControllerPlugins200ItemTermsWarning = {
+  text: string;
+  url?: string;
+} | null;
+
+export type ProvidersControllerPlugins200Item = {
+  name: string;
+  status: ProvidersControllerPlugins200ItemStatus;
+  error?: string;
+  displayName?: string;
+  version?: string;
+  /** @nullable */
+  description?: string | null;
+  /** @nullable */
+  defaultBaseUrl?: string | null;
+  /** @nullable */
+  termsWarning?: ProvidersControllerPlugins200ItemTermsWarning;
+};
+
 export type ProvidersControllerGet200Type = typeof ProvidersControllerGet200Type[keyof typeof ProvidersControllerGet200Type];
 
 
@@ -841,6 +876,7 @@ export const ProvidersControllerGet200Type = {
   elevenlabs: 'elevenlabs',
   deepgram: 'deepgram',
   fal: 'fal',
+  plugin: 'plugin',
   mock: 'mock',
 } as const;
 
@@ -975,6 +1011,7 @@ export type ProvidersControllerUpdateBody = {
      * @nullable
      */
   maxConcurrency?: number | null;
+  acceptTerms?: boolean;
 };
 
 export type ProvidersControllerUpdate200Type = typeof ProvidersControllerUpdate200Type[keyof typeof ProvidersControllerUpdate200Type];
@@ -995,6 +1032,7 @@ export const ProvidersControllerUpdate200Type = {
   elevenlabs: 'elevenlabs',
   deepgram: 'deepgram',
   fal: 'fal',
+  plugin: 'plugin',
   mock: 'mock',
 } as const;
 
@@ -1120,6 +1158,7 @@ export const ProvidersControllerAddCredential200Type = {
   elevenlabs: 'elevenlabs',
   deepgram: 'deepgram',
   fal: 'fal',
+  plugin: 'plugin',
   mock: 'mock',
 } as const;
 
@@ -1254,6 +1293,7 @@ export const ProvidersControllerUpdateCredential200Type = {
   elevenlabs: 'elevenlabs',
   deepgram: 'deepgram',
   fal: 'fal',
+  plugin: 'plugin',
   mock: 'mock',
 } as const;
 
@@ -8992,6 +9032,86 @@ export function useProvidersControllerCreate<TData = Awaited<ReturnType<typeof p
 
 
 
+
+export type providersControllerPluginsResponse200 = {
+  data: ProvidersControllerPlugins200Item[]
+  status: 200
+}
+
+export type providersControllerPluginsResponseSuccess = (providersControllerPluginsResponse200) & {
+  headers: Headers;
+};
+;
+
+export type providersControllerPluginsResponse = (providersControllerPluginsResponseSuccess)
+
+export const getProvidersControllerPluginsUrl = (orgId: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/providers/plugins`
+}
+
+export const providersControllerPlugins = async (orgId: string, options?: Parameters<typeof orvalFetch>[1]): Promise<providersControllerPluginsResponse> => {
+
+  return orvalFetch<providersControllerPluginsResponse>(getProvidersControllerPluginsUrl(orgId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getProvidersControllerPluginsMutationKey = () => ['providersControllerPlugins'] as const;
+
+export const getProvidersControllerPluginsMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof providersControllerPlugins>>, TError,ProvidersControllerPluginsMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof providersControllerPlugins>>, TError,ProvidersControllerPluginsMutationVariables, TContext> => {
+
+const mutationKey = getProvidersControllerPluginsMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof providersControllerPlugins>>, ProvidersControllerPluginsMutationVariables> = (props) => {
+          const {orgId} = props ?? {};
+
+          return  providersControllerPlugins(orgId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ProvidersControllerPluginsMutationResult = NonNullable<Awaited<ReturnType<typeof providersControllerPlugins>>>
+
+    export type ProvidersControllerPluginsMutationError = unknown
+    export type ProvidersControllerPluginsMutationVariables = {orgId: string}
+
+    export const useProvidersControllerPlugins = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof providersControllerPlugins>>, TError,ProvidersControllerPluginsMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof providersControllerPlugins>>,
+        TError,
+        ProvidersControllerPluginsMutationVariables,
+        TContext
+      > => {
+      return useMutation(getProvidersControllerPluginsMutationOptions(options), queryClient);
+    }
 
 export type providersControllerGetResponse200 = {
   data: ProvidersControllerGet200
