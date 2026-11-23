@@ -279,6 +279,54 @@ try {
       assert.equal(check.ok, true, JSON.stringify(check));
     },
   );
+  await scenario(
+    '19.3 gift codes: each code only up to its cap, shown once, reported',
+    async () => {
+      const created = (
+        await operator(
+          'POST',
+          'billing/gift-batches',
+          { name: `e2e ${new Date().toISOString()}`, kind: 'gift', amountUsd: '1.5', count: 2 },
+          201,
+        )
+      ).body;
+      assert.equal(created.codes.length, 2);
+      const [first, second] = created.codes;
+      const redeem = (code, expected) => customer.cust('POST', 'wallet/redeem', { code }, expected);
+      const ok = (await redeem(first.toLowerCase(), 200)).body;
+      assert.equal(ok.amountUsd, '1.50000000');
+      await redeem(first, 409);
+      // A multi-use code shared by organizations: the platform cannot redeem; the cap holds.
+      const shared = (
+        await operator(
+          'POST',
+          'billing/gift-batches',
+          { name: 'e2e shared', kind: 'recharge', amountUsd: '0.5', count: 1, maxRedemptions: 1 },
+          201,
+        )
+      ).body.codes[0];
+      await redeem(shared, 200);
+      await redeem(shared, 409);
+      const report = (await operator('GET', `billing/gift-batches/${created.id}`)).body;
+      assert.equal(report.redemptions, 1);
+      assert.equal(report.creditedUsd, '1.50000000');
+      assert.equal(report.codes, 2);
+      assert.equal('codes' in report && Array.isArray(report.codes), false);
+      const rows = (await operator('GET', `billing/gift-batches/${created.id}/redemptions`)).body;
+      assert.equal(rows.length, 1);
+      assert.equal(rows[0].organizationId, CUSTOMER);
+      // Only an HMAC and a 7-character hint are stored, never the code itself.
+      assert.equal(
+        await sql(`SELECT count(*) FROM gift_codes WHERE batch_id = '${created.id}'
+          AND code_hash ~ '^[0-9a-f]{64}$' AND length(hint) = 7
+          AND hint || '-' NOT IN ('${first}', '${second}')`),
+        '2',
+      );
+      await operator('POST', `billing/gift-batches/${created.id}/revoke`);
+      await redeem(second, 422);
+      assert.equal((await operator('GET', 'billing/ledger/check')).body.ok, true);
+    },
+  );
 } catch (error) {
   crashed = true;
   console.error(error);

@@ -54,6 +54,18 @@ This document is the complete env contract for the `code/` source. Whenever you 
 | `SMTP_URL`             | control-api                                                              | Optional / empty                                                      | SMTP URL, such as `smtps://user:pass@smtp.example.com:465` or `smtp://…:587`. Empty means the invitation email is not sent, and the link is returned in the API response.                                                 |
 | `SMTP_FROM`            | control-api                                                              | App `DiRouter <noreply@localhost>`; Compose based on `DOMAIN`         | The sender of invitation emails, with a display name and a valid address. In `.env`, quote a value that contains spaces.                                                                                                  |
 
+## Billing and payments
+
+| Variable                 | Consumer    | Required? / default                                             | Format and effect                                                                                                                                          |
+| ------------------------ | ----------- | --------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PUBLIC_API_URL`         | control-api | App `https://admin.localhost`; Compose `https://admin.<DOMAIN>` | Public origin of control-api, used in payment callback URLs.                                                                                               |
+| `PAYMENT_RETURN_ORIGINS` | control-api | Optional / empty                                                | Comma-separated origins a payer may be sent back to after paying, in addition to the dashboard (for example the portal). Any other `returnUrl` is refused. |
+| `ZARINPAL_MERCHANT_ID`   | control-api | Optional / empty                                                | Zarinpal merchant ID. Empty means Zarinpal is not offered. Secret.                                                                                         |
+| `ZARINPAL_BASE_URL`      | control-api | `https://payment.zarinpal.com`                                  | Zarinpal API and payment page origin; `https://sandbox.zarinpal.com` for testing.                                                                          |
+| `STRIPE_SECRET_KEY`      | control-api | Optional / empty                                                | Stripe secret API key. Stripe is offered only when this and `STRIPE_WEBHOOK_SECRET` are set. Secret.                                                       |
+| `STRIPE_WEBHOOK_SECRET`  | control-api | Optional / empty                                                | Signing secret of the webhook endpoint `https://<admin>/api/v1/payments/stripe/webhook`. Secret.                                                           |
+| `STRIPE_BASE_URL`        | control-api | `https://api.stripe.com`                                        | Stripe API origin; changed only for tests and the mock.                                                                                                    |
+
 ## Edge, DNS and TLS
 
 | Variable                  | Consumer                                  | Required? / default                                 | Format and effect                                                                                                                                                              |
@@ -124,14 +136,17 @@ The run guide and security details are in [monitoring.md](monitoring.md).
 
 ## Development tools and mock
 
-| Variable                | Consumer                            | Required? / default           | Format and effect                                                                                                                                                                      |
-| ----------------------- | ----------------------------------- | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `MOCK_DEFAULT`          | mock-provider                       | Optional                      | The default directive of the mock scenario (for example `status=503`). Test and development only; in production, mock-provider runs outside the default run, under the `mock` profile. |
-| `MAILPIT_UI_PORT`       | dev Compose/Mailpit only            | `58025`                       | UI port on `127.0.0.1`; this is not real production email data.                                                                                                                        |
-| `SEED_MOCK_URL`         | only `apps/control-api/src/seed.ts` | `http://mock-provider:8090`   | The origin of the mock provider during the development seed.                                                                                                                           |
-| `SEED_CREDENTIALS_FILE` | development seed only               | `/repo/.data/seed-admin.env`  | Path of a 0600 file that contains the initial admin password; outside Git and on a secure disk.                                                                                        |
-| `SEED_ADMIN_PASSWORD`   | development seed only               | Random if no value is given   | The development admin password, used only when creating the user; never use it for production or the seed.                                                                             |
-| `DEV_API_KEY`           | only `scripts/dev-snapshot.mjs`     | Fixed dev value in the script | The test key for the local snapshot; not a production secret, and not a path for production bootstrap.                                                                                 |
+| Variable                     | Consumer                            | Required? / default           | Format and effect                                                                                                                                                                      |
+| ---------------------------- | ----------------------------------- | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `MOCK_DEFAULT`               | mock-provider                       | Optional                      | The default directive of the mock scenario (for example `status=503`). Test and development only; in production, mock-provider runs outside the default run, under the `mock` profile. |
+| `MOCK_PUBLIC_URL`            | mock-provider                       | Optional                      | Origin of the mock as the payer's browser sees it; used in the fake Stripe checkout URLs. Development only.                                                                            |
+| `MOCK_STRIPE_WEBHOOK_URL`    | mock-provider                       | Optional                      | Where the fake Stripe delivers signed webhooks. Development only.                                                                                                                      |
+| `MOCK_STRIPE_WEBHOOK_SECRET` | mock-provider                       | Optional                      | Secret the fake Stripe signs webhooks with; must equal control-api's `STRIPE_WEBHOOK_SECRET`. Development only.                                                                        |
+| `MAILPIT_UI_PORT`            | dev Compose/Mailpit only            | `58025`                       | UI port on `127.0.0.1`; this is not real production email data.                                                                                                                        |
+| `SEED_MOCK_URL`              | only `apps/control-api/src/seed.ts` | `http://mock-provider:8090`   | The origin of the mock provider during the development seed.                                                                                                                           |
+| `SEED_CREDENTIALS_FILE`      | development seed only               | `/repo/.data/seed-admin.env`  | Path of a 0600 file that contains the initial admin password; outside Git and on a secure disk.                                                                                        |
+| `SEED_ADMIN_PASSWORD`        | development seed only               | Random if no value is given   | The development admin password, used only when creating the user; never use it for production or the seed.                                                                             |
+| `DEV_API_KEY`                | only `scripts/dev-snapshot.mjs`     | Fixed dev value in the script | The test key for the local snapshot; not a production secret, and not a path for production bootstrap.                                                                                 |
 
 ## CI and integration tests (not production settings)
 
@@ -180,7 +195,7 @@ This suite deliberately stops services. Run it only on a dedicated development o
 
 ## Safe separation and least privilege
 
-- `MASTER_KEY`, `KEY_PEPPER`, `JWT_SECRET`, `INTERNAL_TOKEN`, `POSTGRES_PASSWORD`, `DATABASE_URL`, and `SMTP_URL` are secrets or contain secrets.
+- `MASTER_KEY`, `KEY_PEPPER`, `JWT_SECRET`, `INTERNAL_TOKEN`, `POSTGRES_PASSWORD`, `DATABASE_URL`, `SMTP_URL`, `ZARINPAL_MERCHANT_ID`, `STRIPE_SECRET_KEY`, and `STRIPE_WEBHOOK_SECRET` are secrets or contain secrets.
 - The gateway needs only `MASTER_KEY`, `KEY_PEPPER`, `INTERNAL_TOKEN`, `VALKEY_URL`, and the control-api address; **not `DATABASE_URL`**.
 - The worker needs Postgres and Valkey, and does not need the JWT, master, or internal secrets.
 - Provider secrets are encrypted in the database and entered from the dashboard; do not put them in the env. A DNS-01 secret (such as `CF_DNS_API_TOKEN`) is given to Traefik only when that challenge is enabled, and it is not part of the app contract.

@@ -3875,6 +3875,57 @@ export type BillingPaymentsAdminControllerPutSettingsBody = {
 
 export type BillingPaymentsAdminControllerPutSettings200 = {[key: string]: unknown};
 
+export type GiftBatchesControllerList200Item = {[key: string]: unknown};
+
+export type GiftBatchesControllerCreateBodyKind = typeof GiftBatchesControllerCreateBodyKind[keyof typeof GiftBatchesControllerCreateBodyKind];
+
+
+export const GiftBatchesControllerCreateBodyKind = {
+  gift: 'gift',
+  recharge: 'recharge',
+} as const;
+
+export type GiftBatchesControllerCreateBody = {
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  name: string;
+  kind: GiftBatchesControllerCreateBodyKind;
+  /** @pattern ^\d{1,8}(\.\d{1,8})?$ */
+  amountUsd: string;
+  /**
+     * @minimum 1
+     * @maximum 10000
+     */
+  count: number;
+  /**
+     * @minimum 1
+     * @maximum 1000000
+     */
+  maxRedemptions?: number;
+  /** @pattern ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d+)?(?:Z))$ */
+  expiresAt?: string;
+};
+
+export type GiftBatchesControllerCreate200 = {[key: string]: unknown};
+
+export type GiftBatchesControllerGet200 = {[key: string]: unknown};
+
+export type GiftBatchesControllerRedemptions200Item = {[key: string]: unknown};
+
+export type GiftBatchesControllerRevoke200 = {[key: string]: unknown};
+
+export type RedeemControllerRedeemBody = {
+  /**
+     * @minLength 4
+     * @maxLength 64
+     */
+  code: string;
+};
+
+export type RedeemControllerRedeem200 = {[key: string]: unknown};
+
 export type ConfigControllerList200Item = {[key: string]: unknown};
 
 export type ConfigControllerGet200 = {[key: string]: unknown};
@@ -16348,6 +16399,621 @@ export function useBillingPaymentsAdminControllerPutSettings<TData = Awaited<Ret
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getBillingPaymentsAdminControllerPutSettingsQueryOptions(orgId,billingPaymentsAdminControllerPutSettingsBody,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export type giftBatchesControllerListResponse200 = {
+  data: GiftBatchesControllerList200Item[]
+  status: 200
+}
+
+export type giftBatchesControllerListResponseSuccess = (giftBatchesControllerListResponse200) & {
+  headers: Headers;
+};
+;
+
+export type giftBatchesControllerListResponse = (giftBatchesControllerListResponseSuccess)
+
+export const getGiftBatchesControllerListUrl = (orgId: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/billing/gift-batches`
+}
+
+export const giftBatchesControllerList = async (orgId: string, options?: Parameters<typeof orvalFetch>[1]): Promise<giftBatchesControllerListResponse> => {
+
+  return orvalFetch<giftBatchesControllerListResponse>(getGiftBatchesControllerListUrl(orgId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGiftBatchesControllerListMutationKey = () => ['giftBatchesControllerList'] as const;
+
+export const getGiftBatchesControllerListMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof giftBatchesControllerList>>, TError,GiftBatchesControllerListMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof giftBatchesControllerList>>, TError,GiftBatchesControllerListMutationVariables, TContext> => {
+
+const mutationKey = getGiftBatchesControllerListMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof giftBatchesControllerList>>, GiftBatchesControllerListMutationVariables> = (props) => {
+          const {orgId} = props ?? {};
+
+          return  giftBatchesControllerList(orgId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type GiftBatchesControllerListMutationResult = NonNullable<Awaited<ReturnType<typeof giftBatchesControllerList>>>
+
+    export type GiftBatchesControllerListMutationError = unknown
+    export type GiftBatchesControllerListMutationVariables = {orgId: string}
+
+    export const useGiftBatchesControllerList = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof giftBatchesControllerList>>, TError,GiftBatchesControllerListMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof giftBatchesControllerList>>,
+        TError,
+        GiftBatchesControllerListMutationVariables,
+        TContext
+      > => {
+      return useMutation(getGiftBatchesControllerListMutationOptions(options), queryClient);
+    }
+
+export type giftBatchesControllerCreateResponse200 = {
+  data: GiftBatchesControllerCreate200
+  status: 200
+}
+
+export type giftBatchesControllerCreateResponseSuccess = (giftBatchesControllerCreateResponse200) & {
+  headers: Headers;
+};
+;
+
+export type giftBatchesControllerCreateResponse = (giftBatchesControllerCreateResponseSuccess)
+
+export const getGiftBatchesControllerCreateUrl = (orgId: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/billing/gift-batches`
+}
+
+export const giftBatchesControllerCreate = async (orgId: string,
+    giftBatchesControllerCreateBody: GiftBatchesControllerCreateBody, options?: Parameters<typeof orvalFetch>[1]): Promise<giftBatchesControllerCreateResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return orvalFetch<giftBatchesControllerCreateResponse>(getGiftBatchesControllerCreateUrl(orgId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(giftBatchesControllerCreateBody)
+  }
+);}
+
+
+
+
+
+export const getGiftBatchesControllerCreateQueryKey = (orgId: string,
+    giftBatchesControllerCreateBody?: GiftBatchesControllerCreateBody,) => {
+    return [
+    'POST', `/api/v1/orgs/${orgId}/billing/gift-batches`, giftBatchesControllerCreateBody
+    ] as const;
+    }
+
+
+export const getGiftBatchesControllerCreateQueryOptions = <TData = Awaited<ReturnType<typeof giftBatchesControllerCreate>>, TError = unknown>(orgId: string,
+    giftBatchesControllerCreateBody: GiftBatchesControllerCreateBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof giftBatchesControllerCreate>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGiftBatchesControllerCreateQueryKey(orgId,giftBatchesControllerCreateBody);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof giftBatchesControllerCreate>>> = ({ signal }) => giftBatchesControllerCreate(orgId,giftBatchesControllerCreateBody, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: orgId !== null && orgId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof giftBatchesControllerCreate>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GiftBatchesControllerCreateQueryResult = NonNullable<Awaited<ReturnType<typeof giftBatchesControllerCreate>>>
+export type GiftBatchesControllerCreateQueryError = unknown
+
+
+export function useGiftBatchesControllerCreate<TData = Awaited<ReturnType<typeof giftBatchesControllerCreate>>, TError = unknown>(
+ orgId: string,
+    giftBatchesControllerCreateBody: GiftBatchesControllerCreateBody, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof giftBatchesControllerCreate>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof giftBatchesControllerCreate>>,
+          TError,
+          Awaited<ReturnType<typeof giftBatchesControllerCreate>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGiftBatchesControllerCreate<TData = Awaited<ReturnType<typeof giftBatchesControllerCreate>>, TError = unknown>(
+ orgId: string,
+    giftBatchesControllerCreateBody: GiftBatchesControllerCreateBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof giftBatchesControllerCreate>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof giftBatchesControllerCreate>>,
+          TError,
+          Awaited<ReturnType<typeof giftBatchesControllerCreate>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGiftBatchesControllerCreate<TData = Awaited<ReturnType<typeof giftBatchesControllerCreate>>, TError = unknown>(
+ orgId: string,
+    giftBatchesControllerCreateBody: GiftBatchesControllerCreateBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof giftBatchesControllerCreate>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useGiftBatchesControllerCreate<TData = Awaited<ReturnType<typeof giftBatchesControllerCreate>>, TError = unknown>(
+ orgId: string,
+    giftBatchesControllerCreateBody: GiftBatchesControllerCreateBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof giftBatchesControllerCreate>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGiftBatchesControllerCreateQueryOptions(orgId,giftBatchesControllerCreateBody,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export type giftBatchesControllerGetResponse200 = {
+  data: GiftBatchesControllerGet200
+  status: 200
+}
+
+export type giftBatchesControllerGetResponseSuccess = (giftBatchesControllerGetResponse200) & {
+  headers: Headers;
+};
+;
+
+export type giftBatchesControllerGetResponse = (giftBatchesControllerGetResponseSuccess)
+
+export const getGiftBatchesControllerGetUrl = (orgId: string,
+    id: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/billing/gift-batches/${id}`
+}
+
+export const giftBatchesControllerGet = async (orgId: string,
+    id: string, options?: Parameters<typeof orvalFetch>[1]): Promise<giftBatchesControllerGetResponse> => {
+
+  return orvalFetch<giftBatchesControllerGetResponse>(getGiftBatchesControllerGetUrl(orgId,id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGiftBatchesControllerGetMutationKey = () => ['giftBatchesControllerGet'] as const;
+
+export const getGiftBatchesControllerGetMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof giftBatchesControllerGet>>, TError,GiftBatchesControllerGetMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof giftBatchesControllerGet>>, TError,GiftBatchesControllerGetMutationVariables, TContext> => {
+
+const mutationKey = getGiftBatchesControllerGetMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof giftBatchesControllerGet>>, GiftBatchesControllerGetMutationVariables> = (props) => {
+          const {orgId,id} = props ?? {};
+
+          return  giftBatchesControllerGet(orgId,id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type GiftBatchesControllerGetMutationResult = NonNullable<Awaited<ReturnType<typeof giftBatchesControllerGet>>>
+
+    export type GiftBatchesControllerGetMutationError = unknown
+    export type GiftBatchesControllerGetMutationVariables = {orgId: string;id: string}
+
+    export const useGiftBatchesControllerGet = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof giftBatchesControllerGet>>, TError,GiftBatchesControllerGetMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof giftBatchesControllerGet>>,
+        TError,
+        GiftBatchesControllerGetMutationVariables,
+        TContext
+      > => {
+      return useMutation(getGiftBatchesControllerGetMutationOptions(options), queryClient);
+    }
+
+export type giftBatchesControllerRedemptionsResponse200 = {
+  data: GiftBatchesControllerRedemptions200Item[]
+  status: 200
+}
+
+export type giftBatchesControllerRedemptionsResponseSuccess = (giftBatchesControllerRedemptionsResponse200) & {
+  headers: Headers;
+};
+;
+
+export type giftBatchesControllerRedemptionsResponse = (giftBatchesControllerRedemptionsResponseSuccess)
+
+export const getGiftBatchesControllerRedemptionsUrl = (orgId: string,
+    id: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/billing/gift-batches/${id}/redemptions`
+}
+
+export const giftBatchesControllerRedemptions = async (orgId: string,
+    id: string, options?: Parameters<typeof orvalFetch>[1]): Promise<giftBatchesControllerRedemptionsResponse> => {
+
+  return orvalFetch<giftBatchesControllerRedemptionsResponse>(getGiftBatchesControllerRedemptionsUrl(orgId,id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGiftBatchesControllerRedemptionsMutationKey = () => ['giftBatchesControllerRedemptions'] as const;
+
+export const getGiftBatchesControllerRedemptionsMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof giftBatchesControllerRedemptions>>, TError,GiftBatchesControllerRedemptionsMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof giftBatchesControllerRedemptions>>, TError,GiftBatchesControllerRedemptionsMutationVariables, TContext> => {
+
+const mutationKey = getGiftBatchesControllerRedemptionsMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof giftBatchesControllerRedemptions>>, GiftBatchesControllerRedemptionsMutationVariables> = (props) => {
+          const {orgId,id} = props ?? {};
+
+          return  giftBatchesControllerRedemptions(orgId,id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type GiftBatchesControllerRedemptionsMutationResult = NonNullable<Awaited<ReturnType<typeof giftBatchesControllerRedemptions>>>
+
+    export type GiftBatchesControllerRedemptionsMutationError = unknown
+    export type GiftBatchesControllerRedemptionsMutationVariables = {orgId: string;id: string}
+
+    export const useGiftBatchesControllerRedemptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof giftBatchesControllerRedemptions>>, TError,GiftBatchesControllerRedemptionsMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof giftBatchesControllerRedemptions>>,
+        TError,
+        GiftBatchesControllerRedemptionsMutationVariables,
+        TContext
+      > => {
+      return useMutation(getGiftBatchesControllerRedemptionsMutationOptions(options), queryClient);
+    }
+
+export type giftBatchesControllerRevokeResponse200 = {
+  data: GiftBatchesControllerRevoke200
+  status: 200
+}
+
+export type giftBatchesControllerRevokeResponseSuccess = (giftBatchesControllerRevokeResponse200) & {
+  headers: Headers;
+};
+;
+
+export type giftBatchesControllerRevokeResponse = (giftBatchesControllerRevokeResponseSuccess)
+
+export const getGiftBatchesControllerRevokeUrl = (orgId: string,
+    id: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/billing/gift-batches/${id}/revoke`
+}
+
+export const giftBatchesControllerRevoke = async (orgId: string,
+    id: string, options?: Parameters<typeof orvalFetch>[1]): Promise<giftBatchesControllerRevokeResponse> => {
+
+  return orvalFetch<giftBatchesControllerRevokeResponse>(getGiftBatchesControllerRevokeUrl(orgId,id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getGiftBatchesControllerRevokeQueryKey = (orgId: string,
+    id: string,) => {
+    return [
+    'POST', `/api/v1/orgs/${orgId}/billing/gift-batches/${id}/revoke`
+    ] as const;
+    }
+
+
+export const getGiftBatchesControllerRevokeQueryOptions = <TData = Awaited<ReturnType<typeof giftBatchesControllerRevoke>>, TError = unknown>(orgId: string,
+    id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof giftBatchesControllerRevoke>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGiftBatchesControllerRevokeQueryKey(orgId,id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof giftBatchesControllerRevoke>>> = ({ signal }) => giftBatchesControllerRevoke(orgId,id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: orgId !== null && orgId !== undefined && id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof giftBatchesControllerRevoke>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GiftBatchesControllerRevokeQueryResult = NonNullable<Awaited<ReturnType<typeof giftBatchesControllerRevoke>>>
+export type GiftBatchesControllerRevokeQueryError = unknown
+
+
+export function useGiftBatchesControllerRevoke<TData = Awaited<ReturnType<typeof giftBatchesControllerRevoke>>, TError = unknown>(
+ orgId: string,
+    id: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof giftBatchesControllerRevoke>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof giftBatchesControllerRevoke>>,
+          TError,
+          Awaited<ReturnType<typeof giftBatchesControllerRevoke>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGiftBatchesControllerRevoke<TData = Awaited<ReturnType<typeof giftBatchesControllerRevoke>>, TError = unknown>(
+ orgId: string,
+    id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof giftBatchesControllerRevoke>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof giftBatchesControllerRevoke>>,
+          TError,
+          Awaited<ReturnType<typeof giftBatchesControllerRevoke>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGiftBatchesControllerRevoke<TData = Awaited<ReturnType<typeof giftBatchesControllerRevoke>>, TError = unknown>(
+ orgId: string,
+    id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof giftBatchesControllerRevoke>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useGiftBatchesControllerRevoke<TData = Awaited<ReturnType<typeof giftBatchesControllerRevoke>>, TError = unknown>(
+ orgId: string,
+    id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof giftBatchesControllerRevoke>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGiftBatchesControllerRevokeQueryOptions(orgId,id,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export type redeemControllerRedeemResponse200 = {
+  data: RedeemControllerRedeem200
+  status: 200
+}
+
+export type redeemControllerRedeemResponseSuccess = (redeemControllerRedeemResponse200) & {
+  headers: Headers;
+};
+;
+
+export type redeemControllerRedeemResponse = (redeemControllerRedeemResponseSuccess)
+
+export const getRedeemControllerRedeemUrl = (orgId: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/wallet/redeem`
+}
+
+export const redeemControllerRedeem = async (orgId: string,
+    redeemControllerRedeemBody: RedeemControllerRedeemBody, options?: Parameters<typeof orvalFetch>[1]): Promise<redeemControllerRedeemResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return orvalFetch<redeemControllerRedeemResponse>(getRedeemControllerRedeemUrl(orgId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(redeemControllerRedeemBody)
+  }
+);}
+
+
+
+
+
+export const getRedeemControllerRedeemQueryKey = (orgId: string,
+    redeemControllerRedeemBody?: RedeemControllerRedeemBody,) => {
+    return [
+    'POST', `/api/v1/orgs/${orgId}/wallet/redeem`, redeemControllerRedeemBody
+    ] as const;
+    }
+
+
+export const getRedeemControllerRedeemQueryOptions = <TData = Awaited<ReturnType<typeof redeemControllerRedeem>>, TError = unknown>(orgId: string,
+    redeemControllerRedeemBody: RedeemControllerRedeemBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof redeemControllerRedeem>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getRedeemControllerRedeemQueryKey(orgId,redeemControllerRedeemBody);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof redeemControllerRedeem>>> = ({ signal }) => redeemControllerRedeem(orgId,redeemControllerRedeemBody, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: orgId !== null && orgId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof redeemControllerRedeem>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type RedeemControllerRedeemQueryResult = NonNullable<Awaited<ReturnType<typeof redeemControllerRedeem>>>
+export type RedeemControllerRedeemQueryError = unknown
+
+
+export function useRedeemControllerRedeem<TData = Awaited<ReturnType<typeof redeemControllerRedeem>>, TError = unknown>(
+ orgId: string,
+    redeemControllerRedeemBody: RedeemControllerRedeemBody, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof redeemControllerRedeem>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof redeemControllerRedeem>>,
+          TError,
+          Awaited<ReturnType<typeof redeemControllerRedeem>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useRedeemControllerRedeem<TData = Awaited<ReturnType<typeof redeemControllerRedeem>>, TError = unknown>(
+ orgId: string,
+    redeemControllerRedeemBody: RedeemControllerRedeemBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof redeemControllerRedeem>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof redeemControllerRedeem>>,
+          TError,
+          Awaited<ReturnType<typeof redeemControllerRedeem>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useRedeemControllerRedeem<TData = Awaited<ReturnType<typeof redeemControllerRedeem>>, TError = unknown>(
+ orgId: string,
+    redeemControllerRedeemBody: RedeemControllerRedeemBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof redeemControllerRedeem>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useRedeemControllerRedeem<TData = Awaited<ReturnType<typeof redeemControllerRedeem>>, TError = unknown>(
+ orgId: string,
+    redeemControllerRedeemBody: RedeemControllerRedeemBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof redeemControllerRedeem>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getRedeemControllerRedeemQueryOptions(orgId,redeemControllerRedeemBody,options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 

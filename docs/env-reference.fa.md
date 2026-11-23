@@ -56,6 +56,18 @@
 | `SMTP_URL`             | control-api                                                    | اختیاری/خالی                                                | URL SMTP، مثل `smtps://user:pass@smtp.example.com:465` یا `smtp://…:587`. خالی یعنی ایمیل دعوت ارسال نمی‌شود و لینک در پاسخ API برمی‌گردد.                                                                    |
 | `SMTP_FROM`            | control-api                                                    | اپ `DiRouter <noreply@localhost>`؛ Compose بر اساس `DOMAIN` | فرستندهٔ ایمیل دعوت، با نام نمایشی و نشانی معتبر. در `.env` مقدار دارای فاصله را quote کنید.                                                                                                                  |
 
+## صورت‌حساب و پرداخت
+
+| متغیر                    | مصرف‌کننده  | الزامی/پیش‌فرض                                                 | قالب و اثر                                                                                                  |
+| ------------------------ | ----------- | -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `PUBLIC_API_URL`         | control-api | اپ `https://admin.localhost`؛ Compose `https://admin.<DOMAIN>` | origin عمومی control-api برای URL بازگشت درگاه پرداخت.                                                      |
+| `PAYMENT_RETURN_ORIGINS` | control-api | اختیاری/خالی                                                   | originهای مجاز بازگشت پرداخت‌کننده علاوه بر داشبورد (مثلاً پرتال)، با کاما. هر `returnUrl` دیگری رد می‌شود. |
+| `ZARINPAL_MERCHANT_ID`   | control-api | اختیاری/خالی                                                   | مرچنت زرین‌پال؛ خالی یعنی زرین‌پال ارائه نمی‌شود. راز.                                                      |
+| `ZARINPAL_BASE_URL`      | control-api | `https://payment.zarinpal.com`                                 | API و صفحهٔ پرداخت زرین‌پال؛ برای تست `https://sandbox.zarinpal.com`.                                       |
+| `STRIPE_SECRET_KEY`      | control-api | اختیاری/خالی                                                   | کلید API مخفی Stripe. Stripe فقط وقتی ارائه می‌شود که این و `STRIPE_WEBHOOK_SECRET` هر دو تنظیم باشند. راز. |
+| `STRIPE_WEBHOOK_SECRET`  | control-api | اختیاری/خالی                                                   | راز امضای endpoint وبهوک `https://<admin>/api/v1/payments/stripe/webhook`. راز.                             |
+| `STRIPE_BASE_URL`        | control-api | `https://api.stripe.com`                                       | origin API Stripe؛ فقط برای تست و mock عوض می‌شود.                                                          |
+
 ## لبه، DNS و TLS
 
 | متغیر                     | مصرف‌کننده                              | لازم؟ / پیش‌فرض                              | قالب و اثر                                                                                                                                     |
@@ -126,14 +138,17 @@
 
 ## ابزار توسعه و mock
 
-| متغیر                   | مصرف‌کننده                         | لازم؟ / پیش‌فرض              | قالب و اثر                                                                                                                                 |
-| ----------------------- | ---------------------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `MOCK_DEFAULT`          | mock-provider                      | اختیاری                      | directive پیش‌فرض سناریوی mock (مثل `status=503`). فقط تست/توسعه؛ mock-provider در production با profile `mock` خارج از اجرای پیش‌فرض است. |
-| `MAILPIT_UI_PORT`       | فقط dev Compose/Mailpit            | `58025`                      | پورت UI روی `127.0.0.1`؛ دادهٔ ایمیل واقعی production نیست.                                                                                |
-| `SEED_MOCK_URL`         | فقط `apps/control-api/src/seed.ts` | `http://mock-provider:8090`  | مبدأ mock provider هنگام seed توسعه.                                                                                                       |
-| `SEED_CREDENTIALS_FILE` | فقط seed توسعه                     | `/repo/.data/seed-admin.env` | مسیر فایل 0600 حاوی رمز مدیر اولیه؛ بیرون Git و روی دیسک امن.                                                                              |
-| `SEED_ADMIN_PASSWORD`   | فقط seed توسعه                     | تصادفی در نبود مقدار         | رمز مدیر dev فقط هنگام ساخت کاربر؛ هرگز برای production/seed استفاده نشود.                                                                 |
-| `DEV_API_KEY`           | فقط `scripts/dev-snapshot.mjs`     | مقدار ثابت dev در اسکریپت    | کلید آزمایشی snapshot محلی؛ نه راز production و نه مسیری برای bootstrap production.                                                        |
+| متغیر                        | مصرف‌کننده                         | لازم؟ / پیش‌فرض              | قالب و اثر                                                                                                                                 |
+| ---------------------------- | ---------------------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `MOCK_DEFAULT`               | mock-provider                      | اختیاری                      | directive پیش‌فرض سناریوی mock (مثل `status=503`). فقط تست/توسعه؛ mock-provider در production با profile `mock` خارج از اجرای پیش‌فرض است. |
+| `MOCK_PUBLIC_URL`            | mock-provider                      | اختیاری                      | origin mock از دید مرورگر پرداخت‌کننده؛ در URL صفحهٔ پرداخت Stripe ساختگی. فقط توسعه.                                                      |
+| `MOCK_STRIPE_WEBHOOK_URL`    | mock-provider                      | اختیاری                      | مقصد وبهوک‌های امضاشدهٔ Stripe ساختگی. فقط توسعه.                                                                                          |
+| `MOCK_STRIPE_WEBHOOK_SECRET` | mock-provider                      | اختیاری                      | راز امضای وبهوک Stripe ساختگی؛ باید با `STRIPE_WEBHOOK_SECRET` در control-api یکی باشد. فقط توسعه.                                         |
+| `MAILPIT_UI_PORT`            | فقط dev Compose/Mailpit            | `58025`                      | پورت UI روی `127.0.0.1`؛ دادهٔ ایمیل واقعی production نیست.                                                                                |
+| `SEED_MOCK_URL`              | فقط `apps/control-api/src/seed.ts` | `http://mock-provider:8090`  | مبدأ mock provider هنگام seed توسعه.                                                                                                       |
+| `SEED_CREDENTIALS_FILE`      | فقط seed توسعه                     | `/repo/.data/seed-admin.env` | مسیر فایل 0600 حاوی رمز مدیر اولیه؛ بیرون Git و روی دیسک امن.                                                                              |
+| `SEED_ADMIN_PASSWORD`        | فقط seed توسعه                     | تصادفی در نبود مقدار         | رمز مدیر dev فقط هنگام ساخت کاربر؛ هرگز برای production/seed استفاده نشود.                                                                 |
+| `DEV_API_KEY`                | فقط `scripts/dev-snapshot.mjs`     | مقدار ثابت dev در اسکریپت    | کلید آزمایشی snapshot محلی؛ نه راز production و نه مسیری برای bootstrap production.                                                        |
 
 ## CI و تست‌های یکپارچه (نه تنظیمات production)
 
@@ -182,7 +197,7 @@
 
 ## تفکیک امن و حداقل دسترسی
 
-- `MASTER_KEY`، `KEY_PEPPER`، `JWT_SECRET`، `INTERNAL_TOKEN`، `POSTGRES_PASSWORD`، `DATABASE_URL` و `SMTP_URL` راز یا حاوی رازند.
+- `MASTER_KEY`، `KEY_PEPPER`، `JWT_SECRET`، `INTERNAL_TOKEN`، `POSTGRES_PASSWORD`، `DATABASE_URL`، `SMTP_URL`، `ZARINPAL_MERCHANT_ID`، `STRIPE_SECRET_KEY` و `STRIPE_WEBHOOK_SECRET` راز یا حاوی رازند.
 - gateway فقط به `MASTER_KEY`، `KEY_PEPPER`، `INTERNAL_TOKEN`، `VALKEY_URL` و آدرس control-api نیاز دارد؛ **نه `DATABASE_URL`**.
 - worker به Postgres و Valkey نیاز دارد و به رازهای JWT/master/internal نیاز ندارد.
 - راز providerها در دیتابیس رمز شده‌اند و از داشبورد وارد می‌شوند؛ آن‌ها را در env نگذارید. راز DNS-01 (مثل `CF_DNS_API_TOKEN`) فقط در صورت فعال‌کردن challenge به Traefik داده می‌شود و بخشی از قرارداد اپ نیست.

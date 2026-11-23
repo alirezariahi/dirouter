@@ -57,6 +57,7 @@ model Organization {
   alertEvents  AlertEvent[]
   wallet       Wallet?
   payments     Payment[]
+  redemptions  GiftCodeRedemption[]
 
   @@map("organizations")
 }
@@ -918,4 +919,58 @@ model BillingSetting {
   updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
 
   @@map("billing_settings")
+}
+
+/// A batch of gift or recharge codes (card 19.3). `gift` credit comes from the promo account,
+/// `recharge` (codes sold offline) from the funding account.
+model GiftCodeBatch {
+  id              String    @id
+  name            String
+  /// gift | recharge
+  kind            String
+  amountUsd       Decimal   @map("amount_usd") @db.Decimal(18, 8)
+  /// How many organizations may redeem each code (1 = single use).
+  maxRedemptions  Int       @map("max_redemptions")
+  expiresAt       DateTime? @map("expires_at") @db.Timestamptz(3)
+  revokedAt       DateTime? @map("revoked_at") @db.Timestamptz(3)
+  createdById     String?   @map("created_by_id")
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  codes GiftCode[]
+
+  @@map("gift_code_batches")
+}
+
+/// One code. Only an HMAC of the code is stored; the code itself is shown once, at generation.
+model GiftCode {
+  id          String   @id
+  batchId     String   @map("batch_id")
+  codeHash    String   @unique @map("code_hash")
+  /// First characters of the code, to recognise it in reports.
+  hint        String
+  redemptions Int      @default(0)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  batch   GiftCodeBatch        @relation(fields: [batchId], references: [id], onDelete: Restrict)
+  redeems GiftCodeRedemption[]
+
+  @@index([batchId])
+  @@map("gift_codes")
+}
+
+/// Each organization redeems a given code at most once.
+model GiftCodeRedemption {
+  id             String   @id
+  codeId         String   @map("code_id")
+  organizationId String   @map("organization_id")
+  transactionId  String   @unique @map("transaction_id")
+  redeemedById   String?  @map("redeemed_by_id")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  code         GiftCode     @relation(fields: [codeId], references: [id], onDelete: Restrict)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@unique([codeId, organizationId])
+  @@index([organizationId])
+  @@map("gift_code_redemptions")
 }
