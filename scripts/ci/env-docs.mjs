@@ -89,8 +89,9 @@ export function discoverEnvironment(rootDirectory = root) {
     if (file === 'scripts/dev-snapshot.mjs' && source.includes('DEV_API_KEY')) {
       add(discovered, 'DEV_API_KEY', file, 'env destructuring');
     }
-    if (file === 'deploy/docker/nginx/dashboard.conf.template') {
-      add(discovered, 'DIROUTER_API_URL', file, 'nginx template');
+    if (file.startsWith('deploy/docker/nginx/') && file.endsWith('.conf.template')) {
+      for (const name of source.match(/\$\{(DIROUTER_[A-Z_]+)\}/g) ?? [])
+        add(discovered, name.slice(2, -1), file, 'nginx template');
     }
     if (file.startsWith('.github/workflows/')) {
       let envIndent;

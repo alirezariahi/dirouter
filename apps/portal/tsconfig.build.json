@@ -1,0 +1,4 @@
+{
+  "extends": "@dirouter/tsconfig/react-app.json",
+  "include": ["src"]
+}

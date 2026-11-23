@@ -118,6 +118,12 @@ services:
       SMTP_FROM: ${SMTP_FROM:-DiRouter <noreply@${DOMAIN:-localhost}>}
       # Online top-ups (card 19.2): a provider is offered only when its credentials are set.
       PUBLIC_API_URL: ${PUBLIC_API_URL:-https://admin.${DOMAIN:-localhost}}
+      # Self-service portal (card 19.5) and its optional OIDC sign-in (e.g. Google).
+      PUBLIC_PORTAL_URL: ${PUBLIC_PORTAL_URL:-https://portal.${DOMAIN:-localhost}}
+      PORTAL_OIDC_ISSUER: ${PORTAL_OIDC_ISSUER:-}
+      PORTAL_OIDC_CLIENT_ID: ${PORTAL_OIDC_CLIENT_ID:-}
+      PORTAL_OIDC_CLIENT_SECRET: ${PORTAL_OIDC_CLIENT_SECRET:-}
+      PORTAL_OIDC_NAME: ${PORTAL_OIDC_NAME:-}
       PAYMENT_RETURN_ORIGINS: ${PAYMENT_RETURN_ORIGINS:-}
       ZARINPAL_MERCHANT_ID: ${ZARINPAL_MERCHANT_ID:-}
       ZARINPAL_BASE_URL: ${ZARINPAL_BASE_URL:-}
@@ -218,6 +224,25 @@ services:
       traefik.http.routers.dashboard.tls: 'true'
       traefik.http.routers.dashboard.middlewares: security-headers@file,compress@file
       traefik.http.services.dashboard.loadbalancer.server.port: '8080'
+
+  portal:
+    image: ${REGISTRY:-dirouter}/portal:${TAG:-latest}
+    build:
+      context: .
+      dockerfile: deploy/docker/portal.Dockerfile
+    restart: unless-stopped
+    environment:
+      DIROUTER_API_URL: https://admin.${DOMAIN:-localhost}/api/v1
+      DIROUTER_GATEWAY_URL: https://api.${DOMAIN:-localhost}
+    networks: [edge]
+    labels:
+      traefik.enable: 'true'
+      traefik.docker.network: dirouter_edge
+      traefik.http.routers.portal.rule: Host(`portal.${DOMAIN:-localhost}`)
+      traefik.http.routers.portal.entrypoints: websecure
+      traefik.http.routers.portal.tls: 'true'
+      traefik.http.routers.portal.middlewares: security-headers@file,compress@file
+      traefik.http.services.portal.loadbalancer.server.port: '8080'
 
   # Mock provider for e2e and load testing (mock profile; always running in dev).
   mock-provider:

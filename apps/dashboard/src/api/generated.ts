@@ -3937,10 +3937,17 @@ export const BillingPaymentsAdminControllerPutSettingsBodyProvidersItem = {
   stripe: 'stripe',
 } as const;
 
+export type BillingPaymentsAdminControllerPutSettingsBodyPortal = {
+  signupEnabled?: boolean;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  welcomeCreditUsd?: string;
+};
+
 export type BillingPaymentsAdminControllerPutSettingsBody = {
   exchangeRates?: BillingPaymentsAdminControllerPutSettingsBodyExchangeRates;
   topup?: BillingPaymentsAdminControllerPutSettingsBodyTopup;
   providers?: BillingPaymentsAdminControllerPutSettingsBodyProvidersItem[];
+  portal?: BillingPaymentsAdminControllerPutSettingsBodyPortal;
 };
 
 export type BillingPaymentsAdminControllerPutSettings200 = {[key: string]: unknown};
@@ -4082,6 +4089,82 @@ export type SubscriptionControllerSubscribeBody = {
 export type SubscriptionControllerSubscribe200 = {[key: string]: unknown};
 
 export type SubscriptionControllerCancel200 = {[key: string]: unknown};
+
+export type PortalControllerConfig200 = {[key: string]: unknown};
+
+export type PortalControllerMarket200 = {[key: string]: unknown};
+
+export type PortalControllerSignupBody = {
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  name: string;
+  /**
+     * @maxLength 254
+     * @pattern ^(?:[A-Za-z0-9_'+\-]+\.)*[A-Za-z0-9_'+\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\-]*\.)+[A-Za-z]{2,}$
+     */
+  email: string;
+  /**
+     * @minLength 10
+     * @maxLength 256
+     */
+  password: string;
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  organizationName?: string;
+};
+
+export type PortalControllerSignup200User = {
+  id: string;
+  email: string;
+  name: string;
+};
+
+export type PortalControllerSignup200 = {
+  accessToken: string;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     */
+  expiresIn: number;
+  user: PortalControllerSignup200User;
+};
+
+export type PortalControllerOidcStart200 = {
+  authorizationUrl: string;
+};
+
+export type PortalControllerOidcCallbackParams = {
+  /**
+   * @minLength 1
+   * @maxLength 4096
+   */
+  code: string;
+  /**
+   * @minLength 1
+   * @maxLength 512
+   */
+  state: string;
+};
+
+export type PortalControllerOidcCallback200User = {
+  id: string;
+  email: string;
+  name: string;
+};
+
+export type PortalControllerOidcCallback200 = {
+  accessToken: string;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     */
+  expiresIn: number;
+  user: PortalControllerOidcCallback200User;
+};
 
 export type ConfigControllerList200Item = {[key: string]: unknown};
 
@@ -18516,6 +18599,481 @@ export function useSubscriptionControllerCancel<TData = Awaited<ReturnType<typeo
 
 
 
+
+export type portalControllerConfigResponse200 = {
+  data: PortalControllerConfig200
+  status: 200
+}
+
+export type portalControllerConfigResponseSuccess = (portalControllerConfigResponse200) & {
+  headers: Headers;
+};
+;
+
+export type portalControllerConfigResponse = (portalControllerConfigResponseSuccess)
+
+export const getPortalControllerConfigUrl = () => {
+
+
+
+
+  return `/api/v1/portal/config`
+}
+
+export const portalControllerConfig = async ( options?: Parameters<typeof orvalFetch>[1]): Promise<portalControllerConfigResponse> => {
+
+  return orvalFetch<portalControllerConfigResponse>(getPortalControllerConfigUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getPortalControllerConfigMutationKey = () => ['portalControllerConfig'] as const;
+
+export const getPortalControllerConfigMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof portalControllerConfig>>, TError,void, TContext>, request?: SecondParameter<typeof orvalFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof portalControllerConfig>>, TError,void, TContext> => {
+
+const mutationKey = getPortalControllerConfigMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof portalControllerConfig>>, void> = () => {
+
+
+          return  portalControllerConfig(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PortalControllerConfigMutationResult = NonNullable<Awaited<ReturnType<typeof portalControllerConfig>>>
+
+    export type PortalControllerConfigMutationError = unknown
+
+
+    export const usePortalControllerConfig = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof portalControllerConfig>>, TError,void, TContext>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof portalControllerConfig>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getPortalControllerConfigMutationOptions(options), queryClient);
+    }
+
+export type portalControllerMarketResponse200 = {
+  data: PortalControllerMarket200
+  status: 200
+}
+
+export type portalControllerMarketResponseSuccess = (portalControllerMarketResponse200) & {
+  headers: Headers;
+};
+;
+
+export type portalControllerMarketResponse = (portalControllerMarketResponseSuccess)
+
+export const getPortalControllerMarketUrl = () => {
+
+
+
+
+  return `/api/v1/portal/market`
+}
+
+export const portalControllerMarket = async ( options?: Parameters<typeof orvalFetch>[1]): Promise<portalControllerMarketResponse> => {
+
+  return orvalFetch<portalControllerMarketResponse>(getPortalControllerMarketUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getPortalControllerMarketMutationKey = () => ['portalControllerMarket'] as const;
+
+export const getPortalControllerMarketMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof portalControllerMarket>>, TError,void, TContext>, request?: SecondParameter<typeof orvalFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof portalControllerMarket>>, TError,void, TContext> => {
+
+const mutationKey = getPortalControllerMarketMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof portalControllerMarket>>, void> = () => {
+
+
+          return  portalControllerMarket(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PortalControllerMarketMutationResult = NonNullable<Awaited<ReturnType<typeof portalControllerMarket>>>
+
+    export type PortalControllerMarketMutationError = unknown
+
+
+    export const usePortalControllerMarket = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof portalControllerMarket>>, TError,void, TContext>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof portalControllerMarket>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getPortalControllerMarketMutationOptions(options), queryClient);
+    }
+
+export type portalControllerSignupResponse200 = {
+  data: PortalControllerSignup200
+  status: 200
+}
+
+export type portalControllerSignupResponseSuccess = (portalControllerSignupResponse200) & {
+  headers: Headers;
+};
+;
+
+export type portalControllerSignupResponse = (portalControllerSignupResponseSuccess)
+
+export const getPortalControllerSignupUrl = () => {
+
+
+
+
+  return `/api/v1/portal/signup`
+}
+
+export const portalControllerSignup = async (portalControllerSignupBody: PortalControllerSignupBody, options?: Parameters<typeof orvalFetch>[1]): Promise<portalControllerSignupResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return orvalFetch<portalControllerSignupResponse>(getPortalControllerSignupUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(portalControllerSignupBody)
+  }
+);}
+
+
+
+
+
+export const getPortalControllerSignupQueryKey = (portalControllerSignupBody?: PortalControllerSignupBody,) => {
+    return [
+    'POST', `/api/v1/portal/signup`, portalControllerSignupBody
+    ] as const;
+    }
+
+
+export const getPortalControllerSignupQueryOptions = <TData = Awaited<ReturnType<typeof portalControllerSignup>>, TError = unknown>(portalControllerSignupBody: PortalControllerSignupBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof portalControllerSignup>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getPortalControllerSignupQueryKey(portalControllerSignupBody);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof portalControllerSignup>>> = ({ signal }) => portalControllerSignup(portalControllerSignupBody, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof portalControllerSignup>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type PortalControllerSignupQueryResult = NonNullable<Awaited<ReturnType<typeof portalControllerSignup>>>
+export type PortalControllerSignupQueryError = unknown
+
+
+export function usePortalControllerSignup<TData = Awaited<ReturnType<typeof portalControllerSignup>>, TError = unknown>(
+ portalControllerSignupBody: PortalControllerSignupBody, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof portalControllerSignup>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof portalControllerSignup>>,
+          TError,
+          Awaited<ReturnType<typeof portalControllerSignup>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function usePortalControllerSignup<TData = Awaited<ReturnType<typeof portalControllerSignup>>, TError = unknown>(
+ portalControllerSignupBody: PortalControllerSignupBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof portalControllerSignup>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof portalControllerSignup>>,
+          TError,
+          Awaited<ReturnType<typeof portalControllerSignup>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function usePortalControllerSignup<TData = Awaited<ReturnType<typeof portalControllerSignup>>, TError = unknown>(
+ portalControllerSignupBody: PortalControllerSignupBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof portalControllerSignup>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function usePortalControllerSignup<TData = Awaited<ReturnType<typeof portalControllerSignup>>, TError = unknown>(
+ portalControllerSignupBody: PortalControllerSignupBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof portalControllerSignup>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getPortalControllerSignupQueryOptions(portalControllerSignupBody,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export type portalControllerOidcStartResponse200 = {
+  data: PortalControllerOidcStart200
+  status: 200
+}
+
+export type portalControllerOidcStartResponseSuccess = (portalControllerOidcStartResponse200) & {
+  headers: Headers;
+};
+;
+
+export type portalControllerOidcStartResponse = (portalControllerOidcStartResponseSuccess)
+
+export const getPortalControllerOidcStartUrl = () => {
+
+
+
+
+  return `/api/v1/portal/oidc/start`
+}
+
+export const portalControllerOidcStart = async ( options?: Parameters<typeof orvalFetch>[1]): Promise<portalControllerOidcStartResponse> => {
+
+  return orvalFetch<portalControllerOidcStartResponse>(getPortalControllerOidcStartUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getPortalControllerOidcStartQueryKey = () => {
+    return [
+    'POST', `/api/v1/portal/oidc/start`
+    ] as const;
+    }
+
+
+export const getPortalControllerOidcStartQueryOptions = <TData = Awaited<ReturnType<typeof portalControllerOidcStart>>, TError = unknown>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof portalControllerOidcStart>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getPortalControllerOidcStartQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof portalControllerOidcStart>>> = ({ signal }) => portalControllerOidcStart({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof portalControllerOidcStart>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type PortalControllerOidcStartQueryResult = NonNullable<Awaited<ReturnType<typeof portalControllerOidcStart>>>
+export type PortalControllerOidcStartQueryError = unknown
+
+
+export function usePortalControllerOidcStart<TData = Awaited<ReturnType<typeof portalControllerOidcStart>>, TError = unknown>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof portalControllerOidcStart>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof portalControllerOidcStart>>,
+          TError,
+          Awaited<ReturnType<typeof portalControllerOidcStart>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function usePortalControllerOidcStart<TData = Awaited<ReturnType<typeof portalControllerOidcStart>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof portalControllerOidcStart>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof portalControllerOidcStart>>,
+          TError,
+          Awaited<ReturnType<typeof portalControllerOidcStart>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function usePortalControllerOidcStart<TData = Awaited<ReturnType<typeof portalControllerOidcStart>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof portalControllerOidcStart>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function usePortalControllerOidcStart<TData = Awaited<ReturnType<typeof portalControllerOidcStart>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof portalControllerOidcStart>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getPortalControllerOidcStartQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export type portalControllerOidcCallbackResponse200 = {
+  data: PortalControllerOidcCallback200
+  status: 200
+}
+
+export type portalControllerOidcCallbackResponseSuccess = (portalControllerOidcCallbackResponse200) & {
+  headers: Headers;
+};
+;
+
+export type portalControllerOidcCallbackResponse = (portalControllerOidcCallbackResponseSuccess)
+
+export const getPortalControllerOidcCallbackUrl = (params: PortalControllerOidcCallbackParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/v1/portal/oidc/callback?${stringifiedParams}` : `/api/v1/portal/oidc/callback`
+}
+
+export const portalControllerOidcCallback = async (params: PortalControllerOidcCallbackParams, options?: Parameters<typeof orvalFetch>[1]): Promise<portalControllerOidcCallbackResponse> => {
+
+  return orvalFetch<portalControllerOidcCallbackResponse>(getPortalControllerOidcCallbackUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getPortalControllerOidcCallbackMutationKey = () => ['portalControllerOidcCallback'] as const;
+
+export const getPortalControllerOidcCallbackMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof portalControllerOidcCallback>>, TError,PortalControllerOidcCallbackMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof portalControllerOidcCallback>>, TError,PortalControllerOidcCallbackMutationVariables, TContext> => {
+
+const mutationKey = getPortalControllerOidcCallbackMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof portalControllerOidcCallback>>, PortalControllerOidcCallbackMutationVariables> = (props) => {
+          const {params} = props ?? {};
+
+          return  portalControllerOidcCallback(params,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PortalControllerOidcCallbackMutationResult = NonNullable<Awaited<ReturnType<typeof portalControllerOidcCallback>>>
+
+    export type PortalControllerOidcCallbackMutationError = unknown
+    export type PortalControllerOidcCallbackMutationVariables = {params: PortalControllerOidcCallbackParams}
+
+    export const usePortalControllerOidcCallback = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof portalControllerOidcCallback>>, TError,PortalControllerOidcCallbackMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof portalControllerOidcCallback>>,
+        TError,
+        PortalControllerOidcCallbackMutationVariables,
+        TContext
+      > => {
+      return useMutation(getPortalControllerOidcCallbackMutationOptions(options), queryClient);
+    }
 
 export type configControllerListResponse200 = {
   data: ConfigControllerList200Item[]

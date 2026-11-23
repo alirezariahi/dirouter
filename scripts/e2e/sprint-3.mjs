@@ -16,6 +16,7 @@ import { randomUUID } from 'node:crypto';
 import {
   adminClient,
   chat,
+  request,
   createRunner,
   login,
   published,
@@ -446,6 +447,108 @@ try {
         return Number(now.usedUsd) === used.charge;
       });
       assert.equal(Number((await customer.cust('GET', 'wallet')).body.wallet.balanceUsd), afterFee);
+    },
+  );
+  await scenario(
+    '19.5 portal: a new user goes from sign-up to the first request alone',
+    async () => {
+      const portal = 'http://portal.localhost';
+      const page = await request(`${portal}/app/billing`, {}, 200);
+      assert.match(page.text, /<div id="root"><\/div>/);
+
+      // The operator opens sign-up with a welcome credit and publishes one model.
+      const original = (await operator('GET', 'billing/settings')).body;
+      const restoreSettings = {
+        exchangeRates: original.exchangeRates,
+        topup: original.topup,
+        providers: original.providers,
+        portal: original.portal,
+      };
+      cleanups.push(() => operator('PUT', 'billing/settings', restoreSettings));
+      await operator('PUT', 'billing/settings', {
+        ...restoreSettings,
+        exchangeRates: { IRR: '1000000' },
+        providers: ['zarinpal'],
+        portal: { signupEnabled: true, welcomeCreditUsd: '1' },
+      });
+      const models = (await operator('GET', 'models')).body;
+      const mockSmall = (models.items ?? models).find((m) => m.slug === 'mock/small');
+      if (!mockSmall.isPublic) {
+        await published(() => operator('PATCH', `models/${mockSmall.id}`, { isPublic: true }));
+        cleanups.push(() =>
+          published(() => operator('PATCH', `models/${mockSmall.id}`, { isPublic: false })),
+        );
+      }
+      await valkey(
+        'EVAL',
+        "for _, k in ipairs(redis.call('KEYS', 'portal:signups:*')) do redis.call('DEL', k) end",
+        '0',
+      );
+
+      // Everything below is the new user alone, from the portal's origin.
+      const market = (await request(`${urls.admin}/api/v1/portal/market`, {}, 200)).body;
+      assert.ok(market.models.some((m) => m.slug === 'mock/small'));
+      const email = `s3-portal-${randomUUID().slice(0, 8)}@example.com`;
+      const signup = await request(
+        `${urls.admin}/api/v1/portal/signup`,
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', origin: portal },
+          body: JSON.stringify({ name: 'Portal User', email, password: 'portal-e2e-password' }),
+        },
+        201,
+      );
+      assert.equal(signup.response.headers.get('access-control-allow-origin'), portal);
+      const user = adminClient(signup.body.accessToken);
+      const me = (await user('GET', 'auth/me')).body;
+      assert.equal(me.organizations.length, 1);
+      const org = me.organizations[0].id;
+      cleanups.push(() => sql(`UPDATE organizations SET deleted_at = now() WHERE id = '${org}'`));
+      const wallet = async () =>
+        Number((await user('GET', `orgs/${org}/wallet`)).body.wallet.balanceUsd);
+      assert.equal(await wallet(), 1);
+      const project = (await user('GET', `orgs/${org}/projects`)).body.find(
+        (p) => p.slug === 'default',
+      );
+      const key = (
+        await published(() =>
+          user('POST', `orgs/${org}/keys`, { name: 'first', projectId: project.id }, 201),
+        )
+      ).body;
+      await waitFor('the gateway to know the new key', async () => {
+        const probe = await fetch(`${urls.gateway}/v1/models`, {
+          headers: { authorization: `Bearer ${key.key}` },
+        });
+        return probe.status === 200 && (await probe.json()).data.some((m) => m.id === 'mock/small');
+      });
+      const first = await chat(key.key, {
+        model: 'mock/small',
+        max_tokens: 20,
+        messages: [{ role: 'user', content: 'my first request' }],
+      });
+      assert.equal(first.response.status, 200, first.text);
+      await waitFor('the first request to be charged', async () => (await wallet()) < 1);
+
+      // Topping up needs no operator either (fake Zarinpal, as in 19.2).
+      const payment = (
+        await user(
+          'POST',
+          `orgs/${org}/wallet/payments`,
+          { provider: 'zarinpal', amountUsd: '2', returnUrl: `${portal}/app/billing` },
+          201,
+        )
+      ).body;
+      const gateway = await fetch(
+        payment.redirectUrl.replace('http://mock-provider:8090', urls.mock),
+        {
+          redirect: 'manual',
+        },
+      );
+      const landing = await fetch(gateway.headers.get('location'), { redirect: 'manual' });
+      const back = new URL(landing.headers.get('location'));
+      assert.equal(back.origin, portal);
+      assert.equal(back.searchParams.get('status'), 'succeeded');
+      assert.ok((await wallet()) > 2.9);
     },
   );
 } catch (error) {

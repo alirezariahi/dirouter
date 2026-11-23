@@ -1,0 +1,165 @@
+/** Persian (default, right-to-left) and English. */
+import { createContext, type ReactNode, useContext, useEffect, useMemo, useState } from 'react';
+
+const fa = {
+  brand: 'DiRouter',
+  tagline: 'یک کلید برای همهٔ مدل‌ها؛ فقط به اندازهٔ مصرف بپردازید.',
+  market: 'بازار مدل',
+  signIn: 'ورود',
+  signUp: 'ثبت‌نام',
+  signOut: 'خروج',
+  home: 'خانه',
+  keys: 'کلیدها',
+  billing: 'صورت‌حساب',
+  email: 'ایمیل',
+  password: 'رمز عبور (حداقل ۱۰ نویسه)',
+  name: 'نام',
+  workspace: 'نام فضای کاری (اختیاری)',
+  createAccount: 'ساخت حساب',
+  haveAccount: 'حساب دارید؟ وارد شوید',
+  noAccount: 'حساب ندارید؟ ثبت‌نام کنید',
+  continueWith: 'ادامه با',
+  signupClosed: 'ثبت‌نام فعلاً بسته است.',
+  welcomeCredit: 'اعتبار هدیهٔ شروع',
+  model: 'مدل',
+  input: 'ورودی / میلیون توکن',
+  output: 'خروجی / میلیون توکن',
+  perRequest: 'هر درخواست',
+  context: 'پنجرهٔ متن',
+  plans: 'پلن‌های ماهانه',
+  perMonth: 'در ماه',
+  included: 'مصرف شامل',
+  noModels: 'هنوز مدلی عرضه نشده است.',
+  balance: 'موجودی',
+  available: 'قابل استفاده',
+  quickStart: 'شروع سریع',
+  quickStartHint: 'یک کلید بسازید و آن را جای YOUR_KEY بگذارید.',
+  createKey: 'ساخت کلید',
+  keyName: 'نام کلید',
+  keyOnce: 'این کلید فقط همین یک بار نمایش داده می‌شود؛ آن را جای امنی نگه دارید.',
+  revoke: 'ابطال',
+  noKeys: 'هنوز کلیدی ندارید.',
+  topUp: 'شارژ کیف پول',
+  amountUsd: 'مبلغ (دلار)',
+  pay: 'پرداخت',
+  redeem: 'کد هدیه یا شارژ',
+  redeemAction: 'اعمال کد',
+  redeemed: 'اعتبار اضافه شد',
+  subscribe: 'اشتراک',
+  subscription: 'اشتراک فعلی',
+  remaining: 'باقی‌مانده',
+  renews: 'تمدید',
+  cancelPlan: 'لغو در پایان دوره',
+  statement: 'گردش حساب',
+  payments: 'پرداخت‌ها',
+  date: 'تاریخ',
+  amount: 'مبلغ',
+  status: 'وضعیت',
+  description: 'شرح',
+  paymentResult: 'نتیجهٔ پرداخت',
+  noPayments: 'پرداختی ثبت نشده است.',
+  noProviders: 'درگاه پرداختی فعال نیست؛ از کد شارژ استفاده کنید.',
+  loading: 'در حال بارگذاری…',
+  copy: 'کپی',
+  copied: 'کپی شد',
+  language: 'English',
+  error: 'خطا',
+};
+type Dictionary = typeof fa;
+
+const en: Dictionary = {
+  brand: 'DiRouter',
+  tagline: 'One key for every model. Pay only for what you use.',
+  market: 'Models',
+  signIn: 'Sign in',
+  signUp: 'Sign up',
+  signOut: 'Sign out',
+  home: 'Home',
+  keys: 'API keys',
+  billing: 'Billing',
+  email: 'Email',
+  password: 'Password (at least 10 characters)',
+  name: 'Name',
+  workspace: 'Workspace name (optional)',
+  createAccount: 'Create account',
+  haveAccount: 'Have an account? Sign in',
+  noAccount: 'No account yet? Sign up',
+  continueWith: 'Continue with',
+  signupClosed: 'Sign-up is closed for now.',
+  welcomeCredit: 'Welcome credit',
+  model: 'Model',
+  input: 'Input / 1M tokens',
+  output: 'Output / 1M tokens',
+  perRequest: 'Per request',
+  context: 'Context',
+  plans: 'Monthly plans',
+  perMonth: 'per month',
+  included: 'usage included',
+  noModels: 'No models are offered yet.',
+  balance: 'Balance',
+  available: 'Available',
+  quickStart: 'Quick start',
+  quickStartHint: 'Create a key and put it in place of YOUR_KEY.',
+  createKey: 'Create key',
+  keyName: 'Key name',
+  keyOnce: 'This key is shown only once; keep it somewhere safe.',
+  revoke: 'Revoke',
+  noKeys: 'You have no keys yet.',
+  topUp: 'Top up',
+  amountUsd: 'Amount (USD)',
+  pay: 'Pay',
+  redeem: 'Gift or recharge code',
+  redeemAction: 'Redeem',
+  redeemed: 'Credit added',
+  subscribe: 'Subscribe',
+  subscription: 'Current plan',
+  remaining: 'remaining',
+  renews: 'renews',
+  cancelPlan: 'Cancel at period end',
+  statement: 'Statement',
+  payments: 'Payments',
+  date: 'Date',
+  amount: 'Amount',
+  status: 'Status',
+  description: 'Description',
+  paymentResult: 'Payment result',
+  noPayments: 'No payments yet.',
+  noProviders: 'No payment method is available; use a recharge code.',
+  loading: 'Loading…',
+  copy: 'Copy',
+  copied: 'Copied',
+  language: 'فارسی',
+  error: 'Error',
+};
+
+export type Lang = 'fa' | 'en';
+const STORAGE = 'dirouter.portal.lang';
+const I18n = createContext<{ t: Dictionary; lang: Lang; toggle: () => void }>({
+  t: fa,
+  lang: 'fa',
+  toggle: () => undefined,
+});
+
+export function I18nProvider({ children }: { children: ReactNode }) {
+  const [lang, setLang] = useState<Lang>(() =>
+    localStorage.getItem(STORAGE) === 'en' ? 'en' : 'fa',
+  );
+  useEffect(() => {
+    document.documentElement.lang = lang;
+    document.documentElement.dir = lang === 'fa' ? 'rtl' : 'ltr';
+    localStorage.setItem(STORAGE, lang);
+  }, [lang]);
+  const value = useMemo(
+    () => ({
+      t: lang === 'fa' ? fa : en,
+      lang,
+      toggle: () => {
+        setLang((l) => (l === 'fa' ? 'en' : 'fa'));
+      },
+    }),
+    [lang],
+  );
+  return <I18n.Provider value={value}>{children}</I18n.Provider>;
+}
+
+export const useI18n = () => useContext(I18n);

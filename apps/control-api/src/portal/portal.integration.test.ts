@@ -1,0 +1,251 @@
+/**
+ * Self-service portal backend against real Postgres and Valkey (card 19.5): the public market,
+ * email sign-up through the first key, and OIDC sign-in against an in-process identity provider.
+ */
+import { generateKey } from '@dirouter/shared';
+import type { NestFastifyApplication } from '@nestjs/platform-fastify';
+import Fastify from 'fastify';
+import { exportJWK, generateKeyPair, SignJWT } from 'jose';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
+import { createApp } from '../bootstrap.js';
+import { envSchema } from '../env.js';
+import { PrismaService } from '../infra/prisma.service.js';
+import { ValkeyService } from '../infra/valkey.service.js';
+
+const DATABASE_URL = process.env.INTEGRATION_DATABASE_URL;
+const VALKEY_URL = process.env.INTEGRATION_VALKEY_URL;
+const PW = 'a-long-enough-password';
+
+describe.skipIf(!DATABASE_URL || !VALKEY_URL)('portal over HTTP', () => {
+  let app: NestFastifyApplication;
+  let operator = '';
+  let platform = '';
+  const idp = Fastify();
+  let idpUrl = '';
+  /** What the fake provider will put in the next id_token. */
+  let nextIdentity: Record<string, unknown> = {};
+  const codes = new Map<string, { nonce: string }>();
+
+  const inject = (
+    method: string,
+    url: string,
+    opts: { token?: string; body?: unknown; cookie?: string; ip?: string } = {},
+  ) =>
+    app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        method: method as 'GET',
+        url: `/api/v1/${url}`,
+        remoteAddress: opts.ip ?? '10.9.0.1',
+        headers: {
+          ...(opts.token ? { authorization: `Bearer ${opts.token}` } : {}),
+          ...(opts.cookie ? { cookie: opts.cookie } : {}),
+        },
+        ...(opts.body !== undefined ? { payload: opts.body as Record<string, unknown> } : {}),
+      });
+  const settings = (portal: Record<string, unknown>) =>
+    inject('PUT', `orgs/${platform}/billing/settings`, {
+      token: operator,
+      body: { exchangeRates: {}, providers: [], portal },
+    });
+  const signup = (email: string, ip?: string) =>
+    inject('POST', 'portal/signup', {
+      body: { name: 'Dev', email, password: PW },
+      ...(ip ? { ip } : {}),
+    });
+
+  beforeAll(async () => {
+    const { publicKey, privateKey } = await generateKeyPair('RS256');
+    const jwk = { ...(await exportJWK(publicKey)), kid: 'k1', alg: 'RS256', use: 'sig' };
+    idp.get('/.well-known/openid-configuration', () => ({
+      issuer: idpUrl,
+      authorization_endpoint: `${idpUrl}/authorize`,
+      token_endpoint: `${idpUrl}/token`,
+      jwks_uri: `${idpUrl}/jwks`,
+    }));
+    idp.get('/jwks', () => ({ keys: [jwk] }));
+    idp.addContentTypeParser(
+      'application/x-www-form-urlencoded',
+      { parseAs: 'string' },
+      (_req, body, done) => {
+        done(null, Object.fromEntries(new URLSearchParams(String(body))));
+      },
+    );
+    idp.post<{ Body: Record<string, string> }>('/token', async (req, reply) => {
+      const grant = codes.get(req.body.code ?? '');
+      if (!grant) return reply.status(400).send({ error: 'invalid_grant' });
+      codes.delete(req.body.code ?? '');
+      const idToken = await new SignJWT({ nonce: grant.nonce, ...nextIdentity })
+        .setProtectedHeader({ alg: 'RS256', kid: 'k1' })
+        .setIssuer(idpUrl)
+        .setAudience('portal-client')
+        .setSubject('subject-1')
+        .setIssuedAt()
+        .setExpirationTime('5m')
+        .sign(privateKey);
+      return { id_token: idToken, access_token: 'x', token_type: 'Bearer' };
+    });
+    await idp.listen({ port: 0, host: '127.0.0.1' });
+    const ia = idp.server.address();
+    idpUrl = `http://127.0.0.1:${String(typeof ia === 'object' && ia ? ia.port : 0)}`;
+
+    app = await createApp(
+      envSchema.parse({
+        NODE_ENV: 'test',
+        LOG_LEVEL: 'silent',
+        DATABASE_URL,
+        VALKEY_URL,
+        MASTER_KEY: generateKey(),
+        KEY_PEPPER: 'q'.repeat(32),
+        JWT_SECRET: 'j'.repeat(32),
+        INTERNAL_TOKEN: 'i'.repeat(32),
+        PUBLIC_PORTAL_URL: 'https://portal.example.test',
+        PORTAL_OIDC_ISSUER: idpUrl,
+        PORTAL_OIDC_CLIENT_ID: 'portal-client',
+        PORTAL_OIDC_CLIENT_SECRET: 'portal-secret',
+        PORTAL_OIDC_NAME: 'Example ID',
+      }),
+    );
+    const db = app.get(PrismaService).client;
+    await db.$executeRawUnsafe(
+      'TRUNCATE refresh_tokens, memberships, audit_logs, users, api_keys, projects, models, providers, billing_settings, wallet_transactions, wallets, organizations CASCADE',
+    );
+    await app.init();
+    await app.getHttpAdapter().getInstance().ready();
+    const valkey = app.get(ValkeyService).client;
+    const stale = await valkey.keys('portal:signups:*');
+    if (stale.length > 0) await valkey.del(...stale);
+    operator = (
+      await inject('POST', 'auth/setup', {
+        body: {
+          organizationName: 'Operator',
+          name: 'O',
+          email: 'portal-op@example.com',
+          password: PW,
+        },
+      })
+    ).json<{ accessToken: string }>().accessToken;
+    platform =
+      (await inject('GET', 'auth/me', { token: operator })).json<{
+        organizations: { id: string }[];
+      }>().organizations[0]?.id ?? '';
+    const provider = (
+      await inject('POST', `orgs/${platform}/providers`, {
+        token: operator,
+        body: { name: 'Up', type: 'openai', credentials: [{ name: 'k', secret: 'sk-x' }] },
+      })
+    ).json<{ id: string }>().id;
+    for (const [slug, isPublic] of [
+      ['shop/public', true],
+      ['shop/private', false],
+    ] as const)
+      await inject('POST', `orgs/${platform}/models`, {
+        token: operator,
+        body: {
+          providerId: provider,
+          upstreamModel: slug,
+          slug,
+          isPublic,
+          pricing: { inputPerMTok: '2', outputPerMTok: '8' },
+          sale: { multiplier: '1.25' },
+        },
+      });
+  });
+
+  afterAll(async () => {
+    await app.close();
+    await idp.close();
+  });
+
+  it('the market lists public models at their sale price, without signing in', async () => {
+    const market = (await inject('GET', 'portal/market')).json<{
+      models: { slug: string; price: Record<string, string> }[];
+    }>();
+    expect(market.models).toEqual([
+      expect.objectContaining({
+        slug: 'shop/public',
+        price: { inputPerMTok: '2.50000000', outputPerMTok: '10.00000000' },
+      }),
+    ]);
+  });
+
+  it('sign-up is closed until the operator opens it', async () => {
+    expect((await inject('GET', 'portal/config')).json()).toMatchObject({
+      signupEnabled: false,
+      oidc: { enabled: true, name: 'Example ID' },
+    });
+    expect((await signup('closed@example.com')).statusCode).toBe(403);
+    expect((await settings({ signupEnabled: true, welcomeCreditUsd: '1.5' })).statusCode).toBe(200);
+  });
+
+  it('a new user gets a prepaid workspace with welcome credit and can create a key alone', async () => {
+    const res = await signup('dev@example.com');
+    expect(res.statusCode).toBe(201);
+    expect(res.headers['set-cookie']).toContain('dr_refresh=');
+    const token = res.json<{ accessToken: string }>().accessToken;
+    const me = (await inject('GET', 'auth/me', { token })).json<{
+      organizations: { id: string; role: string }[];
+    }>();
+    expect(me.organizations).toHaveLength(1);
+    const org = me.organizations[0]?.id ?? '';
+    expect(me.organizations[0]?.role).toBe('OWNER');
+    expect((await inject('GET', `orgs/${org}/wallet`, { token })).json()).toMatchObject({
+      prepaid: true,
+      wallet: { balanceUsd: '1.50000000' },
+    });
+    const projects = (await inject('GET', `orgs/${org}/projects`, { token })).json<
+      { id: string; slug: string }[]
+    >();
+    const project = projects.find((p) => p.slug === 'default');
+    const key = await inject('POST', `orgs/${org}/keys`, {
+      token,
+      body: { name: 'first', projectId: project?.id },
+    });
+    expect(key.statusCode).toBe(201);
+    // The customer cannot reach operator routes.
+    expect((await inject('GET', `orgs/${platform}/billing/wallets`, { token })).statusCode).toBe(
+      404,
+    );
+    expect((await signup('dev@example.com', '10.9.0.2')).statusCode).toBe(409);
+  });
+
+  it('sign-ups are rate limited per address', async () => {
+    const statuses: number[] = [];
+    for (let i = 0; i < 6; i++)
+      statuses.push((await signup(`burst${String(i)}@example.com`, '10.9.0.3')).statusCode);
+    expect(statuses).toEqual([201, 201, 201, 201, 201, 429]);
+  });
+
+  it('OIDC: a verified email signs up, signs in again, and is refused without the browser binding', async () => {
+    const start = async () => {
+      const res = await inject('POST', 'portal/oidc/start');
+      const url = new URL(res.json<{ authorizationUrl: string }>().authorizationUrl);
+      expect(url.searchParams.get('redirect_uri')).toBe(
+        'https://portal.example.test/oauth/callback',
+      );
+      const cookie = String(res.headers['set-cookie']).split(';')[0] ?? '';
+      const code = `code-${String(Math.random())}`;
+      codes.set(code, { nonce: url.searchParams.get('nonce') ?? '' });
+      return { code, state: url.searchParams.get('state') ?? '', cookie };
+    };
+    const finish = (flow: { code: string; state: string; cookie: string }, cookie = flow.cookie) =>
+      inject('GET', `portal/oidc/callback?code=${flow.code}&state=${flow.state}`, { cookie });
+
+    nextIdentity = { email: 'Oidc@Example.com', email_verified: true, name: 'Oidc User' };
+    const first = await finish(await start());
+    expect(first.statusCode).toBe(200);
+    const again = await finish(await start());
+    expect(again.json<{ user: { id: string } }>().user.id).toBe(
+      first.json<{ user: { id: string } }>().user.id,
+    );
+    expect((await finish(await start(), '')).statusCode).toBe(400);
+
+    nextIdentity = { email: 'unverified@example.com', email_verified: false };
+    expect((await finish(await start())).statusCode).toBe(401);
+    // The operator's own account is not reachable through the public portal.
+    nextIdentity = { email: 'portal-op@example.com', email_verified: true };
+    expect((await finish(await start())).statusCode).toBe(403);
+  });
+});

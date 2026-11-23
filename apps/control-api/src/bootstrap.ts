@@ -76,7 +76,8 @@ export async function createApp(
   });
   app.useGlobalFilters(new ProblemFilter(logger));
   app.enableCors({
-    origin: env.DASHBOARD_ORIGIN.split(',')
+    // The dashboard and the self-service portal (card 19.5) call this API from the browser.
+    origin: [...env.DASHBOARD_ORIGIN.split(','), new URL(env.PUBLIC_PORTAL_URL).origin]
       .map((o) => o.trim())
       .filter(Boolean),
     credentials: true,

@@ -23,6 +23,7 @@ const NO_BODY = [
   '/events/{id}/ack',
   '/security/rotate-key',
   '/payments/reconcile',
+  '/portal/oidc/start',
 ];
 
 describe('OpenAPI document', () => {

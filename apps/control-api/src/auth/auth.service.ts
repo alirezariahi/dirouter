@@ -369,6 +369,11 @@ export class AuthService {
     return this.#issue(user, newFamilyId({ amr: 'sso', org: organizationId }), client);
   }
 
+  /** Session for a user who just proved their password some other way (portal sign-up, card 19.5). */
+  issueSession(user: { id: string; email: string; name: string }, client: ClientInfo) {
+    return this.#issue(user, prefixedId('fam'), client);
+  }
+
   /** The access token inherits how the session was opened from the refresh-token family. */
   async #issue(
     user: { id: string; email: string; name: string },

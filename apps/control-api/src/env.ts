@@ -23,6 +23,15 @@ export const envSchema = baseEnvSchema.extend({
   PUBLIC_API_URL: z.string().default('https://admin.localhost'),
   /** Extra origins a payment may send the payer back to (comma-separated; the dashboard is always allowed). */
   PAYMENT_RETURN_ORIGINS: optionalString,
+  /** Self-service portal (card 19.5): its public URL and an optional OIDC sign-in (e.g. Google). */
+  PUBLIC_PORTAL_URL: z.string().default('https://portal.localhost'),
+  PORTAL_OIDC_ISSUER: optionalString,
+  PORTAL_OIDC_CLIENT_ID: optionalString,
+  PORTAL_OIDC_CLIENT_SECRET: optionalString,
+  PORTAL_OIDC_NAME: z.preprocess(
+    (value) => (value === '' ? undefined : value),
+    z.string().default('SSO'),
+  ),
   ZARINPAL_MERCHANT_ID: optionalString,
   ZARINPAL_BASE_URL: z.preprocess(
     (value) => (value === '' ? undefined : value),

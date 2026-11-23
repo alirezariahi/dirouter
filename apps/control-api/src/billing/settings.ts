@@ -17,6 +17,15 @@ export const BillingSettings = z.object({
     .default({ minUsd: '1', maxUsd: '1000' }),
   /** Payment providers offered to customers (each also needs its credentials in env). */
   providers: z.array(z.enum(['zarinpal', 'stripe'])).default([]),
+  /** Self-service portal (card 19.5). */
+  portal: z
+    .object({
+      /** Anyone may sign up; off by default so an install never opens itself by surprise. */
+      signupEnabled: z.boolean().default(false),
+      /** Credit given to every new self-service organization (from the promo account). */
+      welcomeCreditUsd: Decimal.default('0'),
+    })
+    .default({ signupEnabled: false, welcomeCreditUsd: '0' }),
 });
 export type BillingSettings = z.infer<typeof BillingSettings>;
 export type BillingSettingsInput = z.input<typeof BillingSettings>;

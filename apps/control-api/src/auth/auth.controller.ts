@@ -13,9 +13,9 @@ import { type AccessClaims, REFRESH_TTL_SECONDS } from './crypto.js';
 
 export const REFRESH_COOKIE = 'dr_refresh';
 
-const Email = z.email().max(254);
+export const Email = z.email().max(254);
 /** At least 10 characters; a maximum to prevent DoS on argon2. */
-const Password = z.string().min(10).max(256);
+export const Password = z.string().min(10).max(256);
 
 export const SetupBody = z.object({
   organizationName: z.string().trim().min(1).max(100),

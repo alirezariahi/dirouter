@@ -64,20 +64,20 @@ test('documentation-only changes skip package checks and images', () => {
 });
 
 test('Docker and nginx changes rebuild their respective images', () => {
-  for (const file of [
-    'deploy/docker/dashboard.Dockerfile',
-    'deploy/docker/nginx/dashboard.conf.template',
-  ]) {
-    assert.deepEqual(
-      plan(push, fixture({ files: [file] }).run).matrix.include.map(({ app }) => app),
-      ['dashboard'],
-    );
-  }
+  for (const app of ['dashboard', 'portal'])
+    for (const file of [
+      `deploy/docker/${app}.Dockerfile`,
+      `deploy/docker/nginx/${app}.conf.template`,
+    ])
+      assert.deepEqual(
+        plan(push, fixture({ files: [file] }).run).matrix.include.map((x) => x.app),
+        [app],
+      );
   assert.equal(
     plan(push, fixture({ files: ['deploy/docker/node.Dockerfile'] }).run).matrix.include.length,
     4,
   );
-  assert.equal(plan(push, fixture({ files: ['.dockerignore'] }).run).matrix.include.length, 6);
+  assert.equal(plan(push, fixture({ files: ['.dockerignore'] }).run).matrix.include.length, 7);
 });
 
 test('shared root configuration and CI changes check and build everything', () => {
@@ -90,7 +90,7 @@ test('shared root configuration and CI changes check and build everything', () =
   ]) {
     const result = plan(push, fixture({ files: [file] }).run);
     assert.equal(result.filter, '*');
-    assert.equal(result.matrix.include.length, 6);
+    assert.equal(result.matrix.include.length, 7);
   }
 });
 

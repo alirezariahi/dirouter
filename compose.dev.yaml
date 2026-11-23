@@ -15,6 +15,7 @@ x-dev-node:
     - nm-control-api:/repo/apps/control-api/node_modules
     - nm-worker:/repo/apps/worker/node_modules
     - nm-dashboard:/repo/apps/dashboard/node_modules
+    - nm-portal:/repo/apps/portal/node_modules
     - nm-mock-provider:/repo/apps/mock-provider/node_modules
     - nm-contracts:/repo/packages/contracts/node_modules
     - nm-shared:/repo/packages/shared/node_modules
@@ -34,6 +35,7 @@ volumes:
   nm-control-api:
   nm-worker:
   nm-dashboard:
+  nm-portal:
   nm-mock-provider:
   nm-contracts:
   nm-shared:
@@ -111,7 +113,8 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       INTERNAL_TOKEN: ${INTERNAL_TOKEN}
       # In dev the dashboard is reachable over both http and https (self-signed certificate).
-      DASHBOARD_ORIGIN: https://app.${DOMAIN:-localhost},http://app.${DOMAIN:-localhost}
+      DASHBOARD_ORIGIN: https://app.${DOMAIN:-localhost},http://app.${DOMAIN:-localhost},https://portal.${DOMAIN:-localhost},http://portal.${DOMAIN:-localhost}
+      PUBLIC_PORTAL_URL: http://portal.${DOMAIN:-localhost}
       PUBLIC_DASHBOARD_URL: https://app.${DOMAIN:-localhost}
       GATEWAY_INTERNAL_URL: http://gateway:8080
       SEMANTIC_CACHE_EMBEDDING_URL: ${SEMANTIC_CACHE_EMBEDDING_URL:-}
@@ -120,7 +123,7 @@ services:
       SMTP_URL: smtp://mailpit:1025
       # Payments (card 19.2) go to the fake Zarinpal and Stripe in mock-provider.
       PUBLIC_API_URL: http://admin.${DOMAIN:-localhost}
-      PAYMENT_RETURN_ORIGINS: http://app.${DOMAIN:-localhost},http://portal.${DOMAIN:-localhost},https://portal.${DOMAIN:-localhost}
+      PAYMENT_RETURN_ORIGINS: http://app.${DOMAIN:-localhost},https://portal.${DOMAIN:-localhost}
       ZARINPAL_MERCHANT_ID: 00000000-0000-0000-0000-00000000dev0
       ZARINPAL_BASE_URL: http://mock-provider:8090/zarinpal
       STRIPE_SECRET_KEY: sk_test_dev
@@ -191,6 +194,22 @@ services:
       traefik.http.routers.dashboard-http.service: dashboard
       traefik.http.routers.dashboard-http.middlewares: security-headers@file
       traefik.http.services.dashboard.loadbalancer.server.port: '8080'
+
+  # Self-service portal (card 19.5); its API address is derived the same way (portal. → admin.).
+  portal:
+    <<: *dev-node
+    build: !reset null
+    command: ['pnpm', '--filter', '@dirouter/portal', 'dev', '--host', '0.0.0.0', '--port', '8080']
+    labels:
+      traefik.enable: 'true'
+      traefik.docker.network: dirouter_edge
+      traefik.http.routers.portal.rule: Host(`portal.${DOMAIN:-localhost}`)
+      traefik.http.routers.portal.entrypoints: websecure
+      traefik.http.routers.portal-http.rule: Host(`portal.${DOMAIN:-localhost}`)
+      traefik.http.routers.portal-http.entrypoints: web
+      traefik.http.routers.portal-http.service: portal
+      traefik.http.routers.portal-http.middlewares: security-headers@file
+      traefik.http.services.portal.loadbalancer.server.port: '8080'
 
   mock-provider:
     <<: *dev-node

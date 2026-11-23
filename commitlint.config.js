@@ -4,6 +4,7 @@ const scopes = [
   'control-api',
   'worker',
   'dashboard',
+  'portal',
   'mock-provider',
   'contracts',
   'shared',

@@ -17,7 +17,7 @@ import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 
 import { decrypt, DiRouterError, encrypt, prefixedId } from '@dirouter/shared';
 import { Inject, Injectable } from '@nestjs/common';
-import { createRemoteJWKSet, jwtVerify } from 'jose';
+import { createRemoteJWKSet, type JWTPayload, jwtVerify } from 'jose';
 
 import { AuthService, type ClientInfo, type Session } from '../auth/auth.service.js';
 import { hashPassword } from '../auth/crypto.js';
@@ -54,7 +54,7 @@ export interface SsoInput {
   groupRoleMap?: Record<string, Role>;
 }
 
-interface Discovery {
+export interface Discovery {
   issuer: string;
   authorization_endpoint: string;
   token_endpoint: string;
@@ -94,7 +94,59 @@ export function buildAuthorizationUrl(
   return url.toString();
 }
 
-const pkceChallenge = (verifier: string) =>
+/**
+ * Authorization-code exchange with PKCE and full id_token verification (signature from the
+ * provider's JWKS, issuer, audience, algorithm and nonce). Shared by organization SSO and the
+ * portal's sign-in (card 19.5).
+ */
+export async function exchangeCode(
+  discovery: Pick<Discovery, 'token_endpoint' | 'jwks_uri' | 'issuer'>,
+  input: {
+    code: string;
+    redirectUri: string;
+    clientId: string;
+    clientSecret: string;
+    verifier: string;
+    nonce: string;
+  },
+): Promise<JWTPayload> {
+  const response = await fetch(discovery.token_endpoint, {
+    method: 'POST',
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'authorization_code',
+      code: input.code,
+      redirect_uri: input.redirectUri,
+      client_id: input.clientId,
+      client_secret: input.clientSecret,
+      code_verifier: input.verifier,
+    }),
+    redirect: 'error',
+    signal: AbortSignal.timeout(15_000),
+  });
+  if (!response.ok) {
+    throw new DiRouterError('unauthenticated', {
+      message: `SSO token exchange failed (HTTP ${String(response.status)})`,
+    });
+  }
+  const tokens = (await response.json()) as { id_token?: string };
+  if (typeof tokens.id_token !== 'string')
+    throw new DiRouterError('unauthenticated', { message: 'SSO response has no id_token' });
+  const { payload } = await jwtVerify(
+    tokens.id_token,
+    createRemoteJWKSet(new URL(discovery.jwks_uri)),
+    {
+      issuer: discovery.issuer,
+      audience: input.clientId,
+      algorithms: ['RS256', 'ES256', 'PS256'],
+    },
+  );
+  if (payload.nonce !== input.nonce)
+    throw new DiRouterError('unauthenticated', { message: 'SSO nonce mismatch' });
+  return payload;
+}
+
+export const pkceChallenge = (verifier: string) =>
   createHash('sha256').update(verifier).digest('base64url');
 
 @Injectable()
@@ -293,40 +345,14 @@ export class SsoService {
     const discovery = await this.discover(connection.issuer);
     const secret = decrypt(this.env.MASTER_KEY, connection.clientSecretEnc, `sso:${connection.id}`);
 
-    const response = await fetch(discovery.token_endpoint, {
-      method: 'POST',
-      headers: { 'content-type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        grant_type: 'authorization_code',
-        code,
-        redirect_uri: record.redirectUri,
-        client_id: connection.clientId,
-        client_secret: secret,
-        code_verifier: record.verifier,
-      }),
-      redirect: 'error',
-      signal: AbortSignal.timeout(15_000),
+    const payload = await exchangeCode(discovery, {
+      code,
+      redirectUri: record.redirectUri,
+      clientId: connection.clientId,
+      clientSecret: secret,
+      verifier: record.verifier,
+      nonce: record.nonce,
     });
-    if (!response.ok) {
-      throw new DiRouterError('unauthenticated', {
-        message: `SSO token exchange failed (HTTP ${String(response.status)})`,
-      });
-    }
-    const tokens = (await response.json()) as { id_token?: string };
-    if (typeof tokens.id_token !== 'string')
-      throw new DiRouterError('unauthenticated', { message: 'SSO response has no id_token' });
-
-    const { payload } = await jwtVerify(
-      tokens.id_token,
-      createRemoteJWKSet(new URL(discovery.jwks_uri)),
-      {
-        issuer: discovery.issuer,
-        audience: connection.clientId,
-        algorithms: ['RS256', 'ES256', 'PS256'],
-      },
-    );
-    if (payload.nonce !== record.nonce)
-      throw new DiRouterError('unauthenticated', { message: 'SSO nonce mismatch' });
     if (typeof payload.sub !== 'string' || payload.sub === '')
       throw new DiRouterError('unauthenticated', { message: 'SSO token has no subject' });
     if (typeof payload.email !== 'string' || payload.email_verified !== true) {

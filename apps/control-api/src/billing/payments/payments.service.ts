@@ -157,7 +157,11 @@ export class PaymentsService implements OnModuleInit, OnApplicationShutdown {
 
   #returnUrl(requested: string | undefined, paymentId: string): string {
     const allowed = new Set(
-      [this.env.PUBLIC_DASHBOARD_URL, ...(this.env.PAYMENT_RETURN_ORIGINS ?? '').split(',')]
+      [
+        this.env.PUBLIC_DASHBOARD_URL,
+        this.env.PUBLIC_PORTAL_URL,
+        ...(this.env.PAYMENT_RETURN_ORIGINS ?? '').split(','),
+      ]
         .map((u) => u.trim())
         .filter(Boolean)
         .map((u) => new URL(u).origin),

@@ -8,10 +8,11 @@ const applications = [
   { app: 'worker', port: 3100 },
   { app: 'mock-provider', port: 8090 },
   { app: 'dashboard', port: 8080 },
+  { app: 'portal', port: 8080 },
   { app: 'migrate', port: '' },
 ].map((app) => ({
   ...app,
-  dockerfile: `deploy/docker/${app.app === 'dashboard' ? 'dashboard' : app.app === 'migrate' ? 'migrate' : 'node'}.Dockerfile`,
+  dockerfile: `deploy/docker/${['dashboard', 'portal', 'migrate'].includes(app.app) ? app.app : 'node'}.Dockerfile`,
 }));
 
 const globalFiles = new Set([
@@ -74,10 +75,12 @@ export function plan({ eventName, event = {}, ref = '', head }, run = execute) {
     if (app === 'migrate') {
       return packages.has('@dirouter/db') || changed.includes('deploy/docker/migrate.Dockerfile');
     }
-    if (app === 'dashboard') {
+    // Static sites: their Dockerfile or their nginx template.
+    if (app === 'dashboard' || app === 'portal') {
       return changed.some(
         (file) =>
-          file === 'deploy/docker/dashboard.Dockerfile' || file.startsWith('deploy/docker/nginx/'),
+          file === `deploy/docker/${app}.Dockerfile` ||
+          file === `deploy/docker/nginx/${app}.conf.template`,
       );
     }
     return changed.includes('deploy/docker/node.Dockerfile');
