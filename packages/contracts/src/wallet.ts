@@ -4,7 +4,8 @@
  * Postgres owns the ledger, but the gateway never queries Postgres on the hot path (ADR-006). It
  * reserves credit against a copy of each wallet kept in Valkey:
  *
- * - `dirouter:wallet:{id}`       hash: `balance` and `version` (copied from Postgres) and `held`
+ * - `dirouter:wallet:{id}`       hash: `balance`, `quota` (plan allowance left this period, card
+ *                                19.4) and `version` (copied from Postgres) and `held`
  * - `dirouter:wallet:{id}:holds` hash: requestId → `<units>:<expiresAtMs>`
  *
  * Flow: the gateway reserves the request's worst-case charge (RESERVE), replaces it with the real
@@ -32,6 +33,7 @@ export const WALLET_SETTLED_TTL_MS = 6 * 3_600_000;
 export const WALLET_RESERVE_LUA = `
 if redis.call('EXISTS', KEYS[1]) == 0 then return {-1, 0} end
 local balance = tonumber(redis.call('HGET', KEYS[1], 'balance') or '0')
+  + tonumber(redis.call('HGET', KEYS[1], 'quota') or '0')
 local held = tonumber(redis.call('HGET', KEYS[1], 'held') or '0')
 local amount = tonumber(ARGV[2])
 local available = balance - held
@@ -61,7 +63,7 @@ return 1
 `;
 
 /**
- * KEYS: wallet, holds. ARGV: requestId ('' for none), balanceUnits, version.
+ * KEYS: wallet, holds. ARGV: requestId ('' for none), balanceUnits, version, quotaUnits.
  * Called after a posting commits: drops the request's hold and stores the newer balance.
  */
 export const WALLET_APPLY_LUA = `
@@ -74,21 +76,21 @@ if ARGV[1] ~= '' then
 end
 local current = tonumber(redis.call('HGET', KEYS[1], 'version') or '-1')
 if tonumber(ARGV[3]) > current then
-  redis.call('HSET', KEYS[1], 'balance', ARGV[2], 'version', ARGV[3])
+  redis.call('HSET', KEYS[1], 'balance', ARGV[2], 'version', ARGV[3], 'quota', ARGV[4] or '0')
 end
 if not redis.call('HGET', KEYS[1], 'held') then redis.call('HSET', KEYS[1], 'held', 0) end
 return 1
 `;
 
 /**
- * KEYS: wallet, holds. ARGV: balanceUnits, version, nowMs.
+ * KEYS: wallet, holds. ARGV: balanceUnits, version, nowMs, quotaUnits.
  * Reconcile: stores the balance unless Valkey already has a newer one, drops expired holds and
  * recomputes `held` from the holds that remain. Returns the held units.
  */
 export const WALLET_SYNC_LUA = `
 local current = tonumber(redis.call('HGET', KEYS[1], 'version') or '-1')
 if tonumber(ARGV[2]) >= current then
-  redis.call('HSET', KEYS[1], 'balance', ARGV[1], 'version', ARGV[2])
+  redis.call('HSET', KEYS[1], 'balance', ARGV[1], 'version', ARGV[2], 'quota', ARGV[4] or '0')
 end
 local now = tonumber(ARGV[3])
 local held = 0

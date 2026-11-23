@@ -23,7 +23,7 @@ import { evaluateAlerts } from './alerts.js';
 import { drainHealthSamples } from './health-samples.js';
 import { createMetrics } from './metrics.js';
 import { type UsageDb, UsageBatchWriter } from './writer.js';
-import { auditLedger, chargeWallet, syncWallets } from './wallets.js';
+import { auditLedger, chargeWallet, renewPlans, syncWallets } from './wallets.js';
 
 const env = loadEnvOrExit(workerEnvSchema);
 const logger = createLogger({ service: 'worker', level: env.LOG_LEVEL });
@@ -134,6 +134,7 @@ const jobs: Record<string, () => Promise<unknown>> = {
   'alerts-evaluate': () => evaluateAlerts({ db: db, logger, clock: { now: () => Date.now() } }),
   'wallet-sync': () => syncWallets(db, connection),
   'ledger-audit': () => auditLedger(db, logger),
+  'plan-renewals': () => renewPlans(db, connection),
   'health-samples': () =>
     drainHealthSamples(db, connection, logger, { retentionDays: env.HEALTH_SAMPLE_RETENTION_DAYS }),
 };
@@ -174,6 +175,7 @@ const schedule = {
   'health-samples': { every: 30_000 },
   'wallet-sync': { every: 60_000 },
   'ledger-audit': { every: 3_600_000 },
+  'plan-renewals': { every: 300_000 },
 };
 for (const [name, repeat] of Object.entries(schedule)) {
   await maintenanceQueue.upsertJobScheduler(name, repeat, {

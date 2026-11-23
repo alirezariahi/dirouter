@@ -39,12 +39,15 @@ describe('worst-case charge', () => {
     );
   });
 
-  it('applies the sale multiplier', () => {
-    const double = (p: { inputPerMTok: string; outputPerMTok: string }) => ({
-      inputPerMTok: String(Number(p.inputPerMTok) * 2),
-      outputPerMTok: String(Number(p.outputPerMTok) * 2),
-    });
-    expect(worstCaseChargeUsd([model('1', '1')], 1_000_000, 0, double)).toBe('2.00000000');
+  it('prices at the sale price with the group multiplier', () => {
+    const sold = {
+      model: {
+        pricing: { inputPerMTok: '1', outputPerMTok: '1' },
+        sale: { multiplier: '1.5', cacheMultiplier: '0' },
+      },
+    };
+    // 1M tokens × $1/M × 1.5 × 2
+    expect(worstCaseChargeUsd([sold], 1_000_000, 0, '2')).toBe('3.00000000');
   });
 });
 

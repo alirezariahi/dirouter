@@ -29,6 +29,14 @@ export interface ModelInput {
   pricing?: Partial<ModelPricing> | undefined;
   capabilities?: Partial<ModelCapabilities> | undefined;
   catalogKey?: string | null | undefined;
+  isPublic?: boolean | undefined;
+  sale?:
+    | {
+        multiplier?: string | undefined;
+        perRequestUsd?: string | null | undefined;
+        cacheMultiplier?: string | undefined;
+      }
+    | undefined;
 }
 export interface ComboInput {
   slug: string;
@@ -47,6 +55,17 @@ export interface ComboInput {
   timeouts?: Record<string, number | undefined> | null | undefined;
   sticky?: boolean | undefined;
   hedging?: { enabled?: boolean; afterMs?: number; maxParallel?: number } | null | undefined;
+  isPublic?: boolean | undefined;
+}
+
+/** Sale settings to columns; absent fields are left unchanged. */
+function saleData(sale: ModelInput['sale']) {
+  if (!sale) return {};
+  return {
+    ...(sale.multiplier !== undefined ? { saleMultiplier: sale.multiplier } : {}),
+    ...(sale.perRequestUsd !== undefined ? { salePerRequestUsd: sale.perRequestUsd } : {}),
+    ...(sale.cacheMultiplier !== undefined ? { saleCacheMultiplier: sale.cacheMultiplier } : {}),
+  };
 }
 
 const STRATEGY_TO_DB = {
@@ -105,6 +124,12 @@ export class ModelsService {
       },
       capabilities: m.capabilities,
       catalogKey: m.catalogKey,
+      isPublic: m.isPublic,
+      sale: {
+        multiplier: dec(m.saleMultiplier) ?? '1',
+        perRequestUsd: dec(m.salePerRequestUsd) ?? null,
+        cacheMultiplier: dec(m.saleCacheMultiplier) ?? '0',
+      },
     };
   }
 
@@ -193,6 +218,8 @@ export class ModelsService {
         reasoningPrice: pricing.reasoningPerMTok ?? null,
         capabilities: { ...entry?.capabilities, ...input.capabilities },
         catalogKey: input.catalogKey ?? null,
+        isPublic: input.isPublic ?? false,
+        ...saleData(input.sale),
       },
     });
     await this.#audit(ctx, 'model.created', 'model', id, { slug });
@@ -229,6 +256,8 @@ export class ModelsService {
               },
             }
           : {}),
+        ...(input.isPublic !== undefined ? { isPublic: input.isPublic } : {}),
+        ...saleData(input.sale),
         // A manual price means it no longer follows the catalog, unless a catalogKey is provided again.
         ...(input.catalogKey !== undefined
           ? { catalogKey: input.catalogKey }
@@ -392,6 +421,7 @@ export class ModelsService {
       timeouts: c.timeouts ?? null,
       sticky: c.sticky,
       hedging: c.hedging ?? null,
+      isPublic: c.isPublic,
     };
   }
 
@@ -431,6 +461,7 @@ export class ModelsService {
         fallbackOn: input.fallbackOn ?? [],
         retryMaxAttempts: input.retryMaxAttempts ?? 2,
         sticky: input.sticky ?? false,
+        isPublic: input.isPublic ?? false,
         ...(input.hedging ? { hedging: input.hedging } : {}),
         ...(input.timeouts ? { timeouts: input.timeouts } : {}),
         targets: {
@@ -460,6 +491,7 @@ export class ModelsService {
         where: { id },
         data: {
           ...(input.slug ? { slug: input.slug } : {}),
+          ...(input.isPublic !== undefined ? { isPublic: input.isPublic } : {}),
           ...(input.strategy ? { strategy: STRATEGY_TO_DB[input.strategy] } : {}),
           ...(input.fallbackOn ? { fallbackOn: input.fallbackOn } : {}),
           ...(input.retryMaxAttempts !== undefined

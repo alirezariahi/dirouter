@@ -35,6 +35,13 @@ const Capabilities = z.object({
   reasoning: z.boolean().optional(),
   jsonMode: z.boolean().optional(),
 });
+const Multiplier = z.string().regex(/^\d{1,6}(\.\d{1,8})?$/, 'a non-negative decimal');
+/** Sale price (card 19.4); only meaningful on the platform organization's public models. */
+const Sale = z.object({
+  multiplier: Multiplier.optional(),
+  perRequestUsd: Usd.nullable().optional(),
+  cacheMultiplier: Multiplier.optional(),
+});
 export const ModelBody = z.object({
   providerId: z.string(),
   upstreamModel: z.string().min(1).max(200),
@@ -46,6 +53,9 @@ export const ModelBody = z.object({
   pricing: Pricing.partial().optional(),
   capabilities: Capabilities.optional(),
   catalogKey: z.string().max(200).nullable().optional(),
+  /** Offered to customer organizations when this is the platform organization (card 19.4). */
+  isPublic: z.boolean().optional(),
+  sale: Sale.optional(),
 });
 export const ModelPatch = ModelBody.omit({ providerId: true, upstreamModel: true }).partial();
 export const AliasBody = z.object({
@@ -89,6 +99,7 @@ export const ComboBody = z.object({
     })
     .nullable()
     .optional(),
+  isPublic: z.boolean().optional(),
 });
 export const ComboPatch = ComboBody.partial();
 
@@ -104,6 +115,12 @@ const ModelView = z.object({
   pricing: Pricing,
   capabilities: z.unknown(),
   catalogKey: z.string().nullable(),
+  isPublic: z.boolean(),
+  sale: z.object({
+    multiplier: z.string(),
+    perRequestUsd: z.string().nullable(),
+    cacheMultiplier: z.string(),
+  }),
 });
 const AliasView = z.object({
   id: z.string(),
@@ -131,6 +148,7 @@ const ComboView = z.object({
   timeouts: z.unknown(),
   sticky: z.boolean(),
   hedging: z.unknown(),
+  isPublic: z.boolean(),
 });
 
 @ApiTags('models')

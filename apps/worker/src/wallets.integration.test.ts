@@ -11,12 +11,16 @@ import {
   walletKey,
 } from '@dirouter/contracts';
 import {
+  addMonth,
+  allowanceLeft,
   chargeUsage,
   checkLedger,
   createPrismaClient,
   ensureWallet,
   fromUnits,
   postTransaction,
+  renewSubscriptions,
+  startSubscriptionPeriod,
   SYSTEM_WALLETS,
   toUnits,
 } from '@dirouter/db';
@@ -222,5 +226,131 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('wallet ledger on real services', 
     await redis.hset(key, 'version', 0);
     await syncWallets(db, redis);
     expect(await redis.hget(key, 'balance')).toBe(String(usdToUnits('0.45')));
+  });
+});
+
+describe.skipIf(!DATABASE_URL || !VALKEY_URL)('plan allowance on real services', () => {
+  const db = createPrismaClient({ databaseUrl: DATABASE_URL ?? '', maxConnections: 4 });
+  const redis = new Redis(VALKEY_URL ?? '', { maxRetriesPerRequest: null });
+  const ORG = `org_plan_${RUN}`;
+  let walletId = '';
+  let subscriptionId = '';
+  const start = new Date(Date.now() - 60_000);
+  const next = addMonth(start);
+
+  const event = (requestId: string, chargeUsd: string): UsageEvent => ({
+    schemaVersion: USAGE_EVENT_SCHEMA_VERSION,
+    eventId: '01JCW00000000000000000PLAN',
+    idempotencyKey: requestId,
+    requestId,
+    occurredAt: new Date(start.getTime() + 30_000).toISOString(),
+    gatewayInstance: 'test',
+    configVersion: 1,
+    organizationId: ORG,
+    teamId: null,
+    projectId: 'prj',
+    virtualKeyId: 'vk',
+    walletId,
+    inboundApi: 'openai.chat',
+    requestedModel: 'm',
+    resolvedModelId: 'm',
+    providerId: 'p',
+    credentialId: 'c',
+    stream: false,
+    status: 'success',
+    httpStatus: 200,
+    usage: {
+      inputTokens: 1,
+      outputTokens: 1,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
+      reasoningTokens: 0,
+    },
+    costUsd: '0.01',
+    chargeUsd,
+    usageEstimated: false,
+    latencyMs: 1,
+    attempts: [],
+  });
+  const balance = async () =>
+    (await db.wallet.findUniqueOrThrow({ where: { id: walletId } })).balanceUsd.toFixed(8);
+  const quota = () => redis.hget(walletKey(walletId), 'quota');
+
+  beforeAll(async () => {
+    await db.organization.create({ data: { id: ORG, name: 'Plan IT', slug: `plan-it-${RUN}` } });
+    walletId = (await ensureWallet(db, ORG)).id;
+    await postTransaction(db, {
+      kind: 'topup',
+      idempotencyKey: `test:${RUN}:plan-topup`,
+      legs: [
+        { walletId, amountUsd: '5' },
+        { walletId: SYSTEM_WALLETS.funding, amountUsd: '-5' },
+      ],
+    });
+    const plan = await db.plan.create({
+      data: { id: `pln_${RUN}`, name: `Plan ${RUN}`, priceUsd: '2', includedUsd: '1' },
+    });
+    subscriptionId = `sub_${RUN}`;
+    await db.subscription.create({
+      data: {
+        id: subscriptionId,
+        organizationId: ORG,
+        planId: plan.id,
+        periodStart: start,
+        periodEnd: new Date(start.getTime() + 1),
+      },
+    });
+  });
+  afterAll(async () => {
+    redis.disconnect();
+    await db.$disconnect();
+  });
+
+  it('starting a period charges the fee once and sets the allowance', async () => {
+    expect(await startSubscriptionPeriod(db, subscriptionId, start)).toMatchObject({
+      status: 'active',
+      periodEnd: next,
+    });
+    await startSubscriptionPeriod(db, subscriptionId, start);
+    expect(await balance()).toBe('3.00000000');
+  });
+
+  it('usage spends the allowance first, then the wallet, exactly once', async () => {
+    await chargeWallet(db, redis, event(`plan_${RUN}_1`, '0.6'), logger);
+    expect(await balance()).toBe('3.00000000');
+    expect(await quota()).toBe(String(usdToUnits('0.4')));
+    const second = event(`plan_${RUN}_2`, '0.6');
+    expect(await chargeWallet(db, redis, second, logger)).toMatchObject({
+      allowanceUsd: '0.40000000',
+      collectedUsd: '0.20000000',
+    });
+    expect(await chargeWallet(db, redis, second, logger)).toEqual({ charged: false });
+    expect(await balance()).toBe('2.80000000');
+    expect(await quota()).toBe('0');
+    expect(
+      (await db.subscription.findUniqueOrThrow({ where: { id: subscriptionId } })).usedUsd.toFixed(
+        8,
+      ),
+    ).toBe('1.00000000');
+  });
+
+  it('renewal charges the next period and resets the allowance; an empty wallet is past due', async () => {
+    const renewed = await renewSubscriptions(db, new Date(next.getTime() + 1_000));
+    expect(renewed.find((r) => r.subscriptionId === subscriptionId)).toMatchObject({
+      status: 'active',
+      periodStart: next,
+    });
+    expect(await balance()).toBe('0.80000000');
+    const sub = await db.subscription.findUniqueOrThrow({ where: { id: subscriptionId } });
+    expect(sub.usedUsd.toFixed(8)).toBe('0.00000000');
+    const later = new Date(addMonth(next).getTime() + 1_000);
+    const lapsed = await renewSubscriptions(db, later);
+    expect(lapsed.find((r) => r.subscriptionId === subscriptionId)?.status).toBe('past_due');
+    expect(await balance()).toBe('0.80000000');
+    expect(await allowanceLeft(db, ORG, later)).toBe(0n);
+    expect(await checkLedger(db)).toMatchObject({
+      totalUsd: '0.00000000',
+      unbalancedTransactions: 0,
+    });
   });
 });

@@ -13,7 +13,6 @@
  */
 import {
   type CanonicalUsage,
-  type ModelPricing,
   unitsToUsd,
   usdToUnits,
   WALLET_HOLD_TTL_MS,
@@ -23,11 +22,11 @@ import {
   walletHoldsKey,
   walletKey,
 } from '@dirouter/contracts';
-import { computeCost } from '@dirouter/model-catalog';
 import { formatUsd, type Logger } from '@dirouter/shared';
 import type { Redis } from 'ioredis';
 
 import { withTimeout } from './budget-guard.js';
+import { chargeUnits, type PricedModel } from './pricing.js';
 
 export type WalletReservation =
   | { ok: true; reserved: boolean }
@@ -42,17 +41,16 @@ type RedisWithWallet = Redis & {
 export const DEFAULT_OUTPUT_RESERVATION = 4_096;
 
 /**
- * Worst-case charge of a request: the estimated input plus the full output cap, priced at the most
- * expensive candidate (a fallback may land on any of them). `multiplier` turns cost into the sale
- * price (card 19.4).
+ * Worst-case charge of a request: the estimated input plus the full output cap, at the sale price
+ * of the most expensive candidate (a fallback may land on any of them).
  */
 export function worstCaseChargeUsd(
   candidates: readonly {
-    model: { pricing: ModelPricing; maxOutputTokens?: number | undefined };
+    model: PricedModel & { maxOutputTokens?: number | undefined };
   }[],
   estimatedInputTokens: number,
   maxOutputTokens: number | undefined,
-  multiplier: (pricing: ModelPricing) => ModelPricing = (p) => p,
+  groupMultiplier?: string,
 ): string {
   let worst = 0n;
   for (const { model } of candidates) {
@@ -63,8 +61,8 @@ export function worstCaseChargeUsd(
       cacheWriteTokens: 0,
       reasoningTokens: 0,
     };
-    const cost = computeCost(usage, multiplier(model.pricing)).total;
-    if (cost > worst) worst = cost;
+    const charge = chargeUnits(usage, model, { groupMultiplier });
+    if (charge > worst) worst = charge;
   }
   return formatUsd(worst);
 }

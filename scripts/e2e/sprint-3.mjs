@@ -99,6 +99,13 @@ async function customerFixture(api, adminUserId) {
   return { cust, model, key };
 }
 
+/** Ends the customer's plan at once (the API only cancels at period end) and its allowance. */
+async function endPlan() {
+  await sql(`UPDATE subscriptions SET status = 'cancelled' WHERE organization_id = '${CUSTOMER}'`);
+  const wallet = await sql(`SELECT id FROM wallets WHERE organization_id = '${CUSTOMER}'`);
+  if (wallet) await valkey('HSET', `dirouter:wallet:{${wallet}}`, 'quota', '0');
+}
+
 let crashed = false;
 try {
   const seedAdmin = await readEnv('.data/seed-admin.env');
@@ -107,12 +114,19 @@ try {
   const operator = (method, path, body, expected) =>
     api(method, `orgs/${PLATFORM}/${path}`, body, expected);
   const customer = await customerFixture(api, me.id);
+  /** Prepaid on or off; waits for the snapshot only when something changes. */
+  const setPrepaid = async (prepaid) => {
+    const now = (await operator('GET', `billing/wallets/${CUSTOMER}`)).body.prepaid;
+    if (now !== prepaid)
+      await published(() => operator('PATCH', `billing/wallets/${CUSTOMER}`, { prepaid }));
+  };
 
   // ───────────── Epic 19: billing ─────────────
 
   await scenario(
     '19.1 prepaid wallet: reservation, debit, no overdraft, balanced ledger',
     async () => {
+      await endPlan();
       const wallet = async () => (await operator('GET', `billing/wallets/${CUSTOMER}`)).body;
       const adjust = (amountUsd, reason) =>
         operator(
@@ -125,10 +139,8 @@ try {
           },
           201,
         );
-      await published(() => operator('PATCH', `billing/wallets/${CUSTOMER}`, { prepaid: true }));
-      cleanups.push(() =>
-        published(() => operator('PATCH', `billing/wallets/${CUSTOMER}`, { prepaid: false })),
-      );
+      await setPrepaid(true);
+      cleanups.push(() => setPrepaid(false));
       // Start from an empty wallet (the organization is kept between runs).
       const start = (await wallet()).wallet;
       if (start.balanceUsd !== '0.00000000') await adjust(`-${start.balanceUsd}`, 'e2e reset');
@@ -325,6 +337,115 @@ try {
       await operator('POST', `billing/gift-batches/${created.id}/revoke`);
       await redeem(second, 422);
       assert.equal((await operator('GET', 'billing/ledger/check')).body.ok, true);
+    },
+  );
+  await scenario(
+    '19.4 sale pricing: multipliers apply live, marketplace, plan allowance',
+    async () => {
+      const platformModel = (await operator('GET', 'models')).body;
+      const mockSmall = (platformModel.items ?? platformModel).find((m) => m.slug === 'mock/small');
+      assert.ok(mockSmall, 'seeded platform model mock/small');
+      const restore = { isPublic: mockSmall.isPublic, sale: { ...mockSmall.sale } };
+      cleanups.push(() => published(() => operator('PATCH', `models/${mockSmall.id}`, restore)));
+      const priced = (patch) => published(() => operator('PATCH', `models/${mockSmall.id}`, patch));
+      const ask = async () => {
+        const r = await chat(customer.key.key, {
+          model: 'mock/small',
+          max_tokens: 20,
+          messages: [{ role: 'user', content: `price check ${randomUUID()}` }],
+        });
+        return r;
+      };
+      /** cost and charge of a request, once the worker has written it. */
+      const amounts = async (response) => {
+        const id = response.headers.get('x-request-id');
+        const row = await waitFor(`request_log ${id}`, async () => {
+          const out = await sql(`SELECT cost_usd, charge_usd FROM request_log WHERE id = '${id}'`);
+          return out === '' ? undefined : out;
+        });
+        const [cost, charge] = row.split('|').map(Number);
+        return { cost, charge };
+      };
+
+      // Private platform models are invisible to customers.
+      if (mockSmall.isPublic) await priced({ isPublic: false });
+      assert.equal((await ask()).response.status, 404);
+
+      // Published at twice the cost.
+      await priced({
+        isPublic: true,
+        sale: { multiplier: '2', perRequestUsd: null, cacheMultiplier: '0' },
+      });
+      const first = await ask();
+      assert.equal(first.response.status, 200, first.text);
+      const a = await amounts(first.response);
+      assert.ok(a.cost > 0);
+      assert.equal(a.charge, Number((a.cost * 2).toFixed(8)));
+
+      // A new multiplier applies to the next request, without any deploy.
+      await priced({ sale: { multiplier: '3' } });
+      const b = await amounts((await ask()).response);
+      assert.equal(b.charge, Number((b.cost * 3).toFixed(8)));
+
+      // Customer group: everything for this organization at half price.
+      const group = (
+        await operator(
+          'POST',
+          'billing/groups',
+          { name: `e2e ${randomUUID()}`, multiplier: '0.5' },
+          201,
+        )
+      ).body;
+      // Unassigned below, so deleting it changes no snapshot.
+      cleanups.push(() => operator('DELETE', `billing/groups/${group.id}`, undefined, 204));
+      await published(() =>
+        operator('PUT', `billing/wallets/${CUSTOMER}/group`, { customerGroupId: group.id }),
+      );
+      const c = await amounts((await ask()).response);
+      assert.equal(c.charge, Number((c.cost * 1.5).toFixed(8)));
+
+      // Fixed price per request (images, video): tokens no longer matter.
+      await priced({ sale: { perRequestUsd: '0.02' } });
+      const d = await amounts((await ask()).response);
+      assert.equal(d.charge, 0.01);
+
+      // A plan: the allowance pays first, the wallet stays untouched.
+      await priced({ sale: { multiplier: '1', perRequestUsd: null } });
+      await published(() =>
+        operator('PUT', `billing/wallets/${CUSTOMER}/group`, { customerGroupId: null }),
+      );
+      await setPrepaid(true);
+      cleanups.push(() => setPrepaid(false));
+      await operator(
+        'POST',
+        `billing/wallets/${CUSTOMER}/adjustments`,
+        { amountUsd: '1', reason: 'e2e plan credit', idempotencyKey: randomUUID() },
+        201,
+      );
+      const plan = (
+        await operator(
+          'POST',
+          'billing/plans',
+          { name: `e2e ${randomUUID()}`, priceUsd: '0.5', includedUsd: '0.2' },
+          201,
+        )
+      ).body;
+      cleanups.push(endPlan);
+      cleanups.push(() => operator('PATCH', `billing/plans/${plan.id}`, { active: false }, null));
+      const before = Number((await customer.cust('GET', 'wallet')).body.wallet.balanceUsd);
+      const sub = (await customer.cust('POST', 'wallet/subscription', { planId: plan.id }, 201))
+        .body;
+      assert.equal(sub.remainingUsd, '0.20000000');
+      const afterFee = Number((await customer.cust('GET', 'wallet')).body.wallet.balanceUsd);
+      assert.equal(Number((before - afterFee).toFixed(8)), 0.5);
+      const e = await ask();
+      assert.equal(e.response.status, 200, e.text);
+      const used = await amounts(e.response);
+      await waitFor('the allowance to be used', async () => {
+        const now = (await customer.cust('GET', 'wallet/subscription')).body;
+        return Number(now.usedUsd) === used.charge;
+      });
+      assert.equal(Number((await customer.cust('GET', 'wallet')).body.wallet.balanceUsd), afterFee);
     },
   );
 } catch (error) {

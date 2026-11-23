@@ -14,6 +14,8 @@ import { normalizeCode } from './gift-codes.service.js';
 const DATABASE_URL = process.env.INTEGRATION_DATABASE_URL;
 const VALKEY_URL = process.env.INTEGRATION_VALKEY_URL;
 const ORGS = Array.from({ length: 10 }, (_, i) => `org_gift_${String(i)}`);
+/** Never takes part in the concurrent redemption, so its balance is predictable. */
+const BYSTANDER = 'org_gift_bystander';
 
 describe.skipIf(!DATABASE_URL || !VALKEY_URL)('gift codes over HTTP', () => {
   let app: NestFastifyApplication;
@@ -64,7 +66,7 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('gift codes over HTTP', () => {
     );
     const db = app.get(PrismaService).client;
     await db.$executeRawUnsafe(
-      'TRUNCATE refresh_tokens, memberships, audit_logs, users, gift_code_redemptions, gift_codes, gift_code_batches, payments, wallets, organizations CASCADE',
+      'TRUNCATE refresh_tokens, memberships, audit_logs, users, gift_code_redemptions, gift_codes, gift_code_batches, payments, wallet_transactions, wallets, organizations CASCADE',
     );
     await app.init();
     await app.getHttpAdapter().getInstance().ready();
@@ -92,7 +94,7 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('gift codes over HTTP', () => {
     const user = await db.user.create({
       data: { id: 'usr_gift', email: 'gift@example.com', name: 'G', passwordHash: 'x' },
     });
-    for (const id of ORGS)
+    for (const id of [...ORGS, BYSTANDER])
       await db.organization.create({
         data: {
           id,
@@ -173,7 +175,7 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('gift codes over HTTP', () => {
   it('expired and revoked codes are refused', async () => {
     const [expired = ''] = (await batch({ expiresAt: new Date(Date.now() - 1_000).toISOString() }))
       .codes;
-    expect((await redeem(ORGS[5] ?? '', expired)).statusCode).toBe(422);
+    expect((await redeem(BYSTANDER, expired)).statusCode).toBe(422);
     const revokable = await batch({});
     const revoked = await call(
       'POST',
@@ -181,8 +183,8 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('gift codes over HTTP', () => {
       operator,
     );
     expect(revoked.json()).toMatchObject({ revokedAt: expect.any(String) as unknown });
-    expect((await redeem(ORGS[5] ?? '', revokable.codes[0] ?? '')).statusCode).toBe(422);
-    expect(await balance(ORGS[5] ?? '')).toBe('0.00000000');
+    expect((await redeem(BYSTANDER, revokable.codes[0] ?? '')).statusCode).toBe(422);
+    expect(await balance(BYSTANDER)).toBe('0.00000000');
   });
 
   it('guessing is rate limited per organization', async () => {

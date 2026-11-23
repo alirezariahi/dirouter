@@ -93,7 +93,7 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('wallet top-ups over HTTP', () => 
     app = await createApp(env);
     const db = app.get(PrismaService).client;
     await db.$executeRawUnsafe(
-      'TRUNCATE refresh_tokens, memberships, audit_logs, users, payments, billing_settings, wallets, organizations CASCADE',
+      'TRUNCATE refresh_tokens, memberships, audit_logs, users, payments, billing_settings, wallet_transactions, wallets, organizations CASCADE',
     );
     await app.init();
     await app.listen(0, '127.0.0.1');

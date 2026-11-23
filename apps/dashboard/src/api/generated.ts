@@ -2069,6 +2069,13 @@ export type ModelsControllerList200ItemPricing = {
   reasoningPerMTok?: string;
 };
 
+export type ModelsControllerList200ItemSale = {
+  multiplier: string;
+  /** @nullable */
+  perRequestUsd: string | null;
+  cacheMultiplier: string;
+};
+
 export type ModelsControllerList200Item = {
   id: string;
   slug: string;
@@ -2093,6 +2100,8 @@ export type ModelsControllerList200Item = {
   capabilities: unknown;
   /** @nullable */
   catalogKey: string | null;
+  isPublic: boolean;
+  sale: ModelsControllerList200ItemSale;
 };
 
 export type ModelsControllerCreateBodyPricing = {
@@ -2114,6 +2123,18 @@ export type ModelsControllerCreateBodyCapabilities = {
   vision?: boolean;
   reasoning?: boolean;
   jsonMode?: boolean;
+};
+
+export type ModelsControllerCreateBodySale = {
+  /** @pattern ^\d{1,6}(\.\d{1,8})?$ */
+  multiplier?: string;
+  /**
+     * @nullable
+     * @pattern ^\d{1,10}(\.\d{1,8})?$
+     */
+  perRequestUsd?: string | null;
+  /** @pattern ^\d{1,6}(\.\d{1,8})?$ */
+  cacheMultiplier?: string;
 };
 
 export type ModelsControllerCreateBody = {
@@ -2150,6 +2171,8 @@ export type ModelsControllerCreateBody = {
      * @nullable
      */
   catalogKey?: string | null;
+  isPublic?: boolean;
+  sale?: ModelsControllerCreateBodySale;
 };
 
 export type ModelsControllerCreate200Pricing = {
@@ -2163,6 +2186,13 @@ export type ModelsControllerCreate200Pricing = {
   cacheWritePerMTok?: string;
   /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
   reasoningPerMTok?: string;
+};
+
+export type ModelsControllerCreate200Sale = {
+  multiplier: string;
+  /** @nullable */
+  perRequestUsd: string | null;
+  cacheMultiplier: string;
 };
 
 export type ModelsControllerCreate200 = {
@@ -2189,6 +2219,8 @@ export type ModelsControllerCreate200 = {
   capabilities: unknown;
   /** @nullable */
   catalogKey: string | null;
+  isPublic: boolean;
+  sale: ModelsControllerCreate200Sale;
 };
 
 export type ModelsControllerSync200 = {
@@ -2211,6 +2243,13 @@ export type ModelsControllerGet200Pricing = {
   cacheWritePerMTok?: string;
   /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
   reasoningPerMTok?: string;
+};
+
+export type ModelsControllerGet200Sale = {
+  multiplier: string;
+  /** @nullable */
+  perRequestUsd: string | null;
+  cacheMultiplier: string;
 };
 
 export type ModelsControllerGet200 = {
@@ -2237,6 +2276,8 @@ export type ModelsControllerGet200 = {
   capabilities: unknown;
   /** @nullable */
   catalogKey: string | null;
+  isPublic: boolean;
+  sale: ModelsControllerGet200Sale;
 };
 
 export type ModelsControllerUpdateBodyPricing = {
@@ -2258,6 +2299,18 @@ export type ModelsControllerUpdateBodyCapabilities = {
   vision?: boolean;
   reasoning?: boolean;
   jsonMode?: boolean;
+};
+
+export type ModelsControllerUpdateBodySale = {
+  /** @pattern ^\d{1,6}(\.\d{1,8})?$ */
+  multiplier?: string;
+  /**
+     * @nullable
+     * @pattern ^\d{1,10}(\.\d{1,8})?$
+     */
+  perRequestUsd?: string | null;
+  /** @pattern ^\d{1,6}(\.\d{1,8})?$ */
+  cacheMultiplier?: string;
 };
 
 export type ModelsControllerUpdateBody = {
@@ -2288,6 +2341,8 @@ export type ModelsControllerUpdateBody = {
      * @nullable
      */
   catalogKey?: string | null;
+  isPublic?: boolean;
+  sale?: ModelsControllerUpdateBodySale;
 };
 
 export type ModelsControllerUpdate200Pricing = {
@@ -2301,6 +2356,13 @@ export type ModelsControllerUpdate200Pricing = {
   cacheWritePerMTok?: string;
   /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
   reasoningPerMTok?: string;
+};
+
+export type ModelsControllerUpdate200Sale = {
+  multiplier: string;
+  /** @nullable */
+  perRequestUsd: string | null;
+  cacheMultiplier: string;
 };
 
 export type ModelsControllerUpdate200 = {
@@ -2327,6 +2389,8 @@ export type ModelsControllerUpdate200 = {
   capabilities: unknown;
   /** @nullable */
   catalogKey: string | null;
+  isPublic: boolean;
+  sale: ModelsControllerUpdate200Sale;
 };
 
 export type ModelsControllerAliases200ItemTarget = {
@@ -2426,6 +2490,7 @@ export type ModelsControllerCombos200Item = {
   timeouts: unknown;
   sticky: boolean;
   hedging: unknown;
+  isPublic: boolean;
 };
 
 export type ModelsControllerCreateComboBodyStrategy = typeof ModelsControllerCreateComboBodyStrategy[keyof typeof ModelsControllerCreateComboBodyStrategy];
@@ -2534,6 +2599,7 @@ export type ModelsControllerCreateComboBody = {
   sticky?: boolean;
   /** @nullable */
   hedging?: ModelsControllerCreateComboBodyHedging;
+  isPublic?: boolean;
 };
 
 export type ModelsControllerCreateCombo200Strategy = typeof ModelsControllerCreateCombo200Strategy[keyof typeof ModelsControllerCreateCombo200Strategy];
@@ -2577,6 +2643,7 @@ export type ModelsControllerCreateCombo200 = {
   timeouts: unknown;
   sticky: boolean;
   hedging: unknown;
+  isPublic: boolean;
 };
 
 export type ModelsControllerGetCombo200Strategy = typeof ModelsControllerGetCombo200Strategy[keyof typeof ModelsControllerGetCombo200Strategy];
@@ -2620,6 +2687,7 @@ export type ModelsControllerGetCombo200 = {
   timeouts: unknown;
   sticky: boolean;
   hedging: unknown;
+  isPublic: boolean;
 };
 
 export type ModelsControllerUpdateComboBodyStrategy = typeof ModelsControllerUpdateComboBodyStrategy[keyof typeof ModelsControllerUpdateComboBodyStrategy];
@@ -2728,6 +2796,7 @@ export type ModelsControllerUpdateComboBody = {
   sticky?: boolean;
   /** @nullable */
   hedging?: ModelsControllerUpdateComboBodyHedging;
+  isPublic?: boolean;
 };
 
 export type ModelsControllerUpdateCombo200Strategy = typeof ModelsControllerUpdateCombo200Strategy[keyof typeof ModelsControllerUpdateCombo200Strategy];
@@ -2771,6 +2840,7 @@ export type ModelsControllerUpdateCombo200 = {
   timeouts: unknown;
   sticky: boolean;
   hedging: unknown;
+  isPublic: boolean;
 };
 
 export type StatsControllerOverviewParams = {
@@ -3925,6 +3995,93 @@ export type RedeemControllerRedeemBody = {
 };
 
 export type RedeemControllerRedeem200 = {[key: string]: unknown};
+
+export type PricingAdminControllerGroups200Item = {[key: string]: unknown};
+
+export type PricingAdminControllerCreateGroupBody = {
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  name: string;
+  /** @pattern ^\d{1,6}(\.\d{1,8})?$ */
+  multiplier: string;
+  /** @maxLength 500 */
+  description?: string;
+};
+
+export type PricingAdminControllerCreateGroup200 = {[key: string]: unknown};
+
+export type PricingAdminControllerUpdateGroupBody = {
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  name?: string;
+  /** @pattern ^\d{1,6}(\.\d{1,8})?$ */
+  multiplier?: string;
+  /**
+     * @maxLength 500
+     * @nullable
+     */
+  description?: string | null;
+};
+
+export type PricingAdminControllerUpdateGroup200 = {[key: string]: unknown};
+
+export type PricingAdminControllerAssignBody = {
+  /** @nullable */
+  customerGroupId: string | null;
+};
+
+export type PricingAdminControllerAssign200 = {[key: string]: unknown};
+
+export type PricingAdminControllerPlans200Item = {[key: string]: unknown};
+
+export type PricingAdminControllerCreatePlanBody = {
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  name: string;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  priceUsd: string;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  includedUsd: string;
+  active?: boolean;
+};
+
+export type PricingAdminControllerCreatePlan200 = {[key: string]: unknown};
+
+export type PricingAdminControllerUpdatePlanBody = {
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  name?: string;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  priceUsd?: string;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  includedUsd?: string;
+  active?: boolean;
+};
+
+export type PricingAdminControllerUpdatePlan200 = {[key: string]: unknown};
+
+export type SubscriptionControllerPlans200Item = {[key: string]: unknown};
+
+/**
+ * @nullable
+ */
+export type SubscriptionControllerSubscription200 = {[key: string]: unknown} | null;
+
+export type SubscriptionControllerSubscribeBody = {
+  planId: string;
+};
+
+export type SubscriptionControllerSubscribe200 = {[key: string]: unknown};
+
+export type SubscriptionControllerCancel200 = {[key: string]: unknown};
 
 export type ConfigControllerList200Item = {[key: string]: unknown};
 
@@ -17014,6 +17171,1340 @@ export function useRedeemControllerRedeem<TData = Awaited<ReturnType<typeof rede
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getRedeemControllerRedeemQueryOptions(orgId,redeemControllerRedeemBody,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export type pricingAdminControllerGroupsResponse200 = {
+  data: PricingAdminControllerGroups200Item[]
+  status: 200
+}
+
+export type pricingAdminControllerGroupsResponseSuccess = (pricingAdminControllerGroupsResponse200) & {
+  headers: Headers;
+};
+;
+
+export type pricingAdminControllerGroupsResponse = (pricingAdminControllerGroupsResponseSuccess)
+
+export const getPricingAdminControllerGroupsUrl = (orgId: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/billing/groups`
+}
+
+export const pricingAdminControllerGroups = async (orgId: string, options?: Parameters<typeof orvalFetch>[1]): Promise<pricingAdminControllerGroupsResponse> => {
+
+  return orvalFetch<pricingAdminControllerGroupsResponse>(getPricingAdminControllerGroupsUrl(orgId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getPricingAdminControllerGroupsMutationKey = () => ['pricingAdminControllerGroups'] as const;
+
+export const getPricingAdminControllerGroupsMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof pricingAdminControllerGroups>>, TError,PricingAdminControllerGroupsMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof pricingAdminControllerGroups>>, TError,PricingAdminControllerGroupsMutationVariables, TContext> => {
+
+const mutationKey = getPricingAdminControllerGroupsMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof pricingAdminControllerGroups>>, PricingAdminControllerGroupsMutationVariables> = (props) => {
+          const {orgId} = props ?? {};
+
+          return  pricingAdminControllerGroups(orgId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PricingAdminControllerGroupsMutationResult = NonNullable<Awaited<ReturnType<typeof pricingAdminControllerGroups>>>
+
+    export type PricingAdminControllerGroupsMutationError = unknown
+    export type PricingAdminControllerGroupsMutationVariables = {orgId: string}
+
+    export const usePricingAdminControllerGroups = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof pricingAdminControllerGroups>>, TError,PricingAdminControllerGroupsMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof pricingAdminControllerGroups>>,
+        TError,
+        PricingAdminControllerGroupsMutationVariables,
+        TContext
+      > => {
+      return useMutation(getPricingAdminControllerGroupsMutationOptions(options), queryClient);
+    }
+
+export type pricingAdminControllerCreateGroupResponse200 = {
+  data: PricingAdminControllerCreateGroup200
+  status: 200
+}
+
+export type pricingAdminControllerCreateGroupResponseSuccess = (pricingAdminControllerCreateGroupResponse200) & {
+  headers: Headers;
+};
+;
+
+export type pricingAdminControllerCreateGroupResponse = (pricingAdminControllerCreateGroupResponseSuccess)
+
+export const getPricingAdminControllerCreateGroupUrl = (orgId: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/billing/groups`
+}
+
+export const pricingAdminControllerCreateGroup = async (orgId: string,
+    pricingAdminControllerCreateGroupBody: PricingAdminControllerCreateGroupBody, options?: Parameters<typeof orvalFetch>[1]): Promise<pricingAdminControllerCreateGroupResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return orvalFetch<pricingAdminControllerCreateGroupResponse>(getPricingAdminControllerCreateGroupUrl(orgId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(pricingAdminControllerCreateGroupBody)
+  }
+);}
+
+
+
+
+
+export const getPricingAdminControllerCreateGroupQueryKey = (orgId: string,
+    pricingAdminControllerCreateGroupBody?: PricingAdminControllerCreateGroupBody,) => {
+    return [
+    'POST', `/api/v1/orgs/${orgId}/billing/groups`, pricingAdminControllerCreateGroupBody
+    ] as const;
+    }
+
+
+export const getPricingAdminControllerCreateGroupQueryOptions = <TData = Awaited<ReturnType<typeof pricingAdminControllerCreateGroup>>, TError = unknown>(orgId: string,
+    pricingAdminControllerCreateGroupBody: PricingAdminControllerCreateGroupBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof pricingAdminControllerCreateGroup>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getPricingAdminControllerCreateGroupQueryKey(orgId,pricingAdminControllerCreateGroupBody);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof pricingAdminControllerCreateGroup>>> = ({ signal }) => pricingAdminControllerCreateGroup(orgId,pricingAdminControllerCreateGroupBody, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: orgId !== null && orgId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof pricingAdminControllerCreateGroup>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type PricingAdminControllerCreateGroupQueryResult = NonNullable<Awaited<ReturnType<typeof pricingAdminControllerCreateGroup>>>
+export type PricingAdminControllerCreateGroupQueryError = unknown
+
+
+export function usePricingAdminControllerCreateGroup<TData = Awaited<ReturnType<typeof pricingAdminControllerCreateGroup>>, TError = unknown>(
+ orgId: string,
+    pricingAdminControllerCreateGroupBody: PricingAdminControllerCreateGroupBody, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof pricingAdminControllerCreateGroup>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof pricingAdminControllerCreateGroup>>,
+          TError,
+          Awaited<ReturnType<typeof pricingAdminControllerCreateGroup>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function usePricingAdminControllerCreateGroup<TData = Awaited<ReturnType<typeof pricingAdminControllerCreateGroup>>, TError = unknown>(
+ orgId: string,
+    pricingAdminControllerCreateGroupBody: PricingAdminControllerCreateGroupBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof pricingAdminControllerCreateGroup>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof pricingAdminControllerCreateGroup>>,
+          TError,
+          Awaited<ReturnType<typeof pricingAdminControllerCreateGroup>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function usePricingAdminControllerCreateGroup<TData = Awaited<ReturnType<typeof pricingAdminControllerCreateGroup>>, TError = unknown>(
+ orgId: string,
+    pricingAdminControllerCreateGroupBody: PricingAdminControllerCreateGroupBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof pricingAdminControllerCreateGroup>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function usePricingAdminControllerCreateGroup<TData = Awaited<ReturnType<typeof pricingAdminControllerCreateGroup>>, TError = unknown>(
+ orgId: string,
+    pricingAdminControllerCreateGroupBody: PricingAdminControllerCreateGroupBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof pricingAdminControllerCreateGroup>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getPricingAdminControllerCreateGroupQueryOptions(orgId,pricingAdminControllerCreateGroupBody,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export type pricingAdminControllerUpdateGroupResponse200 = {
+  data: PricingAdminControllerUpdateGroup200
+  status: 200
+}
+
+export type pricingAdminControllerUpdateGroupResponseSuccess = (pricingAdminControllerUpdateGroupResponse200) & {
+  headers: Headers;
+};
+;
+
+export type pricingAdminControllerUpdateGroupResponse = (pricingAdminControllerUpdateGroupResponseSuccess)
+
+export const getPricingAdminControllerUpdateGroupUrl = (orgId: string,
+    id: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/billing/groups/${id}`
+}
+
+export const pricingAdminControllerUpdateGroup = async (orgId: string,
+    id: string,
+    pricingAdminControllerUpdateGroupBody: PricingAdminControllerUpdateGroupBody, options?: Parameters<typeof orvalFetch>[1]): Promise<pricingAdminControllerUpdateGroupResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return orvalFetch<pricingAdminControllerUpdateGroupResponse>(getPricingAdminControllerUpdateGroupUrl(orgId,id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(pricingAdminControllerUpdateGroupBody)
+  }
+);}
+
+
+
+
+
+export const getPricingAdminControllerUpdateGroupQueryKey = (orgId: string,
+    id: string,
+    pricingAdminControllerUpdateGroupBody?: PricingAdminControllerUpdateGroupBody,) => {
+    return [
+    'PATCH', `/api/v1/orgs/${orgId}/billing/groups/${id}`, pricingAdminControllerUpdateGroupBody
+    ] as const;
+    }
+
+
+export const getPricingAdminControllerUpdateGroupQueryOptions = <TData = Awaited<ReturnType<typeof pricingAdminControllerUpdateGroup>>, TError = unknown>(orgId: string,
+    id: string,
+    pricingAdminControllerUpdateGroupBody: PricingAdminControllerUpdateGroupBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof pricingAdminControllerUpdateGroup>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getPricingAdminControllerUpdateGroupQueryKey(orgId,id,pricingAdminControllerUpdateGroupBody);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof pricingAdminControllerUpdateGroup>>> = ({ signal }) => pricingAdminControllerUpdateGroup(orgId,id,pricingAdminControllerUpdateGroupBody, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: orgId !== null && orgId !== undefined && id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof pricingAdminControllerUpdateGroup>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type PricingAdminControllerUpdateGroupQueryResult = NonNullable<Awaited<ReturnType<typeof pricingAdminControllerUpdateGroup>>>
+export type PricingAdminControllerUpdateGroupQueryError = unknown
+
+
+export function usePricingAdminControllerUpdateGroup<TData = Awaited<ReturnType<typeof pricingAdminControllerUpdateGroup>>, TError = unknown>(
+ orgId: string,
+    id: string,
+    pricingAdminControllerUpdateGroupBody: PricingAdminControllerUpdateGroupBody, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof pricingAdminControllerUpdateGroup>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof pricingAdminControllerUpdateGroup>>,
+          TError,
+          Awaited<ReturnType<typeof pricingAdminControllerUpdateGroup>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function usePricingAdminControllerUpdateGroup<TData = Awaited<ReturnType<typeof pricingAdminControllerUpdateGroup>>, TError = unknown>(
+ orgId: string,
+    id: string,
+    pricingAdminControllerUpdateGroupBody: PricingAdminControllerUpdateGroupBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof pricingAdminControllerUpdateGroup>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof pricingAdminControllerUpdateGroup>>,
+          TError,
+          Awaited<ReturnType<typeof pricingAdminControllerUpdateGroup>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function usePricingAdminControllerUpdateGroup<TData = Awaited<ReturnType<typeof pricingAdminControllerUpdateGroup>>, TError = unknown>(
+ orgId: string,
+    id: string,
+    pricingAdminControllerUpdateGroupBody: PricingAdminControllerUpdateGroupBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof pricingAdminControllerUpdateGroup>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function usePricingAdminControllerUpdateGroup<TData = Awaited<ReturnType<typeof pricingAdminControllerUpdateGroup>>, TError = unknown>(
+ orgId: string,
+    id: string,
+    pricingAdminControllerUpdateGroupBody: PricingAdminControllerUpdateGroupBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof pricingAdminControllerUpdateGroup>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getPricingAdminControllerUpdateGroupQueryOptions(orgId,id,pricingAdminControllerUpdateGroupBody,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export type pricingAdminControllerDeleteGroupResponse204 = {
+  data: void
+  status: 204
+}
+
+export type pricingAdminControllerDeleteGroupResponseSuccess = (pricingAdminControllerDeleteGroupResponse204) & {
+  headers: Headers;
+};
+;
+
+export type pricingAdminControllerDeleteGroupResponse = (pricingAdminControllerDeleteGroupResponseSuccess)
+
+export const getPricingAdminControllerDeleteGroupUrl = (orgId: string,
+    id: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/billing/groups/${id}`
+}
+
+export const pricingAdminControllerDeleteGroup = async (orgId: string,
+    id: string, options?: Parameters<typeof orvalFetch>[1]): Promise<pricingAdminControllerDeleteGroupResponse> => {
+
+  return orvalFetch<pricingAdminControllerDeleteGroupResponse>(getPricingAdminControllerDeleteGroupUrl(orgId,id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getPricingAdminControllerDeleteGroupQueryKey = (orgId: string,
+    id: string,) => {
+    return [
+    'DELETE', `/api/v1/orgs/${orgId}/billing/groups/${id}`
+    ] as const;
+    }
+
+
+export const getPricingAdminControllerDeleteGroupQueryOptions = <TData = Awaited<ReturnType<typeof pricingAdminControllerDeleteGroup>>, TError = unknown>(orgId: string,
+    id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof pricingAdminControllerDeleteGroup>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getPricingAdminControllerDeleteGroupQueryKey(orgId,id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof pricingAdminControllerDeleteGroup>>> = ({ signal }) => pricingAdminControllerDeleteGroup(orgId,id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: orgId !== null && orgId !== undefined && id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof pricingAdminControllerDeleteGroup>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type PricingAdminControllerDeleteGroupQueryResult = NonNullable<Awaited<ReturnType<typeof pricingAdminControllerDeleteGroup>>>
+export type PricingAdminControllerDeleteGroupQueryError = unknown
+
+
+export function usePricingAdminControllerDeleteGroup<TData = Awaited<ReturnType<typeof pricingAdminControllerDeleteGroup>>, TError = unknown>(
+ orgId: string,
+    id: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof pricingAdminControllerDeleteGroup>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof pricingAdminControllerDeleteGroup>>,
+          TError,
+          Awaited<ReturnType<typeof pricingAdminControllerDeleteGroup>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function usePricingAdminControllerDeleteGroup<TData = Awaited<ReturnType<typeof pricingAdminControllerDeleteGroup>>, TError = unknown>(
+ orgId: string,
+    id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof pricingAdminControllerDeleteGroup>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof pricingAdminControllerDeleteGroup>>,
+          TError,
+          Awaited<ReturnType<typeof pricingAdminControllerDeleteGroup>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function usePricingAdminControllerDeleteGroup<TData = Awaited<ReturnType<typeof pricingAdminControllerDeleteGroup>>, TError = unknown>(
+ orgId: string,
+    id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof pricingAdminControllerDeleteGroup>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function usePricingAdminControllerDeleteGroup<TData = Awaited<ReturnType<typeof pricingAdminControllerDeleteGroup>>, TError = unknown>(
+ orgId: string,
+    id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof pricingAdminControllerDeleteGroup>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getPricingAdminControllerDeleteGroupQueryOptions(orgId,id,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export type pricingAdminControllerAssignResponse200 = {
+  data: PricingAdminControllerAssign200
+  status: 200
+}
+
+export type pricingAdminControllerAssignResponseSuccess = (pricingAdminControllerAssignResponse200) & {
+  headers: Headers;
+};
+;
+
+export type pricingAdminControllerAssignResponse = (pricingAdminControllerAssignResponseSuccess)
+
+export const getPricingAdminControllerAssignUrl = (orgId: string,
+    customerOrgId: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/billing/wallets/${customerOrgId}/group`
+}
+
+export const pricingAdminControllerAssign = async (orgId: string,
+    customerOrgId: string,
+    pricingAdminControllerAssignBody: PricingAdminControllerAssignBody, options?: Parameters<typeof orvalFetch>[1]): Promise<pricingAdminControllerAssignResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return orvalFetch<pricingAdminControllerAssignResponse>(getPricingAdminControllerAssignUrl(orgId,customerOrgId),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(pricingAdminControllerAssignBody)
+  }
+);}
+
+
+
+
+
+export const getPricingAdminControllerAssignQueryKey = (orgId: string,
+    customerOrgId: string,
+    pricingAdminControllerAssignBody?: PricingAdminControllerAssignBody,) => {
+    return [
+    'PUT', `/api/v1/orgs/${orgId}/billing/wallets/${customerOrgId}/group`, pricingAdminControllerAssignBody
+    ] as const;
+    }
+
+
+export const getPricingAdminControllerAssignQueryOptions = <TData = Awaited<ReturnType<typeof pricingAdminControllerAssign>>, TError = unknown>(orgId: string,
+    customerOrgId: string,
+    pricingAdminControllerAssignBody: PricingAdminControllerAssignBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof pricingAdminControllerAssign>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getPricingAdminControllerAssignQueryKey(orgId,customerOrgId,pricingAdminControllerAssignBody);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof pricingAdminControllerAssign>>> = ({ signal }) => pricingAdminControllerAssign(orgId,customerOrgId,pricingAdminControllerAssignBody, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: orgId !== null && orgId !== undefined && customerOrgId !== null && customerOrgId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof pricingAdminControllerAssign>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type PricingAdminControllerAssignQueryResult = NonNullable<Awaited<ReturnType<typeof pricingAdminControllerAssign>>>
+export type PricingAdminControllerAssignQueryError = unknown
+
+
+export function usePricingAdminControllerAssign<TData = Awaited<ReturnType<typeof pricingAdminControllerAssign>>, TError = unknown>(
+ orgId: string,
+    customerOrgId: string,
+    pricingAdminControllerAssignBody: PricingAdminControllerAssignBody, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof pricingAdminControllerAssign>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof pricingAdminControllerAssign>>,
+          TError,
+          Awaited<ReturnType<typeof pricingAdminControllerAssign>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function usePricingAdminControllerAssign<TData = Awaited<ReturnType<typeof pricingAdminControllerAssign>>, TError = unknown>(
+ orgId: string,
+    customerOrgId: string,
+    pricingAdminControllerAssignBody: PricingAdminControllerAssignBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof pricingAdminControllerAssign>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof pricingAdminControllerAssign>>,
+          TError,
+          Awaited<ReturnType<typeof pricingAdminControllerAssign>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function usePricingAdminControllerAssign<TData = Awaited<ReturnType<typeof pricingAdminControllerAssign>>, TError = unknown>(
+ orgId: string,
+    customerOrgId: string,
+    pricingAdminControllerAssignBody: PricingAdminControllerAssignBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof pricingAdminControllerAssign>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function usePricingAdminControllerAssign<TData = Awaited<ReturnType<typeof pricingAdminControllerAssign>>, TError = unknown>(
+ orgId: string,
+    customerOrgId: string,
+    pricingAdminControllerAssignBody: PricingAdminControllerAssignBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof pricingAdminControllerAssign>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getPricingAdminControllerAssignQueryOptions(orgId,customerOrgId,pricingAdminControllerAssignBody,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export type pricingAdminControllerPlansResponse200 = {
+  data: PricingAdminControllerPlans200Item[]
+  status: 200
+}
+
+export type pricingAdminControllerPlansResponseSuccess = (pricingAdminControllerPlansResponse200) & {
+  headers: Headers;
+};
+;
+
+export type pricingAdminControllerPlansResponse = (pricingAdminControllerPlansResponseSuccess)
+
+export const getPricingAdminControllerPlansUrl = (orgId: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/billing/plans`
+}
+
+export const pricingAdminControllerPlans = async (orgId: string, options?: Parameters<typeof orvalFetch>[1]): Promise<pricingAdminControllerPlansResponse> => {
+
+  return orvalFetch<pricingAdminControllerPlansResponse>(getPricingAdminControllerPlansUrl(orgId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getPricingAdminControllerPlansMutationKey = () => ['pricingAdminControllerPlans'] as const;
+
+export const getPricingAdminControllerPlansMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof pricingAdminControllerPlans>>, TError,PricingAdminControllerPlansMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof pricingAdminControllerPlans>>, TError,PricingAdminControllerPlansMutationVariables, TContext> => {
+
+const mutationKey = getPricingAdminControllerPlansMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof pricingAdminControllerPlans>>, PricingAdminControllerPlansMutationVariables> = (props) => {
+          const {orgId} = props ?? {};
+
+          return  pricingAdminControllerPlans(orgId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PricingAdminControllerPlansMutationResult = NonNullable<Awaited<ReturnType<typeof pricingAdminControllerPlans>>>
+
+    export type PricingAdminControllerPlansMutationError = unknown
+    export type PricingAdminControllerPlansMutationVariables = {orgId: string}
+
+    export const usePricingAdminControllerPlans = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof pricingAdminControllerPlans>>, TError,PricingAdminControllerPlansMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof pricingAdminControllerPlans>>,
+        TError,
+        PricingAdminControllerPlansMutationVariables,
+        TContext
+      > => {
+      return useMutation(getPricingAdminControllerPlansMutationOptions(options), queryClient);
+    }
+
+export type pricingAdminControllerCreatePlanResponse200 = {
+  data: PricingAdminControllerCreatePlan200
+  status: 200
+}
+
+export type pricingAdminControllerCreatePlanResponseSuccess = (pricingAdminControllerCreatePlanResponse200) & {
+  headers: Headers;
+};
+;
+
+export type pricingAdminControllerCreatePlanResponse = (pricingAdminControllerCreatePlanResponseSuccess)
+
+export const getPricingAdminControllerCreatePlanUrl = (orgId: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/billing/plans`
+}
+
+export const pricingAdminControllerCreatePlan = async (orgId: string,
+    pricingAdminControllerCreatePlanBody: PricingAdminControllerCreatePlanBody, options?: Parameters<typeof orvalFetch>[1]): Promise<pricingAdminControllerCreatePlanResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return orvalFetch<pricingAdminControllerCreatePlanResponse>(getPricingAdminControllerCreatePlanUrl(orgId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(pricingAdminControllerCreatePlanBody)
+  }
+);}
+
+
+
+
+
+export const getPricingAdminControllerCreatePlanQueryKey = (orgId: string,
+    pricingAdminControllerCreatePlanBody?: PricingAdminControllerCreatePlanBody,) => {
+    return [
+    'POST', `/api/v1/orgs/${orgId}/billing/plans`, pricingAdminControllerCreatePlanBody
+    ] as const;
+    }
+
+
+export const getPricingAdminControllerCreatePlanQueryOptions = <TData = Awaited<ReturnType<typeof pricingAdminControllerCreatePlan>>, TError = unknown>(orgId: string,
+    pricingAdminControllerCreatePlanBody: PricingAdminControllerCreatePlanBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof pricingAdminControllerCreatePlan>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getPricingAdminControllerCreatePlanQueryKey(orgId,pricingAdminControllerCreatePlanBody);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof pricingAdminControllerCreatePlan>>> = ({ signal }) => pricingAdminControllerCreatePlan(orgId,pricingAdminControllerCreatePlanBody, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: orgId !== null && orgId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof pricingAdminControllerCreatePlan>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type PricingAdminControllerCreatePlanQueryResult = NonNullable<Awaited<ReturnType<typeof pricingAdminControllerCreatePlan>>>
+export type PricingAdminControllerCreatePlanQueryError = unknown
+
+
+export function usePricingAdminControllerCreatePlan<TData = Awaited<ReturnType<typeof pricingAdminControllerCreatePlan>>, TError = unknown>(
+ orgId: string,
+    pricingAdminControllerCreatePlanBody: PricingAdminControllerCreatePlanBody, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof pricingAdminControllerCreatePlan>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof pricingAdminControllerCreatePlan>>,
+          TError,
+          Awaited<ReturnType<typeof pricingAdminControllerCreatePlan>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function usePricingAdminControllerCreatePlan<TData = Awaited<ReturnType<typeof pricingAdminControllerCreatePlan>>, TError = unknown>(
+ orgId: string,
+    pricingAdminControllerCreatePlanBody: PricingAdminControllerCreatePlanBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof pricingAdminControllerCreatePlan>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof pricingAdminControllerCreatePlan>>,
+          TError,
+          Awaited<ReturnType<typeof pricingAdminControllerCreatePlan>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function usePricingAdminControllerCreatePlan<TData = Awaited<ReturnType<typeof pricingAdminControllerCreatePlan>>, TError = unknown>(
+ orgId: string,
+    pricingAdminControllerCreatePlanBody: PricingAdminControllerCreatePlanBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof pricingAdminControllerCreatePlan>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function usePricingAdminControllerCreatePlan<TData = Awaited<ReturnType<typeof pricingAdminControllerCreatePlan>>, TError = unknown>(
+ orgId: string,
+    pricingAdminControllerCreatePlanBody: PricingAdminControllerCreatePlanBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof pricingAdminControllerCreatePlan>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getPricingAdminControllerCreatePlanQueryOptions(orgId,pricingAdminControllerCreatePlanBody,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export type pricingAdminControllerUpdatePlanResponse200 = {
+  data: PricingAdminControllerUpdatePlan200
+  status: 200
+}
+
+export type pricingAdminControllerUpdatePlanResponseSuccess = (pricingAdminControllerUpdatePlanResponse200) & {
+  headers: Headers;
+};
+;
+
+export type pricingAdminControllerUpdatePlanResponse = (pricingAdminControllerUpdatePlanResponseSuccess)
+
+export const getPricingAdminControllerUpdatePlanUrl = (orgId: string,
+    id: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/billing/plans/${id}`
+}
+
+export const pricingAdminControllerUpdatePlan = async (orgId: string,
+    id: string,
+    pricingAdminControllerUpdatePlanBody: PricingAdminControllerUpdatePlanBody, options?: Parameters<typeof orvalFetch>[1]): Promise<pricingAdminControllerUpdatePlanResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return orvalFetch<pricingAdminControllerUpdatePlanResponse>(getPricingAdminControllerUpdatePlanUrl(orgId,id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(pricingAdminControllerUpdatePlanBody)
+  }
+);}
+
+
+
+
+
+export const getPricingAdminControllerUpdatePlanQueryKey = (orgId: string,
+    id: string,
+    pricingAdminControllerUpdatePlanBody?: PricingAdminControllerUpdatePlanBody,) => {
+    return [
+    'PATCH', `/api/v1/orgs/${orgId}/billing/plans/${id}`, pricingAdminControllerUpdatePlanBody
+    ] as const;
+    }
+
+
+export const getPricingAdminControllerUpdatePlanQueryOptions = <TData = Awaited<ReturnType<typeof pricingAdminControllerUpdatePlan>>, TError = unknown>(orgId: string,
+    id: string,
+    pricingAdminControllerUpdatePlanBody: PricingAdminControllerUpdatePlanBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof pricingAdminControllerUpdatePlan>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getPricingAdminControllerUpdatePlanQueryKey(orgId,id,pricingAdminControllerUpdatePlanBody);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof pricingAdminControllerUpdatePlan>>> = ({ signal }) => pricingAdminControllerUpdatePlan(orgId,id,pricingAdminControllerUpdatePlanBody, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: orgId !== null && orgId !== undefined && id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof pricingAdminControllerUpdatePlan>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type PricingAdminControllerUpdatePlanQueryResult = NonNullable<Awaited<ReturnType<typeof pricingAdminControllerUpdatePlan>>>
+export type PricingAdminControllerUpdatePlanQueryError = unknown
+
+
+export function usePricingAdminControllerUpdatePlan<TData = Awaited<ReturnType<typeof pricingAdminControllerUpdatePlan>>, TError = unknown>(
+ orgId: string,
+    id: string,
+    pricingAdminControllerUpdatePlanBody: PricingAdminControllerUpdatePlanBody, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof pricingAdminControllerUpdatePlan>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof pricingAdminControllerUpdatePlan>>,
+          TError,
+          Awaited<ReturnType<typeof pricingAdminControllerUpdatePlan>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function usePricingAdminControllerUpdatePlan<TData = Awaited<ReturnType<typeof pricingAdminControllerUpdatePlan>>, TError = unknown>(
+ orgId: string,
+    id: string,
+    pricingAdminControllerUpdatePlanBody: PricingAdminControllerUpdatePlanBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof pricingAdminControllerUpdatePlan>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof pricingAdminControllerUpdatePlan>>,
+          TError,
+          Awaited<ReturnType<typeof pricingAdminControllerUpdatePlan>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function usePricingAdminControllerUpdatePlan<TData = Awaited<ReturnType<typeof pricingAdminControllerUpdatePlan>>, TError = unknown>(
+ orgId: string,
+    id: string,
+    pricingAdminControllerUpdatePlanBody: PricingAdminControllerUpdatePlanBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof pricingAdminControllerUpdatePlan>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function usePricingAdminControllerUpdatePlan<TData = Awaited<ReturnType<typeof pricingAdminControllerUpdatePlan>>, TError = unknown>(
+ orgId: string,
+    id: string,
+    pricingAdminControllerUpdatePlanBody: PricingAdminControllerUpdatePlanBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof pricingAdminControllerUpdatePlan>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getPricingAdminControllerUpdatePlanQueryOptions(orgId,id,pricingAdminControllerUpdatePlanBody,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export type subscriptionControllerPlansResponse200 = {
+  data: SubscriptionControllerPlans200Item[]
+  status: 200
+}
+
+export type subscriptionControllerPlansResponseSuccess = (subscriptionControllerPlansResponse200) & {
+  headers: Headers;
+};
+;
+
+export type subscriptionControllerPlansResponse = (subscriptionControllerPlansResponseSuccess)
+
+export const getSubscriptionControllerPlansUrl = (orgId: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/wallet/plans`
+}
+
+export const subscriptionControllerPlans = async (orgId: string, options?: Parameters<typeof orvalFetch>[1]): Promise<subscriptionControllerPlansResponse> => {
+
+  return orvalFetch<subscriptionControllerPlansResponse>(getSubscriptionControllerPlansUrl(orgId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getSubscriptionControllerPlansMutationKey = () => ['subscriptionControllerPlans'] as const;
+
+export const getSubscriptionControllerPlansMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof subscriptionControllerPlans>>, TError,SubscriptionControllerPlansMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof subscriptionControllerPlans>>, TError,SubscriptionControllerPlansMutationVariables, TContext> => {
+
+const mutationKey = getSubscriptionControllerPlansMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof subscriptionControllerPlans>>, SubscriptionControllerPlansMutationVariables> = (props) => {
+          const {orgId} = props ?? {};
+
+          return  subscriptionControllerPlans(orgId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SubscriptionControllerPlansMutationResult = NonNullable<Awaited<ReturnType<typeof subscriptionControllerPlans>>>
+
+    export type SubscriptionControllerPlansMutationError = unknown
+    export type SubscriptionControllerPlansMutationVariables = {orgId: string}
+
+    export const useSubscriptionControllerPlans = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof subscriptionControllerPlans>>, TError,SubscriptionControllerPlansMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof subscriptionControllerPlans>>,
+        TError,
+        SubscriptionControllerPlansMutationVariables,
+        TContext
+      > => {
+      return useMutation(getSubscriptionControllerPlansMutationOptions(options), queryClient);
+    }
+
+export type subscriptionControllerSubscriptionResponse200 = {
+  data: SubscriptionControllerSubscription200
+  status: 200
+}
+
+export type subscriptionControllerSubscriptionResponseSuccess = (subscriptionControllerSubscriptionResponse200) & {
+  headers: Headers;
+};
+;
+
+export type subscriptionControllerSubscriptionResponse = (subscriptionControllerSubscriptionResponseSuccess)
+
+export const getSubscriptionControllerSubscriptionUrl = (orgId: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/wallet/subscription`
+}
+
+export const subscriptionControllerSubscription = async (orgId: string, options?: Parameters<typeof orvalFetch>[1]): Promise<subscriptionControllerSubscriptionResponse> => {
+
+  return orvalFetch<subscriptionControllerSubscriptionResponse>(getSubscriptionControllerSubscriptionUrl(orgId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getSubscriptionControllerSubscriptionMutationKey = () => ['subscriptionControllerSubscription'] as const;
+
+export const getSubscriptionControllerSubscriptionMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof subscriptionControllerSubscription>>, TError,SubscriptionControllerSubscriptionMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof subscriptionControllerSubscription>>, TError,SubscriptionControllerSubscriptionMutationVariables, TContext> => {
+
+const mutationKey = getSubscriptionControllerSubscriptionMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof subscriptionControllerSubscription>>, SubscriptionControllerSubscriptionMutationVariables> = (props) => {
+          const {orgId} = props ?? {};
+
+          return  subscriptionControllerSubscription(orgId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SubscriptionControllerSubscriptionMutationResult = NonNullable<Awaited<ReturnType<typeof subscriptionControllerSubscription>>>
+
+    export type SubscriptionControllerSubscriptionMutationError = unknown
+    export type SubscriptionControllerSubscriptionMutationVariables = {orgId: string}
+
+    export const useSubscriptionControllerSubscription = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof subscriptionControllerSubscription>>, TError,SubscriptionControllerSubscriptionMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof subscriptionControllerSubscription>>,
+        TError,
+        SubscriptionControllerSubscriptionMutationVariables,
+        TContext
+      > => {
+      return useMutation(getSubscriptionControllerSubscriptionMutationOptions(options), queryClient);
+    }
+
+export type subscriptionControllerSubscribeResponse200 = {
+  data: SubscriptionControllerSubscribe200
+  status: 200
+}
+
+export type subscriptionControllerSubscribeResponseSuccess = (subscriptionControllerSubscribeResponse200) & {
+  headers: Headers;
+};
+;
+
+export type subscriptionControllerSubscribeResponse = (subscriptionControllerSubscribeResponseSuccess)
+
+export const getSubscriptionControllerSubscribeUrl = (orgId: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/wallet/subscription`
+}
+
+export const subscriptionControllerSubscribe = async (orgId: string,
+    subscriptionControllerSubscribeBody: SubscriptionControllerSubscribeBody, options?: Parameters<typeof orvalFetch>[1]): Promise<subscriptionControllerSubscribeResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return orvalFetch<subscriptionControllerSubscribeResponse>(getSubscriptionControllerSubscribeUrl(orgId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(subscriptionControllerSubscribeBody)
+  }
+);}
+
+
+
+
+
+export const getSubscriptionControllerSubscribeQueryKey = (orgId: string,
+    subscriptionControllerSubscribeBody?: SubscriptionControllerSubscribeBody,) => {
+    return [
+    'POST', `/api/v1/orgs/${orgId}/wallet/subscription`, subscriptionControllerSubscribeBody
+    ] as const;
+    }
+
+
+export const getSubscriptionControllerSubscribeQueryOptions = <TData = Awaited<ReturnType<typeof subscriptionControllerSubscribe>>, TError = unknown>(orgId: string,
+    subscriptionControllerSubscribeBody: SubscriptionControllerSubscribeBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof subscriptionControllerSubscribe>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getSubscriptionControllerSubscribeQueryKey(orgId,subscriptionControllerSubscribeBody);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof subscriptionControllerSubscribe>>> = ({ signal }) => subscriptionControllerSubscribe(orgId,subscriptionControllerSubscribeBody, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: orgId !== null && orgId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof subscriptionControllerSubscribe>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type SubscriptionControllerSubscribeQueryResult = NonNullable<Awaited<ReturnType<typeof subscriptionControllerSubscribe>>>
+export type SubscriptionControllerSubscribeQueryError = unknown
+
+
+export function useSubscriptionControllerSubscribe<TData = Awaited<ReturnType<typeof subscriptionControllerSubscribe>>, TError = unknown>(
+ orgId: string,
+    subscriptionControllerSubscribeBody: SubscriptionControllerSubscribeBody, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof subscriptionControllerSubscribe>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof subscriptionControllerSubscribe>>,
+          TError,
+          Awaited<ReturnType<typeof subscriptionControllerSubscribe>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useSubscriptionControllerSubscribe<TData = Awaited<ReturnType<typeof subscriptionControllerSubscribe>>, TError = unknown>(
+ orgId: string,
+    subscriptionControllerSubscribeBody: SubscriptionControllerSubscribeBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof subscriptionControllerSubscribe>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof subscriptionControllerSubscribe>>,
+          TError,
+          Awaited<ReturnType<typeof subscriptionControllerSubscribe>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useSubscriptionControllerSubscribe<TData = Awaited<ReturnType<typeof subscriptionControllerSubscribe>>, TError = unknown>(
+ orgId: string,
+    subscriptionControllerSubscribeBody: SubscriptionControllerSubscribeBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof subscriptionControllerSubscribe>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useSubscriptionControllerSubscribe<TData = Awaited<ReturnType<typeof subscriptionControllerSubscribe>>, TError = unknown>(
+ orgId: string,
+    subscriptionControllerSubscribeBody: SubscriptionControllerSubscribeBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof subscriptionControllerSubscribe>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getSubscriptionControllerSubscribeQueryOptions(orgId,subscriptionControllerSubscribeBody,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export type subscriptionControllerCancelResponse200 = {
+  data: SubscriptionControllerCancel200
+  status: 200
+}
+
+export type subscriptionControllerCancelResponseSuccess = (subscriptionControllerCancelResponse200) & {
+  headers: Headers;
+};
+;
+
+export type subscriptionControllerCancelResponse = (subscriptionControllerCancelResponseSuccess)
+
+export const getSubscriptionControllerCancelUrl = (orgId: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/wallet/subscription`
+}
+
+export const subscriptionControllerCancel = async (orgId: string, options?: Parameters<typeof orvalFetch>[1]): Promise<subscriptionControllerCancelResponse> => {
+
+  return orvalFetch<subscriptionControllerCancelResponse>(getSubscriptionControllerCancelUrl(orgId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getSubscriptionControllerCancelQueryKey = (orgId: string,) => {
+    return [
+    'DELETE', `/api/v1/orgs/${orgId}/wallet/subscription`
+    ] as const;
+    }
+
+
+export const getSubscriptionControllerCancelQueryOptions = <TData = Awaited<ReturnType<typeof subscriptionControllerCancel>>, TError = unknown>(orgId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof subscriptionControllerCancel>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getSubscriptionControllerCancelQueryKey(orgId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof subscriptionControllerCancel>>> = ({ signal }) => subscriptionControllerCancel(orgId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: orgId !== null && orgId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof subscriptionControllerCancel>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type SubscriptionControllerCancelQueryResult = NonNullable<Awaited<ReturnType<typeof subscriptionControllerCancel>>>
+export type SubscriptionControllerCancelQueryError = unknown
+
+
+export function useSubscriptionControllerCancel<TData = Awaited<ReturnType<typeof subscriptionControllerCancel>>, TError = unknown>(
+ orgId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof subscriptionControllerCancel>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof subscriptionControllerCancel>>,
+          TError,
+          Awaited<ReturnType<typeof subscriptionControllerCancel>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useSubscriptionControllerCancel<TData = Awaited<ReturnType<typeof subscriptionControllerCancel>>, TError = unknown>(
+ orgId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof subscriptionControllerCancel>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof subscriptionControllerCancel>>,
+          TError,
+          Awaited<ReturnType<typeof subscriptionControllerCancel>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useSubscriptionControllerCancel<TData = Awaited<ReturnType<typeof subscriptionControllerCancel>>, TError = unknown>(
+ orgId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof subscriptionControllerCancel>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useSubscriptionControllerCancel<TData = Awaited<ReturnType<typeof subscriptionControllerCancel>>, TError = unknown>(
+ orgId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof subscriptionControllerCancel>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getSubscriptionControllerCancelQueryOptions(orgId,options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 

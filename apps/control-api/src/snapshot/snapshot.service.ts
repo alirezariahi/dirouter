@@ -59,6 +59,19 @@ const STRATEGY: Record<
 const usd = (d: Prisma.Decimal | null | undefined) =>
   d === null || d === undefined ? undefined : d.toFixed(8).replace(/\.?0+$/, '') || '0';
 
+/** A model's sale settings (card 19.4), omitted when it sells at cost. */
+function saleOf(m: {
+  saleMultiplier: Prisma.Decimal;
+  salePerRequestUsd: Prisma.Decimal | null;
+  saleCacheMultiplier: Prisma.Decimal;
+}) {
+  const multiplier = usd(m.saleMultiplier) ?? '1';
+  const cacheMultiplier = usd(m.saleCacheMultiplier) ?? '0';
+  const perRequestUsd = usd(m.salePerRequestUsd);
+  if (multiplier === '1' && cacheMultiplier === '0' && perRequestUsd === undefined) return {};
+  return { sale: { multiplier, cacheMultiplier, ...(perRequestUsd ? { perRequestUsd } : {}) } };
+}
+
 type Content = Omit<ConfigSnapshotInput, 'version' | 'generatedAt' | 'checksum'>;
 
 /** Keys are sorted so the checksum only changes on a real change. */
@@ -139,6 +152,7 @@ export class SnapshotService implements OnModuleInit, OnModuleDestroy {
       policies,
       guardrails,
       wallets,
+      organizations,
     ] = await Promise.all([
       db.provider.findMany({
         where: { deletedAt: null },
@@ -166,8 +180,19 @@ export class SnapshotService implements OnModuleInit, OnModuleDestroy {
         where: { kind: 'CUSTOMER', organization: { prepaid: true, deletedAt: null } },
         select: { id: true, organizationId: true },
       }),
+      // The platform and the customer groups (card 19.4).
+      db.organization.findMany({
+        where: { deletedAt: null, OR: [{ isPlatform: true }, { customerGroupId: { not: null } }] },
+        select: { id: true, isPlatform: true, customerGroup: { select: { multiplier: true } } },
+      }),
     ]);
     const walletOf = new Map(wallets.map((w) => [w.organizationId, w.id]));
+    const platformId = organizations.find((o) => o.isPlatform)?.id;
+    const multiplierOf = new Map(
+      organizations.flatMap((o) =>
+        o.customerGroup ? [[o.id, usd(o.customerGroup.multiplier) ?? '1'] as const] : [],
+      ),
+    );
     const teamOf = new Map(projects.map((p) => [p.id, p.teamId]));
     const budgetsFor = (scope: string, id: string) =>
       budgets
@@ -239,6 +264,8 @@ export class SnapshotService implements OnModuleInit, OnModuleDestroy {
           ...(m.reasoningPrice ? { reasoningPerMTok: usd(m.reasoningPrice) } : {}),
         },
         capabilities: m.capabilities as Record<string, boolean>,
+        ...(m.isPublic && m.organizationId === platformId ? { public: true } : {}),
+        ...saleOf(m),
       })),
       combos: combos
         .filter((c) => c.targets.some((t) => modelIds.has(t.modelId)))
@@ -256,6 +283,7 @@ export class SnapshotService implements OnModuleInit, OnModuleDestroy {
           ...(c.timeouts ? { timeouts: c.timeouts as Record<string, number> } : {}),
           sticky: c.sticky,
           ...(c.hedging ? { hedging: c.hedging as Record<string, unknown> } : {}),
+          ...(c.isPublic && c.organizationId === platformId ? { public: true } : {}),
         })),
       aliases: aliases
         .filter((a) =>
@@ -284,6 +312,9 @@ export class SnapshotService implements OnModuleInit, OnModuleDestroy {
           ...rateLimit(k),
           budgets: budgetsFor('API_KEY', k.id),
           ...(walletId ? { walletId } : {}),
+          ...(multiplierOf.has(k.organizationId)
+            ? { priceMultiplier: multiplierOf.get(k.organizationId) ?? '1' }
+            : {}),
         };
       }),
       limits: [
@@ -330,6 +361,7 @@ export class SnapshotService implements OnModuleInit, OnModuleDestroy {
         ...(g.projectId ? { projectId: g.projectId } : {}),
       })),
       settings: await this.gatewaySettings(),
+      ...(platformId ? { platformOrganizationId: platformId } : {}),
     };
   }
 

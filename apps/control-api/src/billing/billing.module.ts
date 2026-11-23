@@ -10,6 +10,8 @@ import { PaymentsService } from './payments/payments.service.js';
 import { GiftBatchesController, RedeemController } from './gift-codes.controller.js';
 import { GiftCodesService } from './gift-codes.service.js';
 import { PlatformGuard } from './platform.guard.js';
+import { PricingAdminController, SubscriptionController } from './pricing.controller.js';
+import { PricingService } from './pricing.service.js';
 import { BillingAdminController, WalletController } from './wallets.controller.js';
 import { WalletsService } from './wallets.service.js';
 
@@ -22,8 +24,17 @@ import { WalletsService } from './wallets.service.js';
     BillingPaymentsAdminController,
     GiftBatchesController,
     RedeemController,
+    PricingAdminController,
+    SubscriptionController,
   ],
-  providers: [WalletsService, PaymentsService, GiftCodesService, OrgGuard, PlatformGuard],
+  providers: [
+    WalletsService,
+    PaymentsService,
+    GiftCodesService,
+    PricingService,
+    OrgGuard,
+    PlatformGuard,
+  ],
   exports: [WalletsService, PaymentsService],
 })
 export class BillingModule {}

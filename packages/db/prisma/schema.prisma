@@ -58,7 +58,12 @@ model Organization {
   wallet       Wallet?
   payments     Payment[]
   redemptions  GiftCodeRedemption[]
+  /// Customer group whose price multiplier applies to this organization (card 19.4).
+  customerGroupId String?       @map("customer_group_id")
+  customerGroup   CustomerGroup? @relation(fields: [customerGroupId], references: [id], onDelete: SetNull)
+  subscription    Subscription?
 
+  @@index([customerGroupId])
   @@map("organizations")
 }
 
@@ -322,6 +327,14 @@ model Model {
   capabilities     Json      @default("{}")
   /// Catalog entry key (packages/model-catalog), if it came from the catalog.
   catalogKey       String?   @map("catalog_key")
+  /// Platform model offered to customer organizations (card 19.4).
+  isPublic         Boolean   @default(false) @map("is_public")
+  /// Sale price = cost × saleMultiplier × the customer group's multiplier (card 19.4).
+  saleMultiplier   Decimal   @default(1) @map("sale_multiplier") @db.Decimal(14, 8)
+  /// Fixed sale price per request (images, video); replaces the token-based price when set.
+  salePerRequestUsd Decimal? @map("sale_per_request_usd") @db.Decimal(18, 8)
+  /// Share of the normal sale price charged for an answer served from DiRouter's cache.
+  saleCacheMultiplier Decimal @default(0) @map("sale_cache_multiplier") @db.Decimal(14, 8)
   createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
   deletedAt        DateTime? @map("deleted_at") @db.Timestamptz(3)
@@ -385,6 +398,9 @@ model Combo {
   organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   targets      ComboTarget[]
   aliases      ModelAlias[]
+
+  /// Platform combo offered to customer organizations (card 19.4).
+  isPublic Boolean @default(false) @map("is_public")
 
   @@unique([organizationId, slug])
   @@map("combos")
@@ -484,6 +500,8 @@ model RequestLog {
   cacheWriteTokens Int      @default(0) @map("cache_write_tokens")
   reasoningTokens  Int      @default(0) @map("reasoning_tokens")
   costUsd          Decimal  @map("cost_usd") @db.Decimal(18, 8)
+  /// What the customer was charged (sale price, card 19.4); equals cost_usd without pricing rules.
+  chargeUsd        Decimal  @default(0) @map("charge_usd") @db.Decimal(18, 8)
   usageEstimated   Boolean  @default(false) @map("usage_estimated")
   latencyMs        Int      @map("latency_ms")
   ttftMs           Int?     @map("ttft_ms")
@@ -540,6 +558,7 @@ model UsageHourly {
   outputTokens     BigInt   @default(0) @map("output_tokens")
   cacheReadTokens  BigInt   @default(0) @map("cache_read_tokens")
   costUsd          Decimal  @default(0) @map("cost_usd") @db.Decimal(18, 8)
+  chargeUsd        Decimal  @default(0) @map("charge_usd") @db.Decimal(18, 8)
   latencyMsSum     BigInt   @default(0) @map("latency_ms_sum")
   ttftMsSum        BigInt   @default(0) @map("ttft_ms_sum")
   ttftCount        Int      @default(0) @map("ttft_count")
@@ -566,6 +585,7 @@ model UsageDaily {
   outputTokens     BigInt   @default(0) @map("output_tokens")
   cacheReadTokens  BigInt   @default(0) @map("cache_read_tokens")
   costUsd          Decimal  @default(0) @map("cost_usd") @db.Decimal(18, 8)
+  chargeUsd        Decimal  @default(0) @map("charge_usd") @db.Decimal(18, 8)
   latencyMsSum     BigInt   @default(0) @map("latency_ms_sum")
   ttftMsSum        BigInt   @default(0) @map("ttft_ms_sum")
   ttftCount        Int      @default(0) @map("ttft_count")
@@ -973,4 +993,77 @@ model GiftCodeRedemption {
   @@unique([codeId, organizationId])
   @@index([organizationId])
   @@map("gift_code_redemptions")
+}
+
+/// Customer group (card 19.4): its multiplier scales every sale price for member organizations.
+model CustomerGroup {
+  id          String   @id
+  name        String   @unique
+  multiplier  Decimal  @db.Decimal(14, 8)
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organizations Organization[]
+
+  @@map("customer_groups")
+}
+
+/// Monthly subscription plan (card 19.4): a fixed fee per period buys `includedUsd` of usage at
+/// sale price; usage beyond it is paid from the wallet.
+model Plan {
+  id          String   @id
+  name        String   @unique
+  priceUsd    Decimal  @map("price_usd") @db.Decimal(18, 8)
+  includedUsd Decimal  @map("included_usd") @db.Decimal(18, 8)
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  subscriptions Subscription[]
+
+  @@map("plans")
+}
+
+enum SubscriptionStatus {
+  ACTIVE    @map("active")
+  PAST_DUE  @map("past_due")
+  CANCELLED @map("cancelled")
+}
+
+/// An organization's plan. The fee for each period is posted to the ledger when the period starts;
+/// `usedUsd` counts the allowance consumed in the current period.
+model Subscription {
+  id                 String             @id
+  organizationId     String             @unique @map("organization_id")
+  planId             String             @map("plan_id")
+  status             SubscriptionStatus @default(ACTIVE)
+  periodStart        DateTime           @map("period_start") @db.Timestamptz(3)
+  periodEnd          DateTime           @map("period_end") @db.Timestamptz(3)
+  usedUsd            Decimal            @default(0) @map("used_usd") @db.Decimal(18, 8)
+  cancelAtPeriodEnd  Boolean            @default(false) @map("cancel_at_period_end")
+  createdAt          DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  plan         Plan                @relation(fields: [planId], references: [id], onDelete: Restrict)
+  usage        SubscriptionUsage[]
+
+  @@index([planId])
+  @@index([status, periodEnd])
+  @@map("subscriptions")
+}
+
+/// Plan allowance used by one request (idempotent by request id, like the wallet debit).
+model SubscriptionUsage {
+  requestId      String       @id @map("request_id")
+  subscriptionId String       @map("subscription_id")
+  amountUsd      Decimal      @map("amount_usd") @db.Decimal(18, 8)
+  periodStart    DateTime     @map("period_start") @db.Timestamptz(3)
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Restrict)
+
+  @@index([subscriptionId, periodStart])
+  @@map("subscription_usage")
 }

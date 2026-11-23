@@ -28,7 +28,7 @@ export const SYSTEM_WALLETS = {
 } as const;
 export type SystemWallet = keyof typeof SYSTEM_WALLETS;
 
-export type TransactionKind = 'usage' | 'topup' | 'gift' | 'adjustment' | 'refund';
+export type TransactionKind = 'usage' | 'topup' | 'gift' | 'adjustment' | 'refund' | 'plan';
 
 export type LedgerErrorCode =
   'invalid_amount' | 'unbalanced' | 'wallet_not_found' | 'insufficient_funds';
@@ -109,7 +109,7 @@ export interface PostResult {
   wallets: WalletState[];
 }
 
-type Tx = Parameters<Parameters<PrismaClient['$transaction']>[0]>[0];
+export type Tx = Parameters<Parameters<PrismaClient['$transaction']>[0]>[0];
 
 interface LockedWallet {
   id: string;
@@ -218,28 +218,34 @@ export async function chargeUsage(
   db: PrismaClient,
   charge: UsageCharge,
 ): Promise<UsageChargeResult> {
+  return db.$transaction((tx) => chargeUsageInTransaction(tx, charge));
+}
+
+/** `chargeUsage` inside an open transaction (the worker combines it with plan allowance). */
+export async function chargeUsageInTransaction(
+  tx: Tx,
+  charge: UsageCharge,
+): Promise<UsageChargeResult> {
   const amount = toUnits(charge.amountUsd);
   if (amount <= 0n) throw new LedgerError('invalid_amount', 'usage charge must be positive');
-  return db.$transaction(async (tx) => {
-    const locked = await lockWallets(tx, [charge.walletId]);
-    const wallet = locked.get(charge.walletId);
-    if (wallet?.kind !== 'customer')
-      throw new LedgerError('wallet_not_found', `${charge.walletId} is not a customer wallet`);
-    const balance = toUnits(wallet.balance);
-    const collected = balance < amount ? (balance > 0n ? balance : 0n) : amount;
-    const writtenOff = amount - collected;
-    const legs: LedgerLeg[] = [{ walletId: SYSTEM_WALLETS.revenue, amountUsd: fromUnits(amount) }];
-    if (collected > 0n) legs.push({ walletId: charge.walletId, amountUsd: fromUnits(-collected) });
-    if (writtenOff > 0n)
-      legs.push({ walletId: SYSTEM_WALLETS.writeoff, amountUsd: fromUnits(-writtenOff) });
-    const result = await postInTransaction(tx, {
-      kind: 'usage',
-      idempotencyKey: `usage:${charge.requestId}`,
-      legs,
-      metadata: { requestId: charge.requestId, ...charge.metadata },
-    });
-    return { ...result, collectedUsd: fromUnits(collected), writtenOffUsd: fromUnits(writtenOff) };
+  const locked = await lockWallets(tx, [charge.walletId]);
+  const wallet = locked.get(charge.walletId);
+  if (wallet?.kind !== 'customer')
+    throw new LedgerError('wallet_not_found', `${charge.walletId} is not a customer wallet`);
+  const balance = toUnits(wallet.balance);
+  const collected = balance < amount ? (balance > 0n ? balance : 0n) : amount;
+  const writtenOff = amount - collected;
+  const legs: LedgerLeg[] = [{ walletId: SYSTEM_WALLETS.revenue, amountUsd: fromUnits(amount) }];
+  if (collected > 0n) legs.push({ walletId: charge.walletId, amountUsd: fromUnits(-collected) });
+  if (writtenOff > 0n)
+    legs.push({ walletId: SYSTEM_WALLETS.writeoff, amountUsd: fromUnits(-writtenOff) });
+  const result = await postInTransaction(tx, {
+    kind: 'usage',
+    idempotencyKey: `usage:${charge.requestId}`,
+    legs,
+    metadata: { requestId: charge.requestId, ...charge.metadata },
   });
+  return { ...result, collectedUsd: fromUnits(collected), writtenOffUsd: fromUnits(writtenOff) };
 }
 
 /** Creates any missing system wallet (the migration seeds them; this heals a truncated table). */

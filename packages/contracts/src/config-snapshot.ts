@@ -131,6 +131,21 @@ export const ModelCapabilities = z.object({
 });
 export type ModelCapabilities = z.infer<typeof ModelCapabilities>;
 
+const Multiplier = z.string().regex(/^\d{1,6}(\.\d{1,8})?$/);
+
+/**
+ * Sale price of a model (card 19.4). What a customer pays is
+ * `cost × multiplier × the customer group's multiplier`, or `perRequestUsd × group multiplier`
+ * when a fixed price per request is set (images, video). A response served from DiRouter's own
+ * cache costs nothing upstream and is sold at `cacheMultiplier` times the normal price (0 = free).
+ */
+export const SalePrice = z.object({
+  multiplier: Multiplier.default('1'),
+  perRequestUsd: UsdAmount.optional(),
+  cacheMultiplier: Multiplier.default('0'),
+});
+export type SalePrice = z.infer<typeof SalePrice>;
+
 export const ModelConfig = z.object({
   id: z.string(),
   organizationId: z.string(),
@@ -144,6 +159,9 @@ export const ModelConfig = z.object({
   maxOutputTokens: z.int().positive().optional(),
   pricing: ModelPricing,
   capabilities: ModelCapabilities,
+  /** Platform model sold to customer organizations (marketplace, card 19.4). */
+  public: z.boolean().optional(),
+  sale: SalePrice.optional(),
 });
 export type ModelConfig = z.infer<typeof ModelConfig>;
 
@@ -210,6 +228,8 @@ export const ComboConfig = z.object({
   hedging: HedgingConfig.optional(),
   /** Keep a client/session on the same target when health allows (card 12.4). */
   sticky: z.boolean().default(false),
+  /** Platform combo offered to customer organizations (card 19.4). */
+  public: z.boolean().optional(),
 });
 export type ComboConfig = z.infer<typeof ComboConfig>;
 
@@ -266,6 +286,8 @@ export const VirtualKeyConfig = z.object({
   budgets: z.array(BudgetConfig).default([]),
   /** Prepaid organizations: the wallet the gateway reserves credit from (card 19.1). */
   walletId: z.string().optional(),
+  /** Customer group multiplier applied to sale prices (card 19.4); absent means 1. */
+  priceMultiplier: Multiplier.optional(),
 });
 export type VirtualKeyConfig = z.infer<typeof VirtualKeyConfig>;
 
@@ -411,6 +433,11 @@ export const ConfigSnapshot = z.object({
   /** Guardrail policies evaluated by the gateway (card 15.1). */
   guardrails: z.array(GuardrailPolicy).default([]),
   settings: GatewaySettings,
+  /**
+   * The operator's organization (card 19.4): customer keys that do not find a name in their own
+   * organization fall back to its public models and combos.
+   */
+  platformOrganizationId: z.string().optional(),
 });
 export type ConfigSnapshot = z.infer<typeof ConfigSnapshot>;
 

@@ -12,6 +12,7 @@ import {
   walletKey,
 } from '@dirouter/contracts';
 import {
+  allowanceLeft,
   checkLedger,
   ensureSystemWallets,
   ensureWallet,
@@ -80,8 +81,16 @@ export class WalletsService implements OnApplicationBootstrap {
     return result;
   }
 
+  /** Copies balances (and the plan allowance left, card 19.4) to the gateway's Valkey view. */
   async mirror(wallets: readonly WalletState[]): Promise<void> {
-    for (const w of wallets)
+    for (const w of wallets) {
+      const owner = await this.db.wallet.findUnique({
+        where: { id: w.walletId },
+        select: { organizationId: true },
+      });
+      const quota = owner?.organizationId
+        ? await allowanceLeft(this.db, owner.organizationId, new Date())
+        : 0n;
       await this.#redis
         .walletApply(
           walletKey(w.walletId),
@@ -89,8 +98,10 @@ export class WalletsService implements OnApplicationBootstrap {
           '',
           usdToUnits(w.balanceUsd),
           w.version,
+          Number(quota),
         )
         .catch(() => undefined);
+    }
   }
 
   /** The organization's wallet, created and mirrored to Valkey on first use. */

@@ -54,6 +54,7 @@ export function toRequestLogRow(e: UsageEvent) {
     cacheWriteTokens: e.usage.cacheWriteTokens,
     reasoningTokens: e.usage.reasoningTokens,
     costUsd: e.costUsd,
+    chargeUsd: e.chargeUsd ?? e.costUsd,
     usageEstimated: e.usageEstimated,
     latencyMs: e.latencyMs,
     ttftMs: e.ttftMs ?? null,

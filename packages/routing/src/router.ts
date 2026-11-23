@@ -53,6 +53,8 @@ interface OrgIndex {
 
 export class RouteIndex {
   readonly #orgs = new Map<string, OrgIndex>();
+  /** The operator's organization; its public models and combos serve every customer (card 19.4). */
+  readonly #platform: string | undefined;
   readonly modelsById = new Map<string, ModelConfig>();
   readonly providersById = new Map<string, ProviderConfig>();
 
@@ -76,14 +78,36 @@ export class RouteIndex {
       org(c.organizationId).combosById.set(c.id, c);
     }
     for (const a of snapshot.aliases) org(a.organizationId).aliases.set(a.slug, a);
+    this.#platform = snapshot.platformOrganizationId;
   }
 
-  /** Name → model or combo within the organization's scope. */
+  /** The platform's public offer, for organizations other than the platform itself. */
+  #marketplace(organizationId: string): OrgIndex | undefined {
+    if (!this.#platform || this.#platform === organizationId) return undefined;
+    return this.#orgs.get(this.#platform);
+  }
+
+  /**
+   * Name → model or combo: the organization's own names first, then the platform's public models
+   * and combos (an organization can shadow a marketplace name with its own).
+   */
   lookup(
     organizationId: string,
     name: string,
   ): { model: ModelConfig } | { combo: ComboConfig } | undefined {
-    const o = this.#orgs.get(organizationId);
+    const own = this.#lookupIn(this.#orgs.get(organizationId), name);
+    if (own) return own;
+    const market = this.#marketplace(organizationId);
+    const combo = market?.combos.get(name);
+    if (combo?.public) return { combo };
+    const model = market?.models.get(name);
+    return model?.public ? { model } : undefined;
+  }
+
+  #lookupIn(
+    o: OrgIndex | undefined,
+    name: string,
+  ): { model: ModelConfig } | { combo: ComboConfig } | undefined {
     if (!o) return undefined;
     const alias = o.aliases.get(name);
     if (alias) {
@@ -103,12 +127,20 @@ export class RouteIndex {
   /** Display names for /v1/models. */
   names(organizationId: string): string[] {
     const o = this.#orgs.get(organizationId);
-    if (!o) return [];
-    return [
-      ...o.aliases.keys(),
-      ...o.combos.keys(),
-      ...[...o.models.values()].filter((m) => m.enabled).map((m) => m.slug),
+    const own = o
+      ? [
+          ...o.aliases.keys(),
+          ...o.combos.keys(),
+          ...[...o.models.values()].filter((m) => m.enabled).map((m) => m.slug),
+        ]
+      : [];
+    const market = this.#marketplace(organizationId);
+    if (!market) return own;
+    const offered = [
+      ...[...market.combos.values()].filter((c) => c.public).map((c) => c.slug),
+      ...[...market.models.values()].filter((m) => m.enabled && m.public).map((m) => m.slug),
     ];
+    return [...new Set([...own, ...offered])];
   }
 }
 

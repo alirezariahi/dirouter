@@ -49,7 +49,7 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('wallets over HTTP', () => {
     app = await createApp(env);
     const db = app.get(PrismaService).client;
     await db.$executeRawUnsafe(
-      'TRUNCATE refresh_tokens, invitations, memberships, audit_logs, api_keys, projects, teams, users, wallets, organizations CASCADE',
+      'TRUNCATE refresh_tokens, invitations, memberships, audit_logs, api_keys, projects, teams, users, wallet_transactions, wallets, organizations CASCADE',
     );
     await app.init();
     await app.getHttpAdapter().getInstance().ready();

@@ -74,6 +74,7 @@ import { authenticate, extractApiKey } from './auth.js';
 import type { ConfigStore, LoadedConfig } from './config-store.js';
 import type { GatewayMetrics } from './metrics.js';
 import type { BudgetGuard, ScopedBudget } from './budget-guard.js';
+import { chargeUsd } from './pricing.js';
 import { type WalletGuard, worstCaseChargeUsd } from './wallet-guard.js';
 import type { LimitScope, RateLimiter } from './rate-limiter.js';
 import {
@@ -670,7 +671,12 @@ export async function handleProxy(
     const reservation = await deps.wallets.reserve(
       walletId,
       requestId,
-      worstCaseChargeUsd(route.candidates, estimatedInputTokens, canonical.maxOutputTokens),
+      worstCaseChargeUsd(
+        route.candidates,
+        estimatedInputTokens,
+        canonical.maxOutputTokens,
+        key.priceMultiplier,
+      ),
     );
     if (!reservation.ok) {
       admission?.settle(0);
@@ -745,7 +751,6 @@ export async function handleProxy(
   if (cached) {
     admission?.settle(0);
     admission?.release();
-    settleWallet('0');
     // A cached answer can be continued with previous_response_id like a fresh one.
     storeResponseState(deps, api, key, canonical, cached);
     deps.metrics?.cacheHit(cacheKind ?? 'exact');
@@ -773,7 +778,7 @@ export async function handleProxy(
     } else {
       reply.status(200).send(encodeResponse(api, cached, canonical.model));
     }
-    emitUsageEvent(deps, config, {
+    const cachedCharge = emitUsageEvent(deps, config, {
       api,
       requestId,
       key,
@@ -796,6 +801,8 @@ export async function handleProxy(
           }
         : {}),
     });
+    // Cached answers cost nothing upstream but may be sold (sale.cacheMultiplier, card 19.4).
+    settleWallet(cachedCharge.chargeUsd);
     finishSpan('ok', { 'gateway.cache': cacheKind ?? 'exact' });
     return;
   }
@@ -835,7 +842,7 @@ export async function handleProxy(
     observeEarly(reply.statusCode);
     return;
   }
-  let spent: { tokens: number; costUsd: string; chargeUsd?: string } = { tokens: 0, costUsd: '0' };
+  let spent = { tokens: 0, costUsd: '0', chargeUsd: '0' };
   if (canonical.stream) deps.metrics?.streamStarted();
   try {
     spent = await runRoute(
@@ -877,7 +884,7 @@ export async function handleProxy(
     admission?.settle(spent.tokens);
     admission?.release();
     deps.budgets?.record(budgets, spent.costUsd, spent.tokens);
-    settleWallet(spent.chargeUsd ?? spent.costUsd);
+    settleWallet(spent.chargeUsd);
   }
 }
 
@@ -963,7 +970,7 @@ async function runRoute(
     /** Request span; every upstream attempt becomes a child of it. */
     span?: TraceSpan;
   },
-): Promise<{ tokens: number; costUsd: string }> {
+): Promise<{ tokens: number; costUsd: string; chargeUsd: string }> {
   const { config, key, canonical, route, requestId, started, clientGone } = ctx;
 
   const settings = config.snapshot.settings;
@@ -1339,7 +1346,7 @@ async function runRoute(
     : false;
   const resolvedModel = config.snapshot.models.find((m) => m.id === candidate?.model.id);
   const resolvedProvider = config.snapshot.providers.find((p) => p.id === candidate?.provider.id);
-  const costUsd = emitUsageEvent(deps, config, {
+  const { costUsd, chargeUsd } = emitUsageEvent(deps, config, {
     api,
     requestId,
     key,
@@ -1362,7 +1369,7 @@ async function runRoute(
     savedInputTokens: ctx.savedInputTokens ?? 0,
     hedgeAttempts: result.ok ? ((result as { hedgeAttempts?: number }).hedgeAttempts ?? 0) : 0,
   });
-  return { tokens: usage ? usage.inputTokens + usage.outputTokens : 0, costUsd };
+  return { tokens: usage ? usage.inputTokens + usage.outputTokens : 0, costUsd, chargeUsd };
 }
 
 /** Each provider's bulkhead: if full, move to the next candidate (or 429 if no candidates remain). */
@@ -1609,6 +1616,7 @@ function emitUsageEvent(
       teamId: string | null;
       projectId: string;
       walletId?: string | undefined;
+      priceMultiplier?: string | undefined;
     };
     canonical: CanonicalRequest;
     started: number;
@@ -1627,7 +1635,7 @@ function emitUsageEvent(
     savedInputTokens?: number;
     hedgeAttempts?: number;
   },
-): string {
+): { costUsd: string; chargeUsd: string } {
   try {
     // A failed upstream request consumed no tokens (or we have no record of it); cost is zero.
     const usage: CanonicalUsage = e.usage ?? {
@@ -1641,6 +1649,14 @@ function emitUsageEvent(
       e.candidate && e.ok && e.cacheHit !== true
         ? computeCostUsd(usage, e.candidate.model.pricing)
         : '0';
+    // Sale price (card 19.4): what the customer pays for this request.
+    const charge =
+      e.candidate && e.ok
+        ? chargeUsd(usage, e.candidate.model, {
+            groupMultiplier: e.key.priceMultiplier,
+            cacheHit: e.cacheHit === true,
+          })
+        : '0.00000000';
     const event: UsageEvent = {
       schemaVersion: USAGE_EVENT_SCHEMA_VERSION,
       eventId: ulid(),
@@ -1666,6 +1682,7 @@ function emitUsageEvent(
       ...(e.errorCode ? { errorCode: e.errorCode } : {}),
       usage,
       costUsd,
+      chargeUsd: charge,
       usageEstimated: e.usageEstimated,
       ...(e.cacheHit ? { cacheHit: true } : {}),
       ...(e.cacheKind ? { cacheKind: e.cacheKind } : {}),
@@ -1702,10 +1719,10 @@ function emitUsageEvent(
     });
     deps.onRequestComplete?.(event);
     deps.emitUsage(event);
-    return costUsd;
+    return { costUsd, chargeUsd: charge };
   } catch (error) {
     deps.logger.error({ err: error, requestId: e.requestId }, 'failed to build usage event');
-    return '0';
+    return { costUsd: '0', chargeUsd: '0' };
   }
 }
 
