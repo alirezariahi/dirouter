@@ -33,6 +33,9 @@ export const PERMISSIONS = [
    * for every customer: credit adjustments, prepaid mode, gift codes, pricing and invoices. */
   'billing:read',
   'billing:write',
+  /** MCP servers behind the gateway and their call log (card 20.1). */
+  'mcp:read',
+  'mcp:write',
   /** Manual reset of the breaker and cooldown on the Health page (card 7.8); OWNER and ADMIN only. */
   'health:write',
 ] as const;

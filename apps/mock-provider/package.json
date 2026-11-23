@@ -32,6 +32,10 @@
     "./payments": {
       "types": "./dist/payments.d.ts",
       "default": "./dist/payments.js"
+    },
+    "./mcp": {
+      "types": "./dist/mcp.d.ts",
+      "default": "./dist/mcp.js"
     }
   }
 }

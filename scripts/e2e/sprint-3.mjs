@@ -11,7 +11,11 @@
  * own mock provider, model, project and key.
  */
 import assert from 'node:assert/strict';
+import { execFile } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
+import { mkdtemp } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 import {
   adminClient,
@@ -21,6 +25,7 @@ import {
   login,
   published,
   readEnv,
+  skip,
   sql,
   urls,
   valkey,
@@ -603,6 +608,155 @@ try {
     assert.equal(rerun.created, 0);
     assert.equal(rerun.organizations, run.organizations);
   });
+  await scenario(
+    '20.1 MCP gateway: Claude Code connects, the allowlist hides tools, calls are logged',
+    async () => {
+      // Fake MCP servers in mock-provider: Streamable HTTP and the older HTTP+SSE transport.
+      const servers = [];
+      for (const body of [
+        {
+          name: 'Demo',
+          slug: `s3demo`,
+          url: 'http://mock-provider:8090/mcp/demo',
+          forwardIdentity: true,
+        },
+        {
+          name: 'Legacy',
+          slug: `s3legacy`,
+          transport: 'sse',
+          url: 'http://mock-provider:8090/mcp-legacy/old',
+        },
+      ]) {
+        const existing = (await operator('GET', 'mcp/servers')).body.find(
+          (x) => x.slug === body.slug,
+        );
+        if (existing) await operator('DELETE', `mcp/servers/${existing.id}`, undefined, 204);
+        servers.push((await published(() => operator('POST', 'mcp/servers', body, 201))).body);
+      }
+      cleanups.push(async () => {
+        for (const server of servers)
+          await operator('DELETE', `mcp/servers/${server.id}`, undefined, null);
+      });
+      const key = (
+        await published(() =>
+          operator(
+            'POST',
+            'keys',
+            {
+              name: `s3-mcp-${randomUUID().slice(0, 8)}`,
+              projectId: 'prj_dev',
+              mcpTools: ['s3demo__echo', 's3demo__whoami', 's3legacy__*'],
+            },
+            201,
+          ),
+        )
+      ).body;
+      cleanups.push(() => operator('POST', `keys/${key.id}/revoke`, undefined, null));
+      const mcp = async (method, params, id = 1) =>
+        (
+          await request(
+            `${urls.gateway}/mcp`,
+            {
+              method: 'POST',
+              headers: {
+                authorization: `Bearer ${key.key}`,
+                'content-type': 'application/json',
+                accept: 'application/json, text/event-stream',
+              },
+              body: JSON.stringify({ jsonrpc: '2.0', id, method, params }),
+            },
+            200,
+          )
+        ).body;
+      const tools = await waitFor('the gateway to list the MCP tools', async () => {
+        const list = (await mcp('tools/list')).result.tools.map((t) => t.name).sort();
+        return list.length > 0 ? list : undefined;
+      });
+      assert.deepEqual(tools, [
+        's3demo__echo',
+        's3demo__whoami',
+        's3legacy__add',
+        's3legacy__echo',
+        's3legacy__fail',
+        's3legacy__whoami',
+      ]);
+      const echo = await mcp('tools/call', {
+        name: 's3demo__echo',
+        arguments: { text: 'hello', token: 'secret-value' },
+      });
+      assert.equal(echo.result.content[0].text, 'hello');
+      const legacy = await mcp('tools/call', {
+        name: 's3legacy__add',
+        arguments: { a: 20, b: 22 },
+      });
+      assert.equal(legacy.result.content[0].text, '42');
+      const whoami = await mcp('tools/call', { name: 's3demo__whoami', arguments: {} });
+      assert.deepEqual(JSON.parse(whoami.result.content[0].text), {
+        'x-dirouter-organization-id': 'org_dev',
+        'x-dirouter-project-id': 'prj_dev',
+        'x-dirouter-key-id': key.id,
+      });
+      const denied = await mcp('tools/call', { name: 's3demo__add', arguments: { a: 1, b: 1 } });
+      assert.equal(denied.error.code, -32602);
+
+      // The worker writes every call; arguments are masked.
+      const logged = await waitFor('the tool calls in the log', async () => {
+        const calls = (await operator('GET', `mcp/calls?apiKeyId=${key.id}`)).body;
+        return calls.length >= 4 ? calls : undefined;
+      });
+      assert.deepEqual(logged.map((c) => `${c.tool}:${c.status}`).sort(), [
+        'add:denied',
+        'add:success',
+        'echo:success',
+        'whoami:success',
+      ]);
+      const echoCall = logged.find((c) => c.tool === 'echo');
+      assert.deepEqual(echoCall.arguments, { text: 'hello', token: '***' });
+
+      // Claude Code itself: `claude mcp add` against the gateway, then its health check.
+      const claude = await new Promise((done) => {
+        execFile('claude', ['--version'], (error) => done(!error));
+      });
+      if (!claude) skip('Claude Code CLI is not installed');
+      // A throwaway Claude Code configuration: nothing is written to the user's own.
+      const dir = await mkdtemp(join(tmpdir(), 'dirouter-claude-mcp-'));
+      const run = (args) =>
+        new Promise((done, fail) => {
+          execFile(
+            'claude',
+            args,
+            {
+              cwd: dir,
+              timeout: 90_000,
+              env: { ...process.env, CLAUDE_CONFIG_DIR: join(dir, 'config') },
+            },
+            (error, stdout, stderr) =>
+              error ? fail(new Error(`${error.message}\n${stderr}`)) : done(stdout),
+          );
+        });
+      await run([
+        'mcp',
+        'add',
+        '--scope',
+        'user',
+        '--transport',
+        'http',
+        'dirouter',
+        `${urls.gateway}/mcp`,
+        '--header',
+        `Authorization: Bearer ${key.key}`,
+      ]);
+      const listed = await run(['mcp', 'list']);
+      console.log(
+        `     claude mcp list: ${listed
+          .trim()
+          .split('\n')
+          .filter((l) => l.includes('dirouter'))
+          .join(' ')}`,
+      );
+      assert.match(listed, /dirouter: .*\/mcp \(HTTP\) - [✓✔] Connected/);
+    },
+  );
 } catch (error) {
   crashed = true;
   console.error(error);

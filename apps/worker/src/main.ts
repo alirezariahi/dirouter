@@ -4,7 +4,7 @@
  */
 import { createServer } from 'node:http';
 
-import { QUEUES, UsageEvent } from '@dirouter/contracts';
+import { MCP_CALLS_QUEUE, QUEUES, UsageEvent } from '@dirouter/contracts';
 import { createPrismaClient } from '@dirouter/db';
 import { connectValkey, createLogger, loadEnvOrExit } from '@dirouter/shared';
 import { type Job, Queue, UnrecoverableError, Worker } from 'bullmq';
@@ -23,6 +23,7 @@ import { evaluateAlerts } from './alerts.js';
 import { drainHealthSamples } from './health-samples.js';
 import { createMetrics } from './metrics.js';
 import { type UsageDb, UsageBatchWriter } from './writer.js';
+import { dropOldMcpCalls, writeMcpCall } from './mcp-calls.js';
 import {
   auditLedger,
   chargeWallet,
@@ -130,6 +131,24 @@ usageWorker.on('error', (error) => {
   logger.warn({ err: error }, 'usage worker error');
 });
 
+// MCP tool-call log (card 20.1); a record that does not parse cannot be fixed by retrying.
+const mcpWorker = new Worker(
+  MCP_CALLS_QUEUE,
+  async (job: Job) => {
+    try {
+      await writeMcpCall(db, job.data);
+    } catch (error) {
+      if (error instanceof Error && error.name === 'ZodError')
+        throw new UnrecoverableError(`invalid MCP call record: ${error.message}`);
+      throw error;
+    }
+  },
+  { connection, concurrency: 4 },
+);
+mcpWorker.on('error', (error) => {
+  logger.warn({ err: error }, 'MCP call worker error');
+});
+
 const mdb = db as unknown as MaintenanceDb;
 const jobs: Record<string, () => Promise<unknown>> = {
   rollup: () => rollup(mdb, connection, logger),
@@ -142,6 +161,7 @@ const jobs: Record<string, () => Promise<unknown>> = {
   'ledger-audit': () => auditLedger(db, logger),
   'plan-renewals': () => renewPlans(db, connection),
   'invoices-monthly': () => issueMonthlyInvoices(db),
+  'mcp-retention': () => dropOldMcpCalls(db, env.MCP_CALL_RETENTION_DAYS),
   'health-samples': () =>
     drainHealthSamples(db, connection, logger, { retentionDays: env.HEALTH_SAMPLE_RETENTION_DAYS }),
 };
@@ -185,6 +205,7 @@ const schedule = {
   'plan-renewals': { every: 300_000 },
   // Daily, so a missed run (worker down on the 1st) is caught up the next day; issuing is idempotent.
   'invoices-monthly': { pattern: '30 2 * * *', tz: 'UTC' },
+  'mcp-retention': { pattern: '47 3 * * *', tz: 'UTC' },
 };
 for (const [name, repeat] of Object.entries(schedule)) {
   await maintenanceQueue.upsertJobScheduler(name, repeat, {
@@ -235,7 +256,12 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) {
     closing = true;
     logger.info({ signal }, 'shutting down');
     // active jobs finish (the writer flushes its buffer), then connections are closed.
-    void Promise.all([usageWorker.close(), maintenanceWorker.close(), writer.drain()])
+    void Promise.all([
+      usageWorker.close(),
+      mcpWorker.close(),
+      maintenanceWorker.close(),
+      writer.drain(),
+    ])
       .then(() => Promise.all([usageQueue.close(), deadQueue.close(), maintenanceQueue.close()]))
       .then(() => db.$disconnect())
       .finally(() => {

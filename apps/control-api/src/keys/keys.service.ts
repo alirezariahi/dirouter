@@ -46,6 +46,7 @@ export interface KeyInput {
   name: string;
   projectId: string;
   allowedModels?: string[] | undefined;
+  mcpTools?: string[] | undefined;
   ipAllowlist?: string[] | undefined;
   rpm?: number | null | undefined;
   tpm?: number | null | undefined;
@@ -97,6 +98,7 @@ export class KeysService {
       projectId: k.projectId,
       state,
       allowedModels: k.allowedModels,
+      mcpTools: k.mcpTools,
       ipAllowlist: k.ipAllowlist,
       rpm: k.rpm,
       tpm: k.tpm,
@@ -173,6 +175,7 @@ export class KeysService {
           prefix,
           hash: hashApiKey(key, this.env.KEY_PEPPER),
           allowedModels: input.allowedModels ?? [],
+          mcpTools: input.mcpTools ?? [],
           ipAllowlist: input.ipAllowlist ?? [],
           rpm: input.rpm ?? null,
           tpm: input.tpm ?? null,
@@ -201,6 +204,7 @@ export class KeysService {
         data: {
           ...(input.name !== undefined ? { name: input.name } : {}),
           ...(input.allowedModels !== undefined ? { allowedModels: input.allowedModels } : {}),
+          ...(input.mcpTools !== undefined ? { mcpTools: input.mcpTools } : {}),
           ...(input.ipAllowlist !== undefined ? { ipAllowlist: input.ipAllowlist } : {}),
           ...(input.rpm !== undefined ? { rpm: input.rpm } : {}),
           ...(input.tpm !== undefined ? { tpm: input.tpm } : {}),
@@ -256,6 +260,7 @@ export class KeysService {
           prefix,
           hash: hashApiKey(key, this.env.KEY_PEPPER),
           allowedModels: old.allowedModels,
+          mcpTools: old.mcpTools,
           ipAllowlist: old.ipAllowlist,
           rpm: old.rpm,
           tpm: old.tpm,

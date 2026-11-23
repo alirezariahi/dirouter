@@ -8,6 +8,7 @@ import { hostname } from 'node:os';
 
 import {
   GeminiGenerateContentRequest,
+  type McpCallRecord,
   type UsageEvent,
   type VirtualKeyConfig,
 } from '@dirouter/contracts';
@@ -31,6 +32,7 @@ import { probeProvider } from './probe.js';
 import { handleCountTokens, handleProxy } from './proxy.js';
 import { BudgetGuard } from './budget-guard.js';
 import { WalletGuard } from './wallet-guard.js';
+import { McpGateway } from './mcp/gateway.js';
 import { RateLimiter } from './rate-limiter.js';
 import { ExactCache, SemanticCacheClient } from './cache.js';
 import { handleEmbeddings, handleGeminiEmbeddings } from './embeddings.js';
@@ -56,6 +58,8 @@ export interface GatewayOptions {
   stateRedis?: Redis;
   /** Card 8.2: structured end-of-request log alongside the usage event. */
   onRequestComplete?: (event: UsageEvent) => void;
+  /** Destination of MCP tool-call records (card 20.1). */
+  recordMcpCall?: (call: McpCallRecord) => void;
   /** Local usage outbox for the backlog-size gauge. */
   outbox?: { backlogSize(): Promise<number> };
   /** Tests only: limiter window length. */
@@ -308,6 +312,23 @@ export function buildGateway(opts: GatewayOptions) {
     }
   });
 
+  // MCP gateway (card 20.1): Streamable HTTP, authenticated with the virtual key.
+  const mcp = new McpGateway({
+    store,
+    pepper: opts.pepper,
+    logger: opts.logger,
+    instance: deps.instance,
+    ...(opts.recordMcpCall ? { record: opts.recordMcpCall } : {}),
+  });
+  app.route({
+    method: ['POST', 'GET', 'DELETE'],
+    url: '/mcp',
+    handler: (req, reply) => mcp.handle(req, reply),
+  });
+  app.addHook('onClose', () => {
+    mcp.close();
+  });
+
   app.get('/healthz', () => ({ status: 'ok' }));
   app.get('/metrics', async (_req, reply) =>
     reply.type(metrics.contentType).send(await metrics.registry.metrics()),
@@ -341,6 +362,7 @@ export function buildGateway(opts: GatewayOptions) {
           rateLimiter: { ...deps.limiter.stats, nodes: deps.limiter.nodes },
           budgets: deps.budgets.stats,
           wallets: deps.wallets.stats,
+          mcp: mcp.stats,
         }
       : reply.status(404).send(notFound),
   );
@@ -395,6 +417,7 @@ export function buildGateway(opts: GatewayOptions) {
       allowedModels: [],
       ipAllowlist: [],
       budgets: [],
+      mcpTools: [],
     };
     const number = (value: unknown) => (typeof value === 'number' ? value : undefined);
     const result = config.router.simulate(key, requested, {

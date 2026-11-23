@@ -15,6 +15,7 @@ import { HealthProber } from './health-probe.js';
 import { HealthSync } from './health-sync.js';
 import { buildGateway } from './server.js';
 import { UsageSink } from './usage-sink.js';
+import { McpCallSink } from './mcp/call-sink.js';
 
 const quiet = (r: Redis) => {
   r.on('error', () => undefined);
@@ -57,8 +58,17 @@ const healthSync = env.VALKEY_URL
     })
   : undefined;
 
+const mcpCalls = env.VALKEY_URL ? new McpCallSink(env.VALKEY_URL, logger) : undefined;
+
 const gateway = buildGateway({
   logger,
+  ...(mcpCalls
+    ? {
+        recordMcpCall: (call) => {
+          mcpCalls.record(call);
+        },
+      }
+    : {}),
   ...(usageSink ? { outbox: usageSink } : {}),
   onRequestComplete: (event) => {
     // Allowlist: no organization/project/key/endUser, text errors, prompt or secret.

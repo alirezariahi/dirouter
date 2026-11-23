@@ -3820,6 +3820,12 @@
                           "type": "string"
                         }
                       },
+                      "mcpTools": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
                       "ipAllowlist": {
                         "type": "array",
                         "items": {
@@ -3914,6 +3920,7 @@
                       "projectId",
                       "state",
                       "allowedModels",
+                      "mcpTools",
                       "ipAllowlist",
                       "rpm",
                       "tpm",
@@ -3975,6 +3982,14 @@
                       "type": "string",
                       "minLength": 1,
                       "maxLength": 128
+                    }
+                  },
+                  "mcpTools": {
+                    "maxItems": 200,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^(\\*|[a-z0-9][a-z0-9-]{0,40}__(\\*|[A-Za-z0-9_.-]{1,128}))$"
                     }
                   },
                   "ipAllowlist": {
@@ -4094,6 +4109,12 @@
                         "type": "string"
                       }
                     },
+                    "mcpTools": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
                     "ipAllowlist": {
                       "type": "array",
                       "items": {
@@ -4192,6 +4213,7 @@
                     "projectId",
                     "state",
                     "allowedModels",
+                    "mcpTools",
                     "ipAllowlist",
                     "rpm",
                     "tpm",
@@ -4270,6 +4292,12 @@
                       ]
                     },
                     "allowedModels": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "mcpTools": {
                       "type": "array",
                       "items": {
                         "type": "string"
@@ -4369,6 +4397,7 @@
                     "projectId",
                     "state",
                     "allowedModels",
+                    "mcpTools",
                     "ipAllowlist",
                     "rpm",
                     "tpm",
@@ -4433,6 +4462,14 @@
                       "type": "string",
                       "minLength": 1,
                       "maxLength": 128
+                    }
+                  },
+                  "mcpTools": {
+                    "maxItems": 200,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^(\\*|[a-z0-9][a-z0-9-]{0,40}__(\\*|[A-Za-z0-9_.-]{1,128}))$"
                     }
                   },
                   "ipAllowlist": {
@@ -4548,6 +4585,12 @@
                         "type": "string"
                       }
                     },
+                    "mcpTools": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
                     "ipAllowlist": {
                       "type": "array",
                       "items": {
@@ -4642,6 +4685,7 @@
                     "projectId",
                     "state",
                     "allowedModels",
+                    "mcpTools",
                     "ipAllowlist",
                     "rpm",
                     "tpm",
@@ -4724,6 +4768,12 @@
                         "type": "string"
                       }
                     },
+                    "mcpTools": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
                     "ipAllowlist": {
                       "type": "array",
                       "items": {
@@ -4818,6 +4868,7 @@
                     "projectId",
                     "state",
                     "allowedModels",
+                    "mcpTools",
                     "ipAllowlist",
                     "rpm",
                     "tpm",
@@ -4913,6 +4964,12 @@
                       ]
                     },
                     "allowedModels": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "mcpTools": {
                       "type": "array",
                       "items": {
                         "type": "string"
@@ -5038,6 +5095,12 @@
                             "type": "string"
                           }
                         },
+                        "mcpTools": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
                         "ipAllowlist": {
                           "type": "array",
                           "items": {
@@ -5132,6 +5195,7 @@
                         "projectId",
                         "state",
                         "allowedModels",
+                        "mcpTools",
                         "ipAllowlist",
                         "rpm",
                         "tpm",
@@ -5152,6 +5216,7 @@
                     "projectId",
                     "state",
                     "allowedModels",
+                    "mcpTools",
                     "ipAllowlist",
                     "rpm",
                     "tpm",
@@ -12488,6 +12553,388 @@
         ]
       }
     },
+    "/api/v1/orgs/{orgId}/mcp/servers": {
+      "get": {
+        "operationId": "McpController_list",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": {}
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "mcp"
+        ]
+      },
+      "post": {
+        "operationId": "McpController_create",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "slug": {
+                    "type": "string",
+                    "pattern": "^[a-z0-9][a-z0-9-]{0,40}$"
+                  },
+                  "transport": {
+                    "default": "streamable-http",
+                    "type": "string",
+                    "enum": [
+                      "streamable-http",
+                      "sse"
+                    ]
+                  },
+                  "url": {
+                    "type": "string",
+                    "maxLength": 1000,
+                    "format": "uri"
+                  },
+                  "headers": {
+                    "nullable": true,
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string",
+                      "maxLength": 4096
+                    }
+                  },
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "forwardIdentity": {
+                    "type": "boolean"
+                  },
+                  "timeoutMs": {
+                    "type": "integer",
+                    "minimum": 1000,
+                    "maximum": 300000
+                  }
+                },
+                "required": [
+                  "name",
+                  "slug",
+                  "url"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "mcp"
+        ]
+      }
+    },
+    "/api/v1/orgs/{orgId}/mcp/servers/{id}": {
+      "get": {
+        "operationId": "McpController_get",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "mcp"
+        ]
+      },
+      "patch": {
+        "operationId": "McpController_update",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "slug": {
+                    "type": "string",
+                    "pattern": "^[a-z0-9][a-z0-9-]{0,40}$"
+                  },
+                  "transport": {
+                    "type": "string",
+                    "enum": [
+                      "streamable-http",
+                      "sse"
+                    ]
+                  },
+                  "url": {
+                    "type": "string",
+                    "maxLength": 1000,
+                    "format": "uri"
+                  },
+                  "headers": {
+                    "nullable": true,
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string",
+                      "maxLength": 4096
+                    }
+                  },
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "forwardIdentity": {
+                    "type": "boolean"
+                  },
+                  "timeoutMs": {
+                    "type": "integer",
+                    "minimum": 1000,
+                    "maximum": 300000
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "mcp"
+        ]
+      },
+      "delete": {
+        "operationId": "McpController_remove",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "mcp"
+        ]
+      }
+    },
+    "/api/v1/orgs/{orgId}/mcp/calls": {
+      "get": {
+        "operationId": "McpController_calls",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": 100,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500
+            }
+          },
+          {
+            "name": "serverId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "apiKeyId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "success",
+                "error",
+                "denied"
+              ]
+            }
+          },
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": {}
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "mcp"
+        ]
+      }
+    },
     "/api/v1/orgs/{orgId}/config/versions": {
       "get": {
         "operationId": "ConfigController_list",
@@ -12966,7 +13413,7 @@
                     "maxLength": 60
                   },
                   "permissions": {
-                    "maxItems": 27,
+                    "maxItems": 29,
                     "type": "array",
                     "items": {
                       "type": "string",
@@ -12997,6 +13444,8 @@
                         "security:write",
                         "billing:read",
                         "billing:write",
+                        "mcp:read",
+                        "mcp:write",
                         "health:write"
                       ]
                     }
@@ -13067,7 +13516,7 @@
                     "maxLength": 60
                   },
                   "permissions": {
-                    "maxItems": 27,
+                    "maxItems": 29,
                     "type": "array",
                     "items": {
                       "type": "string",
@@ -13098,6 +13547,8 @@
                         "security:write",
                         "billing:read",
                         "billing:write",
+                        "mcp:read",
+                        "mcp:write",
                         "health:write"
                       ]
                     }

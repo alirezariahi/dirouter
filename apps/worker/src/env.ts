@@ -15,6 +15,8 @@ export const workerEnvSchema = baseEnvSchema.extend({
   ALERT_EVALUATE_INTERVAL_MS: z.coerce.number().int().min(5_000).default(60_000),
   /** Days of provider probe history kept in provider_health_samples (card 12.3). */
   HEALTH_SAMPLE_RETENTION_DAYS: z.coerce.number().int().min(1).max(365).default(30),
+  /** Days the MCP tool-call log is kept (card 20.1). */
+  MCP_CALL_RETENTION_DAYS: z.coerce.number().int().min(1).max(3650).default(90),
   DB_MAX_CONNECTIONS: z.coerce.number().int().min(1).default(10),
 });
 export type WorkerEnv = z.infer<typeof workerEnvSchema>;

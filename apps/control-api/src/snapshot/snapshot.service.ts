@@ -153,6 +153,7 @@ export class SnapshotService implements OnModuleInit, OnModuleDestroy {
       guardrails,
       wallets,
       organizations,
+      mcpServers,
     ] = await Promise.all([
       db.provider.findMany({
         where: { deletedAt: null },
@@ -185,6 +186,7 @@ export class SnapshotService implements OnModuleInit, OnModuleDestroy {
         where: { deletedAt: null, OR: [{ isPlatform: true }, { customerGroupId: { not: null } }] },
         select: { id: true, isPlatform: true, customerGroup: { select: { multiplier: true } } },
       }),
+      db.mcpServer.findMany({ where: { deletedAt: null }, orderBy: { id: 'asc' } }),
     ]);
     const walletOf = new Map(wallets.map((w) => [w.organizationId, w.id]));
     const platformId = organizations.find((o) => o.isPlatform)?.id;
@@ -308,6 +310,7 @@ export class SnapshotService implements OnModuleInit, OnModuleDestroy {
           enabled: true,
           expiresAt: k.expiresAt?.toISOString() ?? null,
           allowedModels: k.allowedModels,
+          mcpTools: k.mcpTools,
           ipAllowlist: k.ipAllowlist,
           ...rateLimit(k),
           budgets: budgetsFor('API_KEY', k.id),
@@ -362,6 +365,18 @@ export class SnapshotService implements OnModuleInit, OnModuleDestroy {
       })),
       settings: await this.gatewaySettings(),
       ...(platformId ? { platformOrganizationId: platformId } : {}),
+      // MCP gateway (card 20.1); headers stay encrypted, the gateway decrypts them.
+      mcpServers: mcpServers.map((m) => ({
+        id: m.id,
+        organizationId: m.organizationId,
+        slug: m.slug,
+        transport: m.transport as 'streamable-http' | 'sse',
+        url: m.url,
+        enabled: m.enabled,
+        ...(m.headersEnc ? { headers: m.headersEnc } : {}),
+        forwardIdentity: m.forwardIdentity,
+        timeoutMs: m.timeoutMs,
+      })),
     };
   }
 

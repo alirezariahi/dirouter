@@ -61,6 +61,7 @@ jobs:
           pnpm exec prettier --check .github scripts/ci CI.md
           node --test scripts/ci/plan.test.mjs
           node --test scripts/ci/env-docs.test.mjs
+          node --test scripts/mcp/stdio-bridge.test.mjs
           node scripts/ci/check-env-docs.mjs
       - name: Check affected packages and their dependents
         env:

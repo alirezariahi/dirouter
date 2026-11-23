@@ -1422,6 +1422,7 @@ export type KeysControllerList200Item = {
   projectId: string;
   state: KeysControllerList200ItemState;
   allowedModels: string[];
+  mcpTools: string[];
   ipAllowlist: string[];
   /**
      * @minimum -9007199254740991
@@ -1492,6 +1493,11 @@ export type KeysControllerCreateBody = {
      * @items.maxLength 128
      */
   allowedModels?: string[];
+  /**
+     * @maxItems 200
+     * @items.pattern ^(\*|[a-z0-9][a-z0-9-]{0,40}__(\*|[A-Za-z0-9_.-]{1,128}))$
+     */
+  mcpTools?: string[];
   /**
      * @maxItems 100
      * @items.maxLength 64
@@ -1567,6 +1573,7 @@ export type KeysControllerCreate200 = {
   projectId: string;
   state: KeysControllerCreate200State;
   allowedModels: string[];
+  mcpTools: string[];
   ipAllowlist: string[];
   /**
      * @minimum -9007199254740991
@@ -1643,6 +1650,7 @@ export type KeysControllerGet200 = {
   projectId: string;
   state: KeysControllerGet200State;
   allowedModels: string[];
+  mcpTools: string[];
   ipAllowlist: string[];
   /**
      * @minimum -9007199254740991
@@ -1711,6 +1719,11 @@ export type KeysControllerUpdateBody = {
      * @items.maxLength 128
      */
   allowedModels?: string[];
+  /**
+     * @maxItems 200
+     * @items.pattern ^(\*|[a-z0-9][a-z0-9-]{0,40}__(\*|[A-Za-z0-9_.-]{1,128}))$
+     */
+  mcpTools?: string[];
   /**
      * @maxItems 100
      * @items.maxLength 64
@@ -1786,6 +1799,7 @@ export type KeysControllerUpdate200 = {
   projectId: string;
   state: KeysControllerUpdate200State;
   allowedModels: string[];
+  mcpTools: string[];
   ipAllowlist: string[];
   /**
      * @minimum -9007199254740991
@@ -1860,6 +1874,7 @@ export type KeysControllerRevoke200 = {
   projectId: string;
   state: KeysControllerRevoke200State;
   allowedModels: string[];
+  mcpTools: string[];
   ipAllowlist: string[];
   /**
      * @minimum -9007199254740991
@@ -1978,6 +1993,7 @@ export type KeysControllerRotate200Previous = {
   projectId: string;
   state: KeysControllerRotate200PreviousState;
   allowedModels: string[];
+  mcpTools: string[];
   ipAllowlist: string[];
   /**
      * @minimum -9007199254740991
@@ -2016,6 +2032,7 @@ export type KeysControllerRotate200 = {
   projectId: string;
   state: KeysControllerRotate200State;
   allowedModels: string[];
+  mcpTools: string[];
   ipAllowlist: string[];
   /**
      * @minimum -9007199254740991
@@ -4197,6 +4214,106 @@ export type PortalControllerOidcCallback200 = {
   user: PortalControllerOidcCallback200User;
 };
 
+export type McpControllerList200Item = {[key: string]: unknown};
+
+export type McpControllerCreateBodyTransport = typeof McpControllerCreateBodyTransport[keyof typeof McpControllerCreateBodyTransport];
+
+
+export const McpControllerCreateBodyTransport = {
+  'streamable-http': 'streamable-http',
+  sse: 'sse',
+} as const;
+
+/**
+ * @nullable
+ */
+export type McpControllerCreateBodyHeaders = {[key: string]: string} | null;
+
+export type McpControllerCreateBody = {
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  name: string;
+  /** @pattern ^[a-z0-9][a-z0-9-]{0,40}$ */
+  slug: string;
+  transport?: McpControllerCreateBodyTransport;
+  /** @maxLength 1000 */
+  url: string;
+  /** @nullable */
+  headers?: McpControllerCreateBodyHeaders;
+  enabled?: boolean;
+  forwardIdentity?: boolean;
+  /**
+     * @minimum 1000
+     * @maximum 300000
+     */
+  timeoutMs?: number;
+};
+
+export type McpControllerCreate200 = {[key: string]: unknown};
+
+export type McpControllerGet200 = {[key: string]: unknown};
+
+export type McpControllerUpdateBodyTransport = typeof McpControllerUpdateBodyTransport[keyof typeof McpControllerUpdateBodyTransport];
+
+
+export const McpControllerUpdateBodyTransport = {
+  'streamable-http': 'streamable-http',
+  sse: 'sse',
+} as const;
+
+/**
+ * @nullable
+ */
+export type McpControllerUpdateBodyHeaders = {[key: string]: string} | null;
+
+export type McpControllerUpdateBody = {
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  name?: string;
+  /** @pattern ^[a-z0-9][a-z0-9-]{0,40}$ */
+  slug?: string;
+  transport?: McpControllerUpdateBodyTransport;
+  /** @maxLength 1000 */
+  url?: string;
+  /** @nullable */
+  headers?: McpControllerUpdateBodyHeaders;
+  enabled?: boolean;
+  forwardIdentity?: boolean;
+  /**
+     * @minimum 1000
+     * @maximum 300000
+     */
+  timeoutMs?: number;
+};
+
+export type McpControllerUpdate200 = {[key: string]: unknown};
+
+export type McpControllerCallsParams = {
+  /**
+   * @minimum 1
+   * @maximum 500
+   */
+  limit?: number;
+  serverId?: string;
+  apiKeyId?: string;
+  status?: McpControllerCallsStatus;
+};
+
+export type McpControllerCallsStatus = typeof McpControllerCallsStatus[keyof typeof McpControllerCallsStatus];
+
+
+export const McpControllerCallsStatus = {
+  success: 'success',
+  error: 'error',
+  denied: 'denied',
+} as const;
+
+export type McpControllerCalls200Item = {[key: string]: unknown};
+
 export type ConfigControllerList200Item = {[key: string]: unknown};
 
 export type ConfigControllerGet200 = {[key: string]: unknown};
@@ -4295,6 +4412,8 @@ export const SecurityControllerCreateRoleBodyPermissionsItem = {
   'security:write': 'security:write',
   'billing:read': 'billing:read',
   'billing:write': 'billing:write',
+  'mcp:read': 'mcp:read',
+  'mcp:write': 'mcp:write',
   'health:write': 'health:write',
 } as const;
 
@@ -4304,7 +4423,7 @@ export type SecurityControllerCreateRoleBody = {
      * @maxLength 60
      */
   name: string;
-  /** @maxItems 27 */
+  /** @maxItems 29 */
   permissions: SecurityControllerCreateRoleBodyPermissionsItem[];
 };
 
@@ -4340,6 +4459,8 @@ export const SecurityControllerUpdateRoleBodyPermissionsItem = {
   'security:write': 'security:write',
   'billing:read': 'billing:read',
   'billing:write': 'billing:write',
+  'mcp:read': 'mcp:read',
+  'mcp:write': 'mcp:write',
   'health:write': 'health:write',
 } as const;
 
@@ -4349,7 +4470,7 @@ export type SecurityControllerUpdateRoleBody = {
      * @maxLength 60
      */
   name?: string;
-  /** @maxItems 27 */
+  /** @maxItems 29 */
   permissions?: SecurityControllerUpdateRoleBodyPermissionsItem[];
 };
 
@@ -19892,6 +20013,636 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
         TContext
       > => {
       return useMutation(getPortalControllerOidcCallbackMutationOptions(options), queryClient);
+    }
+
+export type mcpControllerListResponse200 = {
+  data: McpControllerList200Item[]
+  status: 200
+}
+
+export type mcpControllerListResponseSuccess = (mcpControllerListResponse200) & {
+  headers: Headers;
+};
+;
+
+export type mcpControllerListResponse = (mcpControllerListResponseSuccess)
+
+export const getMcpControllerListUrl = (orgId: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/mcp/servers`
+}
+
+export const mcpControllerList = async (orgId: string, options?: Parameters<typeof orvalFetch>[1]): Promise<mcpControllerListResponse> => {
+
+  return orvalFetch<mcpControllerListResponse>(getMcpControllerListUrl(orgId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getMcpControllerListMutationKey = () => ['mcpControllerList'] as const;
+
+export const getMcpControllerListMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof mcpControllerList>>, TError,McpControllerListMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof mcpControllerList>>, TError,McpControllerListMutationVariables, TContext> => {
+
+const mutationKey = getMcpControllerListMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof mcpControllerList>>, McpControllerListMutationVariables> = (props) => {
+          const {orgId} = props ?? {};
+
+          return  mcpControllerList(orgId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type McpControllerListMutationResult = NonNullable<Awaited<ReturnType<typeof mcpControllerList>>>
+
+    export type McpControllerListMutationError = unknown
+    export type McpControllerListMutationVariables = {orgId: string}
+
+    export const useMcpControllerList = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof mcpControllerList>>, TError,McpControllerListMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof mcpControllerList>>,
+        TError,
+        McpControllerListMutationVariables,
+        TContext
+      > => {
+      return useMutation(getMcpControllerListMutationOptions(options), queryClient);
+    }
+
+export type mcpControllerCreateResponse200 = {
+  data: McpControllerCreate200
+  status: 200
+}
+
+export type mcpControllerCreateResponseSuccess = (mcpControllerCreateResponse200) & {
+  headers: Headers;
+};
+;
+
+export type mcpControllerCreateResponse = (mcpControllerCreateResponseSuccess)
+
+export const getMcpControllerCreateUrl = (orgId: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/mcp/servers`
+}
+
+export const mcpControllerCreate = async (orgId: string,
+    mcpControllerCreateBody: McpControllerCreateBody, options?: Parameters<typeof orvalFetch>[1]): Promise<mcpControllerCreateResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return orvalFetch<mcpControllerCreateResponse>(getMcpControllerCreateUrl(orgId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(mcpControllerCreateBody)
+  }
+);}
+
+
+
+
+
+export const getMcpControllerCreateQueryKey = (orgId: string,
+    mcpControllerCreateBody?: McpControllerCreateBody,) => {
+    return [
+    'POST', `/api/v1/orgs/${orgId}/mcp/servers`, mcpControllerCreateBody
+    ] as const;
+    }
+
+
+export const getMcpControllerCreateQueryOptions = <TData = Awaited<ReturnType<typeof mcpControllerCreate>>, TError = unknown>(orgId: string,
+    mcpControllerCreateBody: McpControllerCreateBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof mcpControllerCreate>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getMcpControllerCreateQueryKey(orgId,mcpControllerCreateBody);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof mcpControllerCreate>>> = ({ signal }) => mcpControllerCreate(orgId,mcpControllerCreateBody, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: orgId !== null && orgId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof mcpControllerCreate>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type McpControllerCreateQueryResult = NonNullable<Awaited<ReturnType<typeof mcpControllerCreate>>>
+export type McpControllerCreateQueryError = unknown
+
+
+export function useMcpControllerCreate<TData = Awaited<ReturnType<typeof mcpControllerCreate>>, TError = unknown>(
+ orgId: string,
+    mcpControllerCreateBody: McpControllerCreateBody, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof mcpControllerCreate>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof mcpControllerCreate>>,
+          TError,
+          Awaited<ReturnType<typeof mcpControllerCreate>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useMcpControllerCreate<TData = Awaited<ReturnType<typeof mcpControllerCreate>>, TError = unknown>(
+ orgId: string,
+    mcpControllerCreateBody: McpControllerCreateBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof mcpControllerCreate>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof mcpControllerCreate>>,
+          TError,
+          Awaited<ReturnType<typeof mcpControllerCreate>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useMcpControllerCreate<TData = Awaited<ReturnType<typeof mcpControllerCreate>>, TError = unknown>(
+ orgId: string,
+    mcpControllerCreateBody: McpControllerCreateBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof mcpControllerCreate>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useMcpControllerCreate<TData = Awaited<ReturnType<typeof mcpControllerCreate>>, TError = unknown>(
+ orgId: string,
+    mcpControllerCreateBody: McpControllerCreateBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof mcpControllerCreate>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getMcpControllerCreateQueryOptions(orgId,mcpControllerCreateBody,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export type mcpControllerGetResponse200 = {
+  data: McpControllerGet200
+  status: 200
+}
+
+export type mcpControllerGetResponseSuccess = (mcpControllerGetResponse200) & {
+  headers: Headers;
+};
+;
+
+export type mcpControllerGetResponse = (mcpControllerGetResponseSuccess)
+
+export const getMcpControllerGetUrl = (orgId: string,
+    id: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/mcp/servers/${id}`
+}
+
+export const mcpControllerGet = async (orgId: string,
+    id: string, options?: Parameters<typeof orvalFetch>[1]): Promise<mcpControllerGetResponse> => {
+
+  return orvalFetch<mcpControllerGetResponse>(getMcpControllerGetUrl(orgId,id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getMcpControllerGetMutationKey = () => ['mcpControllerGet'] as const;
+
+export const getMcpControllerGetMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof mcpControllerGet>>, TError,McpControllerGetMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof mcpControllerGet>>, TError,McpControllerGetMutationVariables, TContext> => {
+
+const mutationKey = getMcpControllerGetMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof mcpControllerGet>>, McpControllerGetMutationVariables> = (props) => {
+          const {orgId,id} = props ?? {};
+
+          return  mcpControllerGet(orgId,id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type McpControllerGetMutationResult = NonNullable<Awaited<ReturnType<typeof mcpControllerGet>>>
+
+    export type McpControllerGetMutationError = unknown
+    export type McpControllerGetMutationVariables = {orgId: string;id: string}
+
+    export const useMcpControllerGet = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof mcpControllerGet>>, TError,McpControllerGetMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof mcpControllerGet>>,
+        TError,
+        McpControllerGetMutationVariables,
+        TContext
+      > => {
+      return useMutation(getMcpControllerGetMutationOptions(options), queryClient);
+    }
+
+export type mcpControllerUpdateResponse200 = {
+  data: McpControllerUpdate200
+  status: 200
+}
+
+export type mcpControllerUpdateResponseSuccess = (mcpControllerUpdateResponse200) & {
+  headers: Headers;
+};
+;
+
+export type mcpControllerUpdateResponse = (mcpControllerUpdateResponseSuccess)
+
+export const getMcpControllerUpdateUrl = (orgId: string,
+    id: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/mcp/servers/${id}`
+}
+
+export const mcpControllerUpdate = async (orgId: string,
+    id: string,
+    mcpControllerUpdateBody: McpControllerUpdateBody, options?: Parameters<typeof orvalFetch>[1]): Promise<mcpControllerUpdateResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return orvalFetch<mcpControllerUpdateResponse>(getMcpControllerUpdateUrl(orgId,id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(mcpControllerUpdateBody)
+  }
+);}
+
+
+
+
+
+export const getMcpControllerUpdateQueryKey = (orgId: string,
+    id: string,
+    mcpControllerUpdateBody?: McpControllerUpdateBody,) => {
+    return [
+    'PATCH', `/api/v1/orgs/${orgId}/mcp/servers/${id}`, mcpControllerUpdateBody
+    ] as const;
+    }
+
+
+export const getMcpControllerUpdateQueryOptions = <TData = Awaited<ReturnType<typeof mcpControllerUpdate>>, TError = unknown>(orgId: string,
+    id: string,
+    mcpControllerUpdateBody: McpControllerUpdateBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof mcpControllerUpdate>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getMcpControllerUpdateQueryKey(orgId,id,mcpControllerUpdateBody);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof mcpControllerUpdate>>> = ({ signal }) => mcpControllerUpdate(orgId,id,mcpControllerUpdateBody, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: orgId !== null && orgId !== undefined && id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof mcpControllerUpdate>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type McpControllerUpdateQueryResult = NonNullable<Awaited<ReturnType<typeof mcpControllerUpdate>>>
+export type McpControllerUpdateQueryError = unknown
+
+
+export function useMcpControllerUpdate<TData = Awaited<ReturnType<typeof mcpControllerUpdate>>, TError = unknown>(
+ orgId: string,
+    id: string,
+    mcpControllerUpdateBody: McpControllerUpdateBody, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof mcpControllerUpdate>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof mcpControllerUpdate>>,
+          TError,
+          Awaited<ReturnType<typeof mcpControllerUpdate>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useMcpControllerUpdate<TData = Awaited<ReturnType<typeof mcpControllerUpdate>>, TError = unknown>(
+ orgId: string,
+    id: string,
+    mcpControllerUpdateBody: McpControllerUpdateBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof mcpControllerUpdate>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof mcpControllerUpdate>>,
+          TError,
+          Awaited<ReturnType<typeof mcpControllerUpdate>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useMcpControllerUpdate<TData = Awaited<ReturnType<typeof mcpControllerUpdate>>, TError = unknown>(
+ orgId: string,
+    id: string,
+    mcpControllerUpdateBody: McpControllerUpdateBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof mcpControllerUpdate>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useMcpControllerUpdate<TData = Awaited<ReturnType<typeof mcpControllerUpdate>>, TError = unknown>(
+ orgId: string,
+    id: string,
+    mcpControllerUpdateBody: McpControllerUpdateBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof mcpControllerUpdate>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getMcpControllerUpdateQueryOptions(orgId,id,mcpControllerUpdateBody,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export type mcpControllerRemoveResponse204 = {
+  data: void
+  status: 204
+}
+
+export type mcpControllerRemoveResponseSuccess = (mcpControllerRemoveResponse204) & {
+  headers: Headers;
+};
+;
+
+export type mcpControllerRemoveResponse = (mcpControllerRemoveResponseSuccess)
+
+export const getMcpControllerRemoveUrl = (orgId: string,
+    id: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/mcp/servers/${id}`
+}
+
+export const mcpControllerRemove = async (orgId: string,
+    id: string, options?: Parameters<typeof orvalFetch>[1]): Promise<mcpControllerRemoveResponse> => {
+
+  return orvalFetch<mcpControllerRemoveResponse>(getMcpControllerRemoveUrl(orgId,id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getMcpControllerRemoveQueryKey = (orgId: string,
+    id: string,) => {
+    return [
+    'DELETE', `/api/v1/orgs/${orgId}/mcp/servers/${id}`
+    ] as const;
+    }
+
+
+export const getMcpControllerRemoveQueryOptions = <TData = Awaited<ReturnType<typeof mcpControllerRemove>>, TError = unknown>(orgId: string,
+    id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof mcpControllerRemove>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getMcpControllerRemoveQueryKey(orgId,id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof mcpControllerRemove>>> = ({ signal }) => mcpControllerRemove(orgId,id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: orgId !== null && orgId !== undefined && id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof mcpControllerRemove>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type McpControllerRemoveQueryResult = NonNullable<Awaited<ReturnType<typeof mcpControllerRemove>>>
+export type McpControllerRemoveQueryError = unknown
+
+
+export function useMcpControllerRemove<TData = Awaited<ReturnType<typeof mcpControllerRemove>>, TError = unknown>(
+ orgId: string,
+    id: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof mcpControllerRemove>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof mcpControllerRemove>>,
+          TError,
+          Awaited<ReturnType<typeof mcpControllerRemove>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useMcpControllerRemove<TData = Awaited<ReturnType<typeof mcpControllerRemove>>, TError = unknown>(
+ orgId: string,
+    id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof mcpControllerRemove>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof mcpControllerRemove>>,
+          TError,
+          Awaited<ReturnType<typeof mcpControllerRemove>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useMcpControllerRemove<TData = Awaited<ReturnType<typeof mcpControllerRemove>>, TError = unknown>(
+ orgId: string,
+    id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof mcpControllerRemove>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useMcpControllerRemove<TData = Awaited<ReturnType<typeof mcpControllerRemove>>, TError = unknown>(
+ orgId: string,
+    id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof mcpControllerRemove>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getMcpControllerRemoveQueryOptions(orgId,id,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export type mcpControllerCallsResponse200 = {
+  data: McpControllerCalls200Item[]
+  status: 200
+}
+
+export type mcpControllerCallsResponseSuccess = (mcpControllerCallsResponse200) & {
+  headers: Headers;
+};
+;
+
+export type mcpControllerCallsResponse = (mcpControllerCallsResponseSuccess)
+
+export const getMcpControllerCallsUrl = (orgId: string,
+    params?: McpControllerCallsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/v1/orgs/${orgId}/mcp/calls?${stringifiedParams}` : `/api/v1/orgs/${orgId}/mcp/calls`
+}
+
+export const mcpControllerCalls = async (orgId: string,
+    params?: McpControllerCallsParams, options?: Parameters<typeof orvalFetch>[1]): Promise<mcpControllerCallsResponse> => {
+
+  return orvalFetch<mcpControllerCallsResponse>(getMcpControllerCallsUrl(orgId,params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getMcpControllerCallsMutationKey = () => ['mcpControllerCalls'] as const;
+
+export const getMcpControllerCallsMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof mcpControllerCalls>>, TError,McpControllerCallsMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof mcpControllerCalls>>, TError,McpControllerCallsMutationVariables, TContext> => {
+
+const mutationKey = getMcpControllerCallsMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof mcpControllerCalls>>, McpControllerCallsMutationVariables> = (props) => {
+          const {orgId,params} = props ?? {};
+
+          return  mcpControllerCalls(orgId,params,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type McpControllerCallsMutationResult = NonNullable<Awaited<ReturnType<typeof mcpControllerCalls>>>
+
+    export type McpControllerCallsMutationError = unknown
+    export type McpControllerCallsMutationVariables = {orgId: string;params?: McpControllerCallsParams}
+
+    export const useMcpControllerCalls = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof mcpControllerCalls>>, TError,McpControllerCallsMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof mcpControllerCalls>>,
+        TError,
+        McpControllerCallsMutationVariables,
+        TContext
+      > => {
+      return useMutation(getMcpControllerCallsMutationOptions(options), queryClient);
     }
 
 export type configControllerListResponse200 = {

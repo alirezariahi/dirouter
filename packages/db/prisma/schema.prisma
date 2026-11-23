@@ -63,6 +63,7 @@ model Organization {
   customerGroup   CustomerGroup? @relation(fields: [customerGroupId], references: [id], onDelete: SetNull)
   subscription    Subscription?
   invoices        Invoice[]
+  mcpServers      McpServer[]
 
   @@index([customerGroupId])
   @@map("organizations")
@@ -210,6 +211,8 @@ model ApiKey {
   hash           String       @unique
   status         ApiKeyStatus @default(ACTIVE)
   allowedModels  String[]     @default([]) @map("allowed_models")
+  /// MCP tools the key may use (card 20.1): `server__tool`, `server__*` or `*`; empty = all.
+  mcpTools       String[]     @default([]) @map("mcp_tools")
   ipAllowlist    String[]     @default([]) @map("ip_allowlist")
   rpm            Int?
   tpm            Int?
@@ -1097,4 +1100,51 @@ model Invoice {
   @@unique([organizationId, period])
   @@index([period])
   @@map("invoices")
+}
+
+/// An MCP server the gateway aggregates under /mcp (card 20.1).
+model McpServer {
+  id              String    @id
+  organizationId  String    @map("organization_id")
+  name            String
+  /// Tool prefix: tools appear as `<slug>__<tool>`.
+  slug            String
+  /// streamable-http | sse
+  transport       String
+  url             String
+  /// Encrypted JSON object of headers sent upstream (e.g. Authorization); AAD `mcp:<id>`.
+  headersEnc      String?   @map("headers_enc")
+  enabled         Boolean   @default(true)
+  forwardIdentity Boolean   @default(false) @map("forward_identity")
+  timeoutMs       Int       @default(60000) @map("timeout_ms")
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt       DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@map("mcp_servers")
+}
+
+/// One MCP tool call through the gateway (written by the worker from the `mcp-calls` queue).
+/// References have no foreign keys: the log outlives deleted keys and servers.
+model McpToolCall {
+  id              String   @id
+  occurredAt      DateTime @map("occurred_at") @db.Timestamptz(3)
+  organizationId  String   @map("organization_id")
+  projectId       String   @map("project_id")
+  apiKeyId        String   @map("api_key_id")
+  serverId        String   @map("server_id")
+  tool            String
+  /// Masked by the gateway before it left: secrets replaced, long values cut.
+  arguments       Json
+  status          String
+  errorMessage    String?  @map("error_message")
+  latencyMs       Int      @map("latency_ms")
+  gatewayInstance String   @map("gateway_instance")
+
+  @@index([organizationId, occurredAt])
+  @@index([apiKeyId, occurredAt])
+  @@map("mcp_tool_calls")
 }

@@ -31,6 +31,11 @@ export const KeyBody = z.object({
   name: z.string().trim().min(1).max(100),
   projectId: z.string().min(1),
   allowedModels: z.array(z.string().min(1).max(128)).max(200).optional(),
+  /** MCP tools (card 20.1): `server__tool`, `server__*` or `*`; empty = every tool. */
+  mcpTools: z
+    .array(z.string().regex(/^(\*|[a-z0-9][a-z0-9-]{0,40}__(\*|[A-Za-z0-9_.-]{1,128}))$/))
+    .max(200)
+    .optional(),
   ipAllowlist: z.array(z.string().max(64)).max(100).optional(),
   rpm: z.int().positive().nullable().optional(),
   tpm: z.int().positive().nullable().optional(),
@@ -55,6 +60,7 @@ const KeyView = z.object({
   projectId: z.string(),
   state: z.enum(['active', 'rotating', 'expired', 'revoked']),
   allowedModels: z.array(z.string()),
+  mcpTools: z.array(z.string()),
   ipAllowlist: z.array(z.string()),
   rpm: z.int().nullable(),
   tpm: z.int().nullable(),

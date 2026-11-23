@@ -288,6 +288,11 @@ export const VirtualKeyConfig = z.object({
   walletId: z.string().optional(),
   /** Customer group multiplier applied to sale prices (card 19.4); absent means 1. */
   priceMultiplier: Multiplier.optional(),
+  /**
+   * MCP tools this key may see and call (card 20.1): `server__tool`, `server__*` or `*`.
+   * Empty means every tool of the organization's MCP servers.
+   */
+  mcpTools: z.array(z.string()).default([]),
 });
 export type VirtualKeyConfig = z.infer<typeof VirtualKeyConfig>;
 
@@ -415,6 +420,24 @@ export const GatewaySettings = z.object({
 });
 export type GatewaySettings = z.infer<typeof GatewaySettings>;
 
+/** An upstream MCP server the gateway aggregates under /mcp (card 20.1). */
+export const McpServerConfig = z.object({
+  id: z.string(),
+  organizationId: z.string(),
+  /** Tool name prefix: tools appear as `<slug>__<tool>`. */
+  slug: z.string().regex(/^[a-z0-9][a-z0-9-]{0,40}$/),
+  /** `streamable-http` (current MCP transport) or `sse` (the older HTTP+SSE transport). */
+  transport: z.enum(['streamable-http', 'sse']),
+  url: z.url(),
+  enabled: z.boolean(),
+  /** Encrypted with MASTER_KEY (AAD `mcp:<id>`): a JSON object of headers, e.g. Authorization. */
+  headers: z.string().optional(),
+  /** Send the caller's organization, project and key ids as X-DiRouter-* headers. */
+  forwardIdentity: z.boolean().default(false),
+  timeoutMs: z.int().positive().max(300_000).default(60_000),
+});
+export type McpServerConfig = z.infer<typeof McpServerConfig>;
+
 export const ConfigSnapshot = z.object({
   schemaVersion: z.literal(CONFIG_SNAPSHOT_SCHEMA_VERSION),
   version: z.int().positive(),
@@ -438,6 +461,7 @@ export const ConfigSnapshot = z.object({
    * organization fall back to its public models and combos.
    */
   platformOrganizationId: z.string().optional(),
+  mcpServers: z.array(McpServerConfig).default([]),
 });
 export type ConfigSnapshot = z.infer<typeof ConfigSnapshot>;
 

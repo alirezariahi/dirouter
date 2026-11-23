@@ -57,6 +57,8 @@ const PERMISSIONS = [
   'health:write',
   'billing:read',
   'billing:write',
+  'mcp:read',
+  'mcp:write',
 ] as const;
 
 interface Policy {

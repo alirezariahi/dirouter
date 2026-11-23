@@ -12,6 +12,7 @@ import {
   sampleLatency,
   type Scenario,
 } from './scenario.js';
+import { registerMcp } from './mcp.js';
 import { type PaymentMockOptions, registerPayments } from './payments.js';
 
 type Api = 'openai' | 'anthropic' | 'gemini';
@@ -589,6 +590,7 @@ export function buildServer(options: MockServerOptions = {}) {
   });
 
   registerPayments(app, options.payments);
+  registerMcp(app);
 
   app.get('/healthz', () => ({ status: 'ok' }));
   app.get('/__mock/stats', () => stats);
