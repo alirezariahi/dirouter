@@ -244,17 +244,27 @@ jobs:
           REF: ${{ steps.image.outputs.name }}@${{ steps.push.outputs.digest }}
           IDENTITY: ^https://github.com/${{ github.repository }}/\.github/workflows/ci\.yml@
         run: |
+          # The cosign image runs as a non-root user: registry credentials come in through
+          # DOCKER_CONFIG and its cache goes to a writable HOME.
           cosign() {
-            docker run --rm -e COSIGN_YES=true \
+            docker run --rm -e COSIGN_YES=true -e HOME=/tmp -e DOCKER_CONFIG=/docker \
               -e ACTIONS_ID_TOKEN_REQUEST_URL -e ACTIONS_ID_TOKEN_REQUEST_TOKEN \
-              -v "$HOME/.docker/config.json:/root/.docker/config.json:ro" -v "$PWD/sbom:/sbom:ro" \
+              -v "$HOME/.docker:/docker:ro" -v "$PWD/sbom:/sbom:ro" \
               "$COSIGN_IMAGE" "$@"
           }
-          cosign sign "$REF"
-          cosign attest --type spdxjson --predicate "/sbom/${{ matrix.app }}.spdx.json" "$REF"
-          cosign verify --certificate-identity-regexp "$IDENTITY" \
-            --certificate-oidc-issuer https://token.actions.githubusercontent.com "$REF" > /dev/null
-          echo "Signed and verified $REF" >> "$GITHUB_STEP_SUMMARY"
+          log=$(mktemp)
+          if ! {
+            cosign sign "$REF" &&
+              cosign attest --type spdxjson --predicate "/sbom/${{ matrix.app }}.spdx.json" "$REF" &&
+              cosign verify --certificate-identity-regexp "$IDENTITY" \
+                --certificate-oidc-issuer https://token.actions.githubusercontent.com "$REF" > /dev/null
+          } > "$log" 2>&1; then
+            cat "$log"
+            # Job logs need a GitHub sign-in; the summary of a public run does not.
+            { echo '### Signing failed'; echo '```'; tail -n 30 "$log"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          echo "Signed, attested and verified $REF" >> "$GITHUB_STEP_SUMMARY"
 
   ci:
     name: CI passed
