@@ -73,8 +73,10 @@ jobs:
           TURBO_FILTER: ${{ needs.plan.outputs.filter }}
         # TURBO_FILTER holds one or more filters separated by spaces (see scripts/ci/plan.mjs).
         run: |
+          # read -a splits on spaces without glob expansion (a full run's filter is `*`).
+          read -r -a list <<< "$TURBO_FILTER"
           filters=()
-          for filter in $TURBO_FILTER; do filters+=("--filter=$filter"); done
+          for filter in "${list[@]}"; do filters+=("--filter=$filter"); done
           pnpm exec turbo run lint typecheck test build "${filters[@]}"
       - name: Detect Vitest coverage reports
         id: coverage
