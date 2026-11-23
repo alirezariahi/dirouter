@@ -21,6 +21,10 @@ COPY --from=prune /repo/out/full/ .
 RUN pnpm turbo run build --filter=@dirouter/portal
 
 FROM nginxinc/nginx-unprivileged:1.29-alpine AS runtime
+# Fixed OS packages that are newer than the base image (the CI image scan fails on Critical ones).
+USER root
+RUN apk upgrade --no-cache
+USER 101
 COPY deploy/docker/nginx/portal.conf.template /etc/nginx/templates/default.conf.template
 COPY deploy/docker/nginx/security-headers.inc.template /etc/nginx/templates/security-headers.inc.template
 COPY --from=build /repo/apps/portal/dist /usr/share/nginx/html

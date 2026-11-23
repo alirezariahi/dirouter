@@ -70,7 +70,11 @@ jobs:
       - name: Check affected packages and their dependents
         env:
           TURBO_FILTER: ${{ needs.plan.outputs.filter }}
-        run: pnpm exec turbo run lint typecheck test build --filter="$TURBO_FILTER"
+        # TURBO_FILTER holds one or more filters separated by spaces (see scripts/ci/plan.mjs).
+        run: |
+          filters=()
+          for filter in $TURBO_FILTER; do filters+=("--filter=$filter"); done
+          pnpm exec turbo run lint typecheck test build "${filters[@]}"
       - name: Detect Vitest coverage reports
         id: coverage
         run: |
@@ -209,8 +213,15 @@ jobs:
         env:
           IMAGE: ${{ steps.image.outputs.name }}:sha-${{ github.sha }}
         run: |
-          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v trivy-cache:/root/.cache \
-            "$TRIVY_IMAGE" image --scanners vuln --severity CRITICAL --ignore-unfixed --exit-code 1 "$IMAGE"
+          report=$(mktemp)
+          if ! docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v trivy-cache:/root/.cache \
+            "$TRIVY_IMAGE" image --scanners vuln --severity CRITICAL --ignore-unfixed --exit-code 1 \
+            "$IMAGE" > "$report" 2>&1; then
+            cat "$report"
+            # Job logs need a GitHub sign-in; the summary of a public run does not.
+            { echo "### Critical vulnerabilities in ${{ matrix.app }}"; echo '```'; tail -n 60 "$report"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
       - name: SBOM (SPDX)
         env:
           IMAGE: ${{ steps.image.outputs.name }}:sha-${{ github.sha }}
