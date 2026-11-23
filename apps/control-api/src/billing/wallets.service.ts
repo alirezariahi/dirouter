@@ -147,7 +147,8 @@ export class WalletsService implements OnApplicationBootstrap {
     if (!wallet) return [];
     const entries = await this.db.walletEntry.findMany({
       where: { walletId: wallet.id, ...(before ? { createdAt: { lt: new Date(before) } } : {}) },
-      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      // Exact posting order (sequence); created_at only breaks ties for entries without one.
+      orderBy: [{ sequence: { sort: 'desc', nulls: 'last' } }, { createdAt: 'desc' }],
       take: limit,
       include: {
         transaction: { select: { kind: true, description: true, metadata: true } },

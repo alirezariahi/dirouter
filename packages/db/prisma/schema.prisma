@@ -62,6 +62,7 @@ model Organization {
   customerGroupId String?       @map("customer_group_id")
   customerGroup   CustomerGroup? @relation(fields: [customerGroupId], references: [id], onDelete: SetNull)
   subscription    Subscription?
+  invoices        Invoice[]
 
   @@index([customerGroupId])
   @@map("organizations")
@@ -878,12 +879,16 @@ model WalletEntry {
   /// Customer wallet balance right after this entry (running balance for statements); null on
   /// system wallets, whose balance is not cached.
   balanceAfter  Decimal? @map("balance_after") @db.Decimal(18, 8)
+  /// The wallet's version after this posting: exact statement order on customer wallets (postings
+  /// commit in lock order, which created_at, the transaction start time, does not follow).
+  sequence      Int?
   createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
 
   transaction WalletTransaction @relation(fields: [transactionId], references: [id], onDelete: Restrict)
   wallet      Wallet            @relation(fields: [walletId], references: [id], onDelete: Restrict)
 
   @@index([walletId, createdAt])
+  @@index([walletId, sequence])
   @@index([transactionId])
   @@map("wallet_entries")
 }
@@ -1066,4 +1071,30 @@ model SubscriptionUsage {
 
   @@index([subscriptionId, periodStart])
   @@map("subscription_usage")
+}
+
+/// Monthly invoice of one organization (card 19.6). Prepaid organizations are invoiced from their
+/// wallet ledger, so every figure can be checked against it; postpaid ones from their usage.
+model Invoice {
+  id             String   @id
+  /// INV-<year>-<sequence>, gap-free per year.
+  number         String   @unique
+  organizationId String   @map("organization_id")
+  /// YYYY-MM (UTC month).
+  period         String
+  /// prepaid (from the ledger) | postpaid (from usage)
+  basis          String
+  openingUsd     Decimal  @map("opening_usd") @db.Decimal(18, 8)
+  closingUsd     Decimal  @map("closing_usd") @db.Decimal(18, 8)
+  /// Totals by transaction kind (topup, gift, adjustment, usage, plan, refund) and the usage
+  /// breakdown by model; amounts are decimal strings.
+  totals         Json
+  lines          Json
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, period])
+  @@index([period])
+  @@map("invoices")
 }

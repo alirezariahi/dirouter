@@ -157,7 +157,12 @@ export async function postInTransaction(tx: Tx, input: PostInput): Promise<PostR
     input.legs.map((l) => l.walletId),
   );
   const running = new Map<string, bigint>();
-  for (const [id, w] of locked) if (w.kind === 'customer') running.set(id, toUnits(w.balance));
+  const sequence = new Map<string, number>();
+  for (const [id, w] of locked)
+    if (w.kind === 'customer') {
+      running.set(id, toUnits(w.balance));
+      sequence.set(id, w.version + 1);
+    }
 
   for (const [i, leg] of input.legs.entries()) {
     const amount = units[i] ?? 0n;
@@ -174,9 +179,10 @@ export async function postInTransaction(tx: Tx, input: PostInput): Promise<PostR
       balanceAfter = fromUnits(after);
     }
     await tx.$executeRaw`
-      INSERT INTO "wallet_entries" ("id", "transaction_id", "wallet_id", "amount_usd", "balance_after")
+      INSERT INTO "wallet_entries"
+        ("id", "transaction_id", "wallet_id", "amount_usd", "balance_after", "sequence")
       VALUES (${newId('wen')}, ${transactionId}, ${leg.walletId}, ${leg.amountUsd}::numeric,
-              ${balanceAfter}::numeric)`;
+              ${balanceAfter}::numeric, ${sequence.get(leg.walletId) ?? null}::int)`;
   }
 
   const wallets: WalletState[] = [];

@@ -21,7 +21,10 @@ import {
   chargeUsageInTransaction,
   checkLedger,
   fromUnits,
+  issueInvoice,
   leftOf,
+  organizationsToInvoice,
+  previousPeriod,
   type PrismaClient,
   renewSubscriptions,
   toUnits,
@@ -218,4 +221,14 @@ export async function renewPlans(db: PrismaClient, redis: Redis, now = new Date(
   }
   const count = (status: string) => results.filter((x) => x.status === status).length;
   return { renewed: count('active'), pastDue: count('past_due'), cancelled: count('cancelled') };
+}
+
+/** Issues last month's invoices (card 19.6); invoices already issued are left as they are. */
+export async function issueMonthlyInvoices(db: PrismaClient, now = new Date()) {
+  const period = previousPeriod(now);
+  let created = 0;
+  const organizations = await organizationsToInvoice(db, period);
+  for (const organizationId of organizations)
+    if ((await issueInvoice(db, organizationId, period)).created) created++;
+  return { period, organizations: organizations.length, created };
 }

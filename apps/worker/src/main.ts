@@ -23,7 +23,13 @@ import { evaluateAlerts } from './alerts.js';
 import { drainHealthSamples } from './health-samples.js';
 import { createMetrics } from './metrics.js';
 import { type UsageDb, UsageBatchWriter } from './writer.js';
-import { auditLedger, chargeWallet, renewPlans, syncWallets } from './wallets.js';
+import {
+  auditLedger,
+  chargeWallet,
+  issueMonthlyInvoices,
+  renewPlans,
+  syncWallets,
+} from './wallets.js';
 
 const env = loadEnvOrExit(workerEnvSchema);
 const logger = createLogger({ service: 'worker', level: env.LOG_LEVEL });
@@ -135,6 +141,7 @@ const jobs: Record<string, () => Promise<unknown>> = {
   'wallet-sync': () => syncWallets(db, connection),
   'ledger-audit': () => auditLedger(db, logger),
   'plan-renewals': () => renewPlans(db, connection),
+  'invoices-monthly': () => issueMonthlyInvoices(db),
   'health-samples': () =>
     drainHealthSamples(db, connection, logger, { retentionDays: env.HEALTH_SAMPLE_RETENTION_DAYS }),
 };
@@ -176,6 +183,8 @@ const schedule = {
   'wallet-sync': { every: 60_000 },
   'ledger-audit': { every: 3_600_000 },
   'plan-renewals': { every: 300_000 },
+  // Daily, so a missed run (worker down on the 1st) is caught up the next day; issuing is idempotent.
+  'invoices-monthly': { pattern: '30 2 * * *', tz: 'UTC' },
 };
 for (const [name, repeat] of Object.entries(schedule)) {
   await maintenanceQueue.upsertJobScheduler(name, repeat, {

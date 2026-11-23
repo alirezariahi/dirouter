@@ -551,6 +551,58 @@ try {
       assert.ok((await wallet()) > 2.9);
     },
   );
+  await scenario('19.6 invoices and profit: the invoice equals the ledger', async () => {
+    // Month to date for the customer, compared with the ledger rows themselves.
+    const preview = (await customer.cust('GET', 'invoices/preview')).body;
+    assert.equal(preview.basis, 'prepaid');
+    const wallet = (await customer.cust('GET', 'wallet')).body.wallet;
+    const monthStart = `${preview.period}-01`;
+    const [opening, movement, usageEntries] = (
+      await sql(`SELECT
+          COALESCE(SUM(e.amount_usd) FILTER (WHERE e.created_at < '${monthStart}'), 0),
+          COALESCE(SUM(e.amount_usd) FILTER (WHERE e.created_at >= '${monthStart}'), 0),
+          COALESCE(SUM(e.amount_usd) FILTER (WHERE e.created_at >= '${monthStart}' AND t.kind = 'usage'), 0)
+        FROM wallet_entries e JOIN wallet_transactions t ON t.id = e.transaction_id
+        WHERE e.wallet_id = '${wallet.id}'`)
+    )
+      .split('|')
+      .map(Number);
+    assert.equal(Number(preview.openingUsd), opening);
+    assert.equal(Number(preview.closingUsd), Number((opening + movement).toFixed(8)));
+    assert.equal(Number(preview.closingUsd), Number(wallet.balanceUsd));
+    const totals = Object.values(preview.totals).reduce((sum, v) => sum + Number(v), 0);
+    assert.equal(Number(totals.toFixed(8)), Number(movement.toFixed(8)));
+    const lines = preview.lines.reduce((sum, l) => sum + Number(l.amountUsd), 0);
+    assert.equal(Number(lines.toFixed(8)), Number((-usageEntries).toFixed(8)));
+
+    // Profit today: cost against sales by model, with the totals adding up.
+    const today = new Date().toISOString().slice(0, 10);
+    const tomorrow = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
+    // The rollup is refreshed by the worker; wait for today's sales to show up.
+    const report = await waitFor(
+      'today in the profit report',
+      async () => {
+        const r = (await operator('GET', `billing/reports/profit?from=${today}&to=${tomorrow}`))
+          .body;
+        return r.models.length > 0 ? r : undefined;
+      },
+      120_000,
+    );
+    const cost = report.models.reduce((sum, m) => sum + Number(m.costUsd), 0);
+    const revenue = report.models.reduce((sum, m) => sum + Number(m.revenueUsd), 0);
+    assert.equal(Number(report.totals.costUsd), Number(cost.toFixed(8)));
+    assert.equal(Number(report.totals.revenueUsd), Number(revenue.toFixed(8)));
+    assert.ok(Number(report.ledger.revenueBookedUsd) > 0);
+
+    // The monthly run (also scheduled in the worker) is idempotent.
+    const last = new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth() - 1, 1))
+      .toISOString()
+      .slice(0, 7);
+    const run = (await operator('POST', `billing/invoices/generate?period=${last}`)).body;
+    const rerun = (await operator('POST', `billing/invoices/generate?period=${last}`)).body;
+    assert.equal(rerun.created, 0);
+    assert.equal(rerun.organizations, run.organizations);
+  });
 } catch (error) {
   crashed = true;
   console.error(error);

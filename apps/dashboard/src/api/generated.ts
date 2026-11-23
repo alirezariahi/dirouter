@@ -4090,6 +4090,37 @@ export type SubscriptionControllerSubscribe200 = {[key: string]: unknown};
 
 export type SubscriptionControllerCancel200 = {[key: string]: unknown};
 
+export type InvoicesControllerList200Item = {[key: string]: unknown};
+
+export type InvoicesControllerPreview200 = {[key: string]: unknown};
+
+export type InvoicesControllerGet200 = {[key: string]: unknown};
+
+export type InvoicesAdminControllerListParams = {
+  /** @pattern ^\d{4}-(0[1-9]|1[0-2])$ */
+  period?: string;
+};
+
+export type InvoicesAdminControllerList200Item = {[key: string]: unknown};
+
+export type InvoicesAdminControllerGenerateParams = {
+  /** @pattern ^\d{4}-(0[1-9]|1[0-2])$ */
+  period: string;
+};
+
+export type InvoicesAdminControllerGenerate200 = {[key: string]: unknown};
+
+export type InvoicesAdminControllerVerify200 = {[key: string]: unknown};
+
+export type InvoicesAdminControllerProfitParams = {
+  /** @pattern ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))$ */
+  from: string;
+  /** @pattern ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))$ */
+  to: string;
+};
+
+export type InvoicesAdminControllerProfit200 = {[key: string]: unknown};
+
 export type PortalControllerConfig200 = {[key: string]: unknown};
 
 export type PortalControllerMarket200 = {[key: string]: unknown};
@@ -18599,6 +18630,794 @@ export function useSubscriptionControllerCancel<TData = Awaited<ReturnType<typeo
 
 
 
+
+export type invoicesControllerListResponse200 = {
+  data: InvoicesControllerList200Item[]
+  status: 200
+}
+
+export type invoicesControllerListResponseSuccess = (invoicesControllerListResponse200) & {
+  headers: Headers;
+};
+;
+
+export type invoicesControllerListResponse = (invoicesControllerListResponseSuccess)
+
+export const getInvoicesControllerListUrl = (orgId: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/invoices`
+}
+
+export const invoicesControllerList = async (orgId: string, options?: Parameters<typeof orvalFetch>[1]): Promise<invoicesControllerListResponse> => {
+
+  return orvalFetch<invoicesControllerListResponse>(getInvoicesControllerListUrl(orgId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getInvoicesControllerListMutationKey = () => ['invoicesControllerList'] as const;
+
+export const getInvoicesControllerListMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof invoicesControllerList>>, TError,InvoicesControllerListMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof invoicesControllerList>>, TError,InvoicesControllerListMutationVariables, TContext> => {
+
+const mutationKey = getInvoicesControllerListMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof invoicesControllerList>>, InvoicesControllerListMutationVariables> = (props) => {
+          const {orgId} = props ?? {};
+
+          return  invoicesControllerList(orgId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type InvoicesControllerListMutationResult = NonNullable<Awaited<ReturnType<typeof invoicesControllerList>>>
+
+    export type InvoicesControllerListMutationError = unknown
+    export type InvoicesControllerListMutationVariables = {orgId: string}
+
+    export const useInvoicesControllerList = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof invoicesControllerList>>, TError,InvoicesControllerListMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof invoicesControllerList>>,
+        TError,
+        InvoicesControllerListMutationVariables,
+        TContext
+      > => {
+      return useMutation(getInvoicesControllerListMutationOptions(options), queryClient);
+    }
+
+export type invoicesControllerPreviewResponse200 = {
+  data: InvoicesControllerPreview200
+  status: 200
+}
+
+export type invoicesControllerPreviewResponseSuccess = (invoicesControllerPreviewResponse200) & {
+  headers: Headers;
+};
+;
+
+export type invoicesControllerPreviewResponse = (invoicesControllerPreviewResponseSuccess)
+
+export const getInvoicesControllerPreviewUrl = (orgId: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/invoices/preview`
+}
+
+export const invoicesControllerPreview = async (orgId: string, options?: Parameters<typeof orvalFetch>[1]): Promise<invoicesControllerPreviewResponse> => {
+
+  return orvalFetch<invoicesControllerPreviewResponse>(getInvoicesControllerPreviewUrl(orgId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getInvoicesControllerPreviewMutationKey = () => ['invoicesControllerPreview'] as const;
+
+export const getInvoicesControllerPreviewMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof invoicesControllerPreview>>, TError,InvoicesControllerPreviewMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof invoicesControllerPreview>>, TError,InvoicesControllerPreviewMutationVariables, TContext> => {
+
+const mutationKey = getInvoicesControllerPreviewMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof invoicesControllerPreview>>, InvoicesControllerPreviewMutationVariables> = (props) => {
+          const {orgId} = props ?? {};
+
+          return  invoicesControllerPreview(orgId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type InvoicesControllerPreviewMutationResult = NonNullable<Awaited<ReturnType<typeof invoicesControllerPreview>>>
+
+    export type InvoicesControllerPreviewMutationError = unknown
+    export type InvoicesControllerPreviewMutationVariables = {orgId: string}
+
+    export const useInvoicesControllerPreview = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof invoicesControllerPreview>>, TError,InvoicesControllerPreviewMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof invoicesControllerPreview>>,
+        TError,
+        InvoicesControllerPreviewMutationVariables,
+        TContext
+      > => {
+      return useMutation(getInvoicesControllerPreviewMutationOptions(options), queryClient);
+    }
+
+export type invoicesControllerGetResponse200 = {
+  data: InvoicesControllerGet200
+  status: 200
+}
+
+export type invoicesControllerGetResponseSuccess = (invoicesControllerGetResponse200) & {
+  headers: Headers;
+};
+;
+
+export type invoicesControllerGetResponse = (invoicesControllerGetResponseSuccess)
+
+export const getInvoicesControllerGetUrl = (orgId: string,
+    id: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/invoices/${id}`
+}
+
+export const invoicesControllerGet = async (orgId: string,
+    id: string, options?: Parameters<typeof orvalFetch>[1]): Promise<invoicesControllerGetResponse> => {
+
+  return orvalFetch<invoicesControllerGetResponse>(getInvoicesControllerGetUrl(orgId,id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getInvoicesControllerGetMutationKey = () => ['invoicesControllerGet'] as const;
+
+export const getInvoicesControllerGetMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof invoicesControllerGet>>, TError,InvoicesControllerGetMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof invoicesControllerGet>>, TError,InvoicesControllerGetMutationVariables, TContext> => {
+
+const mutationKey = getInvoicesControllerGetMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof invoicesControllerGet>>, InvoicesControllerGetMutationVariables> = (props) => {
+          const {orgId,id} = props ?? {};
+
+          return  invoicesControllerGet(orgId,id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type InvoicesControllerGetMutationResult = NonNullable<Awaited<ReturnType<typeof invoicesControllerGet>>>
+
+    export type InvoicesControllerGetMutationError = unknown
+    export type InvoicesControllerGetMutationVariables = {orgId: string;id: string}
+
+    export const useInvoicesControllerGet = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof invoicesControllerGet>>, TError,InvoicesControllerGetMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof invoicesControllerGet>>,
+        TError,
+        InvoicesControllerGetMutationVariables,
+        TContext
+      > => {
+      return useMutation(getInvoicesControllerGetMutationOptions(options), queryClient);
+    }
+
+export type invoicesControllerPdfResponse200 = {
+  data: Blob
+  status: 200
+}
+
+export type invoicesControllerPdfResponseSuccess = (invoicesControllerPdfResponse200) & {
+  headers: Headers;
+};
+;
+
+export type invoicesControllerPdfResponse = (invoicesControllerPdfResponseSuccess)
+
+export const getInvoicesControllerPdfUrl = (orgId: string,
+    id: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/invoices/${id}/pdf`
+}
+
+export const invoicesControllerPdf = async (orgId: string,
+    id: string, options?: Parameters<typeof orvalFetch>[1]): Promise<invoicesControllerPdfResponse> => {
+
+  return orvalFetch<invoicesControllerPdfResponse>(getInvoicesControllerPdfUrl(orgId,id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getInvoicesControllerPdfMutationKey = () => ['invoicesControllerPdf'] as const;
+
+export const getInvoicesControllerPdfMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof invoicesControllerPdf>>, TError,InvoicesControllerPdfMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof invoicesControllerPdf>>, TError,InvoicesControllerPdfMutationVariables, TContext> => {
+
+const mutationKey = getInvoicesControllerPdfMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof invoicesControllerPdf>>, InvoicesControllerPdfMutationVariables> = (props) => {
+          const {orgId,id} = props ?? {};
+
+          return  invoicesControllerPdf(orgId,id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type InvoicesControllerPdfMutationResult = NonNullable<Awaited<ReturnType<typeof invoicesControllerPdf>>>
+
+    export type InvoicesControllerPdfMutationError = unknown
+    export type InvoicesControllerPdfMutationVariables = {orgId: string;id: string}
+
+    export const useInvoicesControllerPdf = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof invoicesControllerPdf>>, TError,InvoicesControllerPdfMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof invoicesControllerPdf>>,
+        TError,
+        InvoicesControllerPdfMutationVariables,
+        TContext
+      > => {
+      return useMutation(getInvoicesControllerPdfMutationOptions(options), queryClient);
+    }
+
+export type invoicesAdminControllerListResponse200 = {
+  data: InvoicesAdminControllerList200Item[]
+  status: 200
+}
+
+export type invoicesAdminControllerListResponseSuccess = (invoicesAdminControllerListResponse200) & {
+  headers: Headers;
+};
+;
+
+export type invoicesAdminControllerListResponse = (invoicesAdminControllerListResponseSuccess)
+
+export const getInvoicesAdminControllerListUrl = (orgId: string,
+    params?: InvoicesAdminControllerListParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/v1/orgs/${orgId}/billing/invoices?${stringifiedParams}` : `/api/v1/orgs/${orgId}/billing/invoices`
+}
+
+export const invoicesAdminControllerList = async (orgId: string,
+    params?: InvoicesAdminControllerListParams, options?: Parameters<typeof orvalFetch>[1]): Promise<invoicesAdminControllerListResponse> => {
+
+  return orvalFetch<invoicesAdminControllerListResponse>(getInvoicesAdminControllerListUrl(orgId,params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getInvoicesAdminControllerListMutationKey = () => ['invoicesAdminControllerList'] as const;
+
+export const getInvoicesAdminControllerListMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof invoicesAdminControllerList>>, TError,InvoicesAdminControllerListMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof invoicesAdminControllerList>>, TError,InvoicesAdminControllerListMutationVariables, TContext> => {
+
+const mutationKey = getInvoicesAdminControllerListMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof invoicesAdminControllerList>>, InvoicesAdminControllerListMutationVariables> = (props) => {
+          const {orgId,params} = props ?? {};
+
+          return  invoicesAdminControllerList(orgId,params,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type InvoicesAdminControllerListMutationResult = NonNullable<Awaited<ReturnType<typeof invoicesAdminControllerList>>>
+
+    export type InvoicesAdminControllerListMutationError = unknown
+    export type InvoicesAdminControllerListMutationVariables = {orgId: string;params?: InvoicesAdminControllerListParams}
+
+    export const useInvoicesAdminControllerList = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof invoicesAdminControllerList>>, TError,InvoicesAdminControllerListMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof invoicesAdminControllerList>>,
+        TError,
+        InvoicesAdminControllerListMutationVariables,
+        TContext
+      > => {
+      return useMutation(getInvoicesAdminControllerListMutationOptions(options), queryClient);
+    }
+
+export type invoicesAdminControllerGenerateResponse200 = {
+  data: InvoicesAdminControllerGenerate200
+  status: 200
+}
+
+export type invoicesAdminControllerGenerateResponseSuccess = (invoicesAdminControllerGenerateResponse200) & {
+  headers: Headers;
+};
+;
+
+export type invoicesAdminControllerGenerateResponse = (invoicesAdminControllerGenerateResponseSuccess)
+
+export const getInvoicesAdminControllerGenerateUrl = (orgId: string,
+    params: InvoicesAdminControllerGenerateParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/v1/orgs/${orgId}/billing/invoices/generate?${stringifiedParams}` : `/api/v1/orgs/${orgId}/billing/invoices/generate`
+}
+
+export const invoicesAdminControllerGenerate = async (orgId: string,
+    params: InvoicesAdminControllerGenerateParams, options?: Parameters<typeof orvalFetch>[1]): Promise<invoicesAdminControllerGenerateResponse> => {
+
+  return orvalFetch<invoicesAdminControllerGenerateResponse>(getInvoicesAdminControllerGenerateUrl(orgId,params),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getInvoicesAdminControllerGenerateQueryKey = (orgId: string,
+    params?: InvoicesAdminControllerGenerateParams,) => {
+    return [
+    'POST', `/api/v1/orgs/${orgId}/billing/invoices/generate`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getInvoicesAdminControllerGenerateQueryOptions = <TData = Awaited<ReturnType<typeof invoicesAdminControllerGenerate>>, TError = unknown>(orgId: string,
+    params: InvoicesAdminControllerGenerateParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof invoicesAdminControllerGenerate>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getInvoicesAdminControllerGenerateQueryKey(orgId,params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof invoicesAdminControllerGenerate>>> = ({ signal }) => invoicesAdminControllerGenerate(orgId,params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: orgId !== null && orgId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof invoicesAdminControllerGenerate>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type InvoicesAdminControllerGenerateQueryResult = NonNullable<Awaited<ReturnType<typeof invoicesAdminControllerGenerate>>>
+export type InvoicesAdminControllerGenerateQueryError = unknown
+
+
+export function useInvoicesAdminControllerGenerate<TData = Awaited<ReturnType<typeof invoicesAdminControllerGenerate>>, TError = unknown>(
+ orgId: string,
+    params: InvoicesAdminControllerGenerateParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof invoicesAdminControllerGenerate>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof invoicesAdminControllerGenerate>>,
+          TError,
+          Awaited<ReturnType<typeof invoicesAdminControllerGenerate>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useInvoicesAdminControllerGenerate<TData = Awaited<ReturnType<typeof invoicesAdminControllerGenerate>>, TError = unknown>(
+ orgId: string,
+    params: InvoicesAdminControllerGenerateParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof invoicesAdminControllerGenerate>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof invoicesAdminControllerGenerate>>,
+          TError,
+          Awaited<ReturnType<typeof invoicesAdminControllerGenerate>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useInvoicesAdminControllerGenerate<TData = Awaited<ReturnType<typeof invoicesAdminControllerGenerate>>, TError = unknown>(
+ orgId: string,
+    params: InvoicesAdminControllerGenerateParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof invoicesAdminControllerGenerate>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useInvoicesAdminControllerGenerate<TData = Awaited<ReturnType<typeof invoicesAdminControllerGenerate>>, TError = unknown>(
+ orgId: string,
+    params: InvoicesAdminControllerGenerateParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof invoicesAdminControllerGenerate>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getInvoicesAdminControllerGenerateQueryOptions(orgId,params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export type invoicesAdminControllerVerifyResponse200 = {
+  data: InvoicesAdminControllerVerify200
+  status: 200
+}
+
+export type invoicesAdminControllerVerifyResponseSuccess = (invoicesAdminControllerVerifyResponse200) & {
+  headers: Headers;
+};
+;
+
+export type invoicesAdminControllerVerifyResponse = (invoicesAdminControllerVerifyResponseSuccess)
+
+export const getInvoicesAdminControllerVerifyUrl = (orgId: string,
+    id: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/billing/invoices/${id}/verify`
+}
+
+export const invoicesAdminControllerVerify = async (orgId: string,
+    id: string, options?: Parameters<typeof orvalFetch>[1]): Promise<invoicesAdminControllerVerifyResponse> => {
+
+  return orvalFetch<invoicesAdminControllerVerifyResponse>(getInvoicesAdminControllerVerifyUrl(orgId,id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getInvoicesAdminControllerVerifyMutationKey = () => ['invoicesAdminControllerVerify'] as const;
+
+export const getInvoicesAdminControllerVerifyMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof invoicesAdminControllerVerify>>, TError,InvoicesAdminControllerVerifyMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof invoicesAdminControllerVerify>>, TError,InvoicesAdminControllerVerifyMutationVariables, TContext> => {
+
+const mutationKey = getInvoicesAdminControllerVerifyMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof invoicesAdminControllerVerify>>, InvoicesAdminControllerVerifyMutationVariables> = (props) => {
+          const {orgId,id} = props ?? {};
+
+          return  invoicesAdminControllerVerify(orgId,id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type InvoicesAdminControllerVerifyMutationResult = NonNullable<Awaited<ReturnType<typeof invoicesAdminControllerVerify>>>
+
+    export type InvoicesAdminControllerVerifyMutationError = unknown
+    export type InvoicesAdminControllerVerifyMutationVariables = {orgId: string;id: string}
+
+    export const useInvoicesAdminControllerVerify = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof invoicesAdminControllerVerify>>, TError,InvoicesAdminControllerVerifyMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof invoicesAdminControllerVerify>>,
+        TError,
+        InvoicesAdminControllerVerifyMutationVariables,
+        TContext
+      > => {
+      return useMutation(getInvoicesAdminControllerVerifyMutationOptions(options), queryClient);
+    }
+
+export type invoicesAdminControllerPdfResponse200 = {
+  data: Blob
+  status: 200
+}
+
+export type invoicesAdminControllerPdfResponseSuccess = (invoicesAdminControllerPdfResponse200) & {
+  headers: Headers;
+};
+;
+
+export type invoicesAdminControllerPdfResponse = (invoicesAdminControllerPdfResponseSuccess)
+
+export const getInvoicesAdminControllerPdfUrl = (orgId: string,
+    id: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/billing/invoices/${id}/pdf`
+}
+
+export const invoicesAdminControllerPdf = async (orgId: string,
+    id: string, options?: Parameters<typeof orvalFetch>[1]): Promise<invoicesAdminControllerPdfResponse> => {
+
+  return orvalFetch<invoicesAdminControllerPdfResponse>(getInvoicesAdminControllerPdfUrl(orgId,id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getInvoicesAdminControllerPdfMutationKey = () => ['invoicesAdminControllerPdf'] as const;
+
+export const getInvoicesAdminControllerPdfMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof invoicesAdminControllerPdf>>, TError,InvoicesAdminControllerPdfMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof invoicesAdminControllerPdf>>, TError,InvoicesAdminControllerPdfMutationVariables, TContext> => {
+
+const mutationKey = getInvoicesAdminControllerPdfMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof invoicesAdminControllerPdf>>, InvoicesAdminControllerPdfMutationVariables> = (props) => {
+          const {orgId,id} = props ?? {};
+
+          return  invoicesAdminControllerPdf(orgId,id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type InvoicesAdminControllerPdfMutationResult = NonNullable<Awaited<ReturnType<typeof invoicesAdminControllerPdf>>>
+
+    export type InvoicesAdminControllerPdfMutationError = unknown
+    export type InvoicesAdminControllerPdfMutationVariables = {orgId: string;id: string}
+
+    export const useInvoicesAdminControllerPdf = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof invoicesAdminControllerPdf>>, TError,InvoicesAdminControllerPdfMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof invoicesAdminControllerPdf>>,
+        TError,
+        InvoicesAdminControllerPdfMutationVariables,
+        TContext
+      > => {
+      return useMutation(getInvoicesAdminControllerPdfMutationOptions(options), queryClient);
+    }
+
+export type invoicesAdminControllerProfitResponse200 = {
+  data: InvoicesAdminControllerProfit200
+  status: 200
+}
+
+export type invoicesAdminControllerProfitResponseSuccess = (invoicesAdminControllerProfitResponse200) & {
+  headers: Headers;
+};
+;
+
+export type invoicesAdminControllerProfitResponse = (invoicesAdminControllerProfitResponseSuccess)
+
+export const getInvoicesAdminControllerProfitUrl = (orgId: string,
+    params: InvoicesAdminControllerProfitParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/v1/orgs/${orgId}/billing/reports/profit?${stringifiedParams}` : `/api/v1/orgs/${orgId}/billing/reports/profit`
+}
+
+export const invoicesAdminControllerProfit = async (orgId: string,
+    params: InvoicesAdminControllerProfitParams, options?: Parameters<typeof orvalFetch>[1]): Promise<invoicesAdminControllerProfitResponse> => {
+
+  return orvalFetch<invoicesAdminControllerProfitResponse>(getInvoicesAdminControllerProfitUrl(orgId,params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getInvoicesAdminControllerProfitMutationKey = () => ['invoicesAdminControllerProfit'] as const;
+
+export const getInvoicesAdminControllerProfitMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof invoicesAdminControllerProfit>>, TError,InvoicesAdminControllerProfitMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof invoicesAdminControllerProfit>>, TError,InvoicesAdminControllerProfitMutationVariables, TContext> => {
+
+const mutationKey = getInvoicesAdminControllerProfitMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof invoicesAdminControllerProfit>>, InvoicesAdminControllerProfitMutationVariables> = (props) => {
+          const {orgId,params} = props ?? {};
+
+          return  invoicesAdminControllerProfit(orgId,params,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type InvoicesAdminControllerProfitMutationResult = NonNullable<Awaited<ReturnType<typeof invoicesAdminControllerProfit>>>
+
+    export type InvoicesAdminControllerProfitMutationError = unknown
+    export type InvoicesAdminControllerProfitMutationVariables = {orgId: string;params: InvoicesAdminControllerProfitParams}
+
+    export const useInvoicesAdminControllerProfit = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof invoicesAdminControllerProfit>>, TError,InvoicesAdminControllerProfitMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof invoicesAdminControllerProfit>>,
+        TError,
+        InvoicesAdminControllerProfitMutationVariables,
+        TContext
+      > => {
+      return useMutation(getInvoicesAdminControllerProfitMutationOptions(options), queryClient);
+    }
 
 export type portalControllerConfigResponse200 = {
   data: PortalControllerConfig200
