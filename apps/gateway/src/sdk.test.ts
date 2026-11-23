@@ -252,7 +252,8 @@ describe('official anthropic SDK', () => {
     expect(followUp.stop_reason).toBe('end_turn');
   });
 
-  it('count_tokens is answered locally', async () => {
+  // The first count loads the tokenizer's rank tables, which takes seconds on a busy machine.
+  it('count_tokens is answered locally', { timeout: 30_000 }, async () => {
     const res = await client().messages.countTokens({
       model: 'claude-x',
       system: 'You are helpful.',

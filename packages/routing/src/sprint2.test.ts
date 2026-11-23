@@ -306,8 +306,10 @@ describe('hedged requests (12.2)', () => {
     const result = await executeWithHedging(
       candidates(),
       async (candidate) => {
+        // The slow target is far slower than hedge delay + fast target, so event-loop lag on a
+        // busy machine cannot change which one answers first.
         if (candidate.model.id === 'm1') {
-          await new Promise((resolve) => setTimeout(resolve, 50));
+          await new Promise((resolve) => setTimeout(resolve, 400));
           return { ok: true as const, value: `slow:${candidate.model.id}` };
         }
         await new Promise((resolve) => setTimeout(resolve, 5));

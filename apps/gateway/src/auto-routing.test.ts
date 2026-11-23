@@ -134,7 +134,9 @@ describe('auto routing', () => {
       routing: { alias: 'auto', target: 'coder', taskType: 'coding', source: 'rules' },
     });
     expect(event?.routing?.reasons).toContain('task type coding → coder');
-    expect(event?.routing?.classifierMicros).toBeLessThan(2_000);
+    // The overhead bound is measured in the routing package (auto.test.ts); one request through a
+    // busy test run only shows that the timing is recorded.
+    expect(event?.routing?.classifierMicros).toBeGreaterThanOrEqual(0);
 
     const chat = await env.ask(KEY, 'auto', 'hello, nice weather today');
     await chat.text();
