@@ -1,7 +1,7 @@
 /** Persian (default, right-to-left) and English. */
-import { createContext, type ReactNode, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useContext } from 'react';
 
-const fa = {
+export const fa = {
   brand: 'DiRouter',
   tagline: 'یک کلید برای همهٔ مدل‌ها؛ فقط به اندازهٔ مصرف بپردازید.',
   market: 'بازار مدل',
@@ -65,9 +65,9 @@ const fa = {
   language: 'English',
   error: 'خطا',
 };
-type Dictionary = typeof fa;
+export type Dictionary = typeof fa;
 
-const en: Dictionary = {
+export const en: Dictionary = {
   brand: 'DiRouter',
   tagline: 'One key for every model. Pay only for what you use.',
   market: 'Models',
@@ -133,33 +133,11 @@ const en: Dictionary = {
 };
 
 export type Lang = 'fa' | 'en';
-const STORAGE = 'dirouter.portal.lang';
-const I18n = createContext<{ t: Dictionary; lang: Lang; toggle: () => void }>({
+export const LANG_STORAGE = 'dirouter.portal.lang';
+export const I18nContext = createContext<{ t: Dictionary; lang: Lang; toggle: () => void }>({
   t: fa,
   lang: 'fa',
   toggle: () => undefined,
 });
 
-export function I18nProvider({ children }: { children: ReactNode }) {
-  const [lang, setLang] = useState<Lang>(() =>
-    localStorage.getItem(STORAGE) === 'en' ? 'en' : 'fa',
-  );
-  useEffect(() => {
-    document.documentElement.lang = lang;
-    document.documentElement.dir = lang === 'fa' ? 'rtl' : 'ltr';
-    localStorage.setItem(STORAGE, lang);
-  }, [lang]);
-  const value = useMemo(
-    () => ({
-      t: lang === 'fa' ? fa : en,
-      lang,
-      toggle: () => {
-        setLang((l) => (l === 'fa' ? 'en' : 'fa'));
-      },
-    }),
-    [lang],
-  );
-  return <I18n.Provider value={value}>{children}</I18n.Provider>;
-}
-
-export const useI18n = () => useContext(I18n);
+export const useI18n = () => useContext(I18nContext);

@@ -8,7 +8,7 @@ import { useI18n } from '../lib/i18n';
 import { query } from '../lib/router';
 import { orgId } from '../lib/session';
 import { Button, Card, Field, Mono, Notice } from '../lib/ui';
-import { useWallet } from './home';
+import { useWallet } from '../lib/wallet';
 
 interface Options {
   providers: ('zarinpal' | 'stripe')[];

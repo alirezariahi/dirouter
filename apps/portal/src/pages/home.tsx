@@ -1,52 +1,14 @@
 /** Balance at a glance and a copy-paste first request. */
 import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
 
 import { GATEWAY_URL } from '../config';
 import { api } from '../lib/api';
 import { usd } from '../lib/format';
 import { useI18n } from '../lib/i18n';
-import { Link } from '../lib/router';
-import { orgId } from '../lib/session';
-import { Button, Card } from '../lib/ui';
+import { Link } from '../lib/link';
+import { Card, CopyBlock } from '../lib/ui';
+import { useWallet } from '../lib/wallet';
 import type { Market } from './market';
-
-export interface WalletSummary {
-  prepaid: boolean;
-  wallet: { id: string; balanceUsd: string; heldUsd: string; availableUsd: string } | null;
-}
-
-export const useWallet = () =>
-  useQuery({
-    queryKey: ['wallet', orgId()],
-    queryFn: () => api<WalletSummary>(`/orgs/${orgId()}/wallet`),
-  });
-
-export function CopyBlock({ text }: { text: string }) {
-  const { t } = useI18n();
-  const [copied, setCopied] = useState(false);
-  return (
-    <div className="relative">
-      <pre
-        dir="ltr"
-        className="overflow-x-auto rounded-md bg-stone-900 p-4 text-left text-xs leading-relaxed text-stone-100"
-      >
-        {text}
-      </pre>
-      <Button
-        variant="quiet"
-        className="absolute end-2 top-2 border-stone-600 bg-stone-800 py-1 text-xs text-stone-100 hover:bg-stone-700"
-        onClick={() => {
-          void navigator.clipboard.writeText(text).then(() => {
-            setCopied(true);
-          });
-        }}
-      >
-        {copied ? t.copied : t.copy}
-      </Button>
-    </div>
-  );
-}
 
 export function HomePage() {
   const { t } = useI18n();

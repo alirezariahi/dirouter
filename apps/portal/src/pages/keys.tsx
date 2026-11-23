@@ -6,8 +6,7 @@ import { api } from '../lib/api';
 import { date } from '../lib/format';
 import { useI18n } from '../lib/i18n';
 import { orgId } from '../lib/session';
-import { Button, Card, Field, Mono, Notice } from '../lib/ui';
-import { CopyBlock } from './home';
+import { Button, Card, CopyBlock, Field, Mono, Notice } from '../lib/ui';
 
 interface Key {
   id: string;

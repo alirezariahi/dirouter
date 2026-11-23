@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { usd } from '../lib/format';
 import { useI18n } from '../lib/i18n';
-import { Link } from '../lib/router';
+import { Link } from '../lib/link';
 import { Card, Mono, Notice } from '../lib/ui';
 
 export interface Market {

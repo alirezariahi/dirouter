@@ -2,7 +2,8 @@
 import { useEffect, useState } from 'react';
 
 import { useI18n } from './lib/i18n';
-import { Link, navigate, usePath } from './lib/router';
+import { Link } from './lib/link';
+import { navigate, usePath } from './lib/router';
 import { me, restore, signOut } from './lib/session';
 import { AuthPage, OAuthCallbackPage } from './pages/auth';
 import { BillingPage } from './pages/billing';

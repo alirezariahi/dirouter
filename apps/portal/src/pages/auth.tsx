@@ -5,7 +5,8 @@ import { type SyntheticEvent, useEffect, useState } from 'react';
 import { api, ApiError } from '../lib/api';
 import { usd } from '../lib/format';
 import { useI18n } from '../lib/i18n';
-import { Link, navigate, query } from '../lib/router';
+import { Link } from '../lib/link';
+import { navigate, query } from '../lib/router';
 import { type SessionResponse, start } from '../lib/session';
 import { Button, Card, Field, Notice } from '../lib/ui';
 

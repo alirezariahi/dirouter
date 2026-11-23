@@ -1,5 +1,12 @@
 /** The few building blocks every page uses. */
-import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode } from 'react';
+import {
+  type ButtonHTMLAttributes,
+  type InputHTMLAttributes,
+  type ReactNode,
+  useState,
+} from 'react';
+
+import { useI18n } from './i18n';
 
 export function Card({
   title,
@@ -87,3 +94,29 @@ export const Mono = ({ children }: { children: ReactNode }) => (
     {children}
   </bdi>
 );
+
+export function CopyBlock({ text }: { text: string }) {
+  const { t } = useI18n();
+  const [copied, setCopied] = useState(false);
+  return (
+    <div className="relative">
+      <pre
+        dir="ltr"
+        className="overflow-x-auto rounded-md bg-stone-900 p-4 text-left text-xs leading-relaxed text-stone-100"
+      >
+        {text}
+      </pre>
+      <Button
+        variant="quiet"
+        className="absolute end-2 top-2 border-stone-600 bg-stone-800 py-1 text-xs text-stone-100 hover:bg-stone-700"
+        onClick={() => {
+          void navigator.clipboard.writeText(text).then(() => {
+            setCopied(true);
+          });
+        }}
+      >
+        {copied ? t.copied : t.copy}
+      </Button>
+    </div>
+  );
+}

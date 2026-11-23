@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { App } from './app';
 import { usd } from './lib/format';
-import { I18nProvider } from './lib/i18n';
+import { I18nProvider } from './lib/i18n-provider';
 import { navigate } from './lib/router';
 import { signOut } from './lib/session';
 

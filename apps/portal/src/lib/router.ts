@@ -1,5 +1,5 @@
 /** A small history router: the portal has a handful of flat routes. */
-import { type AnchorHTMLAttributes, type MouseEvent, useSyncExternalStore } from 'react';
+import { useSyncExternalStore } from 'react';
 
 const subscribers = new Set<() => void>();
 const notify = () => {
@@ -24,17 +24,3 @@ export function usePath(): string {
 }
 
 export const query = (name: string) => new URLSearchParams(window.location.search).get(name);
-
-export function Link({
-  href,
-  onClick,
-  ...rest
-}: AnchorHTMLAttributes<HTMLAnchorElement> & { href: string }) {
-  const go = (event: MouseEvent<HTMLAnchorElement>) => {
-    onClick?.(event);
-    if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.button !== 0) return;
-    event.preventDefault();
-    navigate(href);
-  };
-  return <a href={href} onClick={go} {...rest} />;
-}
