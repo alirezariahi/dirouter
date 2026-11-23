@@ -160,3 +160,26 @@ describe('translation compatibility edge cases', () => {
     ).toMatchObject({ parallel_tool_calls: false, reasoning_effort: 'low' });
   });
 });
+
+describe('system messages inside an Anthropic conversation (current Claude Code)', () => {
+  it('join the system prompt after the cached blocks and are not sent as messages', () => {
+    const canonical = anthropicRequestToCanonical({
+      model: 'm',
+      max_tokens: 10,
+      system: [
+        { type: 'text', text: 'You are Claude Code.', cache_control: { type: 'ephemeral' } },
+      ],
+      messages: [
+        { role: 'user', content: 'hi' },
+        { role: 'system', content: [{ type: 'text', text: '# Environment\nPlatform: darwin' }] },
+        { role: 'system', content: 'Reminder' },
+      ],
+    } as never);
+    expect(canonical.system).toEqual([
+      { type: 'text', text: 'You are Claude Code.', cache: true },
+      { type: 'text', text: '# Environment\nPlatform: darwin' },
+      { type: 'text', text: 'Reminder' },
+    ]);
+    expect(canonical.messages.map((m) => m.role)).toEqual(['user']);
+  });
+});

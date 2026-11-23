@@ -96,6 +96,17 @@ export function anthropicRequestToCanonical(
 
   const messages: CanonicalMessage[] = [];
   for (const message of req.messages) {
+    // A system message in the conversation (current Claude Code sends its environment notes this
+    // way) joins the system prompt, after the cached blocks, so every upstream accepts it and the
+    // cached prefix stays the same.
+    if (message.role === 'system') {
+      const texts =
+        typeof message.content === 'string'
+          ? [message.content]
+          : message.content.flatMap((b) => (b.type === 'text' ? [b.text] : []));
+      for (const text of texts) if (text) system.push({ type: 'text', text });
+      continue;
+    }
     if (typeof message.content === 'string') {
       messages.push({ role: message.role, content: [{ type: 'text', text: message.content }] });
       continue;

@@ -97,7 +97,11 @@ export type AnthropicOutputContentBlock = z.infer<typeof AnthropicOutputContentB
 // ───────────── Request ─────────────
 
 export const AnthropicMessageParam = z.looseObject({
-  role: z.enum(['user', 'assistant']),
+  /**
+   * `system` messages inside `messages` are sent by current Claude Code (environment notes after
+   * the first user turn); the translator folds them into the system prompt.
+   */
+  role: z.enum(['user', 'assistant', 'system']),
   content: z.union([z.string(), z.array(AnthropicInputContentBlock)]),
 });
 export type AnthropicMessageParam = z.infer<typeof AnthropicMessageParam>;
