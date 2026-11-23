@@ -15,7 +15,7 @@ import type { OrgContext } from '../rbac/org.guard.js';
 export interface McpServerInput {
   name: string;
   slug: string;
-  transport: 'streamable-http' | 'sse';
+  transport: 'streamable-http' | 'sse' | 'a2a';
   url: string;
   /** Replaces the stored headers; `null` removes them, absent keeps them. */
   headers?: Record<string, string> | null | undefined;

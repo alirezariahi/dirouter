@@ -379,6 +379,8 @@ export const HealthProbeSettings = z.object({
 export type HealthProbeSettings = z.infer<typeof HealthProbeSettings>;
 
 export const GatewaySettings = z.object({
+  /** DiRouter as an A2A agent (card 20.3): the model that answers when a request names none. */
+  a2a: z.object({ defaultModel: z.string().min(1).optional() }).optional(),
   /** Limiter/budget behavior when Valkey is unavailable. */
   failMode: z.enum(['open', 'closed']).default('open'),
   defaultTimeouts: TimeoutConfig.default({}),
@@ -426,8 +428,11 @@ export const McpServerConfig = z.object({
   organizationId: z.string(),
   /** Tool name prefix: tools appear as `<slug>__<tool>`. */
   slug: z.string().regex(/^[a-z0-9][a-z0-9-]{0,40}$/),
-  /** `streamable-http` (current MCP transport) or `sse` (the older HTTP+SSE transport). */
-  transport: z.enum(['streamable-http', 'sse']),
+  /**
+   * `streamable-http` (current MCP transport), `sse` (the older HTTP+SSE transport), or `a2a`: an
+   * external A2A agent (card 20.3) proxied at /a2a/agents/<slug>; `url` is its JSON-RPC endpoint.
+   */
+  transport: z.enum(['streamable-http', 'sse', 'a2a']),
   url: z.url(),
   enabled: z.boolean(),
   /** Encrypted with MASTER_KEY (AAD `mcp:<id>`): a JSON object of headers, e.g. Authorization. */

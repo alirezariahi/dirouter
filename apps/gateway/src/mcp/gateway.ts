@@ -46,6 +46,8 @@ interface Tool {
   [key: string]: unknown;
 }
 
+type McpServer = McpServerConfig & { transport: 'streamable-http' | 'sse' };
+
 const rpcError = (id: JsonRpcRequest['id'], code: number, message: string) => ({
   jsonrpc: '2.0' as const,
   id: id ?? null,
@@ -166,14 +168,16 @@ export class McpGateway {
     }
   }
 
-  #servers(config: LoadedConfig, organizationId: string): McpServerConfig[] {
+  /** The organization's enabled MCP servers (A2A agents share the registry but not /mcp). */
+  #servers(config: LoadedConfig, organizationId: string): McpServer[] {
     return config.snapshot.mcpServers.filter(
-      (s) => s.enabled && s.organizationId === organizationId,
+      (s): s is McpServer =>
+        s.enabled && s.organizationId === organizationId && s.transport !== 'a2a',
     );
   }
 
   /** One client per server, rebuilt when its address, transport or headers change. */
-  #upstream(config: LoadedConfig, server: McpServerConfig): McpUpstream {
+  #upstream(config: LoadedConfig, server: McpServer): McpUpstream {
     const fingerprint = `${server.transport}|${server.url}|${server.headers ?? ''}|${String(server.timeoutMs)}`;
     const cached = this.#upstreams.get(server.id);
     if (cached?.fingerprint === fingerprint) return cached.client;
@@ -189,7 +193,7 @@ export class McpGateway {
     return client;
   }
 
-  async #serverTools(config: LoadedConfig, server: McpServerConfig): Promise<Tool[]> {
+  async #serverTools(config: LoadedConfig, server: McpServer): Promise<Tool[]> {
     const fingerprint = `${server.url}|${server.transport}|${server.headers ?? ''}`;
     const cached = this.#tools.get(server.id);
     if (cached?.fingerprint === fingerprint && cached.until > Date.now()) return cached.tools;

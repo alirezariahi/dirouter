@@ -370,7 +370,7 @@ export class SnapshotService implements OnModuleInit, OnModuleDestroy {
         id: m.id,
         organizationId: m.organizationId,
         slug: m.slug,
-        transport: m.transport as 'streamable-http' | 'sse',
+        transport: m.transport as 'streamable-http' | 'sse' | 'a2a',
         url: m.url,
         enabled: m.enabled,
         ...(m.headersEnc ? { headers: m.headersEnc } : {}),

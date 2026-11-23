@@ -871,6 +871,111 @@ try {
       assert.match(listed, /dirouter-admin: .*\/api\/v1\/mcp \(HTTP\) - [✓✔] Connected/);
     },
   );
+  await scenario(
+    '20.3 A2A: agent card, SendMessage/GetTask (v1.0 and v0.3), external agent proxy',
+    async () => {
+      const card = (await request(`${urls.gateway}/.well-known/agent-card.json`, {}, 200)).body;
+      assert.equal(card.supportedInterfaces[0].url, `${urls.gateway}/a2a`);
+      const key = (
+        await published(() =>
+          operator(
+            'POST',
+            'keys',
+            { name: `s3-a2a-${randomUUID().slice(0, 6)}`, projectId: 'prj_dev' },
+            201,
+          ),
+        )
+      ).body;
+      cleanups.push(() => operator('POST', `keys/${key.id}/revoke`, undefined, null));
+      const rpc = async (method, params, path = '/a2a') =>
+        (
+          await request(
+            `${urls.gateway}${path}`,
+            {
+              method: 'POST',
+              headers: {
+                authorization: `Bearer ${key.key}`,
+                'content-type': 'application/json',
+                'a2a-version': '1.0',
+              },
+              body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+            },
+            200,
+          )
+        ).body;
+      const sent = await rpc('SendMessage', {
+        message: {
+          messageId: randomUUID(),
+          role: 'ROLE_USER',
+          parts: [{ text: 'hello from A2A' }],
+        },
+        metadata: { model: 'mock/small' },
+      });
+      const task = sent.result.task;
+      assert.equal(task.status.state, 'TASK_STATE_COMPLETED', JSON.stringify(sent));
+      assert.ok(task.artifacts[0].parts[0].text.length > 0);
+      const got = await rpc('GetTask', { id: task.id });
+      assert.equal(got.result.id, task.id);
+      // The answer went through the gateway like any request of this key.
+      await waitFor(
+        'the A2A request in request_log',
+        async () =>
+          (await sql(
+            `SELECT count(*) FROM request_log WHERE api_key_id = '${key.id}' AND requested_model = 'mock/small'`,
+          )) === '1',
+      );
+      const old = await rpc('message/send', {
+        message: {
+          kind: 'message',
+          messageId: randomUUID(),
+          role: 'user',
+          parts: [{ kind: 'text', text: 'v0.3 client' }],
+        },
+        metadata: { model: 'mock/small' },
+      });
+      assert.equal(old.result.kind, 'task');
+      assert.equal(old.result.status.state, 'completed');
+
+      // An external agent registered like an MCP server, with its own secret.
+      const existing = (await operator('GET', 'mcp/servers')).body.find((x) => x.slug === 's3echo');
+      if (existing) await operator('DELETE', `mcp/servers/${existing.id}`, undefined, 204);
+      const agent = (
+        await published(() =>
+          operator(
+            'POST',
+            'mcp/servers',
+            {
+              name: 'Echo agent',
+              slug: 's3echo',
+              transport: 'a2a',
+              url: 'http://mock-provider:8090/a2a-agent',
+              headers: { 'x-agent-key': 'agent-secret' },
+              forwardIdentity: true,
+            },
+            201,
+          ),
+        )
+      ).body;
+      cleanups.push(() => operator('DELETE', `mcp/servers/${agent.id}`, undefined, null));
+      const proxied = await rpc(
+        'SendMessage',
+        {
+          message: {
+            messageId: randomUUID(),
+            role: 'ROLE_USER',
+            parts: [{ text: 'through DiRouter' }],
+          },
+        },
+        '/a2a/agents/s3echo',
+      );
+      assert.equal(proxied.result.task.artifacts[0].parts[0].text, 'echo: through DiRouter');
+      assert.equal(proxied.result.task.metadata.identity['x-dirouter-key-id'], key.id);
+      await waitFor('the agent call in the log', async () => {
+        const calls = (await operator('GET', `mcp/calls?apiKeyId=${key.id}`)).body;
+        return calls.some((c) => c.tool === 'a2a:SendMessage' && c.status === 'success');
+      });
+    },
+  );
 } catch (error) {
   crashed = true;
   console.error(error);

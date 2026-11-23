@@ -33,6 +33,7 @@ import { handleCountTokens, handleProxy } from './proxy.js';
 import { BudgetGuard } from './budget-guard.js';
 import { WalletGuard } from './wallet-guard.js';
 import { McpGateway } from './mcp/gateway.js';
+import { A2aAgent } from './a2a/agent.js';
 import { RateLimiter } from './rate-limiter.js';
 import { ExactCache, SemanticCacheClient } from './cache.js';
 import { handleEmbeddings, handleGeminiEmbeddings } from './embeddings.js';
@@ -329,6 +330,17 @@ export function buildGateway(opts: GatewayOptions) {
     mcp.close();
   });
 
+  // A2A (card 20.3): DiRouter as an agent, and registered external agents behind the same key.
+  const a2a = new A2aAgent(app, {
+    store,
+    pepper: opts.pepper,
+    logger: opts.logger,
+    instance: deps.instance,
+    redis: opts.stateRedis ?? opts.limiterRedis,
+    ...(opts.recordMcpCall ? { record: opts.recordMcpCall } : {}),
+  });
+  a2a.register();
+
   app.get('/healthz', () => ({ status: 'ok' }));
   app.get('/metrics', async (_req, reply) =>
     reply.type(metrics.contentType).send(await metrics.registry.metrics()),
@@ -363,6 +375,7 @@ export function buildGateway(opts: GatewayOptions) {
           budgets: deps.budgets.stats,
           wallets: deps.wallets.stats,
           mcp: mcp.stats,
+          a2a: a2a.stats,
         }
       : reply.status(404).send(notFound),
   );

@@ -30,7 +30,8 @@ const HeaderName = z.string().regex(/^[A-Za-z0-9-]{1,64}$/);
 const McpServerFields = z.object({
   name: z.string().trim().min(1).max(100),
   slug: z.string().regex(/^[a-z0-9][a-z0-9-]{0,40}$/, 'lowercase letters, digits and dashes'),
-  transport: z.enum(['streamable-http', 'sse']),
+  /** `a2a`: an external A2A agent (card 20.3), proxied at /a2a/agents/<slug>. */
+  transport: z.enum(['streamable-http', 'sse', 'a2a']),
   url: z.url().max(1000),
   headers: z.record(HeaderName, z.string().max(4096)).nullable().optional(),
   enabled: z.boolean().optional(),
