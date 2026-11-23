@@ -1,0 +1,24 @@
+{
+  "name": "@dirouter/docs",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Documentation site: docs/ and adr/ in English and Persian (RTL), with search and an API reference (card 22.5)",
+  "type": "module",
+  "scripts": {
+    "sync": "node scripts/sync.mjs",
+    "dev": "node scripts/sync.mjs && astro dev",
+    "build": "node scripts/sync.mjs && astro build && node scripts/check-links.mjs",
+    "preview": "astro preview",
+    "lint": "eslint scripts",
+    "test": "vitest run",
+    "clean": "rm -rf dist .astro src/content/docs .turbo"
+  },
+  "devDependencies": {
+    "@dirouter/eslint-config": "workspace:*",
+    "vitest": "^5.1.0"
+  },
+  "dependencies": {
+    "@astrojs/starlight": "^0.38.5",
+    "astro": "^6.4.8"
+  }
+}

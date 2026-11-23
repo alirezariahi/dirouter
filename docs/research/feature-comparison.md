@@ -435,7 +435,7 @@ dirouter/
 - NestJS ORM: **Drizzle** or **Prisma**. The team's existing Prisma experience supports keeping it. Run migrations from a single source of truth.
 - Go/TS contracts: JSON configuration snapshots with a shared schema. Internal communication can use gRPC or HTTP, plus Valkey pub/sub.
 
-The actual TypeScript-first repository layout is documented in the [project README](../../../code/README.md).
+The actual TypeScript-first repository layout is documented in the [project README](../../README.md).
 
 ---
 

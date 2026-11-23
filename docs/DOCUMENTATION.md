@@ -18,3 +18,18 @@ Every document exists in two files: an English `.md` file and a Persian `.fa.md`
 - [Local CI verification note](en/ci-verification.md)
 
 The board login information is in `board/dirouter-board.json`, and the scripts that build it are in `tools/board/`; both are local. The importable board file is an old snapshot; the current state of the work is read from the live board.
+
+## Documentation site
+
+`apps/docs` publishes `docs/` and `adr/` as a searchable site (Astro Starlight), English at `/` and
+Persian (RTL) at `/fa/` (card 22.5). Nothing is copied by hand:
+
+- `scripts/sync.mjs` converts every `name.md` / `name.fa.md` pair into the two pages of one
+  document. The H1 becomes the title, the language-switch line is dropped, links between documents
+  become site links, and links to other repository files go to GitHub. `adr/` appears under
+  `/decisions/`.
+- The API reference (`/api/reference/`) is generated from `apps/dashboard/openapi.json`.
+- The build ends with a link check: every document must have its page, and no page may link to a
+  missing one. CI runs it whenever `docs/`, `adr/` or `apps/docs` change.
+- Run it locally with `pnpm --filter @dirouter/docs dev`; deploy it with
+  `docker compose --profile docs up -d docs`, served at `docs.<DOMAIN>` behind Traefik.

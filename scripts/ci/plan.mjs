@@ -9,10 +9,11 @@ const applications = [
   { app: 'mock-provider', port: 8090 },
   { app: 'dashboard', port: 8080 },
   { app: 'portal', port: 8080 },
+  { app: 'docs', port: 8080 },
   { app: 'migrate', port: '' },
 ].map((app) => ({
   ...app,
-  dockerfile: `deploy/docker/${['dashboard', 'portal', 'migrate'].includes(app.app) ? app.app : 'node'}.Dockerfile`,
+  dockerfile: `deploy/docker/${['dashboard', 'portal', 'docs', 'migrate'].includes(app.app) ? app.app : 'node'}.Dockerfile`,
 }));
 
 const globalFiles = new Set([
@@ -68,9 +69,22 @@ export function plan({ eventName, event = {}, ref = '', head }, run = execute) {
     full = true;
   }
 
-  const filter = full ? '*' : `...[${base}...${head}]`;
+  // The documentation site (card 22.5) is built from docs/ and adr/, outside its package folder,
+  // so their changes select it explicitly: its build includes the broken-link check.
+  const docsChanged = !full && changed.some((file) => /^(?:docs|adr)\//.test(file));
+  const filters = full
+    ? ['*']
+    : [`...[${base}...${head}]`, ...(docsChanged ? ['@dirouter/docs'] : [])];
+  const filter = filters.join(' ');
   const dry = JSON.parse(
-    run('pnpm', ['exec', 'turbo', 'run', 'build', `--filter=${filter}`, '--dry=json']),
+    run('pnpm', [
+      'exec',
+      'turbo',
+      'run',
+      'build',
+      ...filters.map((f) => `--filter=${f}`),
+      '--dry=json',
+    ]),
   );
   const packages = new Set(dry.packages);
   // Turbo may select the workspace root (//) for README/docs changes; it has no app tasks.
@@ -80,12 +94,14 @@ export function plan({ eventName, event = {}, ref = '', head }, run = execute) {
     if (app === 'migrate') {
       return packages.has('@dirouter/db') || changed.includes('deploy/docker/migrate.Dockerfile');
     }
+    if (app === 'docs' && docsChanged) return true;
     // Static sites: their Dockerfile or their nginx template.
-    if (app === 'dashboard' || app === 'portal') {
+    if (app === 'dashboard' || app === 'portal' || app === 'docs') {
       return changed.some(
         (file) =>
           file === `deploy/docker/${app}.Dockerfile` ||
-          file === `deploy/docker/nginx/${app}.conf.template`,
+          file === `deploy/docker/nginx/${app}.conf.template` ||
+          file === 'deploy/docker/nginx/security-headers.inc.template',
       );
     }
     return changed.includes('deploy/docker/node.Dockerfile');

@@ -1,0 +1,5 @@
+# Generated from docs/, adr/ and the OpenAPI document by scripts/sync.mjs.
+src/content/docs/
+.manifest.json
+dist/
+.astro/

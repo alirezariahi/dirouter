@@ -235,6 +235,24 @@ services:
       traefik.http.routers.dashboard.middlewares: security-headers@file,compress@file
       traefik.http.services.dashboard.loadbalancer.server.port: '8080'
 
+  # Documentation site (card 22.5); opt in with `--profile docs`.
+  docs:
+    image: ${REGISTRY:-dirouter}/docs:${TAG:-latest}
+    build:
+      context: .
+      dockerfile: deploy/docker/docs.Dockerfile
+    profiles: [docs]
+    restart: unless-stopped
+    networks: [edge]
+    labels:
+      traefik.enable: 'true'
+      traefik.docker.network: dirouter_edge
+      traefik.http.routers.docs.rule: Host(`docs.${DOMAIN:-localhost}`)
+      traefik.http.routers.docs.entrypoints: websecure
+      traefik.http.routers.docs.tls: 'true'
+      traefik.http.routers.docs.middlewares: security-headers@file,compress@file
+      traefik.http.services.docs.loadbalancer.server.port: '8080'
+
   portal:
     image: ${REGISTRY:-dirouter}/portal:${TAG:-latest}
     build:

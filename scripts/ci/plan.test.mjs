@@ -56,15 +56,27 @@ test('a shared change includes the dependent apps selected by Turbo', () => {
   );
 });
 
-test('documentation-only changes skip package checks and images', () => {
-  const { run } = fixture({ files: ['docs/ci.md'] });
+test('documentation changes build and check only the docs site', () => {
+  const { calls, run } = fixture({ files: ['docs/ci.md'], packages: ['@dirouter/docs'] });
+  const result = plan(push, run);
+  assert.equal(result.filter, `...[${base}...${head}] @dirouter/docs`);
+  assert.ok(calls.some((c) => c.includes('--filter=@dirouter/docs')));
+  assert.deepEqual(
+    result.matrix.include.map(({ app }) => app),
+    ['docs'],
+  );
+  assert.equal(result.hasPackages, true);
+});
+
+test('a README change outside docs/ still skips package checks and images', () => {
+  const { run } = fixture({ files: ['README.md'] });
   const result = plan(push, run);
   assert.equal(result.hasImages, false);
   assert.equal(result.hasPackages, false);
 });
 
 test('Docker and nginx changes rebuild their respective images', () => {
-  for (const app of ['dashboard', 'portal'])
+  for (const app of ['dashboard', 'portal', 'docs'])
     for (const file of [
       `deploy/docker/${app}.Dockerfile`,
       `deploy/docker/nginx/${app}.conf.template`,
@@ -77,7 +89,15 @@ test('Docker and nginx changes rebuild their respective images', () => {
     plan(push, fixture({ files: ['deploy/docker/node.Dockerfile'] }).run).matrix.include.length,
     4,
   );
-  assert.equal(plan(push, fixture({ files: ['.dockerignore'] }).run).matrix.include.length, 7);
+  assert.equal(plan(push, fixture({ files: ['.dockerignore'] }).run).matrix.include.length, 8);
+  // The security headers snippet is shared by every static site.
+  assert.deepEqual(
+    plan(
+      push,
+      fixture({ files: ['deploy/docker/nginx/security-headers.inc.template'] }).run,
+    ).matrix.include.map((x) => x.app),
+    ['dashboard', 'portal', 'docs'],
+  );
 });
 
 test('shared root configuration and CI changes check and build everything', () => {
@@ -90,7 +110,7 @@ test('shared root configuration and CI changes check and build everything', () =
   ]) {
     const result = plan(push, fixture({ files: [file] }).run);
     assert.equal(result.filter, '*');
-    assert.equal(result.matrix.include.length, 7);
+    assert.equal(result.matrix.include.length, 8);
   }
 });
 
