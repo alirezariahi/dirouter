@@ -259,7 +259,29 @@ function documentToConverse(part: CanonicalDocumentPart, ordinal: number): Conve
   return { document: { format, name: documentName(part, ordinal), source: { bytes } } };
 }
 
+/**
+ * Converse prompt-cache checkpoint (card 27.3): caches everything before it. A TTL the client set
+ * (`5m` or `1h`) is kept; otherwise Bedrock's default applies.
+ */
+export function cachePoint(marker: { cacheTtl?: string | undefined }): ConversePart {
+  return { cachePoint: { type: 'default', ...(marker.cacheTtl ? { ttl: marker.cacheTtl } : {}) } };
+}
+
+const isCachePoint = (block: ConversePart | undefined) => block?.cachePoint !== undefined;
+
+/** A part's Converse blocks, followed by a cache checkpoint when the part is a breakpoint. */
 function partToConverse(
+  part: CanonicalPart,
+  onDrop: DropReporter,
+  nextDocument: () => number,
+): ConversePart[] {
+  const blocks = partBlocks(part, onDrop, nextDocument);
+  return 'cache' in part && part.cache && blocks.length > 0
+    ? [...blocks, cachePoint(part)]
+    : blocks;
+}
+
+function partBlocks(
   part: CanonicalPart,
   onDrop: DropReporter,
   nextDocument: () => number,
@@ -362,7 +384,9 @@ export function canonicalToConverseRequest(
     modelId,
     messages,
   };
-  const system: ConversePart[] = request.system.map((s) => ({ text: s.text }));
+  const system: ConversePart[] = request.system.flatMap((s) =>
+    s.cache ? [{ text: s.text }, cachePoint(s)] : [{ text: s.text }],
+  );
   const inferenceConfig: Record<string, unknown> = {};
   if (request.maxOutputTokens !== undefined) inferenceConfig.maxTokens = request.maxOutputTokens;
   if (request.temperature !== undefined) inferenceConfig.temperature = request.temperature;
@@ -388,17 +412,49 @@ export function canonicalToConverseRequest(
           : { tool: { name: request.toolChoice.name } }
         : undefined);
     body.toolConfig = {
-      tools: tools.map((t) => ({
-        toolSpec: {
-          name: t.name,
-          ...(t.description ? { description: t.description } : {}),
-          inputSchema: { json: t.parameters },
-        },
-      })),
+      tools: tools.flatMap((t) => {
+        const spec = {
+          toolSpec: {
+            name: t.name,
+            ...(t.description ? { description: t.description } : {}),
+            inputSchema: { json: t.parameters },
+          },
+        };
+        return t.cache ? [spec, cachePoint(t)] : [spec];
+      }),
       ...(toolChoice ? { toolChoice } : {}),
     };
   }
+  addAutomaticCachePoint(request, body, messages, system);
   return body;
+}
+
+/** Most cache checkpoints a Converse request may carry (system, tools and messages together). */
+const MAX_CACHE_POINTS = 4;
+
+/**
+ * Anthropic's top-level `cache_control` (automatic caching) has no Converse field: it becomes a
+ * checkpoint after the last block of the last message, unless one is already there or the request
+ * already uses every checkpoint.
+ */
+function addAutomaticCachePoint(
+  request: CanonicalRequest,
+  body: Record<string, unknown>,
+  messages: ConverseMessage[],
+  system: ConversePart[],
+): void {
+  const automatic =
+    request.inboundApi === 'anthropic.messages' ? request.passthrough?.cache_control : undefined;
+  if (!automatic || typeof automatic !== 'object') return;
+  const last = messages.at(-1);
+  if (!last || isCachePoint(last.content.at(-1))) return;
+  const toolBlocks = (body.toolConfig as { tools?: ConversePart[] } | undefined)?.tools ?? [];
+  const used = [...system, ...toolBlocks, ...messages.flatMap((m) => m.content)].filter(
+    isCachePoint,
+  ).length;
+  if (used >= MAX_CACHE_POINTS) return;
+  const ttl = (automatic as { ttl?: unknown }).ttl;
+  last.content.push(cachePoint(typeof ttl === 'string' ? { cacheTtl: ttl } : {}));
 }
 
 interface ConverseStructuredPlan {
@@ -449,15 +505,26 @@ const FINISH_FROM_BEDROCK: Record<string, CanonicalFinishReason> = {
   guardrail_intervened: 'content_filter',
 };
 
+/**
+ * Converse usage → canonical. As in Anthropic's API, Converse `inputTokens` counts only the
+ * uncached input and `totalTokens` adds the cache reads and writes; canonical `inputTokens` is the
+ * whole input (card 27.3). When `totalTokens` shows that `inputTokens` already includes the cache
+ * (an emulator, say), it is taken as is.
+ */
 function converseUsage(usage: unknown): CanonicalUsage | undefined {
   if (!usage || typeof usage !== 'object') return undefined;
   const u = usage as Record<string, unknown>;
   const num = (v: unknown) => (typeof v === 'number' && v >= 0 ? Math.round(v) : 0);
+  const input = num(u.inputTokens);
+  const output = num(u.outputTokens);
+  const cacheRead = num(u.cacheReadInputTokens);
+  const cacheWrite = num(u.cacheWriteInputTokens);
+  const includesCache = typeof u.totalTokens === 'number' && num(u.totalTokens) === input + output;
   return {
-    inputTokens: num(u.inputTokens),
-    outputTokens: num(u.outputTokens),
-    cacheReadTokens: num(u.cacheReadInputTokens),
-    cacheWriteTokens: num(u.cacheWriteInputTokens),
+    inputTokens: includesCache ? input : input + cacheRead + cacheWrite,
+    outputTokens: output,
+    cacheReadTokens: cacheRead,
+    cacheWriteTokens: cacheWrite,
     reasoningTokens: 0,
   };
 }

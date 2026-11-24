@@ -24,6 +24,8 @@ import type {
 } from '@dirouter/contracts';
 
 import {
+  cacheControlOut,
+  cacheMarkerIn,
   describeMedia,
   type DropReporter,
   emptyUsage,
@@ -66,12 +68,15 @@ function imageIn(
   onDrop: DropReporter,
 ): CanonicalImagePart | undefined {
   const { source } = block;
+  const cache = cacheMarkerIn(block.cache_control);
   if (source.type === 'base64')
     return {
       type: 'image',
       source: { kind: 'base64', mediaType: source.media_type, data: source.data },
+      ...cache,
     };
-  if (source.type === 'url') return { type: 'image', source: { kind: 'url', url: source.url } };
+  if (source.type === 'url')
+    return { type: 'image', source: { kind: 'url', url: source.url }, ...cache };
   onDrop('image.source.file', 'Files API references are not portable');
   return undefined;
 }
@@ -131,6 +136,7 @@ function documentIn(
     ...(block.title ? { title: block.title } : {}),
     ...(block.context ? { context: block.context } : {}),
     ...(citations?.enabled === true ? { citations: true } : {}),
+    ...cacheMarkerIn(block.cache_control),
   };
 }
 
@@ -141,7 +147,8 @@ function toolResultContent(
   if (content === undefined) return [];
   if (typeof content === 'string') return [{ type: 'text', text: content }];
   return content.flatMap((b): (CanonicalTextPart | CanonicalImagePart)[] => {
-    if (b.type === 'text') return [{ type: 'text', text: b.text }];
+    if (b.type === 'text')
+      return [{ type: 'text', text: b.text, ...cacheMarkerIn(b.cache_control) }];
     const image = imageIn(b, onDrop);
     return image ? [image] : [];
   });
@@ -160,7 +167,7 @@ export function anthropicRequestToCanonical(
         : req.system.map((b) => ({
             type: 'text',
             text: b.text,
-            ...(b.cache_control ? { cache: true } : {}),
+            ...cacheMarkerIn(b.cache_control),
           }));
 
   const messages: CanonicalMessage[] = [];
@@ -188,7 +195,7 @@ export function anthropicRequestToCanonical(
           content.push({
             type: 'text',
             text: block.text,
-            ...(block.cache_control ? { cache: true } : {}),
+            ...cacheMarkerIn(block.cache_control),
           });
           break;
         case 'image': {
@@ -202,6 +209,7 @@ export function anthropicRequestToCanonical(
             id: block.id,
             name: block.name,
             arguments: JSON.stringify(block.input ?? {}),
+            ...cacheMarkerIn(block.cache_control),
           });
           break;
         case 'tool_result':
@@ -210,6 +218,7 @@ export function anthropicRequestToCanonical(
             toolCallId: block.tool_use_id,
             content: toolResultContent(block.content, onDrop),
             ...(block.is_error ? { isError: true } : {}),
+            ...cacheMarkerIn(block.cache_control),
           });
           break;
         case 'thinking':
@@ -244,6 +253,7 @@ export function anthropicRequestToCanonical(
         name: tool.name,
         ...(typeof tool.description === 'string' ? { description: tool.description } : {}),
         parameters: tool.input_schema as Record<string, unknown>,
+        ...cacheMarkerIn(tool.cache_control),
       });
     } else {
       serverTools.push(tool);
@@ -340,6 +350,7 @@ function imageBlock(part: CanonicalImagePart): Block {
       part.source.kind === 'url'
         ? { type: 'url', url: part.source.url }
         : { type: 'base64', media_type: part.source.mediaType, data: part.source.data },
+    ...cacheControlOut(part),
   };
 }
 
@@ -385,6 +396,7 @@ function documentBlock(part: CanonicalDocumentPart): Block {
     ...(part.title !== undefined ? { title: part.title } : {}),
     ...(part.context !== undefined ? { context: part.context } : {}),
     ...(part.citations ? { citations: { enabled: true } } : {}),
+    ...cacheControlOut(part),
   };
 }
 
@@ -397,7 +409,7 @@ function blocksFor(message: CanonicalMessage, onDrop: DropReporter): Block[] {
         rest.push({
           type: 'text',
           text: part.text,
-          ...(part.cache ? { cache_control: { type: 'ephemeral' } } : {}),
+          ...cacheControlOut(part),
         });
         break;
       case 'image':
@@ -417,6 +429,7 @@ function blocksFor(message: CanonicalMessage, onDrop: DropReporter): Block[] {
           id: part.id,
           name: part.name,
           input: parseToolArguments(part.arguments, onDrop),
+          ...cacheControlOut(part),
         });
         break;
       case 'tool_result':
@@ -424,9 +437,12 @@ function blocksFor(message: CanonicalMessage, onDrop: DropReporter): Block[] {
           type: 'tool_result',
           tool_use_id: part.toolCallId,
           content: part.content.map((c) =>
-            c.type === 'text' ? { type: 'text', text: c.text } : imageBlock(c),
+            c.type === 'text'
+              ? { type: 'text', text: c.text, ...cacheControlOut(c) }
+              : imageBlock(c),
           ),
           ...(part.isError ? { is_error: true } : {}),
+          ...cacheControlOut(part),
         });
         break;
       case 'reasoning':
@@ -483,7 +499,7 @@ export function canonicalToAnthropicRequest(
       ? req.system.map((p) => ({
           type: 'text',
           text: p.text,
-          ...(p.cache ? { cache_control: { type: 'ephemeral' } } : {}),
+          ...cacheControlOut(p),
         }))
       : req.system.map((p) => p.text).join('\n\n');
   }
@@ -492,6 +508,7 @@ export function canonicalToAnthropicRequest(
     name: t.name,
     ...(t.description !== undefined ? { description: t.description } : {}),
     input_schema: t.parameters,
+    ...cacheControlOut(t),
   }));
   if (Array.isArray(serverTools)) tools.push(...(serverTools as unknown[]));
 

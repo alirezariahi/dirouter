@@ -778,6 +778,104 @@ try {
       }
     },
   );
+
+  await scenario(
+    '27.3 prompt caching: a Claude Code request via Bedrock gets cachePoint blocks and reports a non-zero cache read (stream and non-stream)',
+    async () => {
+      const key = await createKey('cache');
+      await mockModel('s4/bedrock-tool', 'bedrock', 'anthropic.claude-sonnet-4-5-20250929-v1:0');
+      await waitFor('gateway to know s4/bedrock-tool', async () => {
+        const res = await fetch(`${urls.gateway}/v1/models`, {
+          headers: { authorization: `Bearer ${key.key}` },
+        });
+        return ((await res.json()).data ?? []).some((m) => m.id === 's4/bedrock-tool');
+      });
+      const ephemeral = { type: 'ephemeral' };
+      const claudeCode = (stream) => ({
+        model: 's4/bedrock-tool',
+        max_tokens: 1024,
+        stream,
+        system: [
+          {
+            type: 'text',
+            text: `You are Claude Code. ${'Guidelines. '.repeat(400)}`,
+            cache_control: ephemeral,
+          },
+        ],
+        tools: [
+          { name: 'Read', input_schema: { type: 'object' } },
+          { name: 'Edit', input_schema: { type: 'object' }, cache_control: ephemeral },
+        ],
+        messages: [
+          { role: 'user', content: [{ type: 'text', text: 'Read a.ts' }] },
+          {
+            role: 'assistant',
+            content: [{ type: 'tool_use', id: 'toolu_1', name: 'Read', input: { path: 'a.ts' } }],
+          },
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'tool_result',
+                tool_use_id: 'toolu_1',
+                content: 'export const a = 1;',
+                cache_control: ephemeral,
+              },
+              { type: 'text', text: 'Now explain it' },
+            ],
+          },
+        ],
+      });
+      const send = (stream) =>
+        request(`${urls.gateway}/v1/messages`, {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+            'anthropic-version': '2023-06-01',
+            authorization: `Bearer ${key.key}`,
+          },
+          body: JSON.stringify(claudeCode(stream)),
+        });
+      const usageOf = (res, stream) => {
+        if (!stream) return res.body.usage;
+        const usage = {};
+        for (const e of sseEvents(res.text))
+          Object.assign(usage, e?.message?.usage ?? {}, e?.usage ?? {});
+        return usage;
+      };
+      for (const stream of [false, true]) {
+        await mockReset();
+        const first = await send(stream);
+        assert.equal(first.response.status, 200, first.text);
+        const written = usageOf(first, stream);
+        assert.ok(written.cache_creation_input_tokens > 0, JSON.stringify(written));
+        const second = await send(stream);
+        assert.equal(second.response.status, 200, second.text);
+        const read = usageOf(second, stream);
+        assert.ok(read.cache_read_input_tokens > 0, JSON.stringify(read));
+        const upstream = (await request(`${urls.mock}/__mock/stats`, {}, 200)).body.last.at(-1);
+        const point = JSON.stringify({ cachePoint: { type: 'default' } });
+        assert.equal(JSON.stringify(upstream.system.at(-1)), point);
+        assert.equal(JSON.stringify(upstream.toolConfig.tools.at(-1)), point);
+        assert.ok(
+          upstream.messages.at(-1).content.some((b) => JSON.stringify(b) === point),
+          JSON.stringify(upstream.messages.at(-1)),
+        );
+        console.log(
+          `     stream=${stream}: write ${written.cache_creation_input_tokens}, read ${read.cache_read_input_tokens}`,
+        );
+      }
+
+      // The request log (written by the worker) carries the cache read too.
+      const rows = await waitFor('request_log row with cache read', async () => {
+        const out = await sql(
+          `SELECT cache_read_tokens FROM request_log WHERE api_key_id = '${key.id}' AND cache_read_tokens > 0 LIMIT 1`,
+        ).catch(() => '');
+        return out || undefined;
+      }).catch(() => undefined);
+      if (rows) console.log(`     request_log cache_read_tokens=${rows}`);
+    },
+  );
 } catch (error) {
   crashed = true;
   console.error(error);

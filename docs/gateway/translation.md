@@ -94,6 +94,22 @@ Canonical parts: `document` (source `base64`, `url`, `text` or `file`: a provide
 - What a target cannot carry in detail (a URL for Bedrock, flac for OpenAI) is refused by the translator with `UnsupportedContentError` and answered with a 400 (`invalid_request`).
 - Token estimates count about 250 tokens per KB of document and 2 per KB of audio.
 
+## Prompt caching
+
+> Card 27.3. A prompt-cache breakpoint (`cache_control`, with its `ttl`) is kept at every place Anthropic accepts one, and reaches Anthropic and Bedrock.
+
+| Breakpoint on                                         | canonical           | Anthropic                    | Bedrock (Converse)                                                                                 |
+| ----------------------------------------------------- | ------------------- | ---------------------------- | -------------------------------------------------------------------------------------------------- |
+| system block                                          | `system[].cache`    | `system[].cache_control`     | `{cachePoint}` after the block in `system`                                                         |
+| tool definition                                       | `tools[].cache`     | `tools[].cache_control`      | `{cachePoint}` after the `toolSpec` in `toolConfig.tools`                                          |
+| text, image, document                                 | `cache` on the part | `cache_control` on the block | `{cachePoint}` after the block                                                                     |
+| `tool_use` / `tool_result` (and text inside a result) | `cache` on the part | `cache_control` on the block | `{cachePoint}` after `toolUse` / `toolResult`                                                      |
+| top-level `cache_control` (automatic)                 | passthrough         | unchanged                    | `{cachePoint}` after the last block of the last message, unless one is there or 4 are already used |
+
+- TTL: `cache_control.ttl` (`5m`, `1h`) becomes `cacheTtl` and goes back out as `cache_control.ttl` and as `cachePoint.ttl`. Without a TTL, the provider default (5 minutes) applies.
+- OpenAI and Gemini cache prompts on their own; the markers are not sent to them.
+- Usage: Converse `inputTokens`, like Anthropic's `input_tokens`, counts only uncached input, so canonical `inputTokens` = `inputTokens + cacheReadInputTokens + cacheWriteInputTokens`. An Anthropic client of a Bedrock model receives `cache_read_input_tokens` and `cache_creation_input_tokens`, in streams too.
+
 ## Dropped fields
 
 The translator reports each field that has no equivalent through `onDrop(field, reason)`, and the gateway logs it at debug level. The list: `n>1` and a `file` part with neither data nor id in OpenAI, image `file` in Anthropic, video and other unknown parts in Gemini and Responses, `top_k` to OpenAI, `seed` to Anthropic, `json_object` to a Claude model with native structured output (sent as an instruction), reasoning to OpenAI, thinking without a signature to Anthropic, images in tool results to OpenAI, and temperature above 1 to Anthropic.

@@ -9,7 +9,7 @@
 - `anthropic-beta`:
   - `options.betas`: betaهای ثابت که همیشه فرستاده می‌شوند
   - `options.allowedBetas`: betaهایی که کلاینت Anthropic (مثلاً Claude Code) مجاز است بفرستد؛ `["*"]` یعنی همه. از کلاینت OpenAI هرگز beta عبور نمی‌کند.
-- prompt caching (`cache_control`)، thinking امضاشده و server toolها برای کلاینت Anthropic دست‌نخورده عبور می‌کنند.
+- prompt caching (`cache_control` همراه با `ttl`) روی بلوک‌های system، ابزارها، متن، تصویر، سند، `tool_use` و `tool_result` حفظ می‌شود (کارت ۲۷.۳)؛ thinking امضاشده و server toolها برای کلاینت Anthropic دست‌نخورده عبور می‌کنند.
 - `response_format` (کارت ۲۷.۱): مدل‌های دارای structured output بومی `output_config.format` می‌گیرند؛ مدل‌های قدیمی‌تر ابزار اجباری `dirouter_structured_output` می‌گیرند و فراخوانی آن به‌صورت متن JSON به کلاینت برمی‌گردد. `options.structuredOutput` (`native` یا `tool`) این انتخاب را عوض می‌کند. جزئیات: [ترجمه](../gateway/translation.fa.md#structured-output).
 - usage: `cache_read_input_tokens` و `cache_creation_input_tokens` ثبت می‌شوند (inputTokens کل = input + cache read + cache write).
 - خطا: `overloaded_error` (529) و `api_error` (500) قابل retry و فال‌بک‌اند.

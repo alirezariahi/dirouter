@@ -53,6 +53,8 @@ Directives are separated by `,` or `;`. Sources in priority order:
 
 Structured output (card 27.1): when an Anthropic request carries `output_config.format` (or a Bedrock request `additionalModelRequestFields.output_config.format`), the answer text is JSON built from the schema; when it carries the gateway's `dirouter_structured_output` tool, the answer is a call to that tool with input built from the schema. Strings become `"mock"`, numbers `1` (or `minimum`), booleans `true`, arrays get `minItems` items.
 
+Prompt caching on the Bedrock route (card 27.3): the prompt up to the last `cachePoint` is the cached prefix; the first request with a prefix reports `cacheWriteInputTokens`, later ones `cacheReadInputTokens`. `POST /__mock/reset` empties the cache.
+
 Examples:
 
 ```bash

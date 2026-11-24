@@ -55,6 +55,8 @@ directiveها با `,` یا `;` جدا می‌شوند. منبع به ترتیب
 
 Structured output (کارت ۲۷.۱): اگر درخواست Anthropic فیلد `output_config.format` (یا درخواست Bedrock فیلد `additionalModelRequestFields.output_config.format`) داشته باشد، متن پاسخ JSON ساخته‌شده از schema است؛ اگر ابزار `dirouter_structured_output` گیت‌وی را داشته باشد، پاسخ فراخوانی همان ابزار با ورودی ساخته‌شده از schema است. رشته‌ها `"mock"`، عددها `1` (یا `minimum`)، بولی‌ها `true` و آرایه‌ها به تعداد `minItems` عضو می‌گیرند.
 
+prompt caching در مسیر Bedrock (کارت ۲۷.۳): prompt تا آخرین `cachePoint` پیشوند کش‌شده است؛ اولین درخواست با یک پیشوند `cacheWriteInputTokens` و درخواست‌های بعدی `cacheReadInputTokens` گزارش می‌کنند. `POST /__mock/reset` کش را خالی می‌کند.
+
 نمونه‌ها:
 
 ```bash

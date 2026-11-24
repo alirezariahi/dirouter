@@ -1,6 +1,6 @@
 /**
  * Translation through the whole gateway against the mock provider (sprint 4, epic 27): structured
- * output to Claude and Bedrock (27.1), documents and audio (27.2).
+ * output to Claude and Bedrock (27.1), documents and audio (27.2), prompt-cache breakpoints (27.3).
  */
 import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -404,5 +404,110 @@ describe('card 27.2: documents and audio', () => {
     expect(body.error.message).toMatch(message);
     const stats = (await (await fetch(`${mockUrl}/__mock/stats`)).json()) as { requests: number };
     expect(stats.requests).toBe(0);
+  });
+});
+
+describe('card 27.3: prompt caching through Bedrock and Anthropic', () => {
+  const ephemeral = { type: 'ephemeral' };
+  /** The shape Claude Code sends: cached system and tools, a cached tool result, the newest turn. */
+  const claudeCode = (model: string, stream: boolean) => ({
+    model,
+    max_tokens: 1024,
+    stream,
+    system: [
+      {
+        type: 'text',
+        text: `You are Claude Code. ${'Guidelines. '.repeat(400)}`,
+        cache_control: ephemeral,
+      },
+    ],
+    tools: [
+      { name: 'Read', description: 'Read a file', input_schema: { type: 'object' } },
+      {
+        name: 'Edit',
+        description: 'Edit a file',
+        input_schema: { type: 'object' },
+        cache_control: ephemeral,
+      },
+    ],
+    messages: [
+      { role: 'user', content: [{ type: 'text', text: 'Read a.ts' }] },
+      {
+        role: 'assistant',
+        content: [{ type: 'tool_use', id: 'toolu_1', name: 'Read', input: { path: 'a.ts' } }],
+      },
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'tool_result',
+            tool_use_id: 'toolu_1',
+            content: 'export const a = 1;',
+            cache_control: ephemeral,
+          },
+          { type: 'text', text: 'Now explain it' },
+        ],
+      },
+    ],
+  });
+  const anthropic = (body: unknown) =>
+    post('/v1/messages', body, { 'anthropic-version': '2023-06-01' });
+
+  /** Usage an Anthropic client sees, from JSON or from the message_start / message_delta events. */
+  async function usageOf(res: Response, stream: boolean) {
+    if (!stream) return ((await res.json()) as { usage: Record<string, number> }).usage;
+    const parser = new SseParser();
+    const usage: Record<string, number> = {};
+    for (const e of [...parser.feed(await res.text()), ...parser.flush()]) {
+      const event = JSON.parse(e.data) as {
+        message?: { usage?: Record<string, number> };
+        usage?: Record<string, number>;
+      };
+      Object.assign(usage, event.message?.usage ?? {}, event.usage ?? {});
+    }
+    return usage;
+  }
+
+  it.each([false, true])(
+    'a Claude Code request via Bedrock reports a cache write, then a non-zero cache read (stream %s)',
+    async (stream) => {
+      const first = await anthropic(claudeCode('bedrock-old', stream));
+      expect(first.status).toBe(200);
+      const written = await usageOf(first, stream);
+      expect(written.cache_creation_input_tokens).toBeGreaterThan(0);
+      expect(written.cache_read_input_tokens ?? 0).toBe(0);
+
+      const second = await anthropic(claudeCode('bedrock-old', stream));
+      expect(second.status).toBe(200);
+      const read = await usageOf(second, stream);
+      expect(read.cache_read_input_tokens).toBeGreaterThan(1000);
+      expect(read.input_tokens).toBeLessThan(read.cache_read_input_tokens ?? 0);
+
+      // The checkpoints the gateway sent: after the system prompt, the tools and the tool result.
+      const [upstream] = await upstreamBodies();
+      const body = upstream as {
+        system: unknown[];
+        toolConfig: { tools: unknown[] };
+        messages: { content: unknown[] }[];
+      };
+      const point = { cachePoint: { type: 'default' } };
+      expect(body.system.at(-1)).toEqual(point);
+      expect(body.toolConfig.tools.at(-1)).toEqual(point);
+      expect(body.messages.at(-1)?.content[1]).toEqual(point);
+    },
+  );
+
+  it('every breakpoint reaches Anthropic unchanged', async () => {
+    const res = await anthropic(claudeCode('claude-old', false));
+    expect(res.status).toBe(200);
+    const [upstream] = await upstreamBodies();
+    const body = upstream as {
+      system: { cache_control?: unknown }[];
+      tools: { cache_control?: unknown }[];
+      messages: { content: { cache_control?: unknown }[] }[];
+    };
+    expect(body.system[0]?.cache_control).toEqual(ephemeral);
+    expect(body.tools[1]?.cache_control).toEqual(ephemeral);
+    expect(body.messages.at(-1)?.content[0]?.cache_control).toEqual(ephemeral);
   });
 });

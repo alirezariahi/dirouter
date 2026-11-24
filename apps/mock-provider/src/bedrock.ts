@@ -79,6 +79,42 @@ export function converseAnswer(body: Json): {
   return { text: BEDROCK_MOCK_TEXT };
 }
 
+/**
+ * Prompt caching (card 27.3): the prompt up to the last `cachePoint` (in the order tools, system,
+ * messages) is the cached prefix. The first request with a prefix writes it, later ones read it.
+ */
+export class MockPromptCache {
+  readonly #seen = new Set<string>();
+
+  lookup(body: Json): { read: number; write: number } {
+    const blocks: unknown[] = [
+      ...((asObject(body.toolConfig)?.tools as unknown[] | undefined) ?? []),
+      ...((body.system as unknown[] | undefined) ?? []),
+      ...((body.messages as Json[] | undefined) ?? []).flatMap((m) => [
+        m.role,
+        ...((m.content as unknown[] | undefined) ?? []),
+      ]),
+    ];
+    let last = -1;
+    blocks.forEach((b, i) => {
+      if (asObject(b)?.cachePoint !== undefined) last = i;
+    });
+    if (last < 0) return { read: 0, write: 0 };
+    const prefix = JSON.stringify(blocks.slice(0, last));
+    const tokens = Math.max(1, Math.ceil(prefix.length / 4));
+    if (this.#seen.has(prefix)) return { read: tokens, write: 0 };
+    if (this.#seen.size > 1_000) this.#seen.clear();
+    this.#seen.add(prefix);
+    return { read: 0, write: tokens };
+  }
+
+  clear(): void {
+    this.#seen.clear();
+  }
+}
+
+export const promptCache = new MockPromptCache();
+
 export interface BedrockHooks {
   record: (req: FastifyRequest, status: number) => void;
 }
@@ -92,15 +128,22 @@ export function registerBedrock(app: FastifyInstance, hooks: BedrockHooks): void
         return reply.status(404).send({ message: `unknown action ${action}` });
       const body = asObject(req.body) ?? {};
       const answer = converseAnswer(body);
-      const inputTokens = Math.max(
+      const allInput = Math.max(
         1,
-        Math.ceil(JSON.stringify([body.system, body.messages]).length / 4),
+        Math.ceil(
+          JSON.stringify([asObject(body.toolConfig)?.tools, body.system, body.messages]).length / 4,
+        ),
       );
+      const cache = promptCache.lookup(body);
+      const inputTokens = Math.max(0, allInput - cache.read - cache.write);
       const outputTokens = answer.toolUse ? 12 : Math.ceil((answer.text?.length ?? 0) / 4);
+      // As in Converse, inputTokens excludes cached tokens and totalTokens includes them.
       const usage: Json = {
         inputTokens,
         outputTokens,
-        totalTokens: inputTokens + outputTokens,
+        totalTokens: allInput + outputTokens,
+        ...(cache.read > 0 ? { cacheReadInputTokens: cache.read } : {}),
+        ...(cache.write > 0 ? { cacheWriteInputTokens: cache.write } : {}),
       };
       const stopReason = answer.toolUse ? 'tool_use' : 'end_turn';
       hooks.record(req, 200);

@@ -7,7 +7,7 @@
 - `anthropic-beta`:
   - `options.betas`: fixed betas that are always sent
   - `options.allowedBetas`: betas that the Anthropic client (e.g. Claude Code) may send; `["*"]` means all. Betas are never passed through from the OpenAI client.
-- Prompt caching (`cache_control`), signed thinking, and server tools pass through unchanged for the Anthropic client.
+- Prompt caching (`cache_control`, with `ttl`) is kept on system blocks, tools, text, images, documents, `tool_use` and `tool_result` (card 27.3); signed thinking and server tools pass through unchanged for the Anthropic client.
 - usage: `cache_read_input_tokens` and `cache_creation_input_tokens` are recorded (total inputTokens = input + cache read + cache write).
 - `response_format` (card 27.1): models with native structured outputs get `output_config.format`; older models get a forced `dirouter_structured_output` tool whose call comes back to the client as JSON text. `options.structuredOutput` (`native` or `tool`) overrides the choice. Details: [translation](../gateway/translation.md#structured-output).
 - Errors: `overloaded_error` (529) and `api_error` (500) are retryable and trigger fallback.

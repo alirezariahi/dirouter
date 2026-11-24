@@ -5,17 +5,19 @@
 import { createHash, createHmac } from 'node:crypto';
 import { crc32 as zlibCrc32 } from 'node:zlib';
 
-import type {
-  CanonicalRequest,
-  CanonicalStreamEvent,
-  ModelConfig,
-  ProviderConfig,
+import {
+  AnthropicMessagesRequest,
+  type CanonicalRequest,
+  type CanonicalStreamEvent,
+  type ModelConfig,
+  type ProviderConfig,
 } from '@dirouter/contracts';
 import {
   AnthropicStreamEncoder,
   JSON_ONLY_INSTRUCTION,
   STRUCTURED_OUTPUT_TOOL,
   UnsupportedContentError,
+  anthropicRequestToCanonical,
 } from '@dirouter/translator';
 import { describe, expect, it } from 'vitest';
 
@@ -373,8 +375,9 @@ describe('Converse response → canonical', () => {
       { type: 'text', text: 'sunny' },
       { type: 'tool_call', id: 'call_1', name: 'weather', arguments: '{"city":"Tehran"}' },
     ]);
+    // Converse inputTokens excludes the cache; canonical inputTokens is the whole input.
     expect(response.usage).toMatchObject({
-      inputTokens: 11,
+      inputTokens: 15,
       outputTokens: 7,
       cacheReadTokens: 3,
       cacheWriteTokens: 1,
@@ -942,6 +945,153 @@ describe('documents and audio on Bedrock (card 27.2)', () => {
       );
     expect(run).toThrow(UnsupportedContentError);
     expect(run).toThrow(message);
+  });
+});
+
+describe('prompt caching on Bedrock (card 27.3)', () => {
+  const CP = { cachePoint: { type: 'default' } };
+  const CP_HOUR = { cachePoint: { type: 'default', ttl: '1h' } };
+  const anthropicBody = (body: Record<string, unknown>) =>
+    anthropicRequestToCanonical(
+      AnthropicMessagesRequest.parse({ model: 'claude', max_tokens: 100, ...body }),
+    );
+  const converse = (body: Record<string, unknown>) =>
+    canonicalToConverseRequest(anthropicBody(body), 'anthropic.claude-sonnet-4-5-v1:0');
+  const ephemeral = { type: 'ephemeral' };
+
+  it('golden: system breakpoints become cachePoint blocks, TTL kept', () => {
+    const body = converse({
+      system: [
+        {
+          type: 'text',
+          text: 'You are Claude Code.',
+          cache_control: { type: 'ephemeral', ttl: '1h' },
+        },
+        { type: 'text', text: 'Project notes', cache_control: ephemeral },
+        { type: 'text', text: 'Volatile' },
+      ],
+      messages: [{ role: 'user', content: 'hi' }],
+    });
+    expect(body.system).toEqual([
+      { text: 'You are Claude Code.' },
+      CP_HOUR,
+      { text: 'Project notes' },
+      CP,
+      { text: 'Volatile' },
+    ]);
+  });
+
+  it('golden: a tool breakpoint becomes a cachePoint entry in toolConfig.tools', () => {
+    const body = converse({
+      tools: [
+        { name: 'Read', input_schema: { type: 'object' } },
+        { name: 'Edit', input_schema: { type: 'object' }, cache_control: ephemeral },
+      ],
+      messages: [{ role: 'user', content: 'hi' }],
+    });
+    expect((body.toolConfig as { tools: unknown[] }).tools).toEqual([
+      { toolSpec: { name: 'Read', inputSchema: { json: { type: 'object' } } } },
+      { toolSpec: { name: 'Edit', inputSchema: { json: { type: 'object' } } } },
+      CP,
+    ]);
+  });
+
+  it.each([
+    ['text', { type: 'text', text: 'long', cache_control: ephemeral }, { text: 'long' }],
+    [
+      'image',
+      {
+        type: 'image',
+        source: { type: 'base64', media_type: 'image/png', data: 'iVBO' },
+        cache_control: ephemeral,
+      },
+      { image: { format: 'png', source: { bytes: 'iVBO' } } },
+    ],
+    [
+      'document',
+      {
+        type: 'document',
+        title: 'spec',
+        source: { type: 'base64', media_type: 'application/pdf', data: 'JVBERi0=' },
+        cache_control: ephemeral,
+      },
+      { document: { format: 'pdf', name: 'spec 1', source: { bytes: 'JVBERi0=' } } },
+    ],
+  ])('golden: a %s breakpoint is followed by a cachePoint', (_name, block, converted) => {
+    const body = converse({ messages: [{ role: 'user', content: [block] }] });
+    expect(body.messages).toEqual([{ role: 'user', content: [converted, CP] }]);
+  });
+
+  it('golden: tool_use and tool_result breakpoints', () => {
+    const body = converse({
+      messages: [
+        { role: 'user', content: 'read it' },
+        {
+          role: 'assistant',
+          content: [
+            { type: 'tool_use', id: 't1', name: 'Read', input: {}, cache_control: ephemeral },
+          ],
+        },
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'tool_result',
+              tool_use_id: 't1',
+              content: 'body',
+              cache_control: { type: 'ephemeral', ttl: '1h' },
+            },
+          ],
+        },
+      ],
+    });
+    expect(body.messages).toEqual([
+      { role: 'user', content: [{ text: 'read it' }] },
+      {
+        role: 'assistant',
+        content: [{ toolUse: { toolUseId: 't1', name: 'Read', input: {} } }, CP],
+      },
+      {
+        role: 'user',
+        content: [{ toolResult: { toolUseId: 't1', content: [{ text: 'body' }] } }, CP_HOUR],
+      },
+    ]);
+  });
+
+  it('golden: top-level automatic caching adds a checkpoint after the last message', () => {
+    const body = converse({
+      cache_control: ephemeral,
+      messages: [{ role: 'user', content: 'hi' }],
+    });
+    expect(body.messages).toEqual([{ role: 'user', content: [{ text: 'hi' }, CP] }]);
+    // Not when the request already uses every checkpoint.
+    const full = converse({
+      cache_control: ephemeral,
+      system: [1, 2, 3, 4].map((n) => ({ type: 'text', text: `s${n}`, cache_control: ephemeral })),
+      messages: [{ role: 'user', content: 'hi' }],
+    });
+    expect(full.messages).toEqual([{ role: 'user', content: [{ text: 'hi' }] }]);
+  });
+
+  it('cache reads and writes reach canonical usage, stream and non-stream', () => {
+    const usage = {
+      inputTokens: 10,
+      outputTokens: 5,
+      cacheReadInputTokens: 2000,
+      cacheWriteInputTokens: 0,
+    };
+    expect(converseResponseToCanonical({ usage }).usage).toEqual({
+      inputTokens: 2010,
+      outputTokens: 5,
+      cacheReadTokens: 2000,
+      cacheWriteTokens: 0,
+      reasoningTokens: 0,
+    });
+    // An emulator whose inputTokens already includes the cache (total = input + output).
+    expect(
+      converseResponseToCanonical({ usage: { ...usage, inputTokens: 2010, totalTokens: 2015 } })
+        .usage?.inputTokens,
+    ).toBe(2010);
   });
 });
 

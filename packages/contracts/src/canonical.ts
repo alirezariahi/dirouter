@@ -11,11 +11,20 @@ import { JsonObject, NonNegativeInt } from './common.js';
 
 // ───────────── Parts ─────────────
 
+/**
+ * Prompt-cache breakpoint (card 27.3): the provider caches the prompt up to and including this
+ * block. `cacheTtl` is the requested lifetime (`5m` or `1h`); unset means the provider default.
+ * Kept on system text, tools, text, images, documents, tool calls and tool results.
+ */
+const CacheMarker = {
+  cache: z.boolean().optional(),
+  cacheTtl: z.string().optional(),
+};
+
 export const CanonicalTextPart = z.object({
   type: z.literal('text'),
   text: z.string(),
-  /** Cache breakpoint marker for providers that support explicit prompt caching. */
-  cache: z.boolean().optional(),
+  ...CacheMarker,
 });
 
 export const CanonicalImagePart = z.object({
@@ -25,6 +34,7 @@ export const CanonicalImagePart = z.object({
     z.object({ kind: z.literal('base64'), mediaType: z.string(), data: z.string() }),
   ]),
   detail: z.enum(['auto', 'low', 'high']).optional(),
+  ...CacheMarker,
 });
 
 /**
@@ -50,6 +60,7 @@ export const CanonicalDocumentPart = z.object({
   context: z.string().optional(),
   /** Anthropic citations requested for this document. */
   citations: z.boolean().optional(),
+  ...CacheMarker,
 });
 
 /** Audio input (card 27.2), inline (`base64`, e.g. `audio/wav`) or by URL. */
@@ -67,6 +78,7 @@ export const CanonicalToolCallPart = z.object({
   name: z.string(),
   /** Arguments as a raw JSON string, exactly as the model produced them. */
   arguments: z.string(),
+  ...CacheMarker,
 });
 
 export const CanonicalToolResultPart = z.object({
@@ -74,6 +86,7 @@ export const CanonicalToolResultPart = z.object({
   toolCallId: z.string(),
   content: z.array(z.discriminatedUnion('type', [CanonicalTextPart, CanonicalImagePart])),
   isError: z.boolean().optional(),
+  ...CacheMarker,
 });
 
 export const CanonicalReasoningPart = z.object({
@@ -121,6 +134,7 @@ export const CanonicalTool = z.object({
   description: z.string().optional(),
   parameters: JsonObject,
   strict: z.boolean().optional(),
+  ...CacheMarker,
 });
 export type CanonicalTool = z.infer<typeof CanonicalTool>;
 

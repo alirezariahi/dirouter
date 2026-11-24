@@ -186,3 +186,25 @@ export function mediaNeeds(req: Pick<CanonicalRequest, 'messages'>): MediaNeeds 
     }
   return needs;
 }
+
+// ───────────── prompt-cache markers (card 27.3) ─────────────
+
+export interface CacheMarker {
+  cache?: boolean;
+  cacheTtl?: string;
+}
+
+/** Anthropic `cache_control` → canonical marker fields (`{}` when absent). */
+export function cacheMarkerIn(cacheControl: unknown): CacheMarker {
+  if (!cacheControl || typeof cacheControl !== 'object') return {};
+  const ttl = (cacheControl as { ttl?: unknown }).ttl;
+  return { cache: true, ...(typeof ttl === 'string' && ttl !== '' ? { cacheTtl: ttl } : {}) };
+}
+
+/** Canonical marker → Anthropic `{ cache_control }` (`{}` when the part is not a breakpoint). */
+export function cacheControlOut(marker: CacheMarker): { cache_control?: Record<string, string> } {
+  if (!marker.cache) return {};
+  return {
+    cache_control: { type: 'ephemeral', ...(marker.cacheTtl ? { ttl: marker.cacheTtl } : {}) },
+  };
+}

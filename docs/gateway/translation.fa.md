@@ -100,6 +100,24 @@
 - جزئیاتی که مقصد نمی‌تواند حمل کند (URL برای Bedrock، flac برای OpenAI) را مترجم با `UnsupportedContentError` رد می‌کند و پاسخ 400 (`invalid_request`) است.
 - تخمین توکن برای هر KB سند حدود ۲۵۰ و برای هر KB صوت ۲ توکن حساب می‌کند.
 
+<a id="prompt-caching"></a>
+
+## Prompt caching
+
+> کارت ۲۷.۳. نشانهٔ breakpoint کش prompt (`cache_control` همراه با `ttl`) در هر جایی که Anthropic می‌پذیرد حفظ می‌شود و به Anthropic و Bedrock می‌رسد.
+
+| breakpoint روی                                | canonical        | Anthropic                | Bedrock (Converse)                                                                     |
+| --------------------------------------------- | ---------------- | ------------------------ | -------------------------------------------------------------------------------------- |
+| بلوک system                                   | `system[].cache` | `system[].cache_control` | `{cachePoint}` بعد از بلوک در `system`                                                 |
+| تعریف ابزار                                   | `tools[].cache`  | `tools[].cache_control`  | `{cachePoint}` بعد از `toolSpec` در `toolConfig.tools`                                 |
+| متن، تصویر، سند                               | `cache` روی بخش  | `cache_control` روی بلوک | `{cachePoint}` بعد از بلوک                                                             |
+| `tool_use` / `tool_result` (و متن داخل نتیجه) | `cache` روی بخش  | `cache_control` روی بلوک | `{cachePoint}` بعد از `toolUse` / `toolResult`                                         |
+| `cache_control` سطح بالا (خودکار)             | passthrough      | بدون تغییر               | `{cachePoint}` بعد از آخرین بلوک آخرین پیام، مگر اینکه آنجا باشد یا ۴ تا مصرف شده باشد |
+
+- TTL: `cache_control.ttl` (`5m`، `1h`) به `cacheTtl` تبدیل می‌شود و به‌صورت `cache_control.ttl` و `cachePoint.ttl` برمی‌گردد. بدون TTL، پیش‌فرض provider (۵ دقیقه) اعمال می‌شود.
+- OpenAI و Gemini خودشان prompt را کش می‌کنند؛ این نشانه‌ها برایشان فرستاده نمی‌شود.
+- usage: `inputTokens` در Converse، مثل `input_tokens` در Anthropic، فقط ورودی کش‌نشده را می‌شمارد؛ پس `inputTokens` در canonical برابر `inputTokens + cacheReadInputTokens + cacheWriteInputTokens` است. کلاینت Anthropic یک مدل Bedrock، `cache_read_input_tokens` و `cache_creation_input_tokens` را می‌گیرد، در stream هم.
+
 ## فیلدهای کنارگذاشته‌شده
 
 مترجم هر فیلد بی‌معادل را با `onDrop(field, reason)` گزارش می‌کند و گیت‌وی آن را با سطح debug لاگ می‌کند. فهرست: `n>1` و بخش `file` بدون داده و شناسه در OpenAI، تصویر `file` در Anthropic، ویدیو و بخش‌های ناشناختهٔ دیگر در Gemini و Responses، `top_k` به OpenAI، `seed` به Anthropic، `json_object` به مدل Claude با structured output بومی (به‌صورت دستور فرستاده می‌شود)، reasoning به OpenAI، thinking بدون امضا به Anthropic، تصویر در نتیجهٔ ابزار به OpenAI، دمای بالای ۱ به Anthropic.

@@ -15,7 +15,7 @@ import {
   type Scenario,
 } from './scenario.js';
 import { registerA2a } from './a2a.js';
-import { registerBedrock } from './bedrock.js';
+import { promptCache, registerBedrock } from './bedrock.js';
 import {
   STRUCTURED_OUTPUT_TOOL,
   anthropicFallbackSchema,
@@ -648,6 +648,7 @@ export function buildServer(options: MockServerOptions = {}) {
   app.get('/__mock/stats', () => stats);
   app.post('/__mock/reset', () => {
     stats = newStats();
+    promptCache.clear();
     defaults = parseScenario(options.defaultDirectives, DEFAULT_SCENARIO);
     return { ok: true };
   });
