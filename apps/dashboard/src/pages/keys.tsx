@@ -524,13 +524,25 @@ export default function KeysPage() {
         <Empty title={t('keys.empty')} />
       ) : (
         <Card className="overflow-x-auto p-0">
-          <table className="w-full min-w-[900px] text-sm">
+          <table className="w-full min-w-[1040px] table-fixed text-sm">
+            <colgroup>
+              <col className="w-[26%]" />
+              <col className="w-[12%]" />
+              <col className="w-[12%]" />
+              <col className="w-[16%]" />
+              <col className="w-[13%]" />
+              <col className="w-[11%]" />
+              <col className="w-[10%]" />
+            </colgroup>
             <thead className="text-xs text-muted">
               <tr className="border-b border-border">
                 {(
                   ['name', 'project', 'status', 'limits', 'usage', 'lastUsed', 'actions'] as const
                 ).map((column) => (
-                  <th key={column} className="px-3 py-2 text-start font-medium">
+                  <th
+                    key={column}
+                    className={`whitespace-nowrap px-4 py-2.5 font-medium ${column === 'usage' || column === 'actions' ? 'text-end' : 'text-start'}`}
+                  >
                     {t(`keys.col.${column}`)}
                   </th>
                 ))}
@@ -542,16 +554,18 @@ export default function KeysPage() {
                 return (
                   <tr
                     key={key.id}
-                    className="border-b border-border/60 align-top"
+                    className="border-b border-border/60 align-top transition-colors duration-150 last:border-b-0 hover:bg-surface-2/50"
                     data-testid="key-row"
                   >
-                    <td className="px-3 py-3">
-                      <p className="font-medium">{key.name}</p>
-                      <code dir="ltr" className="text-xs text-muted">
+                    <td className="px-4 py-3">
+                      <p className="truncate font-medium" title={key.name}>
+                        {key.name}
+                      </p>
+                      <code dir="ltr" className="block truncate text-xs text-muted rtl:text-end">
                         {key.prefix}…
                       </code>
                       <p
-                        className="mt-1 max-w-48 truncate text-xs text-muted"
+                        className="mt-1 truncate text-xs text-muted rtl:text-end"
                         dir="ltr"
                         title={key.allowedModels.join(', ')}
                       >
@@ -560,10 +574,16 @@ export default function KeysPage() {
                           : t('keys.allModels')}
                       </p>
                     </td>
-                    <td className="px-3 py-3">{projectName(key.projectId)}</td>
-                    <td className="px-3 py-3">
-                      <span className={key.state === 'active' ? 'text-good' : 'text-muted'}>
-                        {t(`keys.state.${key.state}`)}
+                    <td className="truncate px-4 py-3 text-fg-2">{projectName(key.projectId)}</td>
+                    <td className="px-4 py-3">
+                      <span className="flex items-center gap-2">
+                        <span
+                          aria-hidden
+                          className={`lamp ${key.state === 'active' ? 'bg-good' : 'bg-muted/50'}`}
+                        />
+                        <span className={key.state === 'active' ? 'text-good' : 'text-muted'}>
+                          {t(`keys.state.${key.state}`)}
+                        </span>
                       </span>
                       {key.expiresAt ? (
                         <p className="mt-1 text-xs text-muted">
@@ -571,8 +591,8 @@ export default function KeysPage() {
                         </p>
                       ) : null}
                     </td>
-                    <td className="px-3 py-3 text-xs" dir="ltr">
-                      <p>
+                    <td className="num px-4 py-3 text-xs text-fg-2 rtl:text-end" dir="ltr">
+                      <p className="whitespace-nowrap">
                         {key.rpm === null ? '—' : n(key.rpm)} RPM ·{' '}
                         {key.tpm === null ? '—' : n(key.tpm)} TPM
                       </p>
@@ -584,16 +604,18 @@ export default function KeysPage() {
                         </p>
                       ))}
                       {key.ipAllowlist.length ? (
-                        <p className="max-w-44 truncate" title={key.ipAllowlist.join(', ')}>
+                        <p className="truncate" title={key.ipAllowlist.join(', ')}>
                           {key.ipAllowlist.join(', ')}
                         </p>
                       ) : null}
                     </td>
-                    <td className="px-3 py-3" dir="ltr">
+                    <td className="num px-4 py-3 text-end">
                       {stats ? (
                         <>
-                          <p>${Number(stats.costUsd).toFixed(4)}</p>
-                          <p className="text-xs text-muted">
+                          <p className="font-medium" dir="ltr">
+                            ${Number(stats.costUsd).toFixed(4)}
+                          </p>
+                          <p className="truncate text-xs text-muted">
                             {n(stats.requests)} {t('keys.requests')} · {n(stats.tokens)}{' '}
                             {t('keys.tokens')}
                           </p>
@@ -602,10 +624,10 @@ export default function KeysPage() {
                         '—'
                       )}
                     </td>
-                    <td className="whitespace-nowrap px-3 py-3 text-xs">{date(key.lastUsedAt)}</td>
-                    <td className="px-3 py-3">
+                    <td className="truncate px-4 py-3 text-xs text-fg-2">{date(key.lastUsedAt)}</td>
+                    <td className="px-4 py-3 text-end">
                       {canWrite ? (
-                        <div className="flex flex-wrap gap-1">
+                        <div className="flex flex-wrap justify-end gap-1">
                           <Button
                             variant="ghost"
                             className="h-7 px-2 text-xs"
