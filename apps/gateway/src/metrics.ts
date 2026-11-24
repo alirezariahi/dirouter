@@ -73,6 +73,12 @@ export function createGatewayMetrics(options: GatewayMetricOptions) {
     labelNames: ['guard', 'reason'],
     registers: [registry],
   });
+  const guardrailUnknown = new Counter({
+    name: 'dirouter_gateway_guardrail_unknown_total',
+    help: 'Evaluations that skipped an enabled guardrail policy of a type this gateway does not enforce',
+    labelNames: ['type'],
+    registers: [registry],
+  });
   const cacheHits = new Counter({
     name: 'dirouter_gateway_cache_hits_total',
     help: 'Responses served from the exact or semantic cache',
@@ -144,6 +150,10 @@ export function createGatewayMetrics(options: GatewayMetricOptions) {
       reason: string,
     ) {
       rejected.inc({ guard, reason });
+    },
+    /** A policy type this gateway does not enforce (label sanitised to keep cardinality bounded). */
+    guardrailUnknown(type: string) {
+      guardrailUnknown.inc({ type: type.replace(/[^a-z0-9_]/gi, '_').slice(0, 32) || 'empty' });
     },
     cacheHit(kind: 'exact' | 'semantic') {
       cacheHits.inc({ kind });

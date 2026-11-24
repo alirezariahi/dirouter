@@ -15,7 +15,9 @@ export type GuardrailStage = z.infer<typeof GuardrailStage>;
  * - `max_input_tokens`: rejects requests whose estimated input exceeds `config.maxTokens`
  * - `prompt_injection`: heuristic score for instruction-override patterns
  * - `secret`: provider tokens, API keys and private-key material
- * - `json_schema`: response text must parse and satisfy a small JSON Schema subset
+ * - `json_schema`: response text must parse and satisfy a JSON Schema subset in `config.schema`
+ *
+ * The engine itself is in guardrail-engine.ts, shared by the gateway and the panel's live test.
  */
 export const GuardrailType = z.enum([
   'regex',
@@ -41,7 +43,12 @@ export const GuardrailPolicy = z.object({
   name: z.string(),
   enabled: z.boolean(),
   stage: GuardrailStage.default('both'),
-  type: GuardrailType,
+  /**
+   * One of `GuardrailType` when written by this version. Any string is accepted in a snapshot, so
+   * a policy type added by a newer control plane does not invalidate the whole snapshot: the
+   * gateway skips it and reports it (log and metric) instead.
+   */
+  type: z.string(),
   config: z.record(z.string(), z.unknown()).default({}),
   action: GuardrailAction.default('block'),
   /** Message returned to the client on a block; a sane default is used when absent. */
@@ -52,7 +59,7 @@ export type GuardrailPolicy = z.infer<typeof GuardrailPolicy>;
 export const GuardrailHit = z.object({
   policyId: z.string(),
   name: z.string(),
-  type: GuardrailType,
+  type: z.string(),
   action: GuardrailAction,
   /** Number of matches (for flag/redact) or the estimated amount (for max_input_tokens). */
   matches: z.int().nonnegative(),

@@ -1,7 +1,7 @@
 /** Static regex safety check for guardrail policies (cards 15.1 and 15.2). */
 import { describe, expect, it } from 'vitest';
 
-import { assertSafeRegexPolicy, previewGuardrail } from './guardrails.service.js';
+import { assertValidPolicyConfig, previewGuardrail } from './guardrails.service.js';
 import { MAX_PATTERN_LENGTH, unsafeRegexReason } from './regex-safety.js';
 
 describe('unsafeRegexReason', () => {
@@ -52,13 +52,13 @@ describe('unsafeRegexReason', () => {
 describe('regex policies', () => {
   it('are checked when saved and when previewed', () => {
     expect(() => {
-      assertSafeRegexPolicy('regex', { pattern: '(a+)+$' });
+      assertValidPolicyConfig('regex', { pattern: '(a+)+$' });
     }).toThrow(/unsafe regex/);
     expect(() => {
-      assertSafeRegexPolicy('regex', {});
+      assertValidPolicyConfig('regex', {});
     }).toThrow(/config.pattern/);
     expect(() => {
-      assertSafeRegexPolicy('keyword', { pattern: '(a+)+$' });
+      assertValidPolicyConfig('keyword', { pattern: '(a+)+$' });
     }).not.toThrow();
     expect(() =>
       previewGuardrail({ name: 'p', type: 'regex', config: { pattern: '(a+)+$' } }, 'aaaa!'),

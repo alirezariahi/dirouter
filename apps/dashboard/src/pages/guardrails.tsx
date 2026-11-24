@@ -41,6 +41,9 @@ interface Policy {
 }
 interface Preview {
   blocked: boolean;
+  /** The policy matched (any action); with `flag` the text passes but the hit is logged. */
+  hit?: boolean;
+  schemaErrors?: string[];
   matches?: string[];
   redacted?: boolean | string;
   redactedText?: string;
@@ -422,6 +425,9 @@ export default function GuardrailsPage() {
             <fieldset className="flex flex-col gap-2 rounded-lg border border-border p-3">
               <legend className="px-1 text-sm font-medium">{t('s2.guardrails.testTitle')}</legend>
               <p className="text-xs text-muted">{t('s2.guardrails.testHelp')}</p>
+              {draft.type === 'json_schema' ? (
+                <p className="text-xs text-muted">{t('s2.guardrails.result.schemaHelp')}</p>
+              ) : null}
               <label htmlFor="guardrail-sample" className="flex flex-col gap-1 text-sm">
                 <span className="font-medium">{t('s2.guardrails.sample')}</span>
                 <textarea
@@ -454,9 +460,21 @@ export default function GuardrailsPage() {
                   <p className={result.blocked ? 'font-medium text-danger' : 'font-medium'}>
                     {result.blocked
                       ? t('s2.guardrails.result.blocked')
-                      : t('s2.guardrails.result.passed')}
+                      : result.hit && draft.action === 'flag'
+                        ? t('s2.guardrails.result.flagged')
+                        : t('s2.guardrails.result.passed')}
                   </p>
-                  {result.matches ? (
+                  {result.schemaErrors && result.schemaErrors.length > 0 ? (
+                    <div data-testid="guardrail-schema-errors">
+                      <p className="text-muted">{t('s2.guardrails.result.schemaErrors')}</p>
+                      <ul dir="ltr" className="list-disc ps-5 text-xs">
+                        {result.schemaErrors.slice(0, 5).map((error) => (
+                          <li key={error}>{error}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
+                  {result.matches && draft.type !== 'json_schema' ? (
                     <p className="text-muted">
                       {t('s2.guardrails.result.matches', { n: n(result.matches.length) })}
                       {result.matches.length > 0 ? (

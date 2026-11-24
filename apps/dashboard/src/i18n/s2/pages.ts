@@ -54,7 +54,10 @@ export const pagesFa = {
     result: {
       blocked: 'این متن مسدود می‌شود.',
       passed: 'این متن عبور می‌کند.',
+      flagged: 'این متن عبور می‌کند ولی در لاگ علامت می‌خورد.',
       matches: 'تعداد تطابق: {{n}}',
+      schemaHelp: 'در json_schema متن نمونه به‌عنوان پاسخ مدل سنجیده می‌شود.',
+      schemaErrors: 'ناسازگاری با اسکیما:',
       redacted: 'متن پس از حذف موارد حساس:',
       tokens: 'توکن تخمینی: {{n}}',
     },
@@ -328,7 +331,10 @@ export const pagesEn: Widen<typeof pagesFa> = {
     result: {
       blocked: 'This text would be blocked.',
       passed: 'This text would pass.',
+      flagged: 'This text would pass but be flagged in the log.',
       matches: 'Matches: {{n}}',
+      schemaHelp: 'For json_schema the sample is checked as the model’s answer.',
+      schemaErrors: 'Schema problems:',
       redacted: 'Text after redaction:',
       tokens: 'Estimated tokens: {{n}}',
     },

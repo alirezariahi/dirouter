@@ -1,11 +1,16 @@
 /**
  * Guardrail policy CRUD (card 15.1) and the live "test before save" preview (card 15.2).
- * The gateway is still the enforcement point; this module only stores the policies in the
- * snapshot and offers a local preview of the same detectors.
+ * The gateway is the enforcement point; the preview runs the same engine (card 23.1).
  */
 import { Script } from 'node:vm';
 
+import {
+  type GuardrailPreview,
+  jsonSchemaProblem,
+  previewGuardrailText,
+} from '@dirouter/contracts';
 import { Prisma } from '@dirouter/db';
+import { estimateRequestTokens, roughTokens } from '@dirouter/model-catalog';
 import { DiRouterError, prefixedId } from '@dirouter/shared';
 import { Inject, Injectable } from '@nestjs/common';
 
@@ -26,58 +31,32 @@ export interface GuardrailInput {
   projectId?: string;
 }
 
-const EMAIL = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g;
-const SECRETS = [
-  /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----[\s\S]*?-----END (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/g,
-  /\bsk-[A-Za-z0-9_-]{16,}\b/g,
-  /\b(?:AKIA|ASIA)[A-Z0-9]{16}\b/g,
-  /\bgh[pousr]_[A-Za-z0-9]{20,}\b/g,
-  /\bxox[baprs]-[A-Za-z0-9-]{10,}\b/g,
-];
-const IRAN_NATIONAL_ID = /\b\d{10}\b/g;
-const CARD = /\b(?:\d[ -]?){13,19}\b/g;
-
-function luhn(value: string): boolean {
-  const digits = value.replace(/\D/g, '');
-  if (digits.length < 13 || digits.length > 19) return false;
-  let sum = 0;
-  let double = false;
-  for (let i = digits.length - 1; i >= 0; i--) {
-    let d = Number(digits[i]);
-    if (double) {
-      d *= 2;
-      if (d > 9) d -= 9;
-    }
-    sum += d;
-    double = !double;
-  }
-  return sum % 10 === 0;
-}
-
-function validIranNationalId(value: string): boolean {
-  if (!/^\d{10}$/.test(value)) return false;
-  if (new Set(value).size === 1) return false;
-  const check = Number(value[9]);
-  const sum = value
-    .slice(0, 9)
-    .split('')
-    .reduce((acc, digit, index) => acc + Number(digit) * (10 - index), 0);
-  const remainder = sum % 11;
-  // Same rule as the gateway (apps/gateway/src/guardrails.ts): the preview must agree with enforcement.
-  return remainder < 2 ? check === remainder : check === 11 - remainder;
-}
-
 /** Wall-clock budget for one preview regex run; a slower pattern is refused. */
 const PREVIEW_REGEX_TIMEOUT_MS = 100;
 const matchAllScript = new Script('Array.from(text.matchAll(re), (m) => m[0])');
 
 /**
- * Refuses regex policies whose pattern can backtrack catastrophically (see regex-safety.ts).
- * Used when a policy is saved and when it is previewed: the gateway runs these on every request.
+ * Validates a policy's config as it will be stored. Regex patterns that can backtrack
+ * catastrophically are refused (see regex-safety.ts): the gateway runs them on every request.
+ * A `json_schema` policy needs a schema the gateway's validator fully understands (card 23.1).
  */
-export function assertSafeRegexPolicy(type: string, config: unknown): void {
-  if (type !== 'regex') return;
+export function assertValidPolicyConfig(type: string, config: unknown): void {
   const cfg = (config ?? {}) as Record<string, unknown>;
+  if (type === 'json_schema') {
+    if (cfg.schema === undefined)
+      throw new DiRouterError('invalid_request', {
+        message: 'json_schema policy requires config.schema',
+        status: 400,
+      });
+    const problem = jsonSchemaProblem(cfg.schema);
+    if (problem)
+      throw new DiRouterError('invalid_request', {
+        message: `invalid JSON Schema: ${problem}`,
+        status: 400,
+      });
+    return;
+  }
+  if (type !== 'regex') return;
   if (typeof cfg.pattern !== 'string')
     throw new DiRouterError('invalid_request', {
       message: 'regex policy requires config.pattern',
@@ -111,68 +90,26 @@ function boundedMatchAll(pattern: string, flags: string, text: string): string[]
   }
 }
 
-export function previewGuardrail(input: GuardrailInput, text: string) {
+/**
+ * The live test (card 15.2). It runs the gateway's own engine from @dirouter/contracts on the
+ * sample (card 23.1), so the verdict here is the verdict in real traffic. A regex is first run
+ * once under a time limit, because the sample is caller-supplied.
+ */
+export function previewGuardrail(input: GuardrailInput, text: string): GuardrailPreview {
   const config = input.config ?? {};
-  const matches: string[] = [];
-  if (input.type === 'regex' && typeof config.pattern === 'string') {
-    assertSafeRegexPolicy(input.type, config);
-    const flags = typeof config.flags === 'string' ? config.flags : 'gu';
-    for (const match of boundedMatchAll(config.pattern, flags, text))
-      if (match) matches.push(match);
-  } else if (input.type === 'keyword') {
-    const terms = Array.isArray(config.terms)
-      ? config.terms.filter((t): t is string => typeof t === 'string')
-      : typeof config.terms === 'string'
-        ? config.terms.split(',')
-        : [];
-    const haystack = config.caseSensitive === true ? text : text.toLowerCase();
-    for (const term of terms.map((t) => t.trim()).filter(Boolean)) {
-      if (haystack.includes(config.caseSensitive === true ? term : term.toLowerCase()))
-        matches.push(term);
-    }
-  } else if (input.type === 'pii') {
-    for (const match of text.matchAll(EMAIL)) matches.push(match[0]);
-    for (const match of text.matchAll(CARD)) if (luhn(match[0])) matches.push(match[0]);
-    for (const match of text.matchAll(IRAN_NATIONAL_ID))
-      if (validIranNationalId(match[0])) matches.push(match[0]);
-  } else if (input.type === 'secret') {
-    for (const pattern of SECRETS)
-      for (const match of text.matchAll(pattern)) matches.push(match[0].slice(0, 24) + '…');
-  } else if (input.type === 'prompt_injection') {
-    const phrases = [
-      'ignore previous',
-      'ignore all previous',
-      'disregard the system',
-      'reveal your system prompt',
-      'you are now',
-      'دستورات قبلی را نادیده',
-    ];
-    const lower = text.toLowerCase();
-    for (const phrase of phrases) if (lower.includes(phrase)) matches.push(phrase);
-  } else if (input.type === 'json_schema') {
-    try {
-      JSON.parse(text);
-    } catch {
-      return { blocked: true, matches, valid: false, redacted: text };
-    }
-    return { blocked: false, matches, valid: true, redacted: text };
-  } else if (input.type === 'max_input_tokens') {
-    const max = Number(config.maxTokens ?? 0);
-    const estimated = Math.ceil(text.length / 4);
-    return {
-      blocked: max > 0 && estimated > max,
-      matches,
-      estimatedTokens: estimated,
-      redacted: text,
-    };
-  }
-  const blocked = matches.length > 0 && (input.action ?? 'block') === 'block';
-  const redacted = matches.length > 0 && input.action === 'redact';
-  let output = text;
-  for (const match of matches) {
-    if (match.length > 2) output = output.split(match).join('[REDACTED]');
-  }
-  return { blocked, matches, redacted, redactedText: redacted ? output : text };
+  assertValidPolicyConfig(input.type, config);
+  if (input.type === 'regex' && typeof config.pattern === 'string')
+    boundedMatchAll(config.pattern, typeof config.flags === 'string' ? config.flags : 'g', text);
+  return previewGuardrailText(
+    {
+      type: input.type,
+      config,
+      action: input.action ?? 'block',
+      ...(input.message ? { message: input.message } : {}),
+    },
+    text,
+    (request) => estimateRequestTokens(request, roughTokens),
+  );
 }
 
 @Injectable()
@@ -190,7 +127,7 @@ export class GuardrailsService {
   }
 
   async create(org: OrgContext, input: GuardrailInput) {
-    assertSafeRegexPolicy(input.type, input.config);
+    assertValidPolicyConfig(input.type, input.config);
     const id = prefixedId('grd');
     const row = await this.db.client.guardrailPolicy.create({
       data: {
@@ -216,7 +153,7 @@ export class GuardrailsService {
     const stored = await this.owned(org, id);
     // Validate the policy as it will be stored, not just the patch.
     if (patch.type !== undefined || patch.config !== undefined)
-      assertSafeRegexPolicy(patch.type ?? stored.type, patch.config ?? stored.config);
+      assertValidPolicyConfig(patch.type ?? stored.type, patch.config ?? stored.config);
     const row = await this.db.client.guardrailPolicy.update({
       where: { id },
       data: {

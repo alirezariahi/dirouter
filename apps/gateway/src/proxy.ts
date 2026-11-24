@@ -10,6 +10,7 @@ import {
   type CanonicalResponse,
   type CanonicalStreamEvent,
   type CanonicalUsage,
+  type GuardrailHit,
   type GuardrailPolicy,
   type InboundApi,
   OpenAIChatCompletionRequest,
@@ -229,6 +230,40 @@ export function errorPayload(api: InboundApi, error: DiRouterError, requestId: s
     };
   if (api === 'anthropic.messages') return error.toAnthropic(requestId);
   return error.toOpenAI();
+}
+
+/**
+ * Leaves a trail for guardrail hits (policy ids, actions and counts, never the text) and reports
+ * enabled policies of a type this gateway does not enforce (card 23.1): they used to be skipped
+ * silently.
+ */
+function reportGuardrails(
+  deps: Pick<ProxyDeps, 'logger' | 'metrics'>,
+  requestId: string,
+  stage: 'request' | 'response',
+  result: { hits: readonly GuardrailHit[]; unknown: readonly GuardrailPolicy[] },
+): void {
+  if (result.hits.length > 0)
+    deps.logger.info(
+      {
+        requestId,
+        stage,
+        guardrails: result.hits.map((hit) => ({
+          policyId: hit.policyId,
+          type: hit.type,
+          action: hit.action,
+          matches: hit.matches,
+        })),
+      },
+      'guardrail hits',
+    );
+  for (const policy of result.unknown) {
+    deps.metrics?.guardrailUnknown(policy.type);
+    deps.logger.warn(
+      { requestId, stage, policyId: policy.id, type: policy.type },
+      'guardrail policy of an unknown type was not enforced',
+    );
+  }
 }
 
 function parseInbound(api: InboundApi, body: unknown, logger: Logger): CanonicalRequest {
@@ -517,20 +552,7 @@ export async function handleProxy(
       request: canonical,
       estimatedInputTokens: estimateRequestTokens(canonical, roughTokens),
     });
-    // `flag` and `redact` hits leave a trail in the log (policy ids and counts, never the text).
-    if (guard.hits.length > 0)
-      deps.logger.info(
-        {
-          requestId,
-          stage: 'request',
-          guardrails: guard.hits.map((hit) => ({
-            policyId: hit.policyId,
-            action: hit.action,
-            matches: hit.matches,
-          })),
-        },
-        'guardrail hits',
-      );
+    reportGuardrails(deps, requestId, 'request', guard);
     if (guard.blocked) {
       sendError(
         reply,
@@ -816,6 +838,7 @@ export async function handleProxy(
     if (policies.length > 0) {
       const copy = structuredClone(cached);
       const guard = evaluateGuardrails(policies, { stage: 'response', response: copy });
+      reportGuardrails(deps, requestId, 'response', guard);
       cached = guard.blocked ? undefined : copy;
     }
   }
@@ -1194,6 +1217,9 @@ async function runRoute(
           draining: () => deps.lifecycle?.draining === true,
           shuttingDown: () => deps.lifecycle?.signal.aborted === true,
           guardrails: policiesFor(config.snapshot.guardrails, key),
+          onGuardrails: (result) => {
+            reportGuardrails(deps, requestId, 'response', result);
+          },
           ...(claim ? { claim } : {}),
         },
       );
@@ -1321,6 +1347,7 @@ async function runRoute(
       const guard = policies.length
         ? evaluateGuardrails(policies, { stage: 'response', response: outcome.response })
         : undefined;
+      if (guard) reportGuardrails(deps, requestId, 'response', guard);
       if (guard?.blocked) {
         sendError(
           reply,
@@ -1511,6 +1538,11 @@ async function pipeStream(
     draining: () => boolean;
     shuttingDown: () => boolean;
     guardrails?: readonly GuardrailPolicy[];
+    /** Called once the stream ends with the response guardrail hits and unknown policies. */
+    onGuardrails?: (result: {
+      hits: readonly GuardrailHit[];
+      unknown: readonly GuardrailPolicy[];
+    }) => void;
     /** Hedging: claims the client response for this attempt; false when another one owns it. */
     claim?: () => boolean;
   },
@@ -1582,9 +1614,9 @@ async function pipeStream(
   // Releases the text the stream guardrail is still holding back. It runs before every non-text
   // event: once a block is closed or the finish event is out, the client formats have no place
   // left for that text (an Anthropic block cannot be reopened, OpenAI already sent finish_reason).
-  const releaseHeld = async () => {
+  const releaseHeld = async (final = false) => {
     if (!streamGuard.active) return;
-    const tail = streamGuard.finish();
+    const tail = streamGuard.finish(final);
     if (tail.blocked) await blockStream(tail.blocked);
     if (tail.text === '') return;
     if (!state.committed) commit();
@@ -1651,7 +1683,9 @@ async function pipeStream(
       const failed = await forward(ev);
       if (failed) return { ok: false, error: failed };
     }
-    await releaseHeld();
+    await releaseHeld(true);
+    if (streamGuard.active)
+      opts.onGuardrails?.({ hits: streamGuard.hits, unknown: streamGuard.unknown });
     if (!state.committed) commit();
     const usageEstimated = encoder.usage === undefined;
     const usage = encoder.usage ?? estimateUsage(canonical, output.join(''));
