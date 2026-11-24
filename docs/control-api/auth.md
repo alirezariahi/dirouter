@@ -1,6 +1,6 @@
 [English](auth.md) · [فارسی](auth.fa.md)
 
-# Dashboard authentication and setup wizard
+# Dashboard authentication, sessions, management tokens and setup wizard
 
 Code: `apps/control-api/src/auth` · tests: `auth.unit.test.ts` and `auth.integration.test.ts` · card 3.4
 
@@ -87,6 +87,90 @@ accepted invitation) and keeps its id through every rotation.
 - Dashboard: the account page lists the sessions with "Sign out this device", "Sign out all other
   devices" and "Sign out everywhere"; the organization page has a "Sign out everywhere" button per
   member for those who can manage members.
+
+## Management API tokens and service accounts
+
+Card 23.6 · code: `apps/control-api/src/service-accounts` and `src/auth/management-token.ts` ·
+tests: `service-accounts.integration.test.ts`, `management-token.unit.test.ts` and the dashboard's
+`service-accounts.test.tsx`.
+
+Automation (CI, scripts, Terraform) calls the management API with a **management token** instead of
+a user session:
+
+```bash
+curl -H "Authorization: Bearer drm_…" https://admin.example.com/api/v1/orgs/<orgId>/keys
+```
+
+### Service accounts
+
+A service account is a non-human member of one organization. It is backed by a user row with
+`is_service_account = true` and no password, so it can never sign in (password, passkey, SSO or an
+invitation), and a membership that carries its role (`ADMIN`, `MEMBER` or `VIEWER`, never `OWNER`)
+and an optional custom role. Changes it makes are audited with it as the actor, and resources it
+creates (keys, projects) name it as their creator. It does not appear in the member list and cannot
+be changed through the member routes.
+
+| route (`/api/v1/orgs/{orgId}`)       | permission       | description                                                                                               |
+| ------------------------------------ | ---------------- | --------------------------------------------------------------------------------------------------------- |
+| `GET /service-accounts`              | `members:read`   | accounts with their role, effective `permissions` and tokens (never the token itself)                     |
+| `POST /service-accounts`             | `security:write` | `{name, description?, role, customRoleId?}`                                                               |
+| `PATCH /service-accounts/{id}`       | `security:write` | name, description, role or custom role                                                                    |
+| `DELETE /service-accounts/{id}`      | `security:write` | removes the membership, revokes every token and disables the backing user                                 |
+| `POST /service-accounts/{id}/tokens` | `security:write` | `{name, scopes, expiresInDays?, allowedIps?}`; the response holds `token`, **shown only this once** (201) |
+| `DELETE /management-tokens/{id}`     | `security:write` | revokes the token (204)                                                                                   |
+
+Nobody can give a service account a role above their own or a custom role with permissions they
+lack, or manage an account that has more access than they do (the rule for members, card 14.3).
+
+### Tokens
+
+| property   | value                                                                                                                    |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------ |
+| format     | `drm_` and 32 random bytes in base64url (47 characters); virtual keys start with `dr-` and SCIM tokens with `scim_`      |
+| in DB      | only the SHA-256 of the token in `management_tokens.token_hash`, and the first 12 characters for display                 |
+| scopes     | permissions of the RBAC matrix ([docs/rbac.md](../rbac.md)); a read-only token has only `*:read` scopes                  |
+| expiry     | `expiresInDays` from 1 to 730, default 90; `null` never expires                                                          |
+| allow-list | optional `allowedIps`: addresses or CIDR ranges, IPv4 and IPv6 (`10.0.0.0/8`, `2001:db8::/32`); empty allows any address |
+
+At issue time every scope must be granted by the service account's role (otherwise 422) and held by
+the person issuing it (otherwise 403).
+
+### How a request with a token is checked
+
+AccessGuard recognises the `drm_` prefix and looks the token up on **every request**:
+
+1. Unknown, revoked or expired token, or a deleted service account: **401** `unauthenticated`. A
+   revoked token is therefore refused on its very next request; nothing is cached.
+2. Address not in `allowedIps`: **403**. The address is the client address as Traefik forwards it.
+3. Routes outside `/orgs/{orgId}` (account, sessions, MFA, passkeys): **403**. Another
+   organization's routes: **404**, as for a non-member.
+4. OrgGuard: the permission of the route must be granted by **both** the token's scopes and the
+   service account's current role, so demoting the account narrows its tokens at once.
+   Organization MFA policies do not apply to tokens.
+5. Some routes are never open to tokens, whatever their scopes (`@HumanOnly()`): managing service
+   accounts and tokens, and approving or rejecting change requests (a second person must decide,
+   card 22.2).
+
+A unit test walks every organization route and fails if one that changes something (POST, PATCH,
+PUT, DELETE) needs only a `:read` permission without being closed to tokens; the two exceptions
+(playground compare and the routing simulator) compute an answer without storing anything.
+
+### Audit log
+
+- `service_account.created`, `.updated`, `.deleted`, `management_token.created` (with scopes,
+  expiry and allow-list) and `management_token.revoked`, with the person as actor.
+- `management_token.used` with the service account as actor, the address and `{method, route}`:
+  every change made with a token, and reads at least once an hour per token and on every new
+  address. The token's `last_used_at` and `last_used_ip` are kept current (to the minute).
+- The change itself is audited by its route as usual (for example `key.created`), with the service
+  account as actor.
+
+### Dashboard
+
+The security page lists service accounts and their tokens (prefix, read-only or number of scopes,
+allow-list, expiry, last use and address). With `security:write`: create and delete accounts, issue a
+token with a preset (read-only, everything the role allows, or chosen permissions), an expiry and an
+optional allow-list, see the token once, and revoke tokens.
 
 ## Login attempt limit
 

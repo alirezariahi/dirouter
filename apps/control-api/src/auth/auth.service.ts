@@ -110,7 +110,8 @@ export class AuthService {
     if (locked !== undefined) throw lockedError(locked);
     const user = await this.prisma.client.user.findUnique({ where: { email: normalized } });
     const ok = await verifyPassword(user?.passwordHash, password);
-    if (!user || !ok || !user.isActive || user.deletedAt) {
+    // A service account (card 23.6) has no password and can never sign in.
+    if (!user || !ok || !user.isActive || user.deletedAt || user.isServiceAccount) {
       await this.limiter.failure(normalized, client.ip);
       // The tenth failure itself activates the lock.
       const now = await this.limiter.lockedFor(normalized, client.ip);

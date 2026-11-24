@@ -1,4 +1,7 @@
-/** Dashboard access token guard: `Authorization: Bearer <jwt>` → `request.user`. */
+/**
+ * `Authorization: Bearer <jwt>` (a dashboard session) or `Bearer drm_…` (a management token of a
+ * service account, card 23.6) → `request.user`.
+ */
 import { AuthenticationError, ForbiddenError } from '@dirouter/shared';
 import {
   type CanActivate,
@@ -11,6 +14,7 @@ import type { FastifyRequest } from 'fastify';
 
 import type { AccessClaims } from './crypto.js';
 import { AuthService } from './auth.service.js';
+import { isManagementToken, ManagementTokenAuth } from './management-token.js';
 import { SessionsService } from './sessions.service.js';
 
 type AuthedRequest = FastifyRequest & { user?: AccessClaims };
@@ -20,12 +24,18 @@ export class AccessGuard implements CanActivate {
   constructor(
     @Inject(AuthService) private readonly auth: AuthService,
     @Inject(SessionsService) private readonly sessions: SessionsService,
+    @Inject(ManagementTokenAuth) private readonly management: ManagementTokenAuth,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const req = context.switchToHttp().getRequest<AuthedRequest>();
     const header = req.headers.authorization;
     const token = typeof header === 'string' ? /^Bearer\s+(.+)$/i.exec(header)?.[1] : undefined;
+    // Automation authenticates with a management token instead of a user session (card 23.6).
+    if (token && isManagementToken(token)) {
+      req.user = await this.management.authenticate(token, req);
+      return true;
+    }
     const claims = token ? await this.auth.tokens.verifyAccess(token) : undefined;
     if (!claims) throw new AuthenticationError('unauthenticated');
     // A revoked session (sign-out elsewhere, an administrator, a password change or a reused

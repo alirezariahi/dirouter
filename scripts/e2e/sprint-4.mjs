@@ -967,6 +967,84 @@ try {
       );
     },
   );
+
+  await scenario(
+    '23.6 management token: creates a key and reads stats without a user, read-only cannot write, revoked is refused at once',
+    async () => {
+      const account = (
+        await org(
+          'POST',
+          'service-accounts',
+          { name: `s4-ci-${randomUUID().slice(0, 6)}`, role: 'ADMIN' },
+          201,
+        )
+      ).body;
+      cleanups.push(() => org('DELETE', `service-accounts/${account.id}`, undefined, null));
+      const issue = async (scopes, extra = {}) =>
+        (
+          await org(
+            'POST',
+            `service-accounts/${account.id}/tokens`,
+            { name: 'e2e', scopes, ...extra },
+            201,
+          )
+        ).body;
+      const full = await issue(['keys:read', 'keys:write', 'usage:read', 'projects:read']);
+      assert.match(full.token, /^drm_[A-Za-z0-9_-]{43}$/);
+      const readOnly = await issue(account.permissions.filter((p) => p.endsWith(':read')));
+      // Only the token, never a user session, from here on.
+      const asToken = (token) => (method, path, body, expected) =>
+        api(method, `orgs/${ORG}/${path}`, body, expected, token);
+      const ci = asToken(full.token);
+
+      const { body: key } = await published(() =>
+        ci(
+          'POST',
+          'keys',
+          { name: `s4-token-${randomUUID().slice(0, 6)}`, projectId: 'prj_dev' },
+          201,
+        ),
+      );
+      cleanups.push(() => org('POST', `keys/${key.id}/revoke`, undefined, null));
+      await waitFor('gateway to know the key made with a token', async () => {
+        const probe = await fetch(`${urls.gateway}/v1/models`, {
+          headers: { authorization: `Bearer ${key.key}` },
+        });
+        return probe.status === 200;
+      });
+      const answer = await chat(key.key, {
+        model: 'mock/small',
+        messages: [{ role: 'user', content: 'hi' }],
+      });
+      assert.equal(answer.response.status, 200, answer.text);
+      const stats = await ci('GET', 'stats/overview', undefined, 200);
+      assert.equal(typeof stats.body, 'object');
+      await ci('GET', 'keys', undefined, 200);
+
+      // Read-only: reads work, nothing can be changed.
+      const reader = asToken(readOnly.token);
+      await reader('GET', 'keys', undefined, 200);
+      await reader('POST', 'keys', { name: 's4-nope', projectId: 'prj_dev' }, 403);
+      await reader('POST', 'projects', { name: 's4-nope' }, 403);
+      await reader('POST', 'service-accounts', { name: 'x', role: 'VIEWER' }, 403);
+      // Tokens do not open user routes.
+      assert.equal((await meWith(full.token)).response.status, 403);
+
+      // Revoked: refused on the very next request.
+      await org('DELETE', `management-tokens/${full.id}`, undefined, 204);
+      await ci('GET', 'keys', undefined, 401);
+
+      const used = (await org('GET', 'audit?action=management_token.used&limit=50')).body;
+      const text = JSON.stringify(used);
+      assert.ok(text.includes(full.id), 'the token use is audited');
+      assert.ok(text.includes('POST'), 'the change made with the token is audited');
+      const created = (await org('GET', `audit?actorUserId=${account.userId}&limit=50`)).body;
+      assert.ok(
+        JSON.stringify(created).includes(key.id),
+        'the key is audited with the service account as actor',
+      );
+    },
+  );
 } catch (error) {
   crashed = true;
   console.error(error);

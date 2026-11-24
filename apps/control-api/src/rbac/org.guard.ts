@@ -28,6 +28,13 @@ export const PERMISSION_KEY = 'dirouter:permission';
 export const RequirePermission = (permission: Permission) =>
   SetMetadata(PERMISSION_KEY, permission);
 
+export const HUMAN_ONLY_KEY = 'dirouter:human-only';
+/**
+ * Routes a management token may never use, whatever its scopes (card 23.6): managing service
+ * accounts and their tokens, and deciding change requests, which must be a second person.
+ */
+export const HumanOnly = () => SetMetadata(HUMAN_ONLY_KEY, true);
+
 export interface OrgContext {
   organizationId: string;
   userId: string;
@@ -36,6 +43,8 @@ export interface OrgContext {
   customPermissions?: readonly string[] | undefined;
   /** Client address for the audit trail (card 14.4); undefined in tests and background jobs. */
   ip?: string | undefined;
+  /** The management token the request was made with (card 23.6); `userId` is its service account. */
+  tokenId?: string | undefined;
 }
 
 type OrgRequest = FastifyRequest & { user?: AccessClaims; org?: OrgContext };
@@ -62,6 +71,21 @@ export class OrgGuard implements CanActivate {
     // An SSO session is vouched for by one organization's identity provider and is valid only there
     // (card 14.2); the user's other organizations look as if they did not exist.
     if (req.user.amr === 'sso' && req.user.org !== orgId) throw new DiRouterError('not_found');
+    // A management token belongs to one organization (AccessGuard checked this too) and some routes
+    // are for people only.
+    const token = req.user.token;
+    if (token) {
+      if (token.organizationId !== orgId) throw new DiRouterError('not_found');
+      if (
+        this.reflector.getAllAndOverride<boolean | undefined>(HUMAN_ONLY_KEY, [
+          context.getHandler(),
+          context.getClass(),
+        ])
+      )
+        throw new ForbiddenError('forbidden', {
+          message: 'This route cannot be used with a management token',
+        });
+    }
     const membership = await this.prisma.client.membership.findUnique({
       where: { userId_organizationId: { userId: req.user.sub, organizationId: orgId } },
       include: {
@@ -86,12 +110,18 @@ export class OrgGuard implements CanActivate {
       throw new ForbiddenError('forbidden', {
         message: `Requires ${permission ?? 'a declared permission'}`,
       });
+    // A token can use a permission only if both its scopes and its service account's role grant it.
+    if (token && !token.scopes.includes(permission))
+      throw new ForbiddenError('forbidden', {
+        message: `The management token does not have the ${permission} scope`,
+      });
     // Mandatory MFA per role (card 14.1): without a second factor the organization stays closed.
     // The user can still sign in and reach /auth/mfa and /auth/webauthn (not organization routes)
     // to enroll, so nobody is locked out by the policy itself. A registered passkey only counts for
     // sessions that were opened with it; password sessions need TOTP, which login enforces.
     const organization = membership.organization;
     if (
+      !token &&
       mfaPolicyApplies(membership.role, {
         mfaRequiredRoles: organization.mfaRequiredRoles,
         passwordLoginDisabled: organization.passwordLoginDisabled,
@@ -106,6 +136,7 @@ export class OrgGuard implements CanActivate {
       role: membership.role,
       customPermissions: membership.customRole?.permissions ?? [],
       ip: req.ip,
+      ...(token ? { tokenId: token.id } : {}),
     };
     return true;
   }

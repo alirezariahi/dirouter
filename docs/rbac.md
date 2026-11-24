@@ -44,15 +44,16 @@ Additional rules in the service, separate from the matrix:
 
 ## Endpoints
 
-| Route                                                                                | Permission                        |
-| ------------------------------------------------------------------------------------ | --------------------------------- |
-| `GET /orgs/:orgId`, `PATCH /orgs/:orgId`                                             | `org:read`, `org:write`           |
-| `GET /members`, `PATCH /members/:userId` (`{role}`), `DELETE /members/:userId`       | `members:read`, `members:write`   |
-| `GET /members/:userId/sessions`, `POST /members/:userId/sessions/revoke` (card 23.5) | `members:write`                   |
-| `GET /invitations`, `POST /invitations` (`{email, role}`), `DELETE /invitations/:id` | `members:read`, `invites:write`   |
-| `GET/POST /teams`, `PATCH/DELETE /teams/:id`                                         | `teams:read`, `teams:write`       |
-| `GET/POST /projects`, `PATCH/DELETE /projects/:id`                                   | `projects:read`, `projects:write` |
-| `POST /auth/invitations/accept` (`{token, name?, password}`)                         | Public, with the invitation token |
+| Route                                                                                                                                        | Permission                        |
+| -------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
+| `GET /orgs/:orgId`, `PATCH /orgs/:orgId`                                                                                                     | `org:read`, `org:write`           |
+| `GET /members`, `PATCH /members/:userId` (`{role}`), `DELETE /members/:userId`                                                               | `members:read`, `members:write`   |
+| `GET /members/:userId/sessions`, `POST /members/:userId/sessions/revoke` (card 23.5)                                                         | `members:write`                   |
+| `GET /service-accounts`; `POST/PATCH/DELETE /service-accounts…`, `DELETE /management-tokens/:id` (card 23.6, [auth.md](control-api/auth.md)) | `members:read`; `security:write`  |
+| `GET /invitations`, `POST /invitations` (`{email, role}`), `DELETE /invitations/:id`                                                         | `members:read`, `invites:write`   |
+| `GET/POST /teams`, `PATCH/DELETE /teams/:id`                                                                                                 | `teams:read`, `teams:write`       |
+| `GET/POST /projects`, `PATCH/DELETE /projects/:id`                                                                                           | `projects:read`, `projects:write` |
+| `POST /auth/invitations/accept` (`{token, name?, password}`)                                                                                 | Public, with the invitation token |
 
 ## Invitations
 

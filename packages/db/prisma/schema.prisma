@@ -73,6 +73,8 @@ model Organization {
   scimUsers        ScimUser[]
   scimGroups       ScimGroup[]
   changeRequests   ChangeRequest[]
+  serviceAccounts  ServiceAccount[]
+  managementTokens ManagementToken[]
   @@map("organizations")
 }
 
@@ -86,9 +88,12 @@ model User {
   createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
   deletedAt    DateTime? @map("deleted_at") @db.Timestamptz(3)
+  /// The non-human identity behind a service account (card 23.6); it can never sign in.
+  isServiceAccount Boolean @default(false) @map("is_service_account")
 
-  memberships   Membership[]
-  refreshTokens RefreshToken[]
+  memberships    Membership[]
+  refreshTokens  RefreshToken[]
+  serviceAccount ServiceAccount?
   mfa           UserMfa?
   webauthn      WebAuthnCredential[]
   invitations   Invitation[]   @relation("InvitedBy")
@@ -740,6 +745,55 @@ model ScimToken {
 
   @@index([organizationId])
   @@map("scim_tokens")
+}
+
+/// Non-human member of one organization (card 23.6). It is backed by a user row that can never
+/// sign in, so its membership carries the role and every audit row and `created_by` reference
+/// names it like a person.
+model ServiceAccount {
+  id             String    @id
+  organizationId String    @map("organization_id")
+  userId         String    @unique @map("user_id")
+  name           String
+  description    String?
+  createdById    String?   @map("created_by_id")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokens       ManagementToken[]
+
+  @@index([organizationId])
+  @@map("service_accounts")
+}
+
+/// Management API token of a service account (card 23.6). Only the SHA-256 of the token is kept;
+/// the token itself is shown once. Scopes are permissions of the RBAC matrix.
+model ManagementToken {
+  id               String    @id
+  organizationId   String    @map("organization_id")
+  serviceAccountId String    @map("service_account_id")
+  name             String
+  tokenHash        String    @unique @map("token_hash")
+  prefix           String
+  scopes           String[]
+  /// Addresses or CIDR ranges the token may be used from; empty means anywhere.
+  allowedIps       String[]  @default([]) @map("allowed_ips")
+  expiresAt        DateTime? @map("expires_at") @db.Timestamptz(3)
+  lastUsedAt       DateTime? @map("last_used_at") @db.Timestamptz(3)
+  lastUsedIp       String?   @map("last_used_ip")
+  revokedAt        DateTime? @map("revoked_at") @db.Timestamptz(3)
+  createdById      String?   @map("created_by_id")
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  serviceAccount ServiceAccount @relation(fields: [serviceAccountId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([serviceAccountId])
+  @@map("management_tokens")
 }
 
 /// A user as the identity provider manages it; the membership follows `active`.

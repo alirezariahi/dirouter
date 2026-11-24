@@ -4720,6 +4720,263 @@ export type ScimTokensControllerCreate200 = {
   token: string;
 };
 
+export type ServiceAccountsControllerList200ItemRole = typeof ServiceAccountsControllerList200ItemRole[keyof typeof ServiceAccountsControllerList200ItemRole];
+
+
+export const ServiceAccountsControllerList200ItemRole = {
+  OWNER: 'OWNER',
+  ADMIN: 'ADMIN',
+  MEMBER: 'MEMBER',
+  VIEWER: 'VIEWER',
+} as const;
+
+export type ServiceAccountsControllerList200ItemTokensItem = {
+  id: string;
+  serviceAccountId: string;
+  name: string;
+  prefix: string;
+  scopes: string[];
+  allowedIps: string[];
+  /** @nullable */
+  expiresAt: string | null;
+  /** @nullable */
+  lastUsedAt: string | null;
+  /** @nullable */
+  lastUsedIp: string | null;
+  /** @nullable */
+  revokedAt: string | null;
+  createdAt: string;
+};
+
+export type ServiceAccountsControllerList200Item = {
+  id: string;
+  userId: string;
+  name: string;
+  /** @nullable */
+  description: string | null;
+  role: ServiceAccountsControllerList200ItemRole;
+  /** @nullable */
+  customRoleId: string | null;
+  permissions: string[];
+  createdAt: string;
+  tokens: ServiceAccountsControllerList200ItemTokensItem[];
+};
+
+export type ServiceAccountsControllerCreateBodyRole = typeof ServiceAccountsControllerCreateBodyRole[keyof typeof ServiceAccountsControllerCreateBodyRole];
+
+
+export const ServiceAccountsControllerCreateBodyRole = {
+  ADMIN: 'ADMIN',
+  MEMBER: 'MEMBER',
+  VIEWER: 'VIEWER',
+} as const;
+
+export type ServiceAccountsControllerCreateBody = {
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  name: string;
+  /** @maxLength 500 */
+  description?: string;
+  role: ServiceAccountsControllerCreateBodyRole;
+  /**
+     * @maxLength 64
+     * @nullable
+     */
+  customRoleId?: string | null;
+};
+
+export type ServiceAccountsControllerCreate200Role = typeof ServiceAccountsControllerCreate200Role[keyof typeof ServiceAccountsControllerCreate200Role];
+
+
+export const ServiceAccountsControllerCreate200Role = {
+  OWNER: 'OWNER',
+  ADMIN: 'ADMIN',
+  MEMBER: 'MEMBER',
+  VIEWER: 'VIEWER',
+} as const;
+
+export type ServiceAccountsControllerCreate200TokensItem = {
+  id: string;
+  serviceAccountId: string;
+  name: string;
+  prefix: string;
+  scopes: string[];
+  allowedIps: string[];
+  /** @nullable */
+  expiresAt: string | null;
+  /** @nullable */
+  lastUsedAt: string | null;
+  /** @nullable */
+  lastUsedIp: string | null;
+  /** @nullable */
+  revokedAt: string | null;
+  createdAt: string;
+};
+
+export type ServiceAccountsControllerCreate200 = {
+  id: string;
+  userId: string;
+  name: string;
+  /** @nullable */
+  description: string | null;
+  role: ServiceAccountsControllerCreate200Role;
+  /** @nullable */
+  customRoleId: string | null;
+  permissions: string[];
+  createdAt: string;
+  tokens: ServiceAccountsControllerCreate200TokensItem[];
+};
+
+export type ServiceAccountsControllerUpdateBodyRole = typeof ServiceAccountsControllerUpdateBodyRole[keyof typeof ServiceAccountsControllerUpdateBodyRole];
+
+
+export const ServiceAccountsControllerUpdateBodyRole = {
+  ADMIN: 'ADMIN',
+  MEMBER: 'MEMBER',
+  VIEWER: 'VIEWER',
+} as const;
+
+export type ServiceAccountsControllerUpdateBody = {
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  name?: string;
+  /**
+     * @maxLength 500
+     * @nullable
+     */
+  description?: string | null;
+  role?: ServiceAccountsControllerUpdateBodyRole;
+  /**
+     * @maxLength 64
+     * @nullable
+     */
+  customRoleId?: string | null;
+};
+
+export type ServiceAccountsControllerUpdate200Role = typeof ServiceAccountsControllerUpdate200Role[keyof typeof ServiceAccountsControllerUpdate200Role];
+
+
+export const ServiceAccountsControllerUpdate200Role = {
+  OWNER: 'OWNER',
+  ADMIN: 'ADMIN',
+  MEMBER: 'MEMBER',
+  VIEWER: 'VIEWER',
+} as const;
+
+export type ServiceAccountsControllerUpdate200TokensItem = {
+  id: string;
+  serviceAccountId: string;
+  name: string;
+  prefix: string;
+  scopes: string[];
+  allowedIps: string[];
+  /** @nullable */
+  expiresAt: string | null;
+  /** @nullable */
+  lastUsedAt: string | null;
+  /** @nullable */
+  lastUsedIp: string | null;
+  /** @nullable */
+  revokedAt: string | null;
+  createdAt: string;
+};
+
+export type ServiceAccountsControllerUpdate200 = {
+  id: string;
+  userId: string;
+  name: string;
+  /** @nullable */
+  description: string | null;
+  role: ServiceAccountsControllerUpdate200Role;
+  /** @nullable */
+  customRoleId: string | null;
+  permissions: string[];
+  createdAt: string;
+  tokens: ServiceAccountsControllerUpdate200TokensItem[];
+};
+
+export type ServiceAccountsControllerCreateTokenBodyScopesItem = typeof ServiceAccountsControllerCreateTokenBodyScopesItem[keyof typeof ServiceAccountsControllerCreateTokenBodyScopesItem];
+
+
+export const ServiceAccountsControllerCreateTokenBodyScopesItem = {
+  'org:read': 'org:read',
+  'org:write': 'org:write',
+  'members:read': 'members:read',
+  'members:write': 'members:write',
+  'invites:write': 'invites:write',
+  'teams:read': 'teams:read',
+  'teams:write': 'teams:write',
+  'projects:read': 'projects:read',
+  'projects:write': 'projects:write',
+  'providers:read': 'providers:read',
+  'providers:write': 'providers:write',
+  'keys:read': 'keys:read',
+  'keys:write': 'keys:write',
+  'models:read': 'models:read',
+  'models:write': 'models:write',
+  'usage:read': 'usage:read',
+  'audit:read': 'audit:read',
+  'guardrails:read': 'guardrails:read',
+  'guardrails:write': 'guardrails:write',
+  'alerts:read': 'alerts:read',
+  'alerts:write': 'alerts:write',
+  'config:read': 'config:read',
+  'config:write': 'config:write',
+  'security:write': 'security:write',
+  'billing:read': 'billing:read',
+  'billing:write': 'billing:write',
+  'mcp:read': 'mcp:read',
+  'mcp:write': 'mcp:write',
+  'health:write': 'health:write',
+} as const;
+
+export type ServiceAccountsControllerCreateTokenBody = {
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  name: string;
+  /**
+     * @minItems 1
+     * @maxItems 29
+     */
+  scopes: ServiceAccountsControllerCreateTokenBodyScopesItem[];
+  /**
+     * @minimum 1
+     * @maximum 730
+     * @nullable
+     */
+  expiresInDays?: number | null;
+  /**
+     * @maxItems 50
+     * @items.maxLength 64
+     */
+  allowedIps?: string[];
+};
+
+export type ServiceAccountsControllerCreateToken200 = {
+  id: string;
+  serviceAccountId: string;
+  name: string;
+  prefix: string;
+  scopes: string[];
+  allowedIps: string[];
+  /** @nullable */
+  expiresAt: string | null;
+  /** @nullable */
+  lastUsedAt: string | null;
+  /** @nullable */
+  lastUsedIp: string | null;
+  /** @nullable */
+  revokedAt: string | null;
+  createdAt: string;
+  token: string;
+};
+
 export type ChangeRequestsControllerListParams = {
   status?: ChangeRequestsControllerListStatus;
 };
@@ -22776,6 +23033,716 @@ export function useScimTokensControllerRevoke<TData = Awaited<ReturnType<typeof 
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getScimTokensControllerRevokeQueryOptions(orgId,id,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export type serviceAccountsControllerListResponse200 = {
+  data: ServiceAccountsControllerList200Item[]
+  status: 200
+}
+
+export type serviceAccountsControllerListResponseSuccess = (serviceAccountsControllerListResponse200) & {
+  headers: Headers;
+};
+;
+
+export type serviceAccountsControllerListResponse = (serviceAccountsControllerListResponseSuccess)
+
+export const getServiceAccountsControllerListUrl = (orgId: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/service-accounts`
+}
+
+export const serviceAccountsControllerList = async (orgId: string, options?: Parameters<typeof orvalFetch>[1]): Promise<serviceAccountsControllerListResponse> => {
+
+  return orvalFetch<serviceAccountsControllerListResponse>(getServiceAccountsControllerListUrl(orgId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getServiceAccountsControllerListMutationKey = () => ['serviceAccountsControllerList'] as const;
+
+export const getServiceAccountsControllerListMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof serviceAccountsControllerList>>, TError,ServiceAccountsControllerListMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof serviceAccountsControllerList>>, TError,ServiceAccountsControllerListMutationVariables, TContext> => {
+
+const mutationKey = getServiceAccountsControllerListMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof serviceAccountsControllerList>>, ServiceAccountsControllerListMutationVariables> = (props) => {
+          const {orgId} = props ?? {};
+
+          return  serviceAccountsControllerList(orgId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ServiceAccountsControllerListMutationResult = NonNullable<Awaited<ReturnType<typeof serviceAccountsControllerList>>>
+
+    export type ServiceAccountsControllerListMutationError = unknown
+    export type ServiceAccountsControllerListMutationVariables = {orgId: string}
+
+    export const useServiceAccountsControllerList = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof serviceAccountsControllerList>>, TError,ServiceAccountsControllerListMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof serviceAccountsControllerList>>,
+        TError,
+        ServiceAccountsControllerListMutationVariables,
+        TContext
+      > => {
+      return useMutation(getServiceAccountsControllerListMutationOptions(options), queryClient);
+    }
+
+export type serviceAccountsControllerCreateResponse200 = {
+  data: ServiceAccountsControllerCreate200
+  status: 200
+}
+
+export type serviceAccountsControllerCreateResponseSuccess = (serviceAccountsControllerCreateResponse200) & {
+  headers: Headers;
+};
+;
+
+export type serviceAccountsControllerCreateResponse = (serviceAccountsControllerCreateResponseSuccess)
+
+export const getServiceAccountsControllerCreateUrl = (orgId: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/service-accounts`
+}
+
+export const serviceAccountsControllerCreate = async (orgId: string,
+    serviceAccountsControllerCreateBody: ServiceAccountsControllerCreateBody, options?: Parameters<typeof orvalFetch>[1]): Promise<serviceAccountsControllerCreateResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return orvalFetch<serviceAccountsControllerCreateResponse>(getServiceAccountsControllerCreateUrl(orgId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(serviceAccountsControllerCreateBody)
+  }
+);}
+
+
+
+
+
+export const getServiceAccountsControllerCreateQueryKey = (orgId: string,
+    serviceAccountsControllerCreateBody?: ServiceAccountsControllerCreateBody,) => {
+    return [
+    'POST', `/api/v1/orgs/${orgId}/service-accounts`, serviceAccountsControllerCreateBody
+    ] as const;
+    }
+
+
+export const getServiceAccountsControllerCreateQueryOptions = <TData = Awaited<ReturnType<typeof serviceAccountsControllerCreate>>, TError = unknown>(orgId: string,
+    serviceAccountsControllerCreateBody: ServiceAccountsControllerCreateBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof serviceAccountsControllerCreate>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getServiceAccountsControllerCreateQueryKey(orgId,serviceAccountsControllerCreateBody);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof serviceAccountsControllerCreate>>> = ({ signal }) => serviceAccountsControllerCreate(orgId,serviceAccountsControllerCreateBody, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: orgId !== null && orgId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof serviceAccountsControllerCreate>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type ServiceAccountsControllerCreateQueryResult = NonNullable<Awaited<ReturnType<typeof serviceAccountsControllerCreate>>>
+export type ServiceAccountsControllerCreateQueryError = unknown
+
+
+export function useServiceAccountsControllerCreate<TData = Awaited<ReturnType<typeof serviceAccountsControllerCreate>>, TError = unknown>(
+ orgId: string,
+    serviceAccountsControllerCreateBody: ServiceAccountsControllerCreateBody, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof serviceAccountsControllerCreate>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof serviceAccountsControllerCreate>>,
+          TError,
+          Awaited<ReturnType<typeof serviceAccountsControllerCreate>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useServiceAccountsControllerCreate<TData = Awaited<ReturnType<typeof serviceAccountsControllerCreate>>, TError = unknown>(
+ orgId: string,
+    serviceAccountsControllerCreateBody: ServiceAccountsControllerCreateBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof serviceAccountsControllerCreate>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof serviceAccountsControllerCreate>>,
+          TError,
+          Awaited<ReturnType<typeof serviceAccountsControllerCreate>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useServiceAccountsControllerCreate<TData = Awaited<ReturnType<typeof serviceAccountsControllerCreate>>, TError = unknown>(
+ orgId: string,
+    serviceAccountsControllerCreateBody: ServiceAccountsControllerCreateBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof serviceAccountsControllerCreate>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useServiceAccountsControllerCreate<TData = Awaited<ReturnType<typeof serviceAccountsControllerCreate>>, TError = unknown>(
+ orgId: string,
+    serviceAccountsControllerCreateBody: ServiceAccountsControllerCreateBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof serviceAccountsControllerCreate>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getServiceAccountsControllerCreateQueryOptions(orgId,serviceAccountsControllerCreateBody,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export type serviceAccountsControllerUpdateResponse200 = {
+  data: ServiceAccountsControllerUpdate200
+  status: 200
+}
+
+export type serviceAccountsControllerUpdateResponseSuccess = (serviceAccountsControllerUpdateResponse200) & {
+  headers: Headers;
+};
+;
+
+export type serviceAccountsControllerUpdateResponse = (serviceAccountsControllerUpdateResponseSuccess)
+
+export const getServiceAccountsControllerUpdateUrl = (orgId: string,
+    id: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/service-accounts/${id}`
+}
+
+export const serviceAccountsControllerUpdate = async (orgId: string,
+    id: string,
+    serviceAccountsControllerUpdateBody: ServiceAccountsControllerUpdateBody, options?: Parameters<typeof orvalFetch>[1]): Promise<serviceAccountsControllerUpdateResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return orvalFetch<serviceAccountsControllerUpdateResponse>(getServiceAccountsControllerUpdateUrl(orgId,id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(serviceAccountsControllerUpdateBody)
+  }
+);}
+
+
+
+
+
+export const getServiceAccountsControllerUpdateQueryKey = (orgId: string,
+    id: string,
+    serviceAccountsControllerUpdateBody?: ServiceAccountsControllerUpdateBody,) => {
+    return [
+    'PATCH', `/api/v1/orgs/${orgId}/service-accounts/${id}`, serviceAccountsControllerUpdateBody
+    ] as const;
+    }
+
+
+export const getServiceAccountsControllerUpdateQueryOptions = <TData = Awaited<ReturnType<typeof serviceAccountsControllerUpdate>>, TError = unknown>(orgId: string,
+    id: string,
+    serviceAccountsControllerUpdateBody: ServiceAccountsControllerUpdateBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof serviceAccountsControllerUpdate>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getServiceAccountsControllerUpdateQueryKey(orgId,id,serviceAccountsControllerUpdateBody);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof serviceAccountsControllerUpdate>>> = ({ signal }) => serviceAccountsControllerUpdate(orgId,id,serviceAccountsControllerUpdateBody, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: orgId !== null && orgId !== undefined && id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof serviceAccountsControllerUpdate>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type ServiceAccountsControllerUpdateQueryResult = NonNullable<Awaited<ReturnType<typeof serviceAccountsControllerUpdate>>>
+export type ServiceAccountsControllerUpdateQueryError = unknown
+
+
+export function useServiceAccountsControllerUpdate<TData = Awaited<ReturnType<typeof serviceAccountsControllerUpdate>>, TError = unknown>(
+ orgId: string,
+    id: string,
+    serviceAccountsControllerUpdateBody: ServiceAccountsControllerUpdateBody, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof serviceAccountsControllerUpdate>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof serviceAccountsControllerUpdate>>,
+          TError,
+          Awaited<ReturnType<typeof serviceAccountsControllerUpdate>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useServiceAccountsControllerUpdate<TData = Awaited<ReturnType<typeof serviceAccountsControllerUpdate>>, TError = unknown>(
+ orgId: string,
+    id: string,
+    serviceAccountsControllerUpdateBody: ServiceAccountsControllerUpdateBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof serviceAccountsControllerUpdate>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof serviceAccountsControllerUpdate>>,
+          TError,
+          Awaited<ReturnType<typeof serviceAccountsControllerUpdate>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useServiceAccountsControllerUpdate<TData = Awaited<ReturnType<typeof serviceAccountsControllerUpdate>>, TError = unknown>(
+ orgId: string,
+    id: string,
+    serviceAccountsControllerUpdateBody: ServiceAccountsControllerUpdateBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof serviceAccountsControllerUpdate>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useServiceAccountsControllerUpdate<TData = Awaited<ReturnType<typeof serviceAccountsControllerUpdate>>, TError = unknown>(
+ orgId: string,
+    id: string,
+    serviceAccountsControllerUpdateBody: ServiceAccountsControllerUpdateBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof serviceAccountsControllerUpdate>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getServiceAccountsControllerUpdateQueryOptions(orgId,id,serviceAccountsControllerUpdateBody,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export type serviceAccountsControllerRemoveResponse204 = {
+  data: void
+  status: 204
+}
+
+export type serviceAccountsControllerRemoveResponseSuccess = (serviceAccountsControllerRemoveResponse204) & {
+  headers: Headers;
+};
+;
+
+export type serviceAccountsControllerRemoveResponse = (serviceAccountsControllerRemoveResponseSuccess)
+
+export const getServiceAccountsControllerRemoveUrl = (orgId: string,
+    id: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/service-accounts/${id}`
+}
+
+export const serviceAccountsControllerRemove = async (orgId: string,
+    id: string, options?: Parameters<typeof orvalFetch>[1]): Promise<serviceAccountsControllerRemoveResponse> => {
+
+  return orvalFetch<serviceAccountsControllerRemoveResponse>(getServiceAccountsControllerRemoveUrl(orgId,id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getServiceAccountsControllerRemoveQueryKey = (orgId: string,
+    id: string,) => {
+    return [
+    'DELETE', `/api/v1/orgs/${orgId}/service-accounts/${id}`
+    ] as const;
+    }
+
+
+export const getServiceAccountsControllerRemoveQueryOptions = <TData = Awaited<ReturnType<typeof serviceAccountsControllerRemove>>, TError = unknown>(orgId: string,
+    id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof serviceAccountsControllerRemove>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getServiceAccountsControllerRemoveQueryKey(orgId,id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof serviceAccountsControllerRemove>>> = ({ signal }) => serviceAccountsControllerRemove(orgId,id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: orgId !== null && orgId !== undefined && id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof serviceAccountsControllerRemove>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type ServiceAccountsControllerRemoveQueryResult = NonNullable<Awaited<ReturnType<typeof serviceAccountsControllerRemove>>>
+export type ServiceAccountsControllerRemoveQueryError = unknown
+
+
+export function useServiceAccountsControllerRemove<TData = Awaited<ReturnType<typeof serviceAccountsControllerRemove>>, TError = unknown>(
+ orgId: string,
+    id: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof serviceAccountsControllerRemove>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof serviceAccountsControllerRemove>>,
+          TError,
+          Awaited<ReturnType<typeof serviceAccountsControllerRemove>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useServiceAccountsControllerRemove<TData = Awaited<ReturnType<typeof serviceAccountsControllerRemove>>, TError = unknown>(
+ orgId: string,
+    id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof serviceAccountsControllerRemove>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof serviceAccountsControllerRemove>>,
+          TError,
+          Awaited<ReturnType<typeof serviceAccountsControllerRemove>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useServiceAccountsControllerRemove<TData = Awaited<ReturnType<typeof serviceAccountsControllerRemove>>, TError = unknown>(
+ orgId: string,
+    id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof serviceAccountsControllerRemove>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useServiceAccountsControllerRemove<TData = Awaited<ReturnType<typeof serviceAccountsControllerRemove>>, TError = unknown>(
+ orgId: string,
+    id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof serviceAccountsControllerRemove>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getServiceAccountsControllerRemoveQueryOptions(orgId,id,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export type serviceAccountsControllerCreateTokenResponse200 = {
+  data: ServiceAccountsControllerCreateToken200
+  status: 200
+}
+
+export type serviceAccountsControllerCreateTokenResponseSuccess = (serviceAccountsControllerCreateTokenResponse200) & {
+  headers: Headers;
+};
+;
+
+export type serviceAccountsControllerCreateTokenResponse = (serviceAccountsControllerCreateTokenResponseSuccess)
+
+export const getServiceAccountsControllerCreateTokenUrl = (orgId: string,
+    id: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/service-accounts/${id}/tokens`
+}
+
+export const serviceAccountsControllerCreateToken = async (orgId: string,
+    id: string,
+    serviceAccountsControllerCreateTokenBody: ServiceAccountsControllerCreateTokenBody, options?: Parameters<typeof orvalFetch>[1]): Promise<serviceAccountsControllerCreateTokenResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return orvalFetch<serviceAccountsControllerCreateTokenResponse>(getServiceAccountsControllerCreateTokenUrl(orgId,id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(serviceAccountsControllerCreateTokenBody)
+  }
+);}
+
+
+
+
+
+export const getServiceAccountsControllerCreateTokenQueryKey = (orgId: string,
+    id: string,
+    serviceAccountsControllerCreateTokenBody?: ServiceAccountsControllerCreateTokenBody,) => {
+    return [
+    'POST', `/api/v1/orgs/${orgId}/service-accounts/${id}/tokens`, serviceAccountsControllerCreateTokenBody
+    ] as const;
+    }
+
+
+export const getServiceAccountsControllerCreateTokenQueryOptions = <TData = Awaited<ReturnType<typeof serviceAccountsControllerCreateToken>>, TError = unknown>(orgId: string,
+    id: string,
+    serviceAccountsControllerCreateTokenBody: ServiceAccountsControllerCreateTokenBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof serviceAccountsControllerCreateToken>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getServiceAccountsControllerCreateTokenQueryKey(orgId,id,serviceAccountsControllerCreateTokenBody);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof serviceAccountsControllerCreateToken>>> = ({ signal }) => serviceAccountsControllerCreateToken(orgId,id,serviceAccountsControllerCreateTokenBody, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: orgId !== null && orgId !== undefined && id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof serviceAccountsControllerCreateToken>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type ServiceAccountsControllerCreateTokenQueryResult = NonNullable<Awaited<ReturnType<typeof serviceAccountsControllerCreateToken>>>
+export type ServiceAccountsControllerCreateTokenQueryError = unknown
+
+
+export function useServiceAccountsControllerCreateToken<TData = Awaited<ReturnType<typeof serviceAccountsControllerCreateToken>>, TError = unknown>(
+ orgId: string,
+    id: string,
+    serviceAccountsControllerCreateTokenBody: ServiceAccountsControllerCreateTokenBody, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof serviceAccountsControllerCreateToken>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof serviceAccountsControllerCreateToken>>,
+          TError,
+          Awaited<ReturnType<typeof serviceAccountsControllerCreateToken>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useServiceAccountsControllerCreateToken<TData = Awaited<ReturnType<typeof serviceAccountsControllerCreateToken>>, TError = unknown>(
+ orgId: string,
+    id: string,
+    serviceAccountsControllerCreateTokenBody: ServiceAccountsControllerCreateTokenBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof serviceAccountsControllerCreateToken>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof serviceAccountsControllerCreateToken>>,
+          TError,
+          Awaited<ReturnType<typeof serviceAccountsControllerCreateToken>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useServiceAccountsControllerCreateToken<TData = Awaited<ReturnType<typeof serviceAccountsControllerCreateToken>>, TError = unknown>(
+ orgId: string,
+    id: string,
+    serviceAccountsControllerCreateTokenBody: ServiceAccountsControllerCreateTokenBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof serviceAccountsControllerCreateToken>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useServiceAccountsControllerCreateToken<TData = Awaited<ReturnType<typeof serviceAccountsControllerCreateToken>>, TError = unknown>(
+ orgId: string,
+    id: string,
+    serviceAccountsControllerCreateTokenBody: ServiceAccountsControllerCreateTokenBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof serviceAccountsControllerCreateToken>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getServiceAccountsControllerCreateTokenQueryOptions(orgId,id,serviceAccountsControllerCreateTokenBody,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export type serviceAccountsControllerRevokeTokenResponse204 = {
+  data: void
+  status: 204
+}
+
+export type serviceAccountsControllerRevokeTokenResponseSuccess = (serviceAccountsControllerRevokeTokenResponse204) & {
+  headers: Headers;
+};
+;
+
+export type serviceAccountsControllerRevokeTokenResponse = (serviceAccountsControllerRevokeTokenResponseSuccess)
+
+export const getServiceAccountsControllerRevokeTokenUrl = (orgId: string,
+    id: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/management-tokens/${id}`
+}
+
+export const serviceAccountsControllerRevokeToken = async (orgId: string,
+    id: string, options?: Parameters<typeof orvalFetch>[1]): Promise<serviceAccountsControllerRevokeTokenResponse> => {
+
+  return orvalFetch<serviceAccountsControllerRevokeTokenResponse>(getServiceAccountsControllerRevokeTokenUrl(orgId,id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getServiceAccountsControllerRevokeTokenQueryKey = (orgId: string,
+    id: string,) => {
+    return [
+    'DELETE', `/api/v1/orgs/${orgId}/management-tokens/${id}`
+    ] as const;
+    }
+
+
+export const getServiceAccountsControllerRevokeTokenQueryOptions = <TData = Awaited<ReturnType<typeof serviceAccountsControllerRevokeToken>>, TError = unknown>(orgId: string,
+    id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof serviceAccountsControllerRevokeToken>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getServiceAccountsControllerRevokeTokenQueryKey(orgId,id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof serviceAccountsControllerRevokeToken>>> = ({ signal }) => serviceAccountsControllerRevokeToken(orgId,id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: orgId !== null && orgId !== undefined && id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof serviceAccountsControllerRevokeToken>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type ServiceAccountsControllerRevokeTokenQueryResult = NonNullable<Awaited<ReturnType<typeof serviceAccountsControllerRevokeToken>>>
+export type ServiceAccountsControllerRevokeTokenQueryError = unknown
+
+
+export function useServiceAccountsControllerRevokeToken<TData = Awaited<ReturnType<typeof serviceAccountsControllerRevokeToken>>, TError = unknown>(
+ orgId: string,
+    id: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof serviceAccountsControllerRevokeToken>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof serviceAccountsControllerRevokeToken>>,
+          TError,
+          Awaited<ReturnType<typeof serviceAccountsControllerRevokeToken>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useServiceAccountsControllerRevokeToken<TData = Awaited<ReturnType<typeof serviceAccountsControllerRevokeToken>>, TError = unknown>(
+ orgId: string,
+    id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof serviceAccountsControllerRevokeToken>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof serviceAccountsControllerRevokeToken>>,
+          TError,
+          Awaited<ReturnType<typeof serviceAccountsControllerRevokeToken>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useServiceAccountsControllerRevokeToken<TData = Awaited<ReturnType<typeof serviceAccountsControllerRevokeToken>>, TError = unknown>(
+ orgId: string,
+    id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof serviceAccountsControllerRevokeToken>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useServiceAccountsControllerRevokeToken<TData = Awaited<ReturnType<typeof serviceAccountsControllerRevokeToken>>, TError = unknown>(
+ orgId: string,
+    id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof serviceAccountsControllerRevokeToken>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getServiceAccountsControllerRevokeTokenQueryOptions(orgId,id,options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 

@@ -53,6 +53,19 @@ export interface AccessClaims {
   org?: string | undefined;
   /** The session (refresh-token family) the token belongs to (card 23.5); absent on older tokens. */
   sid?: string | undefined;
+  /**
+   * Set only when the request was authenticated with a management token of a service account
+   * (card 23.6) instead of a user session; `sub` is then the service account's user.
+   */
+  token?: ManagementTokenClaims | undefined;
+}
+
+export interface ManagementTokenClaims {
+  id: string;
+  organizationId: string;
+  serviceAccountId: string;
+  /** Permissions of the RBAC matrix this token may use, on top of its service account's role. */
+  scopes: readonly string[];
 }
 
 /** How a session (a refresh-token family) was opened. */

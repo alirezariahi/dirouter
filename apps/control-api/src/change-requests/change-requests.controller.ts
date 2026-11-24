@@ -14,7 +14,7 @@ import { z } from 'zod';
 
 import { AccessGuard } from '../auth/auth.guard.js';
 import { ApiZodBody, ApiZodOk, ApiZodQuery, ZodPipe } from '../common/zod.js';
-import { Org, OrgGuard, type OrgContext, RequirePermission } from '../rbac/org.guard.js';
+import { HumanOnly, Org, OrgGuard, type OrgContext, RequirePermission } from '../rbac/org.guard.js';
 import { ChangeRequestsService } from './change-requests.service.js';
 
 export const ChangeRequestView = z.object({
@@ -56,6 +56,7 @@ export class ChangeRequestsController {
   @Post(':id/approve')
   @HttpCode(200)
   @RequirePermission('org:read')
+  @HumanOnly()
   @ApiZodBody(z.object({}).optional())
   @ApiZodOk(ChangeRequestView)
   approve(@Org() org: OrgContext, @Param('id') id: string) {
@@ -66,6 +67,7 @@ export class ChangeRequestsController {
   @Post(':id/reject')
   @HttpCode(200)
   @RequirePermission('org:read')
+  @HumanOnly()
   @ApiZodBody(RejectBody)
   @ApiZodOk(ChangeRequestView)
   reject(

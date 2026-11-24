@@ -9,6 +9,7 @@ import { McpModule } from './mcp/mcp.module.js';
 import { AdminMcpModule } from './admin-mcp/admin-mcp.module.js';
 import { AgentProfilesModule } from './agent-profiles/agent-profiles.module.js';
 import { ScimModule } from './scim/scim.module.js';
+import { ServiceAccountsModule } from './service-accounts/service-accounts.module.js';
 import { ChangeRequestsModule } from './change-requests/change-requests.module.js';
 import { ConfigModule } from './config/config.module.js';
 import { ENV, type Env } from './env.js';
@@ -49,6 +50,7 @@ export class AppModule {
         AdminMcpModule,
         AgentProfilesModule,
         ScimModule,
+        ServiceAccountsModule,
         ChangeRequestsModule,
         ConfigModule,
         SecurityModule,

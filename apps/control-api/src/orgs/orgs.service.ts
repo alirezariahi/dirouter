@@ -72,7 +72,11 @@ export class OrgsService {
   // ───── Members ─────
   async members(ctx: OrgContext) {
     const rows = await this.db.membership.findMany({
-      where: { organizationId: ctx.organizationId, user: { deletedAt: null } },
+      // Service accounts (card 23.6) are managed on their own page.
+      where: {
+        organizationId: ctx.organizationId,
+        user: { deletedAt: null, isServiceAccount: false },
+      },
       include: { user: true },
       orderBy: { createdAt: 'asc' },
     });
@@ -93,9 +97,13 @@ export class OrgsService {
   async #checkMemberChange(ctx: OrgContext, userId: string, newRole?: Role) {
     const target = await this.db.membership.findUnique({
       where: { userId_organizationId: { userId, organizationId: ctx.organizationId } },
-      include: { customRole: { select: { permissions: true } } },
+      include: {
+        customRole: { select: { permissions: true } },
+        user: { select: { isServiceAccount: true } },
+      },
     });
-    if (!target) throw notFound();
+    // A service account's role is changed through /service-accounts, where its tokens are managed.
+    if (!target || target.user.isServiceAccount) throw notFound();
     const touchesOwner = target.role === 'OWNER' || newRole === 'OWNER';
     if (touchesOwner && ctx.role !== 'OWNER')
       throw new ForbiddenError('forbidden', { message: 'Only an owner can change owners' });

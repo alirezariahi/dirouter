@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 
 import { ChangeRequests } from '../components/change-requests';
 import { ScimTokens } from '../components/scim-tokens';
+import { ServiceAccounts } from '../components/service-accounts';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
 import { Field, FormError } from '../components/ui/field';
@@ -810,6 +811,9 @@ export default function SecurityPage() {
       <PolicySection base={base} canWrite={canWrite} />
       {canWrite ? <SsoSection base={base} canManage={isOwner} /> : null}
       {canWrite ? <ScimTokens base={base} canManage={isOwner} /> : null}
+      {can(membership, 'members:read') ? (
+        <ServiceAccounts base={base} canManage={canWrite} role={membership?.role} />
+      ) : null}
       <ChangeRequests base={base} />
       <RolesSection base={base} canWrite={canWrite} />
       <AuditSection base={base} />
