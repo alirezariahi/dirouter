@@ -13880,6 +13880,87 @@
         ]
       }
     },
+    "/api/v1/orgs/{orgId}/mcp/servers/{id}/test": {
+      "post": {
+        "operationId": "McpController_test",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Connection test: latency and the tools (A2A: skills) the server offers",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "latencyMs": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "tools": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "description": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "name"
+                        ]
+                      }
+                    },
+                    "agentName": {
+                      "type": "string"
+                    },
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "latencyMs",
+                    "tools"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "mcp"
+        ]
+      }
+    },
     "/api/v1/orgs/{orgId}/mcp/calls": {
       "get": {
         "operationId": "McpController_calls",

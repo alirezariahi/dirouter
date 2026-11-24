@@ -6,6 +6,7 @@ import { s2En } from './s2';
 import { s3En } from './s3';
 import { s4En } from './s4';
 import { billingEn } from './billing';
+import { mcpPageEn } from './mcp-page';
 
 type Widen<T> = { [K in keyof T]: T[K] extends string ? string : Widen<T[K]> };
 
@@ -30,6 +31,7 @@ export const en: Widen<Messages> = {
     organization: 'Organization',
     guides: 'Connect your tools',
     billing: 'Billing',
+    mcp: 'MCP & agents',
   },
   navGroup: {
     monitor: 'Monitor',
@@ -252,4 +254,5 @@ export const en: Widen<Messages> = {
   s3: s3En,
   s4: s4En,
   billing: billingEn,
+  mcpPage: mcpPageEn,
 };

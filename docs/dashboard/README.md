@@ -28,6 +28,9 @@ This folder contains the documentation for the DiRouter dashboard pages and comp
   - customer wallets, manual credit and debit with a reason (recorded in the audit log)
   - payments and reconciliation, gateways and exchange rates, gift codes with CSV and bulk revoke
   - model and customer-group multipliers, marketplace, plans and subscriptions, invoices (PDF, verify), profit report with filters and CSV
+- **[mcp.md](mcp.md)**: MCP & agents page (card 25.3)
+  - registering MCP servers and A2A agents, connection test and tool discovery
+  - tool allow-list per key and the tool-call log
 
 ## Implementation status
 

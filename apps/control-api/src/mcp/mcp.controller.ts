@@ -46,6 +46,13 @@ const McpServerPatch = McpServerFields.partial().refine(
   (v) => Object.keys(v).length > 0,
   'empty patch',
 );
+const McpTestResult = z.object({
+  ok: z.boolean(),
+  latencyMs: z.int(),
+  tools: z.array(z.object({ name: z.string(), description: z.string().optional() })),
+  agentName: z.string().optional(),
+  error: z.string().optional(),
+});
 const CallsQuery = z.object({
   limit: z.coerce.number().int().min(1).max(500).default(100),
   serverId: z.string().optional(),
@@ -103,6 +110,14 @@ export class McpController {
   @ApiNoContentResponse()
   async remove(@Org() org: OrgContext, @Param('id') id: string) {
     await this.mcp.remove(org, id);
+  }
+
+  @Post('servers/:id/test')
+  @HttpCode(200)
+  @RequirePermission('mcp:write')
+  @ApiZodOk(McpTestResult, 'Connection test: latency and the tools (A2A: skills) the server offers')
+  test(@Org() org: OrgContext, @Param('id') id: string) {
+    return this.mcp.test(org, id);
   }
 
   @Get('calls')

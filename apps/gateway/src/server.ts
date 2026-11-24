@@ -37,6 +37,7 @@ import { handleCountTokens, handleProxy } from './proxy.js';
 import { BudgetGuard } from './budget-guard.js';
 import { WalletGuard } from './wallet-guard.js';
 import { McpGateway } from './mcp/gateway.js';
+import { probeMcpServer } from './mcp/probe.js';
 import { A2aAgent } from './a2a/agent.js';
 import { RateLimiter } from './rate-limiter.js';
 import { ExactCache, SemanticCacheClient } from './cache.js';
@@ -466,6 +467,17 @@ export function buildGateway(opts: GatewayOptions) {
     if (!internalOk(req)) return reply.status(404).send(notFound);
     try {
       return await probeProvider(req.body, opts.keyring);
+    } catch (error) {
+      const e = error as { status?: number; toProblem?: (id: string) => unknown };
+      return reply.status(e.status ?? 500).send(e.toProblem?.(req.id) ?? { error: 'probe failed' });
+    }
+  });
+
+  // MCP server / A2A agent connection test and tool discovery for control-api (card 25.3).
+  app.post('/internal/mcp/probe', async (req, reply) => {
+    if (!internalOk(req)) return reply.status(404).send(notFound);
+    try {
+      return await probeMcpServer(req.body, opts.keyring, opts.logger);
     } catch (error) {
       const e = error as { status?: number; toProblem?: (id: string) => unknown };
       return reply.status(e.status ?? 500).send(e.toProblem?.(req.id) ?? { error: 'probe failed' });

@@ -125,6 +125,7 @@ const SPRINT2_PAGES = [
   { path: '/guardrails', load: () => import('./pages/guardrails') },
   { path: '/playground', load: () => import('./pages/playground') },
   { path: '/config', load: () => import('./pages/config') },
+  { path: '/mcp', load: () => import('./pages/mcp') },
   // sprint2-pages
 ] as const;
 const sprint2 = SPRINT2_PAGES.map((page) =>

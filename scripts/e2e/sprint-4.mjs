@@ -479,6 +479,125 @@ try {
     },
   );
 
+  await scenario(
+    '25.3 MCP page API: register a server, test it and see its tools, allow-list a key, read the masked call log, list an A2A agent',
+    async () => {
+      const suffix = randomUUID().slice(0, 6);
+      const server = (
+        await published(() =>
+          org(
+            'POST',
+            'mcp/servers',
+            {
+              name: 'S4 demo',
+              slug: `s4demo-${suffix}`,
+              url: 'http://mock-provider:8090/mcp/demo',
+              headers: { authorization: 'Bearer s4-upstream-secret' },
+            },
+            201,
+          ),
+        )
+      ).body;
+      cleanups.push(() => org('DELETE', `mcp/servers/${server.id}`, undefined, null));
+      assert.equal(server.hasHeaders, true);
+      assert.ok(!JSON.stringify(server).includes('s4-upstream-secret'), 'headers never come back');
+
+      // Test connection: the gateway discovers the tools with the stored (encrypted) headers.
+      const tested = (await org('POST', `mcp/servers/${server.id}/test`, undefined, 200)).body;
+      assert.equal(tested.ok, true, JSON.stringify(tested));
+      assert.ok(tested.latencyMs >= 0);
+      assert.deepEqual(tested.tools.map((t) => t.name).sort(), ['add', 'echo', 'fail', 'whoami']);
+
+      // A broken address is a failed test, not an error of the page.
+      const broken = (
+        await published(() =>
+          org(
+            'POST',
+            'mcp/servers',
+            {
+              name: 'S4 broken',
+              slug: `s4broken-${suffix}`,
+              url: 'http://mock-provider:8090/nothing-here',
+            },
+            201,
+          ),
+        )
+      ).body;
+      cleanups.push(() => org('DELETE', `mcp/servers/${broken.id}`, undefined, null));
+      const failed = (await org('POST', `mcp/servers/${broken.id}/test`, undefined, 200)).body;
+      assert.equal(failed.ok, false);
+      assert.ok(failed.error, 'the failure says why');
+
+      // Allow-list from the discovered tools, then a call through /mcp shows in the log, masked.
+      const key = await createKey('mcp');
+      const echo = `s4demo-${suffix}__echo`;
+      await published(() => org('PATCH', `keys/${key.id}`, { mcpTools: [echo] }, 200));
+      const rpc = async (method, params) =>
+        (
+          await request(
+            `${urls.gateway}/mcp`,
+            {
+              method: 'POST',
+              headers: {
+                authorization: `Bearer ${key.key}`,
+                'content-type': 'application/json',
+                accept: 'application/json, text/event-stream',
+              },
+              body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+            },
+            200,
+          )
+        ).body;
+      const listed = (await rpc('tools/list')).result.tools.map((t) => t.name);
+      assert.deepEqual(listed, [echo], 'only the allow-listed tool is visible');
+      await rpc('tools/call', { name: echo, arguments: { text: 'hi', token: 'secret-value' } });
+      await rpc('tools/call', { name: `s4demo-${suffix}__add`, arguments: { a: 1, b: 2 } });
+      const logged = await waitFor('the calls in the log', async () => {
+        const rows = (
+          await org('GET', `mcp/calls?apiKeyId=${key.id}&serverId=${server.id}`, undefined, 200)
+        ).body;
+        return rows.length >= 2 ? rows : undefined;
+      });
+      const success = logged.find((c) => c.status === 'success');
+      assert.deepEqual(success.arguments, { text: 'hi', token: '***' });
+      assert.equal(typeof success.latencyMs, 'number');
+      const denied = (
+        await org('GET', `mcp/calls?apiKeyId=${key.id}&status=denied`, undefined, 200)
+      ).body;
+      assert.equal(denied.length, 1);
+      assert.equal(denied[0].tool, 'add');
+
+      // A2A agents share the registry; their test reads the agent card.
+      const agent = (
+        await published(() =>
+          org(
+            'POST',
+            'mcp/servers',
+            {
+              name: 'S4 agent',
+              slug: `s4agent-${suffix}`,
+              transport: 'a2a',
+              url: 'http://mock-provider:8090/a2a-agent',
+            },
+            201,
+          ),
+        )
+      ).body;
+      cleanups.push(() => org('DELETE', `mcp/servers/${agent.id}`, undefined, null));
+      const agents = (await org('GET', 'mcp/servers', undefined, 200)).body.filter(
+        (s) => s.transport === 'a2a',
+      );
+      assert.ok(agents.some((a) => a.id === agent.id));
+      const card = (await org('POST', `mcp/servers/${agent.id}/test`, undefined, 200)).body;
+      assert.equal(card.ok, true, JSON.stringify(card));
+      assert.equal(card.agentName, 'Echo agent');
+      assert.deepEqual(
+        card.tools.map((t) => t.name),
+        ['Echo'],
+      );
+    },
+  );
+
   // ───────────── Epic 24: observability ─────────────
 
   await scenario(

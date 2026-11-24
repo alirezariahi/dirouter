@@ -20,6 +20,7 @@ const NO_BODY = [
   '/mfa/setup',
   '/webauthn/options',
   '/channels/{id}/test',
+  '/mcp/servers/{id}/test',
   '/events/{id}/ack',
   '/security/rotate-key',
   '/payments/reconcile',

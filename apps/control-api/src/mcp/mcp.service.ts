@@ -175,6 +175,62 @@ export class McpService {
     await this.#audit(ctx, 'mcp_server.deleted', id);
   }
 
+  /**
+   * Connection test and tool discovery (card 25.3). The gateway runs it with the same MCP client as
+   * real traffic; the headers travel encrypted and are only decrypted there. Works for disabled
+   * servers and before the snapshot carrying a new server has been loaded.
+   */
+  async test(ctx: OrgContext, id: string) {
+    const row = await this.#load(ctx, id);
+    const res = await fetch(
+      `${this.env.GATEWAY_INTERNAL_URL.replace(/\/+$/, '')}/internal/mcp/probe`,
+      {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          authorization: `Bearer ${this.env.INTERNAL_TOKEN}`,
+        },
+        body: JSON.stringify({
+          server: {
+            id: row.id,
+            organizationId: row.organizationId,
+            slug: row.slug,
+            transport: row.transport,
+            url: row.url,
+            enabled: row.enabled,
+            ...(row.headersEnc ? { headers: row.headersEnc } : {}),
+            forwardIdentity: row.forwardIdentity,
+            timeoutMs: row.timeoutMs,
+          },
+        }),
+        signal: AbortSignal.timeout(30_000),
+      },
+    ).catch((error: unknown) => {
+      throw new DiRouterError('service_unavailable', {
+        message: 'Gateway is not reachable',
+        cause: error,
+      });
+    });
+    if (!res.ok)
+      throw new DiRouterError('service_unavailable', {
+        message: `Gateway probe failed (${String(res.status)})`,
+      });
+    const result = (await res.json()) as {
+      ok: boolean;
+      latencyMs: number;
+      tools?: { name: string; description?: string }[];
+      agentName?: string;
+      error?: string;
+    };
+    return {
+      ok: result.ok,
+      latencyMs: result.latencyMs,
+      tools: result.tools ?? [],
+      ...(result.agentName ? { agentName: result.agentName } : {}),
+      ...(result.error ? { error: result.error.slice(0, 500) } : {}),
+    };
+  }
+
   async calls(
     ctx: OrgContext,
     q: {

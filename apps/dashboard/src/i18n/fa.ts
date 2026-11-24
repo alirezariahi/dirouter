@@ -5,6 +5,7 @@ import { s2Fa } from './s2';
 import { s3Fa } from './s3';
 import { s4Fa } from './s4';
 import { billingFa } from './billing';
+import { mcpPageFa } from './mcp-page';
 export const fa = {
   app: { name: 'دی‌روتر', tagline: 'درگاه هوشمند مدل‌های زبانی' },
   nav: {
@@ -26,6 +27,7 @@ export const fa = {
     organization: 'سازمان',
     guides: 'راهنمای اتصال',
     billing: 'صورت‌حساب',
+    mcp: 'MCP و ایجنت‌ها',
   },
   navGroup: {
     monitor: 'پایش',
@@ -249,6 +251,7 @@ export const fa = {
   s3: s3Fa,
   s4: s4Fa,
   billing: billingFa,
+  mcpPage: mcpPageFa,
 } as const;
 
 export type Messages = typeof fa;

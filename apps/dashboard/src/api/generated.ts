@@ -4659,6 +4659,23 @@ export type McpControllerUpdateBody = {
 
 export type McpControllerUpdate200 = {[key: string]: unknown};
 
+export type McpControllerTest200ToolsItem = {
+  name: string;
+  description?: string;
+};
+
+export type McpControllerTest200 = {
+  ok: boolean;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     */
+  latencyMs: number;
+  tools: McpControllerTest200ToolsItem[];
+  agentName?: string;
+  error?: string;
+};
+
 export type McpControllerCallsParams = {
   /**
    * @minimum 1
@@ -22890,6 +22907,121 @@ export function useMcpControllerRemove<TData = Awaited<ReturnType<typeof mcpCont
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getMcpControllerRemoveQueryOptions(orgId,id,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export type mcpControllerTestResponse200 = {
+  data: McpControllerTest200
+  status: 200
+}
+
+export type mcpControllerTestResponseSuccess = (mcpControllerTestResponse200) & {
+  headers: Headers;
+};
+;
+
+export type mcpControllerTestResponse = (mcpControllerTestResponseSuccess)
+
+export const getMcpControllerTestUrl = (orgId: string,
+    id: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/mcp/servers/${id}/test`
+}
+
+export const mcpControllerTest = async (orgId: string,
+    id: string, options?: Parameters<typeof orvalFetch>[1]): Promise<mcpControllerTestResponse> => {
+
+  return orvalFetch<mcpControllerTestResponse>(getMcpControllerTestUrl(orgId,id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getMcpControllerTestQueryKey = (orgId: string,
+    id: string,) => {
+    return [
+    'POST', `/api/v1/orgs/${orgId}/mcp/servers/${id}/test`
+    ] as const;
+    }
+
+
+export const getMcpControllerTestQueryOptions = <TData = Awaited<ReturnType<typeof mcpControllerTest>>, TError = unknown>(orgId: string,
+    id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof mcpControllerTest>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getMcpControllerTestQueryKey(orgId,id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof mcpControllerTest>>> = ({ signal }) => mcpControllerTest(orgId,id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: orgId !== null && orgId !== undefined && id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof mcpControllerTest>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type McpControllerTestQueryResult = NonNullable<Awaited<ReturnType<typeof mcpControllerTest>>>
+export type McpControllerTestQueryError = unknown
+
+
+export function useMcpControllerTest<TData = Awaited<ReturnType<typeof mcpControllerTest>>, TError = unknown>(
+ orgId: string,
+    id: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof mcpControllerTest>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof mcpControllerTest>>,
+          TError,
+          Awaited<ReturnType<typeof mcpControllerTest>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useMcpControllerTest<TData = Awaited<ReturnType<typeof mcpControllerTest>>, TError = unknown>(
+ orgId: string,
+    id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof mcpControllerTest>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof mcpControllerTest>>,
+          TError,
+          Awaited<ReturnType<typeof mcpControllerTest>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useMcpControllerTest<TData = Awaited<ReturnType<typeof mcpControllerTest>>, TError = unknown>(
+ orgId: string,
+    id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof mcpControllerTest>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useMcpControllerTest<TData = Awaited<ReturnType<typeof mcpControllerTest>>, TError = unknown>(
+ orgId: string,
+    id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof mcpControllerTest>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getMcpControllerTestQueryOptions(orgId,id,options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 
