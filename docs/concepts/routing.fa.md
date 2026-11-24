@@ -264,6 +264,8 @@ curl -X POST $A/aliases -H "authorization: Bearer $TOKEN" -H 'content-type: appl
 
 پاسخ شامل `candidates` (به ترتیب تلاش، با provider و credential) و `skipped` (هر هدف کنارگذاشته با دلیل: `model_disabled`، `provider_disabled`، `context_window`، `provider_circuit_open`، `model_circuit_open`، `credential_disabled`، `credential_cooldown`) است. خطاهای مسیریابی (`model_not_found`، `model_not_allowed`، `no_available_provider`، `context_length_exceeded`) هم نتیجهٔ معتبر شبیه‌سازی‌اند و با `ok: false` برمی‌گردند. در داشبورد: صفحهٔ «شبیه‌ساز مسیریابی».
 
+هر candidate یک `signals` هم دارد که ورودی‌های زندهٔ استراتژی‌های پویاست (کارت 25.4): `latencyMs` (PeakEWMA؛ تا وقتی مدل ترافیک نداشته باشد نیست)، `costMicroUsd` (قیمت تخمینی درخواست شبیه‌سازی‌شده)، `recentRequests` و `inFlight`، و `headroomTokens` (وقتی پنجرهٔ زمینهٔ مدل تعیین نشده نیست). صفحهٔ شبیه‌ساز همان سیگنالی را نشان می‌دهد که استراتژی ترکیب بر اساس آن مرتب کرده است.
+
 ### تنظیمات سراسری گیت‌وی
 
 تنظیم‌های `healthProbe`، `sessionAffinity`، `cache`، `compression`، `tracing` و `breaker` در یک ردیف جدول `gateway_settings` ذخیره و در `ConfigSnapshot.settings` به همهٔ replicaها می‌رسند:

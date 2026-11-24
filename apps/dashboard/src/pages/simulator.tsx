@@ -10,6 +10,7 @@ import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
 import { Field, FormError } from '../components/ui/field';
 import { api } from '../lib/api';
+import { formatNumber } from '../lib/date';
 import type { SubmitEvent } from '../lib/form';
 import { errorMessage } from '../lib/errors';
 import { currentOrg } from '../lib/session';
@@ -19,6 +20,38 @@ interface Skipped {
   credentialId?: string;
   reason: string;
 }
+/** Live router inputs per candidate (card 25.4). */
+interface Signals {
+  latencyMs?: number;
+  costMicroUsd?: number;
+  recentRequests?: number;
+  inFlight?: number;
+  headroomTokens?: number;
+}
+type SignalStrategy = 'latency' | 'cost' | 'least-used' | 'headroom';
+const SIGNAL_STRATEGIES: readonly string[] = ['latency', 'cost', 'least-used', 'headroom'];
+
+/** The signal the combo's strategy sorted on, formatted for one candidate. */
+function signalValue(
+  strategy: SignalStrategy,
+  signals: Signals | undefined,
+  lang: 'fa' | 'en',
+  t: (key: string) => string,
+): string {
+  if (!signals) return t('s2.simulator.noData');
+  if (strategy === 'latency')
+    return signals.latencyMs === undefined
+      ? t('s2.simulator.noData')
+      : `${formatNumber(signals.latencyMs, lang)} ms`;
+  if (strategy === 'cost')
+    return `$${formatNumber((signals.costMicroUsd ?? 0) / 1_000_000, lang, { maximumFractionDigits: 6 })}`;
+  if (strategy === 'least-used')
+    return `${formatNumber(signals.recentRequests ?? 0, lang)} + ${formatNumber(signals.inFlight ?? 0, lang)}`;
+  return signals.headroomTokens === undefined
+    ? t('s2.simulator.unlimited')
+    : formatNumber(signals.headroomTokens, lang);
+}
+
 interface Simulation {
   ok: boolean;
   status: number;
@@ -26,7 +59,13 @@ interface Simulation {
   kind?: 'model' | 'combo';
   combo?: { id: string; slug: string; strategy: string };
   fallbackOn?: string[];
-  candidates?: { modelId: string; model: string; provider: string; credentialId: string }[];
+  candidates?: {
+    modelId: string;
+    model: string;
+    provider: string;
+    credentialId: string;
+    signals?: Signals;
+  }[];
   skipped?: Skipped[];
   neededTokens?: number;
   error?: { code?: string; message?: string };
@@ -48,10 +87,13 @@ const list = <T,>(value: unknown): T[] =>
       : [];
 
 export default function SimulatorPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const lang = i18n.language === 'fa' ? 'fa' : 'en';
   const org = currentOrg();
   const base = `/orgs/${org?.id ?? ''}`;
-  const [model, setModel] = useState('');
+  const [model, setModel] = useState(
+    () => new URLSearchParams(window.location.search).get('model') ?? '',
+  );
   const [keyId, setKeyId] = useState('');
   const [inputTokens, setInputTokens] = useState('');
   const [maxOutput, setMaxOutput] = useState('');
@@ -91,6 +133,9 @@ export default function SimulatorPage() {
   const routeError = result && !result.ok ? (result.error?.code ?? 'unavailable') : undefined;
   const skipped = result?.skipped ?? [];
   const candidates = result?.candidates ?? [];
+  const strategy = result?.combo?.strategy;
+  const signalStrategy =
+    strategy && SIGNAL_STRATEGIES.includes(strategy) ? (strategy as SignalStrategy) : undefined;
 
   return (
     <section className="enter flex flex-col gap-6">
@@ -195,8 +240,11 @@ export default function SimulatorPage() {
                   <span className="text-muted">{t(`s2.simulator.kind.${result.kind}`)}</span>
                 ) : null}
                 {result.combo ? (
-                  <span className="text-muted">
-                    {t('s2.simulator.strategy')}: <span dir="ltr">{result.combo.strategy}</span>
+                  <span className="text-muted" data-testid="simulator-strategy">
+                    {t('s2.simulator.strategy')}:{' '}
+                    {t(`models.strategyType.${result.combo.strategy}`, {
+                      defaultValue: result.combo.strategy,
+                    })}
                   </span>
                 ) : null}
                 {result.fallbackOn?.length ? (
@@ -206,6 +254,11 @@ export default function SimulatorPage() {
                   </span>
                 ) : null}
               </div>
+              {result.combo ? (
+                <p className="mb-3 text-xs text-muted">
+                  {t(`models.strategyHelp.${result.combo.strategy}`, { defaultValue: '' })}
+                </p>
+              ) : null}
               {candidates.length === 0 ? (
                 <p className="text-sm text-muted">{t('s2.simulator.noCandidates')}</p>
               ) : (
@@ -225,6 +278,12 @@ export default function SimulatorPage() {
                       <span className="text-muted">
                         {t('s2.simulator.credential')}: <span dir="ltr">{c.credentialId}</span>
                       </span>
+                      {signalStrategy ? (
+                        <span className="text-muted" data-testid="simulator-signal">
+                          {t(`s2.simulator.signal.${signalStrategy}`)}:{' '}
+                          <span dir="ltr">{signalValue(signalStrategy, c.signals, lang, t)}</span>
+                        </span>
+                      ) : null}
                     </li>
                   ))}
                 </ol>

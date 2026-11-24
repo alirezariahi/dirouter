@@ -406,6 +406,79 @@ try {
     },
   );
 
+  // ───────────── Epic 25: dashboard parity ─────────────
+
+  await scenario(
+    '25.4 every combo strategy is saved and the routing simulator shows its result',
+    async () => {
+      const models = (await org('GET', 'models', undefined, 200)).body;
+      const list = Array.isArray(models) ? models : models.items;
+      const id = (slug) => {
+        const found = list.find((m) => m.slug === slug);
+        assert.ok(found, `model ${slug} is seeded`);
+        return found.id;
+      };
+      const combo = (
+        await published(() =>
+          org(
+            'POST',
+            'combos',
+            {
+              slug: `s4-strategy-${randomUUID().slice(0, 6)}`,
+              strategy: 'priority',
+              targets: [{ modelId: id('mock/small') }, { modelId: id('mock/long') }],
+            },
+            201,
+          ),
+        )
+      ).body;
+      cleanups.push(() => org('DELETE', `combos/${combo.id}`, undefined, null));
+      const key = await createKey('strategy');
+      for (const strategy of [
+        'weighted',
+        'round-robin',
+        'latency',
+        'cost',
+        'least-used',
+        'headroom',
+        'priority',
+      ]) {
+        await published(() => org('PATCH', `combos/${combo.id}`, { strategy }, 200));
+        const saved = (await org('GET', 'combos', undefined, 200)).body.find(
+          (c) => c.id === combo.id,
+        );
+        assert.equal(saved.strategy, strategy, 'strategy is stored');
+        const sim = (
+          await org(
+            'POST',
+            'routes/simulate',
+            { model: combo.slug, estimatedInputTokens: 1000, maxOutputTokens: 1000 },
+            200,
+          )
+        ).body;
+        assert.equal(sim.ok, true, JSON.stringify(sim));
+        assert.equal(sim.combo.strategy, strategy, 'the simulator runs the saved strategy');
+        assert.equal(sim.candidates.length, 2);
+        for (const c of sim.candidates) assert.equal(typeof c.signals.costMicroUsd, 'number');
+        const [first, second] = sim.candidates.map((c) => c.signals);
+        if (strategy === 'cost') assert.ok(first.costMicroUsd <= second.costMicroUsd);
+        if (strategy === 'headroom')
+          assert.ok((first.headroomTokens ?? Infinity) >= (second.headroomTokens ?? Infinity));
+        if (strategy === 'least-used')
+          assert.ok(
+            first.recentRequests + first.inFlight <= second.recentRequests + second.inFlight,
+          );
+        // A real request through the combo works with every strategy.
+        const res = await chat(key.key, {
+          model: combo.slug,
+          max_tokens: 8,
+          messages: [{ role: 'user', content: `strategy ${strategy}` }],
+        });
+        assert.equal(res.response.status, 200, `${strategy}: ${res.text}`);
+      }
+    },
+  );
+
   // ───────────── Epic 24: observability ─────────────
 
   await scenario(

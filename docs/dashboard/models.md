@@ -95,7 +95,7 @@ Full table with the columns:
 **Display:**
 
 - table with name, strategy and number of targets
-- strategies: priority, weighted, round-robin
+- strategies: all seven the gateway implements: priority, weighted, round-robin, latency, cost, least-used and headroom (card 25.4)
 
 **Combo editor (ComboEditor):**
 
@@ -145,8 +145,21 @@ const handleDrop = (e: DragEvent, dropIndex: number) => {
 **Strategy:**
 
 ```typescript
-type Strategy = 'priority' | 'weighted' | 'round-robin';
+type Strategy =
+  'priority' | 'weighted' | 'round-robin' | 'latency' | 'cost' | 'least-used' | 'headroom';
 ```
+
+A one-line explanation of the selected strategy is shown under the selector. Fields that only one
+strategy uses appear only for that strategy: weights for `weighted`, each target's input/output
+price for `cost`, and each target's context window for `headroom`. For the other strategies the
+target order is the tie-break when live signals are equal.
+
+**Execution preview:** `priority`, `weighted` and `round-robin` are previewed exactly as the router
+orders them. `cost` is ordered by the estimated price of a request with 1K input and 1K output
+tokens, and `headroom` by context window (models with no limit first). `latency` and `least-used`
+depend on live statistics, so the preview shows the tie-break order. For a saved combo, **Simulate
+the saved combo in the gateway** calls `POST routes/simulate` and shows the order one gateway
+replica would use right now.
 
 **Weight (for weighted):**
 
@@ -583,6 +596,17 @@ Each target has a weighted probability. Used for load balancing.
 
 Targets are selected in turn. Used for even distribution.
 
+### Latency, cost, least-used and headroom strategies
+
+- **latency**: lowest recent latency (PeakEWMA) multiplied by in-flight requests; with P2C two
+  targets are sampled and the faster one leads.
+- **cost**: lowest estimated price of the request (estimated input tokens plus `max_tokens`).
+- **least-used**: fewest requests in the last minute plus in flight.
+- **headroom**: most context window left after the request.
+
+The routing simulator (`/simulator`) shows, next to every candidate, the signal the strategy sorted
+on: latency in ms, estimated cost, requests plus in-flight, or remaining context.
+
 ### Fallback conditions
 
 Conditions under which the request moves to the next target:
@@ -605,6 +629,7 @@ Documentation: [concepts/routing.md](../concepts/routing.md)
 | ---------- | ---------------------------------------- |
 | 2026-11-07 | initial implementation with all features |
 | 2026-11-08 | tests and final review (coverage 62%)    |
+| 2026-11-24 | all seven strategies, card 25.4          |
 
 ## References
 

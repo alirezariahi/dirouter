@@ -24,6 +24,14 @@ export const simulatorFa = {
   strategy: 'استراتژی',
   fallbackOn: 'فال‌بک روی',
   neededTokens: 'توکن موردنیاز',
+  signal: {
+    latency: 'تأخیر اخیر',
+    cost: 'هزینهٔ تخمینی',
+    'least-used': 'درخواست‌ها (دقیقهٔ اخیر + در جریان)',
+    headroom: 'زمینهٔ باقی‌مانده',
+  },
+  noData: 'هنوز داده‌ای نیست',
+  unlimited: 'بدون سقف',
   hint: 'نتیجه وضعیت همین لحظهٔ یک نمونهٔ گیت‌وی است؛ ترتیب استراتژی‌های تصادفی (weighted، P2C) در هر اجرا می‌تواند فرق کند.',
   reason: {
     model_disabled: 'مدل غیرفعال است',
@@ -67,6 +75,14 @@ export const simulatorEn: Widen<typeof simulatorFa> = {
   strategy: 'Strategy',
   fallbackOn: 'Falls back on',
   neededTokens: 'Tokens needed',
+  signal: {
+    latency: 'Recent latency',
+    cost: 'Estimated cost',
+    'least-used': 'Requests (last minute + in flight)',
+    headroom: 'Context left',
+  },
+  noData: 'no data yet',
+  unlimited: 'no limit',
   hint: 'This is the current state of one replica; randomized strategies (weighted, P2C) can order targets differently on each run.',
   reason: {
     model_disabled: 'Model is disabled',

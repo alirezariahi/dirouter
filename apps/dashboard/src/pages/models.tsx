@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components -- validation/preview helpers intentionally tested with the page */
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -16,7 +16,19 @@ import { currentOrg, useSession } from '../lib/session';
  * The resource shape and preview rules mirror ModelsController and Router.
  */
 
-type Strategy = 'priority' | 'weighted' | 'round-robin';
+/** Every strategy the gateway router implements (packages/routing, ComboStrategy). */
+export const STRATEGIES = [
+  'priority',
+  'weighted',
+  'round-robin',
+  'latency',
+  'cost',
+  'least-used',
+  'headroom',
+] as const;
+type Strategy = (typeof STRATEGIES)[number];
+/** Strategies whose order depends on live gateway statistics rather than on the saved combo. */
+const LIVE_STRATEGIES: readonly Strategy[] = ['latency', 'least-used'];
 type Capability =
   | 'streaming'
   | 'tools'
@@ -98,6 +110,12 @@ interface Resources {
   catalog: Catalog;
 }
 
+interface LiveSimulation {
+  ok: boolean;
+  combo?: { strategy: Strategy };
+  candidates?: { modelId: string; model: string; credentialId: string }[];
+  error?: { code?: string };
+}
 interface ComboDraft {
   id?: string;
   slug: string;
@@ -242,15 +260,49 @@ export function validateAlias(draft: AliasDraft, names: string[]): string | unde
   return undefined;
 }
 
-/** Equivalent to Router's priority/weighted/round-robin target ordering. */
+type PreviewModel = Pick<Model, 'id' | 'contextWindow' | 'pricing'>;
+/** Token counts the cost preview assumes for one request. */
+const PREVIEW_TOKENS = { input: 1000, output: 1000 };
+
+/** Estimated micro-dollars of one preview request, the same formula as the router's estimateMicroUsd. */
+export function previewCost(model: PreviewModel | undefined): number {
+  if (!model) return Number.POSITIVE_INFINITY;
+  const perM = (value: string | undefined) => (value ? Number(value) : 0);
+  return Math.round(
+    (PREVIEW_TOKENS.input / 1_000_000) * perM(model.pricing.inputPerMTok) * 1_000_000 +
+      (PREVIEW_TOKENS.output / 1_000_000) * perM(model.pricing.outputPerMTok) * 1_000_000,
+  );
+}
+
+/**
+ * Equivalent to the Router's target ordering for every strategy. Latency and least-used depend on
+ * live statistics the dashboard does not have, so they return the tie-break (saved) order; the
+ * gateway simulation in the editor shows their real result.
+ */
 export function executionOrder(
   draft: ComboDraft,
   requestNumber = 0,
   random = Math.random,
+  models: PreviewModel[] = [],
 ): Target[] {
   const pool = draft.targets.map((target) => ({ target, weight: Math.max(0, target.weight) }));
   const result: Target[] = [];
-  if (draft.strategy === 'priority') return [...draft.targets].sort((a, b) => a.order - b.order);
+  const byOrder = [...draft.targets].sort((a, b) => a.order - b.order);
+  const byId = new Map(models.map((model) => [model.id, model]));
+  // Array.prototype.sort is stable, so equal keys keep the saved order, as in the router.
+  if (draft.strategy === 'priority' || LIVE_STRATEGIES.includes(draft.strategy)) return byOrder;
+  if (draft.strategy === 'cost')
+    return byOrder.sort(
+      (a, b) => previewCost(byId.get(a.modelId)) - previewCost(byId.get(b.modelId)),
+    );
+  if (draft.strategy === 'headroom') {
+    const room = (target: Target) => {
+      const model = byId.get(target.modelId);
+      if (!model) return Number.NEGATIVE_INFINITY;
+      return model.contextWindow ?? Number.MAX_SAFE_INTEGER;
+    };
+    return byOrder.sort((a, b) => room(b) - room(a));
+  }
   if (draft.strategy === 'round-robin') {
     const ordered = [...draft.targets].sort((a, b) => a.order - b.order);
     const start = ordered.length === 0 ? 0 : requestNumber % ordered.length;
@@ -430,7 +482,8 @@ function ComboEditor({
   onCancel: () => void;
   onSaved: () => Promise<void>;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const lang = i18n.language === 'fa' ? 'fa' : 'en';
   const org = currentOrg();
   const [draft, setDraft] = useState(() => comboDraft(initial));
   const [selectedModel, setSelectedModel] = useState(models[0]?.id ?? '');
@@ -450,7 +503,19 @@ function ComboEditor({
     update({ targets: targets.map((target, order) => ({ ...target, order })) });
   };
   const modelName = (id: string) => models.find((model) => model.id === id)?.slug ?? id;
-  const order = executionOrder(draft, preview);
+  const order = executionOrder(draft, preview, Math.random, models);
+  const modelById = new Map(models.map((model) => [model.id, model]));
+  const live = useMutation({
+    mutationFn: (slug: string) =>
+      api<LiveSimulation>(`/orgs/${org?.id ?? ''}/routes/simulate`, {
+        method: 'POST',
+        body: {
+          model: slug,
+          estimatedInputTokens: PREVIEW_TOKENS.input,
+          maxOutputTokens: PREVIEW_TOKENS.output,
+        },
+      }),
+  });
   const totalWeight = draft.targets.reduce((sum, target) => sum + target.weight, 0);
 
   async function submit(event: SubmitEvent) {
@@ -539,7 +604,7 @@ function ComboEditor({
               update({ strategy: event.target.value as Strategy });
             }}
           >
-            {(['priority', 'weighted', 'round-robin'] as const).map((strategy) => (
+            {STRATEGIES.map((strategy) => (
               <option key={strategy} value={strategy}>
                 {t(`models.strategyType.${strategy}`)}
               </option>
@@ -561,6 +626,9 @@ function ComboEditor({
             />
           </label>
         </div>
+        <p data-testid="strategy-help" className="-mt-2 text-xs text-muted">
+          {t(`models.strategyHelp.${draft.strategy}`)}
+        </p>
 
         <div className="flex flex-col gap-2">
           <h3 className="text-sm font-medium">{t('models.targets')}</h3>
@@ -598,24 +666,43 @@ function ComboEditor({
                 <span className="min-w-32 flex-1" dir="ltr">
                   {index + 1}. {modelName(target.modelId)}
                 </span>
-                <label className="flex items-center gap-1 text-xs">
-                  {t('models.weight')}
-                  <input
-                    aria-label={`${t('models.weight')} ${modelName(target.modelId)}`}
-                    type="number"
-                    min={0}
-                    max={1000}
-                    step={1}
-                    value={target.weight}
-                    onChange={(event) => {
-                      const targets = draft.targets.map((item, i) =>
-                        i === index ? { ...item, weight: Number(event.target.value) } : item,
-                      );
-                      update({ targets });
-                    }}
-                    className="h-8 w-20 rounded border border-border bg-surface px-2"
-                  />
-                </label>
+                {draft.strategy === 'weighted' && (
+                  <label className="flex items-center gap-1 text-xs">
+                    {t('models.weight')}
+                    <input
+                      aria-label={`${t('models.weight')} ${modelName(target.modelId)}`}
+                      type="number"
+                      min={0}
+                      max={1000}
+                      step={1}
+                      value={target.weight}
+                      onChange={(event) => {
+                        const targets = draft.targets.map((item, i) =>
+                          i === index ? { ...item, weight: Number(event.target.value) } : item,
+                        );
+                        update({ targets });
+                      }}
+                      className="h-8 w-20 rounded border border-border bg-surface px-2"
+                    />
+                  </label>
+                )}
+                {draft.strategy === 'cost' && (
+                  <span className="text-xs text-muted" data-testid="target-price">
+                    {t('models.strategyField.price')}:{' '}
+                    <span dir="ltr">
+                      ${modelById.get(target.modelId)?.pricing.inputPerMTok ?? '0'} / $
+                      {modelById.get(target.modelId)?.pricing.outputPerMTok ?? '0'}
+                    </span>
+                  </span>
+                )}
+                {draft.strategy === 'headroom' && (
+                  <span className="text-xs text-muted" data-testid="target-context">
+                    {t('models.strategyField.context')}:{' '}
+                    {modelById.get(target.modelId)?.contextWindow
+                      ? formatNumber(modelById.get(target.modelId)?.contextWindow ?? 0, lang)
+                      : t('models.strategyField.unlimited')}
+                  </span>
+                )}
                 <button
                   type="button"
                   aria-label={`${t('models.moveUp')} ${modelName(target.modelId)}`}
@@ -694,7 +781,12 @@ function ComboEditor({
               {t('models.add')}
             </button>
           </div>
-          <p className="text-xs text-muted">{t('models.dragHint')}</p>
+          <p className="text-xs text-muted">
+            {t('models.dragHint')}
+            {draft.strategy !== 'priority' && draft.strategy !== 'round-robin'
+              ? ` ${t(draft.strategy === 'weighted' ? 'models.strategyField.weight' : 'models.strategyField.order')}`
+              : ''}
+          </p>
         </div>
 
         <fieldset>
@@ -775,6 +867,46 @@ function ComboEditor({
             </ol>
           )}
           <p className="mt-2 text-xs text-muted">{t(`models.previewHelp.${draft.strategy}`)}</p>
+          {initial && (
+            <div className="mt-3 border-t border-border pt-3">
+              <button
+                type="button"
+                className="text-xs text-brand disabled:opacity-50"
+                disabled={live.isPending}
+                onClick={() => {
+                  live.mutate(initial.slug);
+                }}
+              >
+                {t('models.liveSimulate')}
+              </button>
+              <p className="mt-1 text-xs text-muted">{t('models.liveSimulateHint')}</p>
+              {live.isError || (live.data && !live.data.ok) ? (
+                <p role="status" className="mt-2 text-xs text-danger">
+                  {t('models.liveFailed')}
+                  {live.data?.error?.code ? ` (${live.data.error.code})` : ''}
+                </p>
+              ) : null}
+              {live.data?.ok ? (
+                <div className="mt-2">
+                  <p className="text-xs font-medium">
+                    {t('models.liveResult')}:{' '}
+                    {t(`models.strategyType.${live.data.combo?.strategy ?? draft.strategy}`)}
+                  </p>
+                  <ol data-testid="live-preview" className="mt-1 flex flex-wrap gap-2">
+                    {(live.data.candidates ?? []).map((candidate, index) => (
+                      <li
+                        key={`${candidate.modelId}:${candidate.credentialId}`}
+                        className="rounded border border-border bg-surface px-2 py-1 text-xs"
+                      >
+                        <span className="text-muted">{index + 1}. </span>
+                        <span dir="ltr">{candidate.model}</span>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              ) : null}
+            </div>
+          )}
         </section>
         <div className="flex gap-2">
           <button

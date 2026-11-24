@@ -83,12 +83,43 @@ export const modelMessagesEn = {
     priority: 'Priority',
     weighted: 'Weighted',
     'round-robin': 'Round robin',
+    latency: 'Lowest latency',
+    cost: 'Lowest cost',
+    'least-used': 'Least used',
+    headroom: 'Most headroom',
+  },
+  strategyHelp: {
+    priority: 'Always try the first target; the next ones are fallbacks.',
+    weighted: 'Split traffic by the weight of each target.',
+    'round-robin': 'Rotate the first target on every request of a key.',
+    latency:
+      'Send to the target with the lowest recent latency, weighed by its in-flight requests.',
+    cost: 'Send to the target with the lowest estimated price for the request.',
+    'least-used': 'Send to the target with the fewest requests in the last minute and in flight.',
+    headroom: 'Send to the target with the most context window left after the request.',
   },
   previewHelp: {
     priority: 'Targets are tried in the displayed order.',
     weighted: 'One weighted random order without replacement; percentages are first-pick weights.',
     'round-robin': 'The starting target rotates for each request.',
+    latency:
+      'The gateway orders targets by live latency; this list is the tie-break order used while there is no data yet.',
+    cost: 'Ordered by the estimated price of a request with 1K input and 1K output tokens.',
+    'least-used':
+      'The gateway orders targets by live traffic; this list is the tie-break order used when traffic is equal.',
+    headroom: 'Ordered by context window; models with no limit set come first.',
   },
+  strategyField: {
+    weight: 'Weights split traffic only in the weighted strategy.',
+    order: 'Order is the tie-break when live signals are equal.',
+    price: 'Price in/out per MTok',
+    context: 'Context window',
+    unlimited: 'not set',
+  },
+  liveSimulate: 'Simulate the saved combo in the gateway',
+  liveSimulateHint: 'Uses the live statistics of one gateway replica; save first to test changes.',
+  liveResult: 'Gateway order',
+  liveFailed: 'The gateway could not simulate this combo.',
   timeout: {
     connectMs: 'Connect',
     firstByteMs: 'First byte',
@@ -207,12 +238,45 @@ export const modelMessagesFa: typeof modelMessagesEn = {
     priority: 'اولویت‌دار',
     weighted: 'وزنی',
     'round-robin': 'نوبتی',
+    latency: 'کمترین تأخیر',
+    cost: 'کمترین هزینه',
+    'least-used': 'کم‌مصرف‌ترین',
+    headroom: 'بیشترین ظرفیت زمینه',
+  },
+  strategyHelp: {
+    priority: 'همیشه مقصد اول امتحان می‌شود و بقیه فال‌بک هستند.',
+    weighted: 'ترافیک به نسبت وزن هر مقصد تقسیم می‌شود.',
+    'round-robin': 'مقصد اول در هر درخواست یک کلید به نوبت عوض می‌شود.',
+    latency:
+      'درخواست به مقصدی می‌رود که تأخیر اخیرش با در نظر گرفتن درخواست‌های در جریان کمتر است.',
+    cost: 'درخواست به مقصدی می‌رود که قیمت تخمینی همین درخواست در آن کمتر است.',
+    'least-used':
+      'درخواست به مقصدی می‌رود که در یک دقیقهٔ اخیر و همین حالا کمترین درخواست را دارد.',
+    headroom: 'درخواست به مقصدی می‌رود که بعد از این درخواست بیشترین پنجرهٔ زمینه برایش می‌ماند.',
   },
   previewHelp: {
     priority: 'مقصدها به همان ترتیب نمایش‌داده‌شده امتحان می‌شوند.',
     weighted: 'یک ترتیب تصادفی وزنی بدون تکرار؛ درصدها وزن انتخاب اول هستند.',
     'round-robin': 'مقصد شروع در هر درخواست به نوبت عوض می‌شود.',
+    latency:
+      'گیت‌وی مقصدها را با تأخیر زنده مرتب می‌کند؛ این فهرست ترتیب جایگزین تا وقتی است که هنوز داده‌ای نیست.',
+    cost: 'به ترتیب قیمت تخمینی یک درخواست با ۱ هزار توکن ورودی و ۱ هزار توکن خروجی.',
+    'least-used':
+      'گیت‌وی مقصدها را با ترافیک زنده مرتب می‌کند؛ این فهرست ترتیب جایگزین وقتی ترافیک برابر است.',
+    headroom: 'به ترتیب پنجرهٔ زمینه؛ مدل‌های بدون سقف اول می‌آیند.',
   },
+  strategyField: {
+    weight: 'وزن فقط در استراتژی وزنی ترافیک را تقسیم می‌کند.',
+    order: 'وقتی سیگنال‌های زنده برابرند، ترتیب تعیین‌کننده است.',
+    price: 'قیمت ورودی/خروجی هر میلیون توکن',
+    context: 'پنجرهٔ زمینه',
+    unlimited: 'تعیین نشده',
+  },
+  liveSimulate: 'شبیه‌سازی ترکیب ذخیره‌شده در گیت‌وی',
+  liveSimulateHint:
+    'از آمار زندهٔ یک نمونهٔ گیت‌وی استفاده می‌کند؛ برای آزمودن تغییرات اول ذخیره کنید.',
+  liveResult: 'ترتیب گیت‌وی',
+  liveFailed: 'گیت‌وی نتوانست این ترکیب را شبیه‌سازی کند.',
   timeout: {
     connectMs: 'اتصال',
     firstByteMs: 'اولین بایت',

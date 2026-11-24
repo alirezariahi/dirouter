@@ -262,6 +262,8 @@ If the pinned target becomes unhealthy (breaker, cooldown), the request follows 
 
 The response contains `candidates` (in attempt order, with provider and credential) and `skipped` (every target left out with its reason: `model_disabled`, `provider_disabled`, `context_window`, `provider_circuit_open`, `model_circuit_open`, `credential_disabled`, `credential_cooldown`). Routing errors (`model_not_found`, `model_not_allowed`, `no_available_provider`, `context_length_exceeded`) are valid simulation results too and come back with `ok: false`. In the dashboard: the "Routing simulator" page.
 
+Every candidate also carries `signals`, the live inputs of the dynamic strategies (card 25.4): `latencyMs` (PeakEWMA, absent until the model has traffic), `costMicroUsd` (estimated price of the simulated request), `recentRequests` and `inFlight`, and `headroomTokens` (absent when the model has no context window set). The simulator page shows the one the combo's strategy sorted on.
+
 ### Gateway-wide settings
 
 `healthProbe`, `sessionAffinity`, `cache`, `compression`, `tracing` and `breaker` are stored in a single `gateway_settings` row and reach every replica through `ConfigSnapshot.settings`:

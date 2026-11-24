@@ -15,8 +15,10 @@ import {
 } from '@dirouter/contracts';
 import {
   BulkheadRegistry,
+  estimateMicroUsd,
   type HealthChange,
   HealthRegistry,
+  headroom,
   isRouteError,
   RetryBudget,
   type TaskType,
@@ -513,6 +515,8 @@ export function buildGateway(opts: GatewayOptions) {
       mcpTools: [],
     };
     const number = (value: unknown) => (typeof value === 'number' ? value : undefined);
+    const inputTokens = number(body.estimatedInputTokens);
+    const outputTokens = number(body.maxOutputTokens);
     const result = config.router.simulate(key, requested, {
       ...(number(body.estimatedInputTokens) !== undefined
         ? { estimatedInputTokens: number(body.estimatedInputTokens) }
@@ -549,12 +553,28 @@ export function buildGateway(opts: GatewayOptions) {
         ? { id: result.combo.id, slug: result.combo.slug, strategy: result.combo.strategy }
         : undefined,
       fallbackOn: result.fallbackOn,
-      candidates: result.candidates.map((candidate) => ({
-        modelId: candidate.model.id,
-        model: candidate.model.slug,
-        provider: candidate.provider.slug,
-        credentialId: candidate.credential.id,
-      })),
+      candidates: result.candidates.map((candidate) => {
+        const stats = config.router.stats.snapshot(candidate.model.id);
+        const needed = (inputTokens ?? 0) + (outputTokens ?? 0);
+        const room = headroom(candidate.model, needed);
+        return {
+          modelId: candidate.model.id,
+          model: candidate.model.slug,
+          provider: candidate.provider.slug,
+          credentialId: candidate.credential.id,
+          // The live inputs of the dynamic strategies (card 25.4), so the simulator can show why
+          // latency, cost, least-used and headroom ordered the targets the way they did.
+          signals: {
+            ...(stats.peakLatencyMs !== undefined
+              ? { latencyMs: Math.round(stats.peakLatencyMs) }
+              : {}),
+            costMicroUsd: estimateMicroUsd(candidate.model, inputTokens ?? 0, outputTokens ?? 0),
+            recentRequests: stats.recentRequests,
+            inFlight: stats.inFlight,
+            ...(room !== Number.MAX_SAFE_INTEGER ? { headroomTokens: room } : {}),
+          },
+        };
+      }),
       skipped: result.skipped,
     };
   });

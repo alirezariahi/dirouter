@@ -8,6 +8,7 @@ import { resetSessionForTests, restoreSession } from '../lib/session';
 import ModelsPage, {
   comboDraft,
   executionOrder,
+  STRATEGIES,
   validateAlias,
   validateComboDraft,
 } from './models';
@@ -196,6 +197,18 @@ const RESPONSES: Record<string, unknown> = {
   },
 };
 
+const SIMULATION = {
+  ok: true,
+  status: 200,
+  kind: 'combo',
+  combo: { id: 'cmb_1', slug: 'smart', strategy: 'cost' },
+  candidates: [
+    { modelId: 'mdl_1', model: 'openai/fast', provider: 'openai', credentialId: 'crd_1' },
+    { modelId: 'mdl_2', model: 'anthropic/deep', provider: 'anthropic', credentialId: 'crd_2' },
+  ],
+  skipped: [],
+};
+
 type Call = { path: string; init: RequestInit };
 function mockApi() {
   const calls: Call[] = [];
@@ -205,13 +218,15 @@ function mockApi() {
       const path = new URL(url).pathname.replace(/^\/api\/v1/, '');
       calls.push({ path, init });
       const body =
-        path === '/auth/refresh'
-          ? { accessToken: 'token' }
-          : path === '/auth/me'
-            ? USER
-            : path in RESPONSES
-              ? RESPONSES[path]
-              : { id: 'created' };
+        path === '/orgs/org_1/routes/simulate'
+          ? SIMULATION
+          : path === '/auth/refresh'
+            ? { accessToken: 'token' }
+            : path === '/auth/me'
+              ? USER
+              : path in RESPONSES
+                ? RESPONSES[path]
+                : { id: 'created' };
       return Promise.resolve(
         new Response(JSON.stringify(body), {
           status: 200,
@@ -296,6 +311,92 @@ describe('model and combo server-equivalent rules', () => {
     expect(
       executionOrder({ ...weighted, strategy: 'round-robin' }, 2).map((target) => target.modelId),
     ).toEqual(['mdl_1', 'mdl_2']);
+  });
+});
+
+describe('all seven combo strategies (card 25.4)', () => {
+  it('orders cost by estimated price and headroom by context window, like the router', () => {
+    const draft = { ...comboDraft(COMBOS[0]), strategy: 'cost' as const };
+    // mdl_1 costs 2.5 + 10 per MTok, mdl_2 costs 3 + 15: the cheaper one goes first.
+    expect(executionOrder(draft, 0, Math.random, MODELS).map((target) => target.modelId)).toEqual([
+      'mdl_1',
+      'mdl_2',
+    ]);
+    // mdl_2 has 200K context, mdl_1 has 128K.
+    expect(
+      executionOrder({ ...draft, strategy: 'headroom' }, 0, Math.random, MODELS).map(
+        (target) => target.modelId,
+      ),
+    ).toEqual(['mdl_2', 'mdl_1']);
+    // Live strategies keep the saved order as the tie-break.
+    for (const strategy of ['latency', 'least-used'] as const)
+      expect(
+        executionOrder({ ...draft, strategy }, 0, Math.random, MODELS).map(
+          (target) => target.modelId,
+        ),
+      ).toEqual(['mdl_1', 'mdl_2']);
+  });
+
+  it('offers every strategy with a short explanation and saves each of them', async () => {
+    const calls = mockApi();
+    await renderPage();
+    const openEditor = () => {
+      const comboRow = screen.getByText('smart').closest('li');
+      fireEvent.click(within(comboRow as HTMLLIElement).getByRole('button', { name: 'Edit' }));
+      return screen.getByLabelText<HTMLSelectElement>('Strategy');
+    };
+    let select = openEditor();
+    expect([...select.options].map((option) => option.value)).toEqual([...STRATEGIES]);
+    expect(STRATEGIES).toHaveLength(7);
+    // Weighted shows the weight fields.
+    expect(screen.getByLabelText('Weight openai/fast')).toBeTruthy();
+
+    const help: Record<string, string> = {};
+    for (const strategy of STRATEGIES) {
+      select = await waitFor(openEditor);
+      fireEvent.change(select, { target: { value: strategy } });
+      help[strategy] = screen.getByTestId('strategy-help').textContent;
+      fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+      await waitFor(() => {
+        const patches = calls.filter(
+          (call) => call.path === '/orgs/org_1/combos/cmb_1' && call.init.method === 'PATCH',
+        );
+        expect(JSON.parse(patches.at(-1)?.init.body as string)).toMatchObject({ strategy });
+      });
+    }
+    // Each strategy has its own explanation.
+    expect(new Set(Object.values(help)).size).toBe(7);
+    expect(help.headroom).toBe(
+      'Send to the target with the most context window left after the request.',
+    );
+
+    // Strategy-specific fields: weights only for weighted, price for cost, context for headroom.
+    select = await waitFor(openEditor);
+    fireEvent.change(select, { target: { value: 'cost' } });
+    expect(screen.queryByLabelText('Weight openai/fast')).toBeNull();
+    expect(screen.getAllByTestId('target-price')[0]?.textContent).toContain('$2.5 / $10');
+    fireEvent.change(select, { target: { value: 'headroom' } });
+    expect(screen.queryAllByTestId('target-price')).toHaveLength(0);
+    expect(screen.getAllByTestId('target-context')[0]?.textContent).toContain('128,000');
+    fireEvent.change(select, { target: { value: 'priority' } });
+    expect(screen.queryAllByTestId('target-context')).toHaveLength(0);
+    expect(screen.queryByLabelText('Weight openai/fast')).toBeNull();
+  });
+
+  it('shows the gateway result of the saved combo strategy', async () => {
+    const calls = mockApi();
+    await renderPage();
+    const comboRow = screen.getByText('smart').closest('li');
+    fireEvent.click(within(comboRow as HTMLLIElement).getByRole('button', { name: 'Edit' }));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Simulate the saved combo in the gateway' }),
+    );
+    const live = await screen.findByTestId('live-preview');
+    expect(live.textContent).toContain('1. openai/fast');
+    expect(live.textContent).toContain('2. anthropic/deep');
+    expect(screen.getByText(/Gateway order: Lowest cost/)).toBeTruthy();
+    const call = calls.find((item) => item.path === '/orgs/org_1/routes/simulate');
+    expect(JSON.parse(call?.init.body as string)).toMatchObject({ model: 'smart' });
   });
 });
 

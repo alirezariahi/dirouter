@@ -109,9 +109,16 @@ beforeAll(async () => {
       model('steady-m', 'steady'),
       model('late-m', 'late'),
       model('limited-m', 'limited'),
+      {
+        ...model('pricey-m', 'good'),
+        contextWindow: 8_000,
+        pricing: { inputPerMTok: '30.00', outputPerMTok: '60.00' },
+      },
     ],
     combos: [
       combo('resilient', ['down-m', 'good-m']),
+      { ...combo('cheapest', ['pricey-m', 'good-m']), strategy: 'cost' as const },
+      { ...combo('roomiest', ['pricey-m', 'good-m']), strategy: 'headroom' as const },
       combo('ttft', ['slow-m', 'good-m']),
       combo('badreq', ['invalid-m', 'good-m']),
       {
@@ -439,6 +446,37 @@ describe('gateway end-to-end against the mock provider', () => {
         })
       ).status,
     ).toBe(404);
+  });
+
+  it('simulates the chosen combo strategy with its live signals (card 25.4)', async () => {
+    const simulate = async (model: string) => {
+      const res = await fetch(`${base}/internal/routes/simulate`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', authorization: `Bearer ${INTERNAL}` },
+        body: JSON.stringify({ model, estimatedInputTokens: 1000, maxOutputTokens: 1000 }),
+      });
+      expect(res.status).toBe(200);
+      return (await res.json()) as {
+        combo: { strategy: string };
+        candidates: {
+          model: string;
+          signals: { costMicroUsd: number; headroomTokens?: number; recentRequests: number };
+        }[];
+      };
+    };
+    // The priority order lists pricey-m first; cost puts the cheaper target in front.
+    const cost = await simulate('cheapest');
+    expect(cost.combo.strategy).toBe('cost');
+    expect(cost.candidates.map((c) => c.model)).toEqual(['good-m', 'pricey-m']);
+    expect(cost.candidates[0]?.signals.costMicroUsd).toBe(3000);
+    expect(cost.candidates[1]?.signals.costMicroUsd).toBe(90_000);
+    // Headroom prefers the larger context window left after the request.
+    const room = await simulate('roomiest');
+    expect(room.combo.strategy).toBe('headroom');
+    expect(room.candidates.map((c) => c.model)).toEqual(['good-m', 'pricey-m']);
+    expect(room.candidates[0]?.signals.headroomTokens).toBe(98_000);
+    expect(room.candidates[1]?.signals.headroomTokens).toBe(6_000);
+    expect(typeof room.candidates[0]?.signals.recentRequests).toBe('number');
   });
 
   it('lists models for the key', async () => {
