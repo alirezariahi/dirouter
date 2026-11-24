@@ -1045,6 +1045,146 @@ try {
       );
     },
   );
+
+  // ───────────── Epic 25: dashboard pages ─────────────
+
+  /** A customer organization (not the platform) with the seed admin as its owner, kept between runs. */
+  const S4_CUSTOMER = 'org_s4_customer';
+  const ensureCustomer = async () => {
+    const me = (await api('GET', 'auth/me')).body;
+    await sql(`INSERT INTO organizations (id, name, slug, updated_at)
+               VALUES ('${S4_CUSTOMER}', 'Sprint 4 customer', 's4-customer', now()) ON CONFLICT DO NOTHING;
+               INSERT INTO memberships (id, user_id, organization_id, role)
+               VALUES ('mem_s4_customer', '${me.id}', '${S4_CUSTOMER}', 'OWNER') ON CONFLICT DO NOTHING`);
+    return (await api('GET', 'auth/me')).body;
+  };
+
+  await scenario(
+    '25.1 billing pages: platform-only, every wallet, payment, gateway and gift-code call the UI makes, adjustment audited',
+    async () => {
+      const me = await ensureCustomer();
+      // The menu reads isPlatform and the effective permissions from /auth/me.
+      const platform = me.organizations.find((o) => o.id === ORG);
+      const customer = me.organizations.find((o) => o.id === S4_CUSTOMER);
+      assert.equal(platform.isPlatform, true);
+      assert.ok(platform.permissions.includes('billing:read'));
+      assert.ok(platform.permissions.includes('billing:write'));
+      assert.equal(customer.isPlatform, false);
+      // ... and the API agrees: the same routes on a customer organization do not exist.
+      for (const path of [
+        'billing/wallets',
+        'billing/payments',
+        'billing/settings',
+        'billing/gift-batches',
+      ])
+        await api('GET', `orgs/${S4_CUSTOMER}/${path}`, undefined, 404);
+
+      // Customers and wallets: list with balances, wallet, statement, manual credit with a reason.
+      const wallets = (await org('GET', 'billing/wallets')).body;
+      const listed = wallets.find((w) => w.organizationId === S4_CUSTOMER);
+      assert.ok(listed, 'the customer is listed');
+      assert.match(listed.balanceUsd, /^-?\d+\.\d{8}$/);
+      const before = (await org('GET', `billing/wallets/${S4_CUSTOMER}`)).body;
+      const reason = `e2e 25.1 bank transfer ${randomUUID().slice(0, 8)}`;
+      const credit = { amountUsd: '1.25', reason, idempotencyKey: `dash-${randomUUID()}` };
+      const posted = (await org('POST', `billing/wallets/${S4_CUSTOMER}/adjustments`, credit, 201))
+        .body;
+      assert.equal(posted.created, true);
+      // A double click (same key) posts nothing.
+      const again = (await org('POST', `billing/wallets/${S4_CUSTOMER}/adjustments`, credit, 201))
+        .body;
+      assert.deepEqual(again, { transactionId: posted.transactionId, created: false });
+      cleanups.push(() =>
+        org(
+          'POST',
+          `billing/wallets/${S4_CUSTOMER}/adjustments`,
+          {
+            amountUsd: '-1.25',
+            reason: 'e2e 25.1 undo',
+            idempotencyKey: `undo-${posted.transactionId}`,
+          },
+          null,
+        ),
+      );
+      const after = (await org('GET', `billing/wallets/${S4_CUSTOMER}`)).body;
+      const was = Number(before.wallet?.balanceUsd ?? 0);
+      assert.equal(Number(after.wallet.balanceUsd), Number((was + 1.25).toFixed(8)));
+      const statement = (await org('GET', `billing/wallets/${S4_CUSTOMER}/statement?limit=100`))
+        .body;
+      const line = statement.find((e) => e.transactionId === posted.transactionId);
+      assert.equal(line?.description, reason);
+      assert.equal(line?.amountUsd, '1.25000000');
+      // The manual adjustment is in the platform's audit log, once, with who and why.
+      const audit = (await org('GET', 'audit?action=billing.wallet_adjusted&limit=50')).body.items;
+      const entries = audit.filter((a) => a.diff?.transactionId === posted.transactionId);
+      assert.equal(entries.length, 1, JSON.stringify(audit.slice(0, 3)));
+      assert.equal(entries[0].targetId, S4_CUSTOMER);
+      assert.equal(entries[0].actorUserId, me.id);
+      assert.equal(entries[0].diff.reason, reason);
+      assert.equal(entries[0].diff.amountUsd, '1.25');
+      assert.equal((await org('GET', 'billing/ledger/check')).body.ok, true);
+
+      // Prepaid switch (both ways, back to where it was).
+      const prepaid = after.prepaid;
+      // The customer has no keys, so the snapshot may not change; no need to wait for it.
+      await org('PATCH', `billing/wallets/${S4_CUSTOMER}`, { prepaid: !prepaid });
+      cleanups.push(() => org('PATCH', `billing/wallets/${S4_CUSTOMER}`, { prepaid }, null));
+      assert.equal((await org('GET', `billing/wallets/${S4_CUSTOMER}`)).body.prepaid, !prepaid);
+
+      // Payments: the list with and without a status filter, and reconcile.
+      const payments = (await org('GET', 'billing/payments?limit=500')).body;
+      const pending = (await org('GET', 'billing/payments?limit=500&status=pending')).body;
+      assert.ok(Array.isArray(payments) && Array.isArray(pending));
+      assert.ok(pending.every((p) => p.status === 'pending'));
+      const reconciled = (await org('POST', 'billing/payments/reconcile')).body;
+      assert.equal(typeof reconciled.checked, 'number');
+
+      // Gateways and exchange rate: the page sends the whole settings object back.
+      const original = (await org('GET', 'billing/settings')).body;
+      const { available: _available, ...restore } = original;
+      cleanups.push(() => org('PUT', 'billing/settings', restore, null));
+      const saved = (
+        await org('PUT', 'billing/settings', {
+          ...restore,
+          exchangeRates: { ...restore.exchangeRates, IRR: '1234567' },
+          topup: { minUsd: '2', maxUsd: '300' },
+        })
+      ).body;
+      assert.equal(saved.exchangeRates.IRR, '1234567');
+      assert.deepEqual(saved.topup, { minUsd: '2', maxUsd: '300' });
+      assert.ok(Array.isArray(saved.available));
+      assert.equal((await org('GET', 'billing/settings')).body.exchangeRates.IRR, '1234567');
+
+      // Gift codes: create two batches, the codes come back once, revoke both, the report shows it.
+      const batch = async (name) =>
+        (
+          await org(
+            'POST',
+            'billing/gift-batches',
+            { name, kind: 'gift', amountUsd: '0.5', count: 3, maxRedemptions: 1 },
+            201,
+          )
+        ).body;
+      const one = await batch(`e2e 25.1 a ${randomUUID().slice(0, 6)}`);
+      const two = await batch(`e2e 25.1 b ${randomUUID().slice(0, 6)}`);
+      assert.equal(one.codes.length, 3);
+      assert.equal(new Set([...one.codes, ...two.codes]).size, 6);
+      const listedBatch = (await org('GET', `billing/gift-batches/${one.id}`)).body;
+      assert.equal(listedBatch.codes, 3);
+      assert.ok(!('plain' in listedBatch) && !JSON.stringify(listedBatch).includes(one.codes[0]));
+      for (const b of [one, two]) await org('POST', `billing/gift-batches/${b.id}/revoke`);
+      const all = (await org('GET', 'billing/gift-batches')).body;
+      for (const b of [one, two]) assert.ok(all.find((x) => x.id === b.id)?.revokedAt, b.id);
+      assert.deepEqual((await org('GET', `billing/gift-batches/${one.id}/redemptions`)).body, []);
+      const redeem = await api(
+        'POST',
+        `orgs/${S4_CUSTOMER}/wallet/redeem`,
+        { code: one.codes[0] },
+        null,
+      );
+      assert.notEqual(redeem.response.status, 200, 'a revoked code is refused');
+    },
+  );
 } catch (error) {
   crashed = true;
   console.error(error);

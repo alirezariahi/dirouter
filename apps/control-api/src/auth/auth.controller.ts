@@ -70,6 +70,8 @@ const MeResponse = z.object({
       slug: z.string(),
       role: z.enum(['OWNER', 'ADMIN', 'MEMBER', 'VIEWER']),
       permissions: z.array(z.string()),
+      /** The operator's organization, where the billing pages live (card 25.1). */
+      isPlatform: z.boolean(),
     }),
   ),
 });

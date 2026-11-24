@@ -320,6 +320,7 @@ export class AuthService {
           // Effective permissions (base role plus custom role) so the dashboard shows exactly
           // the controls the server will accept (card 14.3).
           permissions: [...effectivePermissions(m.role, m.customRole?.permissions ?? [])].sort(),
+          isPlatform: m.organization.isPlatform,
         })),
     };
   }

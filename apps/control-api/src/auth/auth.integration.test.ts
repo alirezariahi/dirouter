@@ -114,7 +114,7 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('dashboard auth over HTTP', () => 
     const me = await inject({ method: 'GET', url: 'me', token: body.accessToken });
     expect(me.json()).toMatchObject({
       email: 'owner@example.com',
-      organizations: [{ name: 'Acme Labs', slug: 'acme-labs', role: 'OWNER' }],
+      organizations: [{ name: 'Acme Labs', slug: 'acme-labs', role: 'OWNER', isPlatform: true }],
     });
     expect((await inject({ method: 'GET', url: 'me' })).statusCode).toBe(401);
   });

@@ -23,6 +23,10 @@ This folder contains the documentation for the DiRouter dashboard pages and comp
   - Combo editor with Drag & Drop
   - strategy simulator
   - Coverage: 62.06%
+- **[billing.md](billing.md)**: operator billing pages (cards 25.1 and 25.2)
+  - platform organization only, with billing:read
+  - customer wallets, manual credit and debit with a reason (recorded in the audit log)
+  - payments and reconciliation, gateways and exchange rates, gift codes with CSV and bulk revoke
 
 ## Implementation status
 

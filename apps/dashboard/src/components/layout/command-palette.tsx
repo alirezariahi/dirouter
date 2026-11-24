@@ -3,8 +3,9 @@ import { useNavigate } from '@tanstack/react-router';
 import { Command } from 'cmdk';
 import { useTranslation } from 'react-i18next';
 
+import { useBillingAccess } from '../../lib/billing';
 import { useSettings } from '../../settings';
-import { NAV } from './nav';
+import { visibleNav } from './nav';
 
 export function CommandPalette({
   open,
@@ -16,6 +17,7 @@ export function CommandPalette({
   const { t } = useTranslation();
   const navigate = useNavigate();
   const s = useSettings();
+  const nav = visibleNav(useBillingAccess().visible);
   const close = () => {
     onOpenChange(false);
   };
@@ -39,7 +41,7 @@ export function CommandPalette({
           heading={t('palette.navigate')}
           className="text-xs text-muted [&_[cmdk-group-items]]:text-sm [&_[cmdk-group-items]]:text-fg"
         >
-          {NAV.map((n) => (
+          {nav.map((n) => (
             <Command.Item
               key={n.to}
               value={`${t(`nav.${n.key}`)} ${n.key}`}

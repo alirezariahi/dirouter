@@ -136,6 +136,30 @@ const sprint2 = SPRINT2_PAGES.map((page) =>
 );
 const BUILT: readonly string[] = SPRINT2_PAGES.map((page) => page.path);
 
+/**
+ * Operator billing (cards 25.1, 25.2): one layout with the section tabs and the access check, a
+ * lazy page per tab. Paths are relative to /billing.
+ */
+const billing = createRoute({
+  getParentRoute: () => app,
+  path: '/billing',
+  component: lazyRouteComponent(() => import('./pages/billing/layout')),
+});
+const BILLING_PAGES = [
+  { path: '/', load: () => import('./pages/billing/customers') },
+  { path: 'payments', load: () => import('./pages/billing/payments') },
+  { path: 'gift-codes', load: () => import('./pages/billing/gift-codes') },
+  { path: 'settings', load: () => import('./pages/billing/settings') },
+  // billing-pages
+] as const;
+const billingPages = BILLING_PAGES.map((page) =>
+  createRoute({
+    getParentRoute: () => billing,
+    path: page.path,
+    component: lazyRouteComponent(page.load),
+  }),
+);
+
 const sections = NAV.filter(
   (n) =>
     ![
@@ -147,6 +171,7 @@ const sections = NAV.filter(
       '/models',
       '/organization',
       '/guides',
+      '/billing',
     ].includes(n.to) && !BUILT.includes(n.to),
 ).map((n) =>
   createRoute({
@@ -171,6 +196,7 @@ export const routeTree = root.addChildren([
     organization,
     guides,
     ...sprint2,
+    billing.addChildren(billingPages),
     ...sections,
   ]),
 ]);

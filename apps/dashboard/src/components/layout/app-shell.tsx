@@ -4,11 +4,12 @@ import { LogOut, Search } from 'lucide-react';
 import { lazy, Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { useBillingAccess } from '../../lib/billing';
 import { currentOrg, logout, useSession } from '../../lib/session';
 import { useSettings } from '../../settings';
 import { ChangeRequestNotice } from '../change-request-notice';
 import { Mark } from '../ui/mark';
-import { NAV, NAV_GROUPS } from './nav';
+import { NAV_GROUPS, visibleNav } from './nav';
 import { useCommandPalette } from './use-command-palette';
 
 const CommandPalette = lazy(() => import('./command-palette'));
@@ -23,6 +24,7 @@ export function AppShell() {
   const user = useSession();
   const org = currentOrg();
   const navigate = useNavigate();
+  const nav = visibleNav(useBillingAccess().visible);
   return (
     <div className="flex min-h-screen">
       <aside className="sticky top-0 hidden h-screen w-62 shrink-0 flex-col border-e border-border bg-sidebar md:flex">
@@ -40,21 +42,23 @@ export function AppShell() {
             <div key={group}>
               <p className="px-2 pt-5 pb-2 text-xs text-muted">{t(`navGroup.${group}`)}</p>
               <div className="flex flex-col gap-0.5">
-                {NAV.filter((n) => n.group === group).map((n) => (
-                  <Link
-                    key={n.to}
-                    to={n.to}
-                    activeOptions={{ exact: n.to === '/' }}
-                    className="group flex h-8.5 items-center gap-2.5 rounded-lg px-2 text-[13.5px] text-fg-2 transition-colors duration-150 hover:bg-fg/5 hover:text-fg data-[status=active]:bg-surface data-[status=active]:font-medium data-[status=active]:text-fg data-[status=active]:shadow-[0_0_0_1px_var(--color-border)] dark:data-[status=active]:bg-fg/8 dark:data-[status=active]:shadow-none"
-                  >
-                    <n.icon
-                      aria-hidden
-                      className="size-4 shrink-0 text-muted transition-colors duration-150 group-hover:text-fg-2 group-data-[status=active]:text-brand"
-                      strokeWidth={1.5}
-                    />
-                    <span className="truncate">{t(`nav.${n.key}`)}</span>
-                  </Link>
-                ))}
+                {nav
+                  .filter((n) => n.group === group)
+                  .map((n) => (
+                    <Link
+                      key={n.to}
+                      to={n.to}
+                      activeOptions={{ exact: n.to === '/' }}
+                      className="group flex h-8.5 items-center gap-2.5 rounded-lg px-2 text-[13.5px] text-fg-2 transition-colors duration-150 hover:bg-fg/5 hover:text-fg data-[status=active]:bg-surface data-[status=active]:font-medium data-[status=active]:text-fg data-[status=active]:shadow-[0_0_0_1px_var(--color-border)] dark:data-[status=active]:bg-fg/8 dark:data-[status=active]:shadow-none"
+                    >
+                      <n.icon
+                        aria-hidden
+                        className="size-4 shrink-0 text-muted transition-colors duration-150 group-hover:text-fg-2 group-data-[status=active]:text-brand"
+                        strokeWidth={1.5}
+                      />
+                      <span className="truncate">{t(`nav.${n.key}`)}</span>
+                    </Link>
+                  ))}
               </div>
             </div>
           ))}

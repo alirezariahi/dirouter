@@ -7,6 +7,7 @@ import {
   FlaskConical,
   HeartPulse,
   KeyRound,
+  Landmark,
   LayoutDashboard,
   type LucideIcon,
   Radio,
@@ -38,7 +39,20 @@ export const NAV = [
   { to: '/config', key: 'config', icon: Settings2, group: 'govern' },
   { to: '/organization', key: 'organization', icon: Building2, group: 'workspace' },
   { to: '/guides', key: 'guides', icon: BookOpen, group: 'workspace' },
-] as const satisfies readonly { to: string; key: string; icon: LucideIcon; group: string }[];
+  // Operator only: shown on the platform organization with billing:read (card 25.1).
+  { to: '/billing', key: 'billing', icon: Landmark, group: 'workspace', billing: true },
+] as const satisfies readonly {
+  to: string;
+  key: string;
+  icon: LucideIcon;
+  group: string;
+  billing?: boolean;
+}[];
 export type NavKey = (typeof NAV)[number]['key'];
 
 export const NAV_GROUPS = ['monitor', 'routing', 'govern', 'workspace'] as const;
+
+/** The entries this member may open: billing pages only for the platform's billing readers. */
+export function visibleNav(billingVisible: boolean) {
+  return NAV.filter((n) => billingVisible || !('billing' in n));
+}

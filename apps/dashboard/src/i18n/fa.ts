@@ -4,6 +4,7 @@ import { guidesFa, organizationFa, providersFa } from './page-messages';
 import { s2Fa } from './s2';
 import { s3Fa } from './s3';
 import { s4Fa } from './s4';
+import { billingFa } from './billing';
 export const fa = {
   app: { name: 'دی‌روتر', tagline: 'درگاه هوشمند مدل‌های زبانی' },
   nav: {
@@ -24,6 +25,7 @@ export const fa = {
     config: 'تنظیمات و نسخه‌ها',
     organization: 'سازمان',
     guides: 'راهنمای اتصال',
+    billing: 'صورت‌حساب',
   },
   navGroup: {
     monitor: 'پایش',
@@ -246,6 +248,7 @@ export const fa = {
   s2: s2Fa,
   s3: s3Fa,
   s4: s4Fa,
+  billing: billingFa,
 } as const;
 
 export type Messages = typeof fa;

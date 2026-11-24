@@ -186,6 +186,7 @@ export type AuthControllerMe200OrganizationsItem = {
   slug: string;
   role: AuthControllerMe200OrganizationsItemRole;
   permissions: string[];
+  isPlatform: boolean;
 };
 
 export type AuthControllerMe200 = {

@@ -128,6 +128,29 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('wallets over HTTP', () => {
     );
     expect(first.json()).toMatchObject({ created: true });
     expect(again.json()).toMatchObject({ created: false });
+    // The manual adjustment is in the platform's audit log once, with who, how much and why
+    // (card 25.1: the dashboard's top-up form posts to this route).
+    const audit = await app.get(PrismaService).client.auditLog.findMany({
+      where: { action: 'billing.wallet_adjusted', targetId: customer },
+    });
+    expect(audit).toHaveLength(1);
+    expect(audit[0]).toMatchObject({
+      organizationId: platform,
+      targetType: 'organization',
+      diff: {
+        amountUsd: '25.5',
+        reason: 'bank transfer #77',
+        transactionId: first.json<{ transactionId: string }>().transactionId,
+      },
+    });
+    expect(audit[0]?.actorUserId).toBeTruthy();
+    const logged = await call(
+      'GET',
+      `orgs/${platform}/audit?action=billing.wallet_adjusted`,
+      operator,
+    );
+    expect(logged.statusCode).toBe(200);
+    expect(JSON.stringify(logged.json())).toContain('bank transfer #77');
 
     const mine = await call('GET', `orgs/${customer}/wallet`, customerToken);
     expect(mine.json()).toMatchObject({

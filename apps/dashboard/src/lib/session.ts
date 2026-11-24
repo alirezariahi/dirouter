@@ -23,6 +23,8 @@ export interface SessionUser {
      * it does, `can` uses it instead of the base-role matrix below.
      */
     permissions?: string[];
+    /** The operator's own organization; only it sees the billing pages (card 25.1). */
+    isPlatform?: boolean;
   }[];
 }
 
