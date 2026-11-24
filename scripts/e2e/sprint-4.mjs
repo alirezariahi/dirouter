@@ -22,6 +22,7 @@ import {
   root,
   sql,
   urls,
+  valkey,
   waitFor,
 } from './harness.mjs';
 
@@ -105,11 +106,66 @@ async function gatewayMetric(name) {
   return stdout.split('\n').filter((line) => line.startsWith(name));
 }
 
+/** Mailpit, the dev mail server (SMTP mailpit:1025 inside Compose, HTTP API through Traefik). */
+const MAIL_URL = process.env.E2E_MAIL_URL ?? 'http://mail.localhost';
+
+/** Waits for a message to `address` that `match`es; returns Mailpit's full message (with Text). */
+async function mailTo(address, match = () => true, timeoutMs = 60_000) {
+  const summary = await waitFor(
+    `email to ${address}`,
+    async () => {
+      const { body } = await request(
+        `${MAIL_URL}/api/v1/search?query=${encodeURIComponent(`to:"${address}"`)}`,
+        {},
+        200,
+      );
+      return body.messages?.find(match);
+    },
+    timeoutMs,
+  );
+  return (await request(`${MAIL_URL}/api/v1/message/${summary.ID}`, {}, 200)).body;
+}
+
+/**
+ * Adds or removes delayed jobs in the BullMQ usage queue, from inside the worker container (where
+ * bullmq and the Valkey URL are). Delayed ten minutes, so the worker never processes them here.
+ */
+async function usageQueueJobs(action, tag, count) {
+  const script = `
+    import { Queue } from 'bullmq';
+    import { Redis } from 'ioredis';
+    const connection = new Redis(process.env.VALKEY_URL, { maxRetriesPerRequest: null });
+    const queue = new Queue('usage', { connection });
+    const ids = Array.from({ length: ${count} }, (_, i) => 'e2e-qlen-${tag}-' + i);
+    if (${JSON.stringify(action)} === 'add')
+      await queue.addBulk(ids.map((jobId) => ({ name: 'e2e-queue-probe', data: {}, opts: { jobId, delay: 600000 } })));
+    else for (const id of ids) await (await queue.getJob(id))?.remove();
+    await queue.close();
+    connection.disconnect();
+  `;
+  await exec('docker', [
+    'exec',
+    '-w',
+    '/repo/apps/worker',
+    'dirouter-worker-1',
+    'node',
+    '--input-type=module',
+    '-e',
+    script,
+  ]);
+}
+
 let crashed = false;
 try {
   const seedAdmin = await readEnv('.data/seed-admin.env');
   const api = adminClient(await login(seedAdmin.SEED_ADMIN_EMAIL, seedAdmin.SEED_ADMIN_PASSWORD));
   const org = (method, path, body, expected) => api(method, `orgs/${ORG}/${path}`, body, expected);
+
+  /** Alert events of the dev organization, newest first. */
+  const events = async () => {
+    const { body } = await org('GET', 'alerts/events?limit=100');
+    return body.items ?? body;
+  };
 
   async function createKey(name) {
     const { body } = await published(() =>
@@ -1339,6 +1395,109 @@ try {
       const all = await profit();
       assert.ok(Number(all.totals.revenueUsd) >= Number(filtered.totals.revenueUsd));
       assert.deepEqual(filtered.ledger, all.ledger);
+    },
+  );
+
+  // ───────────── Epic 24: alerts and email ─────────────
+
+  await scenario(
+    '24.2 breaker_open and queue_length alerts reach an email channel over SMTP (Mailpit)',
+    async () => {
+      const tag = randomUUID().slice(0, 8);
+      const inbox = `s4-alerts-${tag}@e2e.test`;
+      const channel = (
+        await org(
+          'POST',
+          'alerts/channels',
+          // No webhookUrl: the worker and the control-api send over SMTP to Mailpit.
+          { name: `s4-mail-${tag}`, type: 'email', config: { to: inbox } },
+          201,
+        )
+      ).body;
+      cleanups.push(() => org('DELETE', `alerts/channels/${channel.id}`, undefined, null));
+
+      // 1. The channel's test message goes through SMTP and arrives at the dev mail server.
+      const test = (await org('POST', `alerts/channels/${channel.id}/test`, undefined, null)).body;
+      assert.equal(test.ok, true, JSON.stringify(test));
+      const testMail = await mailTo(inbox, (m) => m.Subject.includes('Test alert from DiRouter'));
+      assert.match(testMail.From.Address, /^noreply@/);
+      assert.match(testMail.Subject, /^\[DiRouter\] /);
+
+      // 2. breaker_open: open the breaker of the always-failing mock provider.
+      const resetBreaker = () =>
+        org('POST', 'health/reset', { scope: 'provider', id: 'prv_mock-down' }, null);
+      await resetBreaker();
+      cleanups.push(resetBreaker);
+      const breakerRule = (
+        await org(
+          'POST',
+          'alerts/rules',
+          {
+            name: `s4-breaker-${tag}`,
+            type: 'breaker_open',
+            windowMinutes: 5,
+            silenceMinutes: 60,
+            channelId: channel.id,
+          },
+          201,
+        )
+      ).body;
+      cleanups.push(() => org('DELETE', `alerts/rules/${breakerRule.id}`, undefined, null));
+      assert.equal(breakerRule.threshold, null, 'breaker_open needs no threshold (defaults to 1)');
+      const main = await createKey('alerts');
+      for (let i = 0; i < 14; i++)
+        await chat(main.key, {
+          model: 'mock/down',
+          messages: [{ role: 'user', content: 'open the breaker' }],
+        });
+      const stored = await waitFor('breaker state in Valkey', async () => {
+        const raw = await valkey('HGET', 'dirouter:breakers', 'provider:prv_mock-down');
+        return raw ? JSON.parse(raw) : undefined;
+      });
+      assert.ok(['open', 'half_open'].includes(stored.state), JSON.stringify(stored));
+      const breakerEvent = await waitFor(
+        'breaker_open alert event',
+        async () => (await events()).find((e) => e.ruleId === breakerRule.id && e.deliveredAt),
+        120_000,
+      );
+      assert.ok(
+        breakerEvent.details.breakers.some((b) => b.id === 'prv_mock-down'),
+        JSON.stringify(breakerEvent.details),
+      );
+      const breakerMail = await mailTo(inbox, (m) => m.Subject.includes(`s4-breaker-${tag}`));
+      assert.match(breakerMail.Text, /provider prv_mock-down: (open|half_open)/);
+      // A manual reset closes the breaker and removes it from the shared state.
+      await resetBreaker();
+      assert.equal(await valkey('HGET', 'dirouter:breakers', 'provider:prv_mock-down'), '');
+
+      // 3. queue_length: park delayed jobs in the usage queue until it is over the threshold.
+      const queueRule = (
+        await org(
+          'POST',
+          'alerts/rules',
+          {
+            name: `s4-queue-${tag}`,
+            type: 'queue_length',
+            threshold: 40,
+            windowMinutes: 5,
+            silenceMinutes: 60,
+            channelId: channel.id,
+          },
+          201,
+        )
+      ).body;
+      cleanups.push(() => org('DELETE', `alerts/rules/${queueRule.id}`, undefined, null));
+      cleanups.push(() => usageQueueJobs('remove', tag, 50));
+      await usageQueueJobs('add', tag, 50);
+      const queueEvent = await waitFor(
+        'queue_length alert event',
+        async () => (await events()).find((e) => e.ruleId === queueRule.id && e.deliveredAt),
+        120_000,
+      );
+      assert.ok(queueEvent.details.value >= 50, JSON.stringify(queueEvent.details));
+      const queueMail = await mailTo(inbox, (m) => m.Subject.includes(`s4-queue-${tag}`));
+      assert.match(queueMail.Subject, /jobs \(threshold 40 jobs\)/);
+      await usageQueueJobs('remove', tag, 50);
     },
   );
 } catch (error) {

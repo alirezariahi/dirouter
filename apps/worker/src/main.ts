@@ -7,6 +7,7 @@ import { createServer } from 'node:http';
 import { MCP_CALLS_QUEUE, QUEUES, UsageEvent } from '@dirouter/contracts';
 import { createPrismaClient } from '@dirouter/db';
 import { connectValkey, createLogger, loadEnvOrExit } from '@dirouter/shared';
+import { createMailer } from '@dirouter/shared/mail';
 import { type Job, Queue, UnrecoverableError, Worker } from 'bullmq';
 import { Redis } from 'ioredis';
 
@@ -42,6 +43,13 @@ const db = createPrismaClient({
 const connection = connectValkey(Redis, env.VALKEY_URL, { maxRetriesPerRequest: null });
 connection.on('error', (error: Error) => {
   logger.warn({ err: error }, 'valkey connection error');
+});
+
+// Alert email (card 24.2); an invalid SMTP_URL stops the worker at boot instead of at the first alert.
+const mailer = createMailer({
+  url: env.SMTP_URL,
+  from: env.SMTP_FROM,
+  production: env.NODE_ENV === 'production',
 });
 
 const usageQueue = new Queue(QUEUES.usage, { connection });
@@ -156,7 +164,21 @@ const jobs: Record<string, () => Promise<unknown>> = {
   retention: () => dropOldPartitions(mdb, env.REQUEST_LOG_RETENTION_MONTHS),
   'budget-alerts': () => processBudgetAlerts(db as unknown as BudgetDb, connection, logger),
   'budget-reconcile': () => reconcileBudgets(db as unknown as BudgetDb, connection, logger),
-  'alerts-evaluate': () => evaluateAlerts({ db: db, logger, clock: { now: () => Date.now() } }),
+  'alerts-evaluate': () =>
+    evaluateAlerts({
+      db: db,
+      logger,
+      clock: { now: () => Date.now() },
+      mailer,
+      sources: {
+        // The gateway writes breaker transitions to Valkey (card 24.2).
+        breakers: connection,
+        queueLength: async () => {
+          const counts = await usageQueue.getJobCounts('waiting', 'delayed', 'prioritized');
+          return Object.values(counts).reduce((sum, n) => sum + n, 0);
+        },
+      },
+    }),
   'wallet-sync': () => syncWallets(db, connection),
   'ledger-audit': () => auditLedger(db, logger),
   'plan-renewals': () => renewPlans(db, connection),
@@ -265,6 +287,7 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) {
       .then(() => Promise.all([usageQueue.close(), deadQueue.close(), maintenanceQueue.close()]))
       .then(() => db.$disconnect())
       .finally(() => {
+        mailer.close();
         connection.disconnect();
         health.close(() => process.exit(0));
       });

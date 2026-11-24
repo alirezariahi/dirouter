@@ -4,13 +4,20 @@
  */
 import { EventEmitter } from 'node:events';
 
+import { BREAKER_STATE_KEY, BreakerStateEntry } from '@dirouter/contracts';
 import type { ClassifiedError } from '@dirouter/providers';
 import { HealthRegistry } from '@dirouter/routing';
 import { createLogger } from '@dirouter/shared';
 import { Redis } from 'ioredis';
 import { describe, expect, it } from 'vitest';
 
-import { HEALTH_CHANNEL, HealthSync, type Publisher, type Subscriber } from './health-sync.js';
+import {
+  type BreakerStore,
+  HEALTH_CHANNEL,
+  HealthSync,
+  type Publisher,
+  type Subscriber,
+} from './health-sync.js';
 
 const logger = createLogger({ service: 'test', level: 'silent' });
 const target = { providerId: 'p1', modelId: 'm1', credentialId: 'c1' };
@@ -128,6 +135,79 @@ describe('health sync between gateway replicas', () => {
     const publisher = bus.publisher();
     bus.down = true;
     await expect(publisher.publish(HEALTH_CHANNEL, 'broken')).rejects.toThrow();
+  });
+});
+
+describe('breaker state for alert rules (24.2)', () => {
+  /** In-memory stand-in for the Valkey hash. */
+  function fakeStore(down = false) {
+    const hash = new Map<string, string>();
+    const store: BreakerStore = {
+      hset: (key, field, value) => {
+        if (down) return Promise.reject(new Error('Connection is closed.'));
+        expect(key).toBe(BREAKER_STATE_KEY);
+        hash.set(field, value);
+        return Promise.resolve(1);
+      },
+      hdel: (key, field) => {
+        if (down) return Promise.reject(new Error('Connection is closed.'));
+        expect(key).toBe(BREAKER_STATE_KEY);
+        return Promise.resolve(hash.delete(field) ? 1 : 0);
+      },
+    };
+    return { hash, store };
+  }
+
+  it('writes an opened breaker with its time and removes it when it closes', async () => {
+    let now = 1_000_000;
+    const clock = () => now;
+    const { hash, store } = fakeStore();
+    const sync = new HealthSync({
+      instance: 'a',
+      logger,
+      publisher: new Bus().publisher(),
+      store,
+      clock,
+    });
+    const registry = new HealthRegistry({
+      clock,
+      onChange: (c) => {
+        sync.publish(c);
+      },
+    });
+    fail(registry, 10);
+    await tick();
+    const provider = BreakerStateEntry.parse(JSON.parse(hash.get('provider:p1') ?? '{}'));
+    expect(provider).toMatchObject({ state: 'open', at: 1_000_000 });
+    expect(provider.reopensAt).toBeGreaterThan(now);
+    expect(hash.has('model:m1')).toBe(true);
+
+    // After the open period the probes succeed and the breaker closes: the entry goes away.
+    now += 600_000;
+    for (let i = 0; i < 3; i++) registry.recordSuccess(target);
+    await tick();
+    expect(registry.providerBreaker('p1').state).toBe('closed');
+    expect(hash.has('provider:p1')).toBe(false);
+
+    // A reset published by this node removes the field too.
+    hash.set('model:m9', '{}');
+    sync.publish({ kind: 'reset', scope: 'model', id: 'm9' });
+    await tick();
+    expect(hash.has('model:m9')).toBe(false);
+  });
+
+  it('a failing store never breaks the breaker', async () => {
+    const { store } = fakeStore(true);
+    const sync = new HealthSync({ instance: 'a', logger, publisher: new Bus().publisher(), store });
+    const registry = new HealthRegistry({
+      onChange: (c) => {
+        sync.publish(c);
+      },
+    });
+    fail(registry, 10);
+    await tick();
+    expect(registry.providerBreaker('p1').state).toBe('open');
+    expect(sync.storeFailures).toBeGreaterThan(0);
   });
 });
 

@@ -494,6 +494,7 @@ export type OrgsControllerInvite200 = {
   expiresAt: string;
   token: string;
   url: string;
+  emailSent: boolean;
 };
 
 export type OrgsControllerTeams200Item = {

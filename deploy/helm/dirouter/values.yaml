@@ -79,6 +79,8 @@ worker:
     requests: { cpu: 100m, memory: 192Mi }
     limits: { memory: 512Mi }
   requestLogRetentionMonths: 3
+  # Extra environment, e.g. SMTP_URL and SMTP_FROM for alert email (card 24.2); see docs/env-reference.md.
+  extraEnv: {}
 
 dashboard:
   enabled: true

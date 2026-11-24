@@ -1,4 +1,9 @@
-import { describe, expect, it } from 'vitest';
+import type { AddressInfo } from 'node:net';
+
+import { BREAKER_STATE_KEY } from '@dirouter/contracts';
+import { createMailer } from '@dirouter/shared/mail';
+import { SMTPServer } from 'smtp-server';
+import { afterEach, describe, expect, it } from 'vitest';
 
 import {
   type AlertDb,
@@ -8,6 +13,7 @@ import {
   checkOutboundUrl,
   dedupKeyFor,
   deliver,
+  emailRecipients,
   evaluateAlerts,
   isBlockedAddress,
   MAX_DELIVERY_ATTEMPTS,
@@ -195,14 +201,120 @@ describe('alert evaluation (16.2)', () => {
     expect(r2.fired[0]?.value).toBe(12.5);
   });
 
-  it('skips rules whose data is not available instead of inventing a value', async () => {
+  it('skips rules whose data source is not wired instead of inventing a value', async () => {
     const { db } = fakeDb({
-      rules: [rule({ id: 'r4', type: 'breaker_open', threshold: 1 })],
+      rules: [
+        rule({ id: 'r4', type: 'breaker_open', threshold: 1 }),
+        rule({ id: 'r5', type: 'queue_length', threshold: 1 }),
+      ],
       measure: [{}],
     });
     const result = await evaluateAlerts({ db, logger, clock: { now: () => 1 } });
     expect(result.fired).toHaveLength(0);
-    expect(result.skipped[0]).toMatchObject({ ruleId: 'r4', reason: 'no_persisted_breaker_state' });
+    expect(result.skipped).toEqual([
+      { ruleId: 'r4', type: 'breaker_open', reason: 'no_breaker_source' },
+      { ruleId: 'r5', type: 'queue_length', reason: 'no_queue_source' },
+    ]);
+  });
+});
+
+describe('breaker_open and queue_length rules (24.2)', () => {
+  const NOW = 1_800_000_000_000;
+  const entry = (state: string, at: number, reopensAt?: number) =>
+    JSON.stringify({ state, at, ...(reopensAt ? { reopensAt } : {}) });
+
+  /** The DB answers the ownership query with the ids that belong to `org`. */
+  function breakerDb(rules: AlertRuleRow[], owned: string[]) {
+    const base = fakeDb({ rules, measure: [], channels: [channel()] });
+    const queries: unknown[][] = [];
+    base.db.$queryRawUnsafe = (async (_sql: string, ...values: unknown[]) => {
+      queries.push(values);
+      const wanted = [...(values[1] as string[]), ...(values[2] as string[])];
+      return owned.filter((id) => wanted.includes(id)).map((id) => ({ id }));
+    }) as AlertDb['$queryRawUnsafe'];
+    return { ...base, queries };
+  }
+
+  it('fires when a provider breaker of the organization opens and delivers to the channel', async () => {
+    const hash: Record<string, string> = {
+      'provider:prv_down': entry('open', NOW - 5_000, NOW + 10_000),
+      // Another organization's provider and a stale entry from a replica that died do not count.
+      'provider:prv_other': entry('open', NOW - 5_000, NOW + 10_000),
+      'model:mdl_old': entry('open', NOW - 3_600_000, NOW - 3_590_000),
+      'credential:c1': entry('open', NOW),
+      'provider:prv_bad': 'not json',
+    };
+    const keys: string[] = [];
+    const { db, created, queries } = breakerDb(
+      [rule({ id: 'rb', type: 'breaker_open', threshold: null, windowMinutes: 5 })],
+      ['prv_down', 'mdl_old', 'prv_bad'],
+    );
+    const bodies: string[] = [];
+    const fetchImpl = (async (_url: string, init: RequestInit) => {
+      bodies.push(bodyText(init));
+      return new Response('ok');
+    }) as unknown as typeof fetch;
+    const result = await evaluateAlerts({
+      db,
+      logger,
+      fetchImpl,
+      clock: { now: () => NOW },
+      sources: {
+        breakers: {
+          hgetall: async (key) => {
+            keys.push(key);
+            return hash;
+          },
+        },
+      },
+    });
+    expect(keys).toEqual([BREAKER_STATE_KEY]);
+    expect(queries[0]?.[0]).toBe('org');
+    expect(result.fired).toHaveLength(1);
+    expect(result.fired[0]?.value).toBe(1);
+    expect(result.fired[0]?.threshold).toBe(1);
+    expect(result.fired[0]?.delivery).toEqual({ ok: true });
+    expect(created[0]?.details).toMatchObject({
+      type: 'breaker_open',
+      breakers: [{ scope: 'provider', id: 'prv_down', state: 'open' }],
+    });
+    expect(String(created[0]?.title)).toContain('1 open');
+    expect((JSON.parse(bodies[0] ?? '{}') as { event: { title: string } }).event.title).toContain(
+      'High errors',
+    );
+  });
+
+  it('stays quiet when no breaker of the organization is open', async () => {
+    const { db } = breakerDb([rule({ type: 'breaker_open', threshold: 1 })], []);
+    const result = await evaluateAlerts({
+      db,
+      logger,
+      clock: { now: () => NOW },
+      sources: { breakers: { hgetall: async () => ({}) } },
+    });
+    expect(result.fired).toHaveLength(0);
+    expect(result.skipped).toHaveLength(0);
+  });
+
+  it('fires when the usage queue reaches the threshold', async () => {
+    let length = 120;
+    const { db, created } = fakeDb({
+      rules: [rule({ id: 'rq', type: 'queue_length', threshold: 500, channelId: null })],
+      measure: [],
+    });
+    const sources = { queueLength: async () => length };
+    const quiet = await evaluateAlerts({ db, logger, clock: { now: () => NOW }, sources });
+    expect(quiet.fired).toHaveLength(0);
+    length = 750;
+    const fired = await evaluateAlerts({ db, logger, clock: { now: () => NOW }, sources });
+    expect(fired.fired[0]?.value).toBe(750);
+    expect(created[0]?.details).toMatchObject({ type: 'queue_length', value: 750, queue: 'usage' });
+    expect(String(created[0]?.title)).toContain('750 jobs (threshold 500 jobs)');
+  });
+
+  it('defaults breaker_open to one open breaker; queue_length needs a threshold', () => {
+    expect(thresholdOf({ type: 'breaker_open', threshold: null })).toBe(1);
+    expect(thresholdOf({ type: 'queue_length', threshold: null })).toBeUndefined();
   });
 });
 
@@ -419,13 +531,133 @@ describe('notification channels (16.2)', () => {
     expect(missing).toEqual({ ok: false, error: 'telegram botToken/chatId is missing' });
   });
 
-  it('refuses email without an HTTP relay (no fake SMTP)', async () => {
-    const result = await deliver(channel({ type: 'email', config: { to: 'ops@example.com' } }), {
-      title: 't',
-      details: {},
+  it('reports email without SMTP configured or without valid recipients', async () => {
+    const event = { title: 't', details: {} };
+    const noSmtp = await deliver(
+      channel({ type: 'email', config: { to: 'ops@example.com' } }),
+      event,
+      { mailer: createMailer({ url: '', from: 'noreply@dirouter.test' }) },
+    );
+    expect(noSmtp).toEqual({ ok: false, error: 'SMTP is not configured on the worker (SMTP_URL)' });
+    const badTo = await deliver(
+      channel({ type: 'email', config: { to: 'not an address' } }),
+      event,
+    );
+    expect(badTo.ok).toBe(false);
+    expect(emailRecipients('a@example.com, b@example.com')).toEqual([
+      'a@example.com',
+      'b@example.com',
+    ]);
+    expect(emailRecipients(['a@example.com', 'x\r\nBcc: y@z.w'])).toBeUndefined();
+  });
+
+  it('keeps using the HTTP relay when the channel has one', async () => {
+    let body = '';
+    const fetchImpl = (async (_url: string, init: RequestInit) => {
+      body = bodyText(init);
+      return new Response('ok');
+    }) as unknown as typeof fetch;
+    const result = await deliver(
+      channel({
+        type: 'email',
+        config: { to: 'ops@example.com', webhookUrl: 'https://relay.test/send' },
+      }),
+      { title: 'relay me', details: {} },
+      { fetchImpl },
+    );
+    expect(result.ok).toBe(true);
+    expect(JSON.parse(body)).toMatchObject({ to: 'ops@example.com', subject: 'relay me' });
+  });
+});
+
+describe('email channel over SMTP (24.2)', () => {
+  const servers: SMTPServer[] = [];
+  afterEach(async () => {
+    await Promise.all(
+      servers.splice(0).map(
+        (server) =>
+          new Promise<void>((done) => {
+            server.close(() => {
+              done();
+            });
+          }),
+      ),
+    );
+  });
+
+  async function smtpSink() {
+    const messages: { to: string[]; raw: string }[] = [];
+    const server = new SMTPServer({
+      authOptional: true,
+      disabledCommands: ['STARTTLS'],
+      logger: false,
+      onData(stream, session, callback) {
+        let raw = '';
+        stream.on('data', (chunk: Buffer) => (raw += chunk.toString()));
+        stream.on('end', () => {
+          messages.push({ to: session.envelope.rcptTo.map((r) => r.address), raw });
+          callback();
+        });
+      },
     });
+    servers.push(server);
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    return { port: (server.server.address() as AddressInfo).port, messages };
+  }
+
+  it('an alert fired by the evaluator reaches the mail server', async () => {
+    const sink = await smtpSink();
+    const mailer = createMailer({
+      url: `smtp://127.0.0.1:${String(sink.port)}`,
+      from: 'DiRouter <alerts@dirouter.test>',
+      production: false,
+    });
+    const { db, updated } = fakeDb({
+      rules: [rule({ type: 'breaker_open', threshold: 1 })],
+      measure: [],
+      channels: [
+        channel({ type: 'email', config: { to: 'oncall@example.com, lead@example.com' } }),
+      ],
+    });
+    db.$queryRawUnsafe = (async () => [{ id: 'prv_down' }]) as AlertDb['$queryRawUnsafe'];
+    const now = 1_800_000_000_000;
+    const result = await evaluateAlerts({
+      db,
+      logger,
+      mailer,
+      clock: { now: () => now },
+      sources: {
+        breakers: {
+          hgetall: async () => ({
+            'provider:prv_down': JSON.stringify({ state: 'open', at: now - 1_000 }),
+          }),
+        },
+      },
+    });
+    mailer.close();
+    expect(result.fired[0]?.delivery).toEqual({ ok: true });
+    expect(updated[0]?.data.deliveredAt).toBeInstanceOf(Date);
+    expect(sink.messages).toHaveLength(1);
+    expect(sink.messages[0]?.to).toEqual(['oncall@example.com', 'lead@example.com']);
+    expect(sink.messages[0]?.raw).toMatch(/Subject: \[DiRouter\] High errors: 1 open/);
+    expect(sink.messages[0]?.raw).toContain('provider prv_down: open');
+  });
+
+  it('a refused message is recorded as a delivery error, not thrown', async () => {
+    const mailer = createMailer({
+      url: 'smtp://127.0.0.1:1',
+      from: 'alerts@dirouter.test',
+      production: false,
+      timeoutMs: 2_000,
+    });
+    const result = await deliver(
+      channel({ type: 'email', config: { to: 'ops@example.com' } }),
+      { title: 't', details: {} },
+      { mailer },
+    );
+    mailer.close();
     expect(result.ok).toBe(false);
-    expect(result.error).toContain('SMTP is not implemented');
+    expect(result.error).toBeTruthy();
   });
 
   it('sends a test message through the same delivery path', async () => {

@@ -30,7 +30,7 @@ import {
 const CHANNEL_TYPES = ['webhook', 'slack', 'telegram', 'email'] as const;
 type ChannelType = (typeof CHANNEL_TYPES)[number];
 /** Older rows may still carry the two retired types; they are listed but cannot be created. */
-type RuleType = (typeof RULE_TYPES)[number] | 'breaker_open' | 'queue_length';
+type RuleType = (typeof RULE_TYPES)[number];
 
 interface Channel {
   id: string;
@@ -362,6 +362,7 @@ export default function AlertsPage() {
                         type="url"
                         dir="ltr"
                         required={
+                          edit.type !== 'email' &&
                           !edit.secretFields.includes(
                             edit.type === 'webhook' ? 'url' : 'webhookUrl',
                           )
@@ -403,6 +404,7 @@ export default function AlertsPage() {
                         name="edit-channel-to"
                         label={t('s2.alerts.to')}
                         type="email"
+                        multiple
                         dir="ltr"
                         required
                         value={edit.to}
@@ -487,10 +489,10 @@ export default function AlertsPage() {
           ) : (
             <Field
               name="channel-url"
-              label={t('s2.alerts.url')}
+              label={t(channel.type === 'email' ? 's2.alerts.relayUrl' : 's2.alerts.url')}
               type="url"
               dir="ltr"
-              required
+              required={channel.type !== 'email'}
               value={channel.url}
               onChange={setC('url')}
             />
@@ -511,6 +513,7 @@ export default function AlertsPage() {
               name="channel-to"
               label={t('s2.alerts.to')}
               type="email"
+              multiple
               dir="ltr"
               required
               value={channel.to}

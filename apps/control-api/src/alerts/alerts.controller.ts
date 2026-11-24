@@ -24,7 +24,7 @@ import {
   ZodPipe,
 } from '../common/zod.js';
 import { Org, OrgGuard, type OrgContext, RequirePermission } from '../rbac/org.guard.js';
-import { AlertsService, THRESHOLD_REQUIRED, UNSUPPORTED_RULE_TYPES } from './alerts.service.js';
+import { AlertsService, THRESHOLD_REQUIRED } from './alerts.service.js';
 
 const ChannelType = z.enum(['webhook', 'slack', 'telegram', 'email']);
 export const ChannelBody = z.object({
@@ -52,18 +52,9 @@ export const RuleBody = z.object({
   channelId: z.string().nullable().optional(),
   enabled: z.boolean().optional(),
 });
-/**
- * `breaker_open` and `queue_length` stay in the enum (existing rows use them) but new rules of
- * those types are refused: the worker has no data source for them and would never fire.
- */
-const RuleCreate = RuleBody.superRefine((rule, ctx) => {
-  if (UNSUPPORTED_RULE_TYPES.has(rule.type))
-    ctx.addIssue({
-      code: 'custom',
-      path: ['type'],
-      message: `rule type '${rule.type}' is not supported: it has no data source to evaluate`,
-    });
-  else if (THRESHOLD_REQUIRED.has(rule.type) && rule.threshold === undefined)
+/** Every rule type is evaluated by the worker (card 24.2); some need a threshold. */
+export const RuleCreate = RuleBody.superRefine((rule, ctx) => {
+  if (THRESHOLD_REQUIRED.has(rule.type) && rule.threshold === undefined)
     ctx.addIssue({
       code: 'custom',
       path: ['threshold'],

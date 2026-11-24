@@ -1,8 +1,9 @@
 /**
  * Alert evaluation and notification delivery (card 16.2).
  *
- * Rules are evaluated against request_log (error rate, latency, spend) and health samples
- * (invalid credential). Every firing creates an AlertEvent; a silence window plus the
+ * Rules are evaluated against request_log (error rate, latency, spend), health samples
+ * (invalid credential), the gateway's breaker state in Valkey (breaker open) and the size of the
+ * usage queue in BullMQ (queue length; card 24.2). Every firing creates an AlertEvent; a silence window plus the
  * unique (ruleId, dedupKey) index prevent duplicate notifications across worker replicas.
  * The dedup key is the silence-window bucket, so two replicas in the same tick collide on it.
  *
@@ -16,13 +17,16 @@
  * - `webhook`: JSON POST, optionally signed with HMAC-SHA256 (`x-dirouter-signature`)
  * - `slack`: incoming webhook `{ text }`
  * - `telegram`: Bot API `sendMessage`
- * - `email`: HTTP email-relay webhook (an SMTP implementation is intentionally not faked)
+ * - `email`: SMTP through the shared mailer (`SMTP_URL`, TLS; card 24.2), or an HTTP email relay
+ *   when the channel has a `webhookUrl`
  */
 import { createHmac } from 'node:crypto';
 import { lookup as dnsLookup } from 'node:dns/promises';
 import { BlockList, isIP } from 'node:net';
 
+import { BREAKER_STATE_KEY, BreakerStateEntry } from '@dirouter/contracts';
 import { type Logger, prefixedId } from '@dirouter/shared';
+import { isEmailAddress, type Mailer } from '@dirouter/shared/mail';
 
 export type AlertRuleType =
   'error_rate' | 'latency' | 'budget' | 'invalid_credential' | 'breaker_open' | 'queue_length';
@@ -82,6 +86,18 @@ export interface Clock {
   now(): number;
 }
 
+/** Reads the breaker hash the gateway writes (an ioredis client fits). */
+export interface BreakerStateReader {
+  hgetall(key: string): Promise<Record<string, string>>;
+}
+
+/** Where `measure` reads values that are not in PostgreSQL. */
+export interface MeasureSources {
+  breakers?: BreakerStateReader | undefined;
+  /** Jobs waiting in the usage queue (waiting, delayed, prioritized). */
+  queueLength?: (() => Promise<number>) | undefined;
+}
+
 export interface EvaluateOptions {
   db: AlertDb;
   logger: Logger;
@@ -91,6 +107,10 @@ export interface EvaluateOptions {
   timeoutMs?: number;
   /** Outbound URL policy overrides (tests); defaults follow NODE_ENV. */
   urlPolicy?: UrlPolicyOptions;
+  /** SMTP sender for `email` channels without an HTTP relay. */
+  mailer?: Mailer;
+  /** Valkey (breaker state) and BullMQ (queue length); a rule whose source is missing is skipped. */
+  sources?: MeasureSources;
 }
 
 export interface Firing {
@@ -118,6 +138,9 @@ export function dedupKeyFor(ruleId: string, now: number, silenceMs: number): str
   return `${ruleId}:${String(Math.floor(now / silenceMs))}`;
 }
 
+/** Rule types that count events, so a missing threshold means "at least one". */
+const COUNT_DEFAULTS = new Set(['invalid_credential', 'breaker_open']);
+
 /**
  * Threshold of a rule, or undefined when the rule cannot be evaluated without one. A missing
  * threshold must never be read as 0: a `budget` rule would then fire with zero spend.
@@ -125,7 +148,7 @@ export function dedupKeyFor(ruleId: string, now: number, silenceMs: number): str
  */
 export function thresholdOf(rule: Pick<AlertRuleRow, 'type' | 'threshold'>): number | undefined {
   if (rule.threshold === null || rule.threshold === undefined || rule.threshold === '')
-    return rule.type === 'invalid_credential' ? 1 : undefined;
+    return COUNT_DEFAULTS.has(rule.type) ? 1 : undefined;
   const value = Number(rule.threshold);
   return Number.isFinite(value) ? value : undefined;
 }
@@ -137,12 +160,56 @@ function attemptsOf(event: Pick<AlertEventRow, 'details'>): number {
 
 const PERCENT = 100;
 
-/** Value of a rule in its natural unit (percent, ms or USD). */
+/** A measured value, with optional extra facts for the event details. */
+type Measured = number | { value: number; extra: Record<string, unknown> } | { skip: string };
+
+/**
+ * Breakers of this organization's providers and models that are open now or were open during the
+ * window. A closed breaker has no entry; an entry older than the window (a replica that died while
+ * its breaker was open) no longer counts.
+ */
+async function openBreakers(
+  db: AlertDb,
+  reader: BreakerStateReader,
+  organizationId: string,
+  since: Date,
+): Promise<{ scope: string; id: string; state: string }[]> {
+  const raw = await reader.hgetall(BREAKER_STATE_KEY);
+  const recent: { scope: 'provider' | 'model'; id: string; state: string }[] = [];
+  for (const [field, value] of Object.entries(raw)) {
+    const separator = field.indexOf(':');
+    const scope = field.slice(0, separator);
+    if (scope !== 'provider' && scope !== 'model') continue;
+    let entry: BreakerStateEntry;
+    try {
+      entry = BreakerStateEntry.parse(JSON.parse(value));
+    } catch {
+      continue;
+    }
+    if (Math.max(entry.at, entry.reopensAt ?? 0) < since.getTime()) continue;
+    recent.push({ scope, id: field.slice(separator + 1), state: entry.state });
+  }
+  if (recent.length === 0) return [];
+  const ids = (scope: string) => recent.filter((b) => b.scope === scope).map((b) => b.id);
+  const owned = await db.$queryRawUnsafe<{ id: string }[]>(
+    `SELECT id FROM providers WHERE organization_id = $1 AND id = ANY($2::text[])
+     UNION ALL
+     SELECT id FROM models WHERE organization_id = $1 AND id = ANY($3::text[])`,
+    organizationId,
+    ids('provider'),
+    ids('model'),
+  );
+  const mine = new Set(owned.map((row) => row.id));
+  return recent.filter((b) => mine.has(b.id));
+}
+
+/** Value of a rule in its natural unit (percent, ms, USD or a count). */
 async function measure(
   db: AlertDb,
   rule: AlertRuleRow,
   since: Date,
-): Promise<number | { skip: string }> {
+  sources: MeasureSources,
+): Promise<Measured> {
   const type = rule.type as AlertRuleType;
   if (type === 'error_rate') {
     const rows = await db.$queryRawUnsafe<{ total: number; errors: number }[]>(
@@ -190,17 +257,25 @@ async function measure(
     );
     return rows[0]?.failures ?? 0;
   }
-  // Breaker state is in-memory in the gateway (synced by pub/sub, never persisted), so there is
-  // nothing to measure here. The control-api refuses new rules of this type; old rows are skipped.
-  if (type === 'breaker_open') return { skip: 'no_persisted_breaker_state' };
-  // Only `queue_length` is left: BullMQ queue sizes live in Valkey, not in PostgreSQL.
-  return { skip: 'queue_metrics_not_in_postgres' };
+  if (type === 'breaker_open') {
+    if (!sources.breakers) return { skip: 'no_breaker_source' };
+    const open = await openBreakers(db, sources.breakers, rule.organizationId, since);
+    return { value: open.length, extra: { breakers: open } };
+  }
+  if (rule.type === 'queue_length') {
+    if (!sources.queueLength) return { skip: 'no_queue_source' };
+    // The usage queue is shared by the deployment, so the value is the same for every organization.
+    return { value: await sources.queueLength(), extra: { queue: 'usage' } };
+  }
+  return { skip: 'unknown_rule_type' };
 }
 
 function formatValue(type: string, value: number): string {
   if (type === 'error_rate') return `${value.toFixed(2)}%`;
   if (type === 'latency') return `${Math.round(value)} ms`;
   if (type === 'budget') return `$${value.toFixed(4)}`;
+  if (type === 'queue_length') return `${String(value)} jobs`;
+  if (type === 'breaker_open') return `${String(value)} open`;
   return String(value);
 }
 
@@ -219,6 +294,7 @@ export async function evaluateAlerts(options: EvaluateOptions): Promise<Evaluate
     fetchImpl: options.fetchImpl,
     timeoutMs: options.timeoutMs,
     urlPolicy: options.urlPolicy,
+    mailer: options.mailer,
   };
   /** Sends one event to the rule's channel and records the outcome on the event. */
   const send = async (rule: AlertRuleRow, event: AlertEventRow, attempt: number) => {
@@ -280,18 +356,19 @@ export async function evaluateAlerts(options: EvaluateOptions): Promise<Evaluate
     }
 
     const since = new Date(now - Math.max(1, rule.windowMinutes) * 60_000);
-    let value: number | { skip: string };
+    let measured: Measured;
     try {
-      value = await measure(db, rule, since);
+      measured = await measure(db, rule, since, options.sources ?? {});
     } catch (error) {
       logger.warn({ err: error, ruleId: rule.id }, 'alert measurement failed');
       result.skipped.push({ ruleId: rule.id, type: rule.type, reason: 'measurement_error' });
       continue;
     }
-    if (typeof value !== 'number') {
-      result.skipped.push({ ruleId: rule.id, type: rule.type, reason: value.skip });
+    if (typeof measured === 'object' && 'skip' in measured) {
+      result.skipped.push({ ruleId: rule.id, type: rule.type, reason: measured.skip });
       continue;
     }
+    const value = typeof measured === 'number' ? measured : measured.value;
     if (!(value >= threshold)) continue;
 
     const details = {
@@ -300,6 +377,7 @@ export async function evaluateAlerts(options: EvaluateOptions): Promise<Evaluate
       threshold,
       windowMinutes: rule.windowMinutes,
       since: since.toISOString(),
+      ...(typeof measured === 'number' ? {} : measured.extra),
     };
     let event: AlertEventRow;
     try {
@@ -422,6 +500,7 @@ export interface DeliveryOptions {
   timeoutMs?: number | undefined;
   now?: number | undefined;
   urlPolicy?: UrlPolicyOptions | undefined;
+  mailer?: Mailer | undefined;
 }
 
 /** HMAC signature of the exact JSON body (webhook receivers verify with the shared secret). */
@@ -440,6 +519,9 @@ export function alertText(event: Pick<AlertEventRow, 'title' | 'details'>): stri
     lines.push(
       `window ${typeof details.windowMinutes === 'number' ? String(details.windowMinutes) : '?'}m since ${details.since}`,
     );
+  if (Array.isArray(details.breakers))
+    for (const breaker of details.breakers as { scope?: unknown; id?: unknown; state?: unknown }[])
+      lines.push(`${String(breaker.scope)} ${String(breaker.id)}: ${String(breaker.state)}`);
   return lines.join('\n');
 }
 
@@ -503,21 +585,22 @@ export async function deliver(
       });
     }
     if (channel.type === 'email') {
-      // Honest limitation: this repo has no SMTP transport; email goes through an HTTP relay.
+      const to = emailRecipients(config.to);
+      if (!to) return { ok: false, error: 'email channel needs valid recipient addresses (to)' };
       const url =
         (typeof config.webhookUrl === 'string' ? config.webhookUrl : undefined) ??
         (typeof config.url === 'string' ? config.url : undefined);
-      if (!url)
-        return {
-          ok: false,
-          error:
-            'email channel requires an HTTP relay (config.webhookUrl); SMTP is not implemented',
-        };
-      return await post(url, {
-        to: config.to,
-        subject: event.title,
+      // A channel with an HTTP relay keeps using it; every other email channel goes out over SMTP.
+      if (url)
+        return await post(url, { to: config.to, subject: event.title, text: alertText(event) });
+      if (!options.mailer?.enabled)
+        return { ok: false, error: 'SMTP is not configured on the worker (SMTP_URL)' };
+      const sent = await options.mailer.send({
+        to,
+        subject: `[DiRouter] ${event.title}`,
         text: alertText(event),
       });
+      return sent.ok ? { ok: true } : { ok: false, error: sent.error };
     }
     return { ok: false, error: `unsupported channel type '${channel.type}'` };
   } catch (error) {
@@ -525,6 +608,14 @@ export async function deliver(
   } finally {
     clearTimeout(timer);
   }
+}
+
+/** `to` as a list of plain addresses (a string may hold several, comma separated). */
+export function emailRecipients(value: unknown): string[] | undefined {
+  const list = (Array.isArray(value) ? value : typeof value === 'string' ? value.split(',') : [])
+    .map((item) => (typeof item === 'string' ? item.trim() : ''))
+    .filter(Boolean);
+  return list.length > 0 && list.length <= 20 && list.every(isEmailAddress) ? list : undefined;
 }
 
 /** Test message used by the control-api "send test" endpoint. */

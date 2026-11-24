@@ -47,19 +47,25 @@ const usageSink = env.VALKEY_URL
   : undefined;
 
 // Breaker state sync between replicas; the subscribe connection must be separate (pub/sub mode).
-const healthSync = env.VALKEY_URL
-  ? new HealthSync({
-      instance: `${hostname()}-${String(process.pid)}`,
-      logger,
-      publisher: quiet(
-        connectValkey(Redis, env.VALKEY_URL, {
-          enableOfflineQueue: false,
-          maxRetriesPerRequest: 1,
-        }),
-      ),
-      subscriber: quiet(connectValkey(Redis, env.VALKEY_URL, { maxRetriesPerRequest: null })),
-    })
+// The publisher connection also writes breaker state for the worker's alert rules (card 24.2).
+const healthPublisher = env.VALKEY_URL
+  ? quiet(
+      connectValkey(Redis, env.VALKEY_URL, {
+        enableOfflineQueue: false,
+        maxRetriesPerRequest: 1,
+      }),
+    )
   : undefined;
+const healthSync =
+  env.VALKEY_URL && healthPublisher
+    ? new HealthSync({
+        instance: `${hostname()}-${String(process.pid)}`,
+        logger,
+        publisher: healthPublisher,
+        store: healthPublisher,
+        subscriber: quiet(connectValkey(Redis, env.VALKEY_URL, { maxRetriesPerRequest: null })),
+      })
+    : undefined;
 
 const mcpCalls = env.VALKEY_URL ? new McpCallSink(env.VALKEY_URL, logger) : undefined;
 

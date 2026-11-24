@@ -5,8 +5,10 @@
 import { createHmac } from 'node:crypto';
 
 import { DiRouterError, prefixedId } from '@dirouter/shared';
+import { isEmailAddress, type Mailer } from '@dirouter/shared/mail';
 import { Inject, Injectable } from '@nestjs/common';
 
+import { MailService } from '../infra/mail.service.js';
 import { PrismaService } from '../infra/prisma.service.js';
 import type { OrgContext } from '../rbac/org.guard.js';
 import { checkOutboundUrl, checkUrlSyntax, type UrlPolicyOptions } from './alert-url.js';
@@ -30,13 +32,16 @@ export type RuleInput = {
 
 /** Shown instead of a stored secret; sending it back on update means "keep the stored value". */
 export const SECRET_PLACEHOLDER = '***';
-/** Rule types that cannot fire without a threshold. */
-export const THRESHOLD_REQUIRED = new Set<string>(['error_rate', 'latency', 'budget']);
 /**
- * Accepted by older versions but never evaluated: the worker has no persisted breaker state and
- * no queue metrics to read, so creating such a rule would silently never alert.
+ * Rule types that cannot fire without a threshold. `invalid_credential` and `breaker_open` count
+ * events and default to 1 (card 24.2 made `breaker_open` and `queue_length` evaluable).
  */
-export const UNSUPPORTED_RULE_TYPES = new Set<string>(['breaker_open', 'queue_length']);
+export const THRESHOLD_REQUIRED = new Set<string>([
+  'error_rate',
+  'latency',
+  'budget',
+  'queue_length',
+]);
 
 const SECRET_KEYS = ['secret', 'botToken', 'webhookUrl', 'token', 'password', 'apiKey'];
 /** Config keys that hold a URL the server will call. */
@@ -88,11 +93,20 @@ function asRecord(value: unknown): Record<string, unknown> {
   return value !== null && typeof value === 'object' ? (value as Record<string, unknown>) : {};
 }
 
+/** `to` of an email channel as plain addresses (comma separated or a list), at most 20. */
+export function emailRecipients(value: unknown): string[] | undefined {
+  const list = (Array.isArray(value) ? value : typeof value === 'string' ? value.split(',') : [])
+    .map((item) => (typeof item === 'string' ? item.trim() : ''))
+    .filter(Boolean);
+  return list.length > 0 && list.length <= 20 && list.every(isEmailAddress) ? list : undefined;
+}
+
 export async function sendChannel(
   channel: { type: string; config: unknown },
   payload: { title: string; details?: unknown },
   fetchImpl: typeof fetch = fetch,
   policy: UrlPolicyOptions = {},
+  mailer?: Mailer,
 ): Promise<{ ok: boolean; status?: number; error?: string }> {
   const config = asRecord(channel.config);
   const controller = new AbortController();
@@ -139,13 +153,19 @@ export async function sendChannel(
       });
     }
     if (channel.type === 'email') {
+      const to = emailRecipients(config.to);
+      if (!to) return { ok: false, error: 'email channel needs valid recipient addresses (to)' };
       const url = typeof config.webhookUrl === 'string' ? config.webhookUrl : config.url;
-      if (typeof url !== 'string')
-        return {
-          ok: false,
-          error: 'email requires an HTTP relay (webhookUrl); SMTP is not implemented',
-        };
-      return await post(url, { to: config.to, subject: payload.title, text: payload.title });
+      // An HTTP relay, when set, is kept; otherwise the message goes out over SMTP (card 24.2).
+      if (typeof url === 'string')
+        return await post(url, { to: config.to, subject: payload.title, text: payload.title });
+      if (!mailer?.enabled) return { ok: false, error: 'SMTP is not configured (SMTP_URL)' };
+      const sent = await mailer.send({
+        to,
+        subject: `[DiRouter] ${payload.title}`,
+        text: payload.title,
+      });
+      return sent.ok ? { ok: true } : { ok: false, error: sent.error };
     }
     return { ok: false, error: `unsupported channel type '${channel.type}'` };
   } catch (error) {
@@ -157,7 +177,10 @@ export async function sendChannel(
 
 @Injectable()
 export class AlertsService {
-  constructor(@Inject(PrismaService) private readonly db: PrismaService) {}
+  constructor(
+    @Inject(PrismaService) private readonly db: PrismaService,
+    @Inject(MailService) private readonly mail: MailService,
+  ) {}
 
   /** Every channel response goes through here: secrets never leave the service. */
   #channelView<T extends { type: string; config: unknown }>(row: T) {
@@ -176,6 +199,11 @@ export class AlertsService {
           status: 400,
         });
     }
+    if (config.to !== undefined && !emailRecipients(config.to))
+      throw new DiRouterError('invalid_request', {
+        message: 'config.to: one or more email addresses, comma separated',
+        status: 400,
+      });
     if (Object.values(config).includes(SECRET_PLACEHOLDER))
       throw new DiRouterError('invalid_request', {
         message: `'${SECRET_PLACEHOLDER}' is a placeholder for a stored secret, not a value`,
@@ -184,11 +212,6 @@ export class AlertsService {
   }
 
   #assertRule(rule: { type: string; threshold: unknown }): void {
-    if (UNSUPPORTED_RULE_TYPES.has(rule.type))
-      throw new DiRouterError('invalid_request', {
-        message: `rule type '${rule.type}' is not supported: it has no data source to evaluate`,
-        status: 400,
-      });
     if (
       THRESHOLD_REQUIRED.has(rule.type) &&
       (rule.threshold === null || rule.threshold === undefined)
@@ -281,7 +304,13 @@ export class AlertsService {
 
   async testChannel(org: OrgContext, id: string) {
     const channel = await this.channelOwned(org, id);
-    return sendChannel(channel, { title: `Test alert from DiRouter (${channel.name})` });
+    return sendChannel(
+      channel,
+      { title: `Test alert from DiRouter (${channel.name})` },
+      fetch,
+      {},
+      this.mail.mailer,
+    );
   }
 
   listRules(org: OrgContext) {

@@ -180,6 +180,11 @@ services:
       PORT: '3100'
       DATABASE_URL: postgresql://${POSTGRES_USER:-dirouter}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-dirouter}
       VALKEY_URL: redis://valkey:6379
+      # Alert email goes to Mailpit (card 24.2); read it at http://mail.localhost.
+      SMTP_URL: smtp://mailpit:1025
+      SMTP_FROM: DiRouter <alerts@dirouter.local>
+      # Faster alert evaluation in development, so the e2e scenarios do not wait a minute per tick.
+      ALERT_EVALUATE_INTERVAL_MS: ${ALERT_EVALUATE_INTERVAL_MS:-15000}
     command: ['pnpm', '--filter', '@dirouter/worker', 'dev']
     depends_on: !override
       dev-deps: { condition: service_healthy }

@@ -10,6 +10,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { SessionsService } from '../auth/sessions.service.js';
 import { hashInvite, slugify } from '../common/ids.js';
 import { ENV, type Env } from '../env.js';
+import { MailService } from '../infra/mail.service.js';
 import { PrismaService } from '../infra/prisma.service.js';
 import type { OrgContext } from '../rbac/org.guard.js';
 import {
@@ -30,6 +31,7 @@ export class OrgsService {
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(ENV) private readonly env: Env,
     @Inject(SessionsService) private readonly sessions: SessionsService,
+    @Inject(MailService) private readonly mail: MailService,
   ) {}
 
   get db() {
@@ -261,14 +263,50 @@ export class OrgsService {
       email: normalized,
       role,
     });
+    const url = `${this.env.PUBLIC_DASHBOARD_URL.replace(/\/+$/, '')}/invite/${token}`;
     return {
       id: invitation.id,
       email: normalized,
       role,
       expiresAt: invitation.expiresAt.toISOString(),
       token,
-      url: `${this.env.PUBLIC_DASHBOARD_URL.replace(/\/+$/, '')}/invite/${token}`,
+      url,
+      emailSent: await this.#sendInvite(ctx, invitation, url),
     };
+  }
+
+  /**
+   * Emails the invitation link (card 24.2). Without SMTP, or when the server refuses it, the
+   * inviter still gets the link in the response and can pass it on; that is reported as false.
+   */
+  async #sendInvite(
+    ctx: OrgContext,
+    invitation: { id: string; email: string; expiresAt: Date },
+    url: string,
+  ) {
+    if (!this.mail.enabled) return false;
+    const org = await this.db.organization.findUnique({
+      where: { id: ctx.organizationId },
+      select: { name: true },
+    });
+    const name = org?.name ?? 'DiRouter';
+    const sent = await this.mail.send({
+      to: invitation.email,
+      subject: `You are invited to ${name} on DiRouter`,
+      text: [
+        `You have been invited to join ${name} on DiRouter.`,
+        '',
+        `Accept the invitation: ${url}`,
+        '',
+        `The link works once and expires on ${invitation.expiresAt.toISOString()}.`,
+        'If you did not expect this email, you can ignore it.',
+      ].join('\n'),
+    });
+    if (!sent.ok)
+      await this.#audit(ctx, 'invitation.email_failed', 'invitation', invitation.id, {
+        error: sent.error,
+      });
+    return sent.ok;
   }
 
   async revokeInvitation(ctx: OrgContext, id: string) {

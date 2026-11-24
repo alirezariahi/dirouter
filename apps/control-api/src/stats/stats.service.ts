@@ -4,6 +4,7 @@
  * on (created_at, id), and always with a time range so partitions are pruned. Everything is scoped to the
  * organization verified by the Guard.
  */
+import { BREAKER_STATE_KEY, breakerStateField } from '@dirouter/contracts';
 import { DiRouterError, prefixedId } from '@dirouter/shared';
 import { Prisma } from '@dirouter/db';
 import { Inject, Injectable } from '@nestjs/common';
@@ -128,6 +129,11 @@ export class StatsService {
       'dirouter:health',
       JSON.stringify({ from: 'control-api', change: { kind: 'reset', scope, id } }),
     );
+    // A closed breaker no longer counts for `breaker_open` alert rules (card 24.2).
+    if (scope !== 'credential')
+      await this.valkey.client
+        .hdel(BREAKER_STATE_KEY, breakerStateField(scope, id))
+        .catch(() => undefined);
     await this.db.auditLog.create({
       data: {
         id: prefixedId('aud'),

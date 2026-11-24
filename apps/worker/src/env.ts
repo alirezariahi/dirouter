@@ -18,5 +18,8 @@ export const workerEnvSchema = baseEnvSchema.extend({
   /** Days the MCP tool-call log is kept (card 20.1). */
   MCP_CALL_RETENTION_DAYS: z.coerce.number().int().min(1).max(3650).default(90),
   DB_MAX_CONNECTIONS: z.coerce.number().int().min(1).default(10),
+  /** SMTP for `email` alert channels (card 24.2); empty means email channels need an HTTP relay. */
+  SMTP_URL: z.string().optional(),
+  SMTP_FROM: z.string().default('DiRouter <noreply@localhost>'),
 });
 export type WorkerEnv = z.infer<typeof workerEnvSchema>;

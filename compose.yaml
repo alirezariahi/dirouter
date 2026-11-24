@@ -210,7 +210,11 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-dirouter}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-dirouter}
       VALKEY_URL: redis://valkey:6379
       REQUEST_LOG_RETENTION_MONTHS: ${REQUEST_LOG_RETENTION_MONTHS:-3}
-    networks: [internal]
+      # Alert email channels (card 24.2) use the same SMTP settings as the control-api.
+      SMTP_URL: ${SMTP_URL:-}
+      SMTP_FROM: ${SMTP_FROM:-DiRouter <noreply@${DOMAIN:-localhost}>}
+    # edge gives outbound access: alert webhooks, Slack, Telegram and SMTP servers are outside.
+    networks: [internal, edge]
     stop_grace_period: 30s
     depends_on:
       postgres: { condition: service_healthy }

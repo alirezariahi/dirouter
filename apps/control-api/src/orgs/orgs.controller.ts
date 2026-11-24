@@ -166,7 +166,7 @@ export class OrgsController {
   @RequirePermission('invites:write')
   @ApiZodBody(InviteBody)
   @ApiZodOk(
-    Invitation.extend({ token: z.string(), url: z.string() }),
+    Invitation.extend({ token: z.string(), url: z.string(), emailSent: z.boolean() }),
     'لینک دعوت فقط همین یک بار نشان داده می‌شود',
   )
   invite(@Org() org: OrgContext, @Body(new ZodPipe(InviteBody)) body: z.infer<typeof InviteBody>) {

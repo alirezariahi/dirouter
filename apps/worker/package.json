@@ -16,7 +16,10 @@
   },
   "devDependencies": {
     "@dirouter/eslint-config": "workspace:*",
-    "@dirouter/tsconfig": "workspace:*"
+    "@dirouter/tsconfig": "workspace:*",
+    "@types/smtp-server": "^3.5.13",
+    "selfsigned": "^5.5.0",
+    "smtp-server": "^3.21.7"
   },
   "dependencies": {
     "@dirouter/contracts": "workspace:*",

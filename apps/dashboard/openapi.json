@@ -1738,6 +1738,9 @@
                     },
                     "url": {
                       "type": "string"
+                    },
+                    "emailSent": {
+                      "type": "boolean"
                     }
                   },
                   "required": [
@@ -1746,7 +1749,8 @@
                     "role",
                     "expiresAt",
                     "token",
-                    "url"
+                    "url",
+                    "emailSent"
                   ]
                 }
               }

@@ -129,6 +129,8 @@ describe('alert channel config', () => {
     expect(channelConfig('slack', form)).toEqual({ webhookUrl: form.url });
     expect(channelConfig('telegram', form)).toEqual({ botToken: 'bot', chatId: '42' });
     expect(channelConfig('email', form)).toEqual({ webhookUrl: form.url, to: 'ops@example.com' });
+    // Without a relay URL the worker sends over SMTP (card 24.2).
+    expect(channelConfig('email', { ...form, url: '' })).toEqual({ to: 'ops@example.com' });
   });
 });
 
@@ -182,8 +184,11 @@ describe('alert rule validation', () => {
   });
 
   it('refuses the rule types the API no longer accepts', () => {
-    expect(ruleProblem({ type: 'breaker_open', threshold: '1' })).toBe('typeUnsupported');
-    expect(ruleProblem({ type: 'queue_length', threshold: '1' })).toBe('typeUnsupported');
+    // Evaluated by the worker since card 24.2: breaker_open counts, queue_length needs a threshold.
+    expect(ruleProblem({ type: 'breaker_open', threshold: '' })).toBeUndefined();
+    expect(ruleProblem({ type: 'queue_length', threshold: '' })).toBe('thresholdRequired');
+    expect(ruleProblem({ type: 'queue_length', threshold: '500' })).toBeUndefined();
+    expect(ruleProblem({ type: 'something_else', threshold: '1' })).toBe('typeUnsupported');
   });
 });
 

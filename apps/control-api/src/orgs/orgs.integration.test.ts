@@ -9,6 +9,7 @@ import { createApp } from '../bootstrap.js';
 import { envSchema } from '../env.js';
 import { PrismaService } from '../infra/prisma.service.js';
 import { ValkeyService } from '../infra/valkey.service.js';
+import { decodeBody, type SmtpSink, startSmtpSink } from '../infra/smtp-sink.testing.js';
 
 const DATABASE_URL = process.env.INTEGRATION_DATABASE_URL;
 const VALKEY_URL = process.env.INTEGRATION_VALKEY_URL;
@@ -21,6 +22,7 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('organization RBAC over HTTP', () 
   let orgB = '';
   let teamB = '';
   const ids: Record<string, string> = {};
+  let smtp: SmtpSink;
 
   const call = (
     method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
@@ -56,7 +58,10 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('organization RBAC over HTTP', () 
   }
 
   beforeAll(async () => {
+    smtp = await startSmtpSink();
     const env = envSchema.parse({
+      SMTP_URL: smtp.url,
+      SMTP_FROM: 'DiRouter <noreply@dirouter.test>',
       NODE_ENV: 'test',
       LOG_LEVEL: 'silent',
       DATABASE_URL,
@@ -118,6 +123,7 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('organization RBAC over HTTP', () 
 
   afterAll(async () => {
     await app.close();
+    await smtp.close();
   });
 
   it('a VIEWER can read everything but cannot perform a single write', async () => {
@@ -244,8 +250,17 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('organization RBAC over HTTP', () 
       email: 'new@example.com',
       role: 'VIEWER',
     });
-    const { token, url } = inv.json<{ token: string; url: string }>();
+    const { token, url, emailSent } = inv.json<{
+      token: string;
+      url: string;
+      emailSent: boolean;
+    }>();
     expect(url).toContain(`/invite/${token}`);
+    // The invitee gets the link by email over SMTP (card 24.2).
+    expect(emailSent).toBe(true);
+    const mail = smtp.to('new@example.com').at(-1);
+    expect(mail?.raw).toContain('From: DiRouter <noreply@dirouter.test>');
+    expect(decodeBody(mail?.raw ?? '')).toContain(url);
     expect(
       (
         await call('POST', 'auth/invitations/accept', undefined, {

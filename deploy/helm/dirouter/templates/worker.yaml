@@ -27,6 +27,9 @@ spec:
             - { name: PORT, value: '3100' }
             - { name: VALKEY_URL, value: {{ include "dirouter.valkeyUrl" . | quote }} }
             - { name: REQUEST_LOG_RETENTION_MONTHS, value: {{ $v.requestLogRetentionMonths | quote }} }
+            {{- range $name, $value := $v.extraEnv }}
+            - { name: {{ $name }}, value: {{ $value | quote }} }
+            {{- end }}
           readinessProbe:
             httpGet: { path: /readyz, port: http }
             periodSeconds: 5

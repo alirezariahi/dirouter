@@ -107,10 +107,22 @@ export function reconcile(
   };
 }
 
-/** Rule types the API accepts for new rules; `breaker_open` and `queue_length` are refused. */
-export const RULE_TYPES = ['error_rate', 'latency', 'budget', 'invalid_credential'] as const;
+/** Rule types the API accepts for new rules (all of them since card 24.2). */
+export const RULE_TYPES = [
+  'error_rate',
+  'latency',
+  'budget',
+  'invalid_credential',
+  'breaker_open',
+  'queue_length',
+] as const;
 /** Rule types that cannot fire without a threshold (THRESHOLD_REQUIRED in the control-api). */
-export const THRESHOLD_RULE_TYPES: readonly string[] = ['error_rate', 'latency', 'budget'];
+export const THRESHOLD_RULE_TYPES: readonly string[] = [
+  'error_rate',
+  'latency',
+  'budget',
+  'queue_length',
+];
 
 /** Why a rule draft cannot be sent, or undefined when it is fine. */
 export function ruleProblem(rule: {
@@ -203,7 +215,8 @@ export function channelConfig(
   if (type === 'webhook') return { url: form.url, ...(form.secret ? { secret: form.secret } : {}) };
   if (type === 'slack') return { webhookUrl: form.url };
   if (type === 'telegram') return { botToken: form.botToken, chatId: form.chatId };
-  return { webhookUrl: form.url, to: form.to };
+  // Email goes out over SMTP unless an HTTP relay URL is given (card 24.2).
+  return { ...(form.url ? { webhookUrl: form.url } : {}), to: form.to };
 }
 
 /** What the API shows instead of a stored secret; sending it back means "keep". */
