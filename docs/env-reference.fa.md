@@ -207,6 +207,12 @@
 | `IMAGE`                     | stepهای اسکن ایمیج و SBOM                                    | `<registry>/<app>:sha-<commit>`            | ایمیج محلی که اسکن می‌شود.                                                                      |
 | `REF`                       | step امضا                                                    | `<registry>/<app>@<digest>`                | digest ایمیج منتشرشده برای امضا و attestation.                                                  |
 | `IDENTITY`                  | step امضا                                                    | `ci.yml` همین مخزن                         | هویت گواهی که امضا هنگام بررسی باید با آن بخواند.                                               |
+| `ARCH`                      | step بررسی معماری ایمیج                                      | `amd64` یا `arm64`                         | معماری که این ردیف ماتریس می‌سازد؛ ایمیج ساخته‌شده باید همین را گزارش کند (کارت ۲۹.۱).          |
+| `SBOM`                      | stepهای SBOM و امضا                                          | `<app>-<arch>.spdx.json`                   | فایل SBOM ایمیج یک معماری.                                                                      |
+| `DIGEST`                    | step ثبت digest                                              | `sha256:…`                                 | digest ایمیج تک‌معماری منتشرشده که به کار manifest داده می‌شود.                                 |
+| `TAGS`                      | step manifest                                                | خروجی `docker/metadata-action`             | برچسب‌هایی که manifest چندمعماری با آن‌ها منتشر می‌شود.                                         |
+| `MANIFESTS`                 | step نهایی `CI passed`                                       | نتیجهٔ کار manifests                       | در push دارای ایمیج باید `success` و در غیر این صورت `skipped` باشد.                            |
+| `EVENT`                     | step نهایی `CI passed`                                       | `github.event_name`                        | فقط push است که manifest منتشر می‌کند.                                                          |
 
 ### آدرس‌های تست end-to-end
 
