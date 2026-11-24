@@ -159,6 +159,11 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('sale pricing over HTTP', () => {
       (await admin('POST', 'billing/groups', { name: 'Resellers', multiplier: '1' })).statusCode,
     ).toBe(409);
     await admin('PUT', `billing/wallets/${CUSTOMER}/group`, { customerGroupId: group.id });
+    // The customer list says which group each organization is in (dashboard pricing page, 25.2).
+    const wallets = (await admin('GET', 'billing/wallets')).json<
+      { organizationId: string; customerGroupId: string | null }[]
+    >();
+    expect(wallets.find((w) => w.organizationId === CUSTOMER)?.customerGroupId).toBe(group.id);
     const key = () => snapshot().then((s) => s.virtualKeys.find((k) => k.id === 'key_price'));
     expect((await key())?.priceMultiplier).toBe('0.8');
     await admin('PATCH', `billing/groups/${group.id}`, { multiplier: '0.75' });
@@ -201,5 +206,22 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('sale pricing over HTTP', () => {
     expect(wallet.wallet.balanceUsd).toBe('5.00000000');
     const cancelled = await call('DELETE', `orgs/${CUSTOMER}/wallet/subscription`, customer);
     expect(cancelled.json()).toMatchObject({ status: 'active', cancelAtPeriodEnd: true });
+
+    // The operator sees every subscription with its customer (card 25.2); customers do not.
+    const all = await admin('GET', 'billing/subscriptions');
+    expect(all.statusCode).toBe(200);
+    const subscriptions = all.json<Record<string, unknown>[]>();
+    expect(subscriptions).toHaveLength(1);
+    expect(subscriptions[0]).toMatchObject({
+      organizationId: CUSTOMER,
+      organizationName: 'Customer',
+      plan: { id: plan.id, name: 'Starter', priceUsd: '10.00000000' },
+      status: 'active',
+      includedUsd: '12.00000000',
+      cancelAtPeriodEnd: true,
+    });
+    expect((await call('GET', `orgs/${CUSTOMER}/billing/subscriptions`, customer)).statusCode).toBe(
+      404,
+    );
   });
 });

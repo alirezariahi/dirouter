@@ -69,6 +69,8 @@ export interface RequestOptions {
   signal?: AbortSignal | null;
   /** For tests. */
   fetchImpl?: typeof fetch;
+  /** `blob` keeps a binary answer (an invoice PDF) intact instead of reading it as text. */
+  responseType?: 'blob';
 }
 
 /**
@@ -143,7 +145,11 @@ async function request(
     res = await send();
   if (res.status === 204) return { data: undefined, res };
   const isJson = (res.headers.get('content-type') ?? '').includes('json');
-  const data: unknown = isJson ? await res.json() : await res.text();
+  const data: unknown = isJson
+    ? await res.json()
+    : res.ok && opts.responseType === 'blob'
+      ? await res.blob()
+      : await res.text();
   if (!res.ok)
     throw new ApiError(isJson ? (data as Problem) : { status: res.status, detail: String(data) });
   // A sensitive change that waits for a second person's approval (card 22.2): the page asked for

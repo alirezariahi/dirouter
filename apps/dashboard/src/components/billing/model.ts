@@ -10,6 +10,8 @@ export interface CustomerWallet {
   prepaid: boolean;
   walletId: string | null;
   balanceUsd: string;
+  /** Price group (card 25.2); null for list price. */
+  customerGroupId?: string | null;
 }
 
 /** Every customer organization with its balance (shared by several billing pages). */

@@ -171,7 +171,14 @@ export class WalletsService implements OnApplicationBootstrap {
   async listWallets() {
     const orgs = await this.db.organization.findMany({
       where: { deletedAt: null, isPlatform: false },
-      select: { id: true, name: true, slug: true, prepaid: true, wallet: true },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        prepaid: true,
+        wallet: true,
+        customerGroupId: true,
+      },
       orderBy: { createdAt: 'asc' },
     });
     return orgs.map((o) => ({
@@ -181,6 +188,8 @@ export class WalletsService implements OnApplicationBootstrap {
       prepaid: o.prepaid,
       walletId: o.wallet?.id ?? null,
       balanceUsd: o.wallet?.balanceUsd.toFixed(8) ?? '0.00000000',
+      /** Price group (card 19.4), shown and changed on the dashboard's pricing page (25.2). */
+      customerGroupId: o.customerGroupId,
     }));
   }
 

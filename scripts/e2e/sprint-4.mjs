@@ -1185,6 +1185,162 @@ try {
       assert.notEqual(redeem.response.status, 200, 'a revoked code is refused');
     },
   );
+
+  await scenario(
+    '25.2 billing pages: a multiplier saved from the pricing page applies to the next request; plans, invoices and the profit report agree with the API',
+    async () => {
+      await ensureCustomer();
+      const cust = (method, path, body, expected) =>
+        api(method, `orgs/${S4_CUSTOMER}/${path}`, body, expected);
+      // Postpaid, so the requests below never wait on a wallet balance.
+      await org('PATCH', `billing/wallets/${S4_CUSTOMER}`, { prepaid: false });
+      const projects = (await cust('GET', 'projects')).body;
+      const project =
+        (projects.items ?? projects).find((p) => p.slug === 's4-default') ??
+        (await cust('POST', 'projects', { name: 'S4 default', slug: 's4-default' }, 201)).body;
+      const key = (
+        await published(() =>
+          cust(
+            'POST',
+            'keys',
+            { name: `s4-e2e-${randomUUID().slice(0, 6)}`, projectId: project.id },
+            201,
+          ),
+        )
+      ).body;
+      cleanups.push(() => cust('POST', `keys/${key.id}/revoke`, undefined, null));
+
+      // The pricing page saves exactly this body on the platform model.
+      const listed = (await org('GET', 'models')).body;
+      const model = (listed.items ?? listed).find((m) => m.slug === 'mock/small');
+      assert.ok(model, 'seeded platform model mock/small');
+      const restore = { isPublic: model.isPublic, sale: { ...model.sale } };
+      cleanups.push(() => published(() => org('PATCH', `models/${model.id}`, restore, null)));
+      const savePrice = (multiplier) =>
+        published(() =>
+          org('PATCH', `models/${model.id}`, {
+            isPublic: true,
+            sale: { multiplier, perRequestUsd: null, cacheMultiplier: '0' },
+          }),
+        );
+      const ask = async () => {
+        const r = await chat(key.key, {
+          model: 'mock/small',
+          max_tokens: 20,
+          messages: [{ role: 'user', content: `price ${randomUUID()}` }],
+        });
+        assert.equal(r.response.status, 200, r.text);
+        const id = r.response.headers.get('x-request-id');
+        const row = await waitFor(`request_log ${id}`, async () => {
+          const out = await sql(`SELECT cost_usd, charge_usd FROM request_log WHERE id = '${id}'`);
+          return out === '' ? undefined : out;
+        });
+        const [cost, charge] = row.split('|').map(Number);
+        assert.ok(cost > 0, `cost of ${id}`);
+        return { cost, charge };
+      };
+
+      await savePrice('2');
+      const a = await ask();
+      assert.equal(a.charge, Number((a.cost * 2).toFixed(8)));
+      // A new multiplier from the page: the very next request is charged with it.
+      await savePrice('3.5');
+      const b = await ask();
+      assert.equal(b.charge, Number((b.cost * 3.5).toFixed(8)));
+
+      // Customer group from the pricing page; the customer list shows the assignment.
+      const group = (
+        await org(
+          'POST',
+          'billing/groups',
+          { name: `e2e 25.2 ${randomUUID()}`, multiplier: '0.5' },
+          201,
+        )
+      ).body;
+      cleanups.push(() => org('DELETE', `billing/groups/${group.id}`, undefined, null));
+      await published(() =>
+        org('PUT', `billing/wallets/${S4_CUSTOMER}/group`, { customerGroupId: group.id }),
+      );
+      cleanups.push(() =>
+        published(() =>
+          org('PUT', `billing/wallets/${S4_CUSTOMER}/group`, { customerGroupId: null }, null),
+        ),
+      );
+      const inList = (await org('GET', 'billing/wallets')).body.find(
+        (w) => w.organizationId === S4_CUSTOMER,
+      );
+      assert.equal(inList.customerGroupId, group.id);
+      const c = await ask();
+      assert.equal(c.charge, Number((c.cost * 1.75).toFixed(8)));
+      await published(() => org('PATCH', `billing/groups/${group.id}`, { multiplier: '1' }));
+      const d = await ask();
+      assert.equal(d.charge, Number((d.cost * 3.5).toFixed(8)));
+
+      // Plans and the operator's subscription list.
+      const plan = (
+        await org(
+          'POST',
+          'billing/plans',
+          { name: `e2e 25.2 ${randomUUID()}`, priceUsd: '3', includedUsd: '4' },
+          201,
+        )
+      ).body;
+      const hidden = (await org('PATCH', `billing/plans/${plan.id}`, { active: false })).body;
+      assert.equal(hidden.active, false);
+      const offered = (await cust('GET', 'wallet/plans')).body;
+      assert.ok(!offered.some((p) => p.id === plan.id), 'a hidden plan is not offered');
+      const subscriptions = (await org('GET', 'billing/subscriptions')).body;
+      assert.ok(Array.isArray(subscriptions));
+      for (const s of subscriptions) assert.ok(s.organizationName && s.plan?.id, JSON.stringify(s));
+      await cust('GET', 'billing/subscriptions', undefined, 404);
+
+      // Invoices: list, verify and PDF of the newest one, when the stack has any.
+      const invoices = (await org('GET', 'billing/invoices')).body;
+      if (invoices.length > 0) {
+        const newest = invoices[0];
+        const check = (await org('GET', `billing/invoices/${newest.id}/verify`)).body;
+        assert.equal(check.ok, true, JSON.stringify(check));
+        const pdf = await org('GET', `billing/invoices/${newest.id}/pdf`);
+        assert.equal(pdf.response.headers.get('content-type'), 'application/pdf');
+        assert.ok(pdf.text.startsWith('%PDF'), 'a PDF document');
+      } else console.log('     no invoices on this stack yet; list checked only');
+
+      // Profit report with the page's filters: today, this customer, this model.
+      const today = new Date().toISOString().slice(0, 10);
+      const tomorrow = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
+      const profit = (extra = '') =>
+        org('GET', `billing/reports/profit?from=${today}&to=${tomorrow}${extra}`).then(
+          (r) => r.body,
+        );
+      const filtered = await waitFor(
+        "today's sales of this customer in the profit report",
+        async () => {
+          const r = await profit(`&organizationId=${S4_CUSTOMER}&model=mock%2Fsmall`);
+          return r.models.some((m) => m.requests >= 4) ? r : undefined;
+        },
+        120_000,
+      );
+      assert.deepEqual(filtered.filters, { organizationId: S4_CUSTOMER, model: 'mock/small' });
+      assert.ok(filtered.models.every((m) => m.model === 'mock/small'));
+      // The filtered totals are that customer's and model's rollup rows, nothing else. The
+      // worker may refresh the rollup between two reads, so compare until both reads agree.
+      await waitFor('the filtered report to equal the rollup', async () => {
+        const report = await profit(`&organizationId=${S4_CUSTOMER}&model=mock%2Fsmall`);
+        const [cost, revenue] = (
+          await sql(`SELECT COALESCE(SUM(cost_usd), 0), COALESCE(SUM(charge_usd), 0) FROM usage_daily
+                      WHERE bucket = '${today}' AND organization_id = '${S4_CUSTOMER}' AND model_slug = 'mock/small'`)
+        )
+          .split('|')
+          .map(Number);
+        return (
+          Number(report.totals.costUsd) === cost && Number(report.totals.revenueUsd) === revenue
+        );
+      });
+      const all = await profit();
+      assert.ok(Number(all.totals.revenueUsd) >= Number(filtered.totals.revenueUsd));
+      assert.deepEqual(filtered.ledger, all.ledger);
+    },
+  );
 } catch (error) {
   crashed = true;
   console.error(error);

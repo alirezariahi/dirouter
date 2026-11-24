@@ -1,4 +1,5 @@
 /** Operator billing pages (cards 25.1, 25.2), merged under the `billing` key. */
+import { salesEn, salesFa } from './sales';
 
 export const billingFa = {
   title: 'صورت‌حساب',
@@ -13,6 +14,10 @@ export const billingFa = {
     customers: 'مشتری‌ها و کیف پول',
     payments: 'پرداخت‌ها',
     giftCodes: 'کدهای هدیه',
+    pricing: 'قیمت‌گذاری',
+    plans: 'پلن و اشتراک',
+    invoices: 'فاکتورها',
+    profit: 'گزارش سود',
     settings: 'درگاه و نرخ ارز',
   },
   common: {
@@ -20,6 +25,7 @@ export const billingFa = {
     actions: 'عملیات',
     noMatch: 'موردی با این جستجو پیدا نشد.',
     remove: 'حذف',
+    save: 'ذخیره',
   },
   provider: { zarinpal: 'زرین‌پال', stripe: 'Stripe' },
   kind: {
@@ -195,6 +201,7 @@ export const billingFa = {
       transaction: 'تراکنش',
     },
   },
+  ...salesFa,
 } as const;
 
 export const billingEn = {
@@ -210,6 +217,10 @@ export const billingEn = {
     customers: 'Customers and wallets',
     payments: 'Payments',
     giftCodes: 'Gift codes',
+    pricing: 'Pricing',
+    plans: 'Plans and subscriptions',
+    invoices: 'Invoices',
+    profit: 'Profit report',
     settings: 'Gateways and rates',
   },
   common: {
@@ -217,6 +228,7 @@ export const billingEn = {
     actions: 'Actions',
     noMatch: 'Nothing matches this search.',
     remove: 'Remove',
+    save: 'Save',
   },
   provider: { zarinpal: 'Zarinpal', stripe: 'Stripe' },
   kind: {
@@ -392,4 +404,5 @@ export const billingEn = {
       transaction: 'Transaction',
     },
   },
+  ...salesEn,
 };

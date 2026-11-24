@@ -55,7 +55,16 @@ describe('billing is only for the platform organization with billing:read (card 
     const nav = screen.getByRole('navigation', { name: 'main' });
     expect(within(nav).getByRole('link', { name: 'Billing' })).toBeTruthy();
     const tabs = await screen.findByRole('navigation', { name: 'Billing' });
-    for (const name of ['Customers and wallets', 'Payments', 'Gift codes', 'Gateways and rates'])
+    for (const name of [
+      'Customers and wallets',
+      'Payments',
+      'Gift codes',
+      'Pricing',
+      'Plans and subscriptions',
+      'Invoices',
+      'Profit report',
+      'Gateways and rates',
+    ])
       expect(within(tabs).getByRole('link', { name })).toBeTruthy();
     expect(await screen.findByText('There are no customer organizations yet.')).toBeTruthy();
   });

@@ -44,15 +44,46 @@ Amounts on these pages are shown rounded for reading; hover an amount to see the
 - **Batches**: amount, used / capacity, credit given, state (active, expired, revoked). **Redemptions** lists who redeemed which code and when. **Export CSV** saves the batch report.
 - **Bulk revoke**: tick batches (or the header box for all active ones) and **Revoke selected**. Revoking is permanent: revoked codes are refused, credit already given stays. Each revocation is in the audit log (`billing.gift_batch_revoked`).
 
+## Pricing — `/billing/pricing`
+
+- **Model sale prices and marketplace**: every model of the platform organization with its purchase cost (input / output per million tokens). Set the **multiplier** (sale price = cost × multiplier), or a **fixed price per request** (images, video) which replaces the token price, and the **cache share** (what an answer served from DiRouter's cache costs, as a share of the normal price; 0 makes it free). **Marketplace** publishes the model to customer organizations; an unpublished platform model stays private. The sale price column previews cost × multiplier with the gateway's own rounding (8 decimals, half up). **Save** writes the row to the model (`PATCH models/:id`, which also needs `models:write`).
+- A saved price **applies to the next request**: control-api rebuilds the config snapshot after the change and the gateway loads it within seconds, no deploy.
+- **Customer groups**: a group's multiplier scales every price for its members (0.8 is 20% off). Create, change the multiplier or delete a group (members go back to list price).
+- **Each customer's group**: pick the price group of every customer organization; it applies from that customer's next request.
+
+## Plans and subscriptions — `/billing/plans`
+
+- **Plans**: name, monthly fee and included credit. The fee is taken from the wallet when each period starts; the included credit pays for usage before the wallet does. Change the fee or credit inline, or switch a plan to **Hidden** so new customers cannot pick it (existing subscriptions stay).
+- **Subscriptions** (`GET billing/subscriptions`, new in card 25.2): every customer's plan, status (active, ending at period end, past due, cancelled), current period, credit used / included and what is left.
+
+## Invoices — `/billing/invoices`
+
+- Every customer's monthly invoice, optionally for one month: number, customer, prepaid or postpaid, opening balance, usage, closing balance.
+- **Verify** recomputes the stored invoice from the ledger and compares every figure; the result shows "Matches the ledger" or the figures that differ.
+- **PDF** downloads the invoice document (`INV-<year>-<n>.pdf`).
+- **Issue a month's invoices** runs the monthly job for a finished month (the worker also runs it on schedule). It is idempotent: an issued invoice never changes and a second run creates nothing.
+
+## Profit report — `/billing/profit`
+
+- Purchase cost against revenue by model for a range of whole days (UTC; _Until_ is inclusive), optionally for **one customer** and/or **one model**. The model list offers the models sold in the range.
+- Every figure on the page — the revenue, cost and profit tiles, each row and the ledger figures — is the `GET billing/reports/profit` answer shown as sent; the browser does not re-add rows, so the page always equals the endpoint. Hover an amount (or read the small line under each total) for the exact 8-decimal figure. The margin tile is profit ÷ revenue of the shown totals.
+- **Ledger in the same range** (revenue booked, funds received, promotional credit, written off) are the platform's system accounts and are not narrowed by the customer or model filter.
+- **Export CSV** saves the rows and a total line with the endpoint's exact strings.
+- The platform organization's own traffic is not a sale and is never included.
+
 ## API used
 
 All paths are under `/api/v1/orgs/:orgId/` where `:orgId` is the platform organization.
 
-| Page                  | Calls                                                                                                                                                                                  |
-| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Customers and wallets | `GET billing/wallets`, `GET billing/wallets/:id`, `GET billing/wallets/:id/statement`, `PATCH billing/wallets/:id`, `POST billing/wallets/:id/adjustments`, `GET billing/ledger/check` |
-| Payments              | `GET billing/payments?status=`, `POST billing/payments/reconcile`                                                                                                                      |
-| Gateways and rates    | `GET billing/settings`, `PUT billing/settings`                                                                                                                                         |
-| Gift codes            | `GET/POST billing/gift-batches`, `GET billing/gift-batches/:id/redemptions`, `POST billing/gift-batches/:id/revoke`                                                                    |
+| Page                    | Calls                                                                                                                                                                                  |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Customers and wallets   | `GET billing/wallets`, `GET billing/wallets/:id`, `GET billing/wallets/:id/statement`, `PATCH billing/wallets/:id`, `POST billing/wallets/:id/adjustments`, `GET billing/ledger/check` |
+| Payments                | `GET billing/payments?status=`, `POST billing/payments/reconcile`                                                                                                                      |
+| Gateways and rates      | `GET billing/settings`, `PUT billing/settings`                                                                                                                                         |
+| Gift codes              | `GET/POST billing/gift-batches`, `GET billing/gift-batches/:id/redemptions`, `POST billing/gift-batches/:id/revoke`                                                                    |
+| Pricing                 | `GET models`, `PATCH models/:id` (`isPublic`, `sale`), `GET/POST billing/groups`, `PATCH/DELETE billing/groups/:id`, `PUT billing/wallets/:id/group`                                   |
+| Plans and subscriptions | `GET/POST billing/plans`, `PATCH billing/plans/:id`, `GET billing/subscriptions`                                                                                                       |
+| Invoices                | `GET billing/invoices?period=`, `GET billing/invoices/:id/verify`, `GET billing/invoices/:id/pdf`, `POST billing/invoices/generate?period=`                                            |
+| Profit report           | `GET billing/reports/profit?from=&to=&organizationId=&model=`                                                                                                                          |
 
 Customer-side routes (`/orgs/:orgId/wallet/*`: own wallet, top-up checkout, redeem, subscribe) belong to the customer portal, not to these operator pages.

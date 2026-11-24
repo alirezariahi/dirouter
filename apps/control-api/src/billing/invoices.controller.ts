@@ -23,7 +23,14 @@ const Period = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, 'YYYY-MM');
 const Day = z.iso.date();
 const PeriodQuery = z.object({ period: Period.optional() });
 const GenerateQuery = z.object({ period: Period });
-const ProfitQuery = z.object({ from: Day, to: Day });
+const ProfitQuery = z.object({
+  from: Day,
+  to: Day,
+  /** One customer organization (card 25.2). */
+  organizationId: z.string().trim().min(1).max(100).optional(),
+  /** One model slug (card 25.2). */
+  model: z.string().trim().min(1).max(200).optional(),
+});
 
 async function sendPdf(reply: FastifyReply, file: { filename: string; body: Buffer }) {
   await reply
@@ -116,6 +123,9 @@ export class InvoicesAdminController {
   @ApiZodQuery(ProfitQuery)
   @ApiZodOk(JsonObjectSchema)
   profit(@Query(new ZodPipe(ProfitQuery)) q: z.infer<typeof ProfitQuery>) {
-    return this.invoices.profit(q.from, q.to);
+    return this.invoices.profit(q.from, q.to, {
+      ...(q.organizationId ? { organizationId: q.organizationId } : {}),
+      ...(q.model ? { model: q.model } : {}),
+    });
   }
 }

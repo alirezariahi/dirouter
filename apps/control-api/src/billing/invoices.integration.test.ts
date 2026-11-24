@@ -297,4 +297,53 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('invoices over HTTP', () => {
       fundsReceivedUsd: '24.00000000',
     });
   });
+
+  it('the profit report narrows to one customer and one model (card 25.2)', async () => {
+    const from = `${period}-01`;
+    const to = new Date(Date.UTC(Number(year), Number(month), 1)).toISOString().slice(0, 10);
+    const profit = async (extra: string) =>
+      (
+        await call(
+          `orgs/${platform}/billing/reports/profit?from=${from}&to=${to}${extra}`,
+          operator,
+        )
+      ).json<{
+        filters: { organizationId: string | null; model: string | null };
+        models: { model: string }[];
+        totals: Record<string, string>;
+        ledger: Record<string, string>;
+      }>();
+    const all = await profit('');
+    expect(all.filters).toEqual({ organizationId: null, model: null });
+
+    const fast = await profit('&model=shop%2Ffast');
+    expect(fast.filters).toEqual({ organizationId: null, model: 'shop/fast' });
+    expect(fast.models.map((m) => m.model)).toEqual(['shop/fast']);
+    expect(fast.totals).toEqual({
+      costUsd: '2.00000000',
+      revenueUsd: '3.00000000',
+      profitUsd: '1.00000000',
+    });
+    // The ledger figures are the platform's system accounts and are not narrowed.
+    expect(fast.ledger).toEqual(all.ledger);
+
+    const postpaid = await profit(`&organizationId=${POSTPAID}`);
+    expect(postpaid.totals).toEqual(all.totals);
+    const both = await profit(`&organizationId=${POSTPAID}&model=shop%2Fsmart`);
+    expect(both.totals).toEqual({
+      costUsd: '4.00000000',
+      revenueUsd: '5.00000000',
+      profitUsd: '1.00000000',
+    });
+    // A customer without usage, and the platform itself (never a sale), give empty reports.
+    for (const org of [OTHER, platform]) {
+      const none = await profit(`&organizationId=${org}`);
+      expect(none.models).toEqual([]);
+      expect(none.totals).toEqual({
+        costUsd: '0.00000000',
+        revenueUsd: '0.00000000',
+        profitUsd: '0.00000000',
+      });
+    }
+  });
 });

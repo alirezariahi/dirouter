@@ -44,7 +44,7 @@ export function member(
         name: 'Platform',
         slug: 'platform',
         role: options.role ?? 'OWNER',
-        permissions: options.permissions ?? ALL_BILLING,
+        permissions: options.permissions ?? [...ALL_BILLING, 'models:read', 'models:write'],
         isPlatform: options.isPlatform ?? true,
       },
     ],
@@ -65,7 +65,8 @@ export function mockApi(route: Route, user = member()) {
           ? { body: JSON.parse(init.body) as Record<string, unknown> }
           : {}),
       };
-      calls.push(call);
+      // Sign-in calls are the harness's, not the page's.
+      if (!call.path.startsWith('/auth/')) calls.push(call);
       const reply: Reply =
         call.path === '/auth/login' || call.path === '/auth/refresh'
           ? { status: 200, body: { accessToken: 'token' } }
@@ -75,7 +76,7 @@ export function mockApi(route: Route, user = member()) {
       const type =
         reply.type ?? (reply.status >= 400 ? 'application/problem+json' : 'application/json');
       const payload =
-        reply.body instanceof Blob
+        reply.type && typeof reply.body === 'string'
           ? reply.body
           : reply.body === undefined
             ? null

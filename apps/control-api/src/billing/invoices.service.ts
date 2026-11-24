@@ -11,6 +11,7 @@ import {
   issueInvoice,
   organizationsToInvoice,
   periodRange,
+  Prisma,
   toUnits,
   verifyInvoice,
 } from '@dirouter/db';
@@ -200,12 +201,26 @@ export class InvoicesService {
    * Cost of buying from providers against revenue from customers, by model, for [from, to).
    * The platform's own traffic is not a sale and is left out. Ledger totals of the same range
    * (revenue booked, written off, given away, received) are returned alongside.
+   *
+   * `organizationId` and `model` narrow the cost and revenue figures to one customer and/or one
+   * model (card 25.2). The ledger totals are system accounts of the whole platform and are never
+   * narrowed; `filters` echoes what was applied so a reader knows which figures it affects.
    */
-  async profit(from: string, to: string) {
+  async profit(
+    from: string,
+    to: string,
+    filters: { organizationId?: string; model?: string } = {},
+  ) {
     const start = new Date(`${from}T00:00:00Z`);
     const end = new Date(`${to}T00:00:00Z`);
     if (!(start < end))
       throw new DiRouterError('validation_failed', { message: 'from must be before to' });
+    const byOrganization = filters.organizationId
+      ? Prisma.sql`AND d."organization_id" = ${filters.organizationId}`
+      : Prisma.empty;
+    const byModel = filters.model
+      ? Prisma.sql`AND d."model_slug" = ${filters.model}`
+      : Prisma.empty;
     const rows = await this.db.$queryRaw<
       { model: string; provider: string; requests: bigint; cost: string; revenue: string }[]
     >`
@@ -213,6 +228,7 @@ export class InvoicesService {
              COALESCE(SUM(d."cost_usd"), 0)::text AS "cost", COALESCE(SUM(d."charge_usd"), 0)::text AS "revenue"
         FROM "usage_daily" d JOIN "organizations" o ON o."id" = d."organization_id"
        WHERE d."bucket" >= ${start}::date AND d."bucket" < ${end}::date AND NOT o."is_platform"
+             ${byOrganization} ${byModel}
        GROUP BY 1, 2 ORDER BY 5 DESC, 1`;
     const ledger = await this.db.$queryRaw<{ code: string; amount: string }[]>`
       SELECT w."code", COALESCE(SUM(e."amount_usd"), 0)::text AS "amount"
@@ -240,6 +256,10 @@ export class InvoicesService {
     return {
       from,
       to,
+      filters: {
+        organizationId: filters.organizationId ?? null,
+        model: filters.model ?? null,
+      },
       models,
       totals: {
         costUsd: fromUnits(cost),

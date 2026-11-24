@@ -150,6 +150,10 @@ const BILLING_PAGES = [
   { path: 'payments', load: () => import('./pages/billing/payments') },
   { path: 'gift-codes', load: () => import('./pages/billing/gift-codes') },
   { path: 'settings', load: () => import('./pages/billing/settings') },
+  { path: 'pricing', load: () => import('./pages/billing/pricing') },
+  { path: 'plans', load: () => import('./pages/billing/plans') },
+  { path: 'invoices', load: () => import('./pages/billing/invoices') },
+  { path: 'profit', load: () => import('./pages/billing/profit') },
   // billing-pages
 ] as const;
 const billingPages = BILLING_PAGES.map((page) =>

@@ -117,6 +117,14 @@ export class PricingAdminController {
     return this.pricing.plans();
   }
 
+  /** Every customer's subscription with its plan and allowance (card 25.2). */
+  @Get('subscriptions')
+  @RequirePermission('billing:read')
+  @ApiZodOk(JsonListSchema)
+  subscriptions() {
+    return this.pricing.subscriptions();
+  }
+
   @Post('plans')
   @RequirePermission('billing:write')
   @ApiZodBody(PlanBody)

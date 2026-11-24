@@ -4346,6 +4346,8 @@ export type PricingAdminControllerCreatePlanBody = {
 
 export type PricingAdminControllerCreatePlan200 = {[key: string]: unknown};
 
+export type PricingAdminControllerSubscriptions200Item = {[key: string]: unknown};
+
 export type PricingAdminControllerUpdatePlanBody = {
   /**
      * @minLength 1
@@ -4403,6 +4405,16 @@ export type InvoicesAdminControllerProfitParams = {
   from: string;
   /** @pattern ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))$ */
   to: string;
+  /**
+   * @minLength 1
+   * @maxLength 100
+   */
+  organizationId?: string;
+  /**
+   * @minLength 1
+   * @maxLength 200
+   */
+  model?: string;
 };
 
 export type InvoicesAdminControllerProfit200 = {[key: string]: unknown};
@@ -19621,6 +19633,86 @@ export function usePricingAdminControllerCreatePlan<TData = Awaited<ReturnType<t
 
 
 
+
+export type pricingAdminControllerSubscriptionsResponse200 = {
+  data: PricingAdminControllerSubscriptions200Item[]
+  status: 200
+}
+
+export type pricingAdminControllerSubscriptionsResponseSuccess = (pricingAdminControllerSubscriptionsResponse200) & {
+  headers: Headers;
+};
+;
+
+export type pricingAdminControllerSubscriptionsResponse = (pricingAdminControllerSubscriptionsResponseSuccess)
+
+export const getPricingAdminControllerSubscriptionsUrl = (orgId: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/billing/subscriptions`
+}
+
+export const pricingAdminControllerSubscriptions = async (orgId: string, options?: Parameters<typeof orvalFetch>[1]): Promise<pricingAdminControllerSubscriptionsResponse> => {
+
+  return orvalFetch<pricingAdminControllerSubscriptionsResponse>(getPricingAdminControllerSubscriptionsUrl(orgId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getPricingAdminControllerSubscriptionsMutationKey = () => ['pricingAdminControllerSubscriptions'] as const;
+
+export const getPricingAdminControllerSubscriptionsMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof pricingAdminControllerSubscriptions>>, TError,PricingAdminControllerSubscriptionsMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof pricingAdminControllerSubscriptions>>, TError,PricingAdminControllerSubscriptionsMutationVariables, TContext> => {
+
+const mutationKey = getPricingAdminControllerSubscriptionsMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof pricingAdminControllerSubscriptions>>, PricingAdminControllerSubscriptionsMutationVariables> = (props) => {
+          const {orgId} = props ?? {};
+
+          return  pricingAdminControllerSubscriptions(orgId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PricingAdminControllerSubscriptionsMutationResult = NonNullable<Awaited<ReturnType<typeof pricingAdminControllerSubscriptions>>>
+
+    export type PricingAdminControllerSubscriptionsMutationError = unknown
+    export type PricingAdminControllerSubscriptionsMutationVariables = {orgId: string}
+
+    export const usePricingAdminControllerSubscriptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof pricingAdminControllerSubscriptions>>, TError,PricingAdminControllerSubscriptionsMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof pricingAdminControllerSubscriptions>>,
+        TError,
+        PricingAdminControllerSubscriptionsMutationVariables,
+        TContext
+      > => {
+      return useMutation(getPricingAdminControllerSubscriptionsMutationOptions(options), queryClient);
+    }
 
 export type pricingAdminControllerUpdatePlanResponse200 = {
   data: PricingAdminControllerUpdatePlan200

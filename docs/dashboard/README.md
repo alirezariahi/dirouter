@@ -27,6 +27,7 @@ This folder contains the documentation for the DiRouter dashboard pages and comp
   - platform organization only, with billing:read
   - customer wallets, manual credit and debit with a reason (recorded in the audit log)
   - payments and reconciliation, gateways and exchange rates, gift codes with CSV and bulk revoke
+  - model and customer-group multipliers, marketplace, plans and subscriptions, invoices (PDF, verify), profit report with filters and CSV
 
 ## Implementation status
 

@@ -52,6 +52,20 @@ export function sumUsd(values: readonly string[]): string {
   return unitsToUsd(values.reduce((sum, v) => sum + usdUnits(v), 0n));
 }
 
+/** amount × multiplier, rounded half up to 8 decimals like the gateway's sale price. */
+export function multiplyUsd(amount: string, multiplier: string): string {
+  const product = usdUnits(amount) * usdUnits(multiplier);
+  const half = product < 0n ? -SCALE / 2n : SCALE / 2n;
+  return unitsToUsd((product + half) / SCALE);
+}
+
+/** `[from, to)` in whole UTC days for a picker that shows `to` inclusive. */
+export function nextDay(day: string): string {
+  const d = new Date(`${day}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + 1);
+  return isoDay(d);
+}
+
 /** A fresh idempotency key for one money form; a retry of the same submission reuses it. */
 export function idempotencyKey(): string {
   return `dash-${crypto.randomUUID()}`;

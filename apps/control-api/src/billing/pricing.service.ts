@@ -5,7 +5,7 @@
  * successful change under /orgs/…). Model multipliers live on the platform's models themselves
  * (`PATCH /orgs/:orgId/models/:id` with `sale` and `isPublic`).
  */
-import { fromUnits, leftOf, startSubscriptionPeriod } from '@dirouter/db';
+import { fromUnits, leftOf, type Prisma, startSubscriptionPeriod } from '@dirouter/db';
 import { DiRouterError, prefixedId } from '@dirouter/shared';
 import { Inject, Injectable } from '@nestjs/common';
 
@@ -212,7 +212,24 @@ export class PricingService {
       where: { organizationId },
       include: { plan: true },
     });
-    if (!s) return null;
+    return s ? this.#subscriptionView(s) : null;
+  }
+
+  /** Operator: every customer's subscription, newest period first (card 25.2). */
+  async subscriptions() {
+    const rows = await this.db.subscription.findMany({
+      include: { plan: true, organization: { select: { name: true, slug: true } } },
+      orderBy: [{ periodStart: 'desc' }, { id: 'asc' }],
+    });
+    return rows.map((s) => ({
+      organizationId: s.organizationId,
+      organizationName: s.organization.name,
+      organizationSlug: s.organization.slug,
+      ...this.#subscriptionView(s),
+    }));
+  }
+
+  #subscriptionView(s: Prisma.SubscriptionGetPayload<{ include: { plan: true } }>) {
     return {
       id: s.id,
       plan: { id: s.plan.id, name: s.plan.name, priceUsd: dec(s.plan.priceUsd) },
