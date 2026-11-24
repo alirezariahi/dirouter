@@ -38,6 +38,12 @@ export const PERMISSIONS = [
   'mcp:write',
   /** Manual reset of the breaker and cooldown on the Health page (card 7.8); OWNER and ADMIN only. */
   'health:write',
+  /**
+   * Stored request and answer bodies in the Log Explorer, and the capture level of the
+   * organization, its projects and keys (card 24.1). Not a `:read` permission on purpose: MEMBER
+   * and VIEWER do not get it unless a custom role adds it.
+   */
+  'logs:bodies',
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 export type Role = 'OWNER' | 'ADMIN' | 'MEMBER' | 'VIEWER';

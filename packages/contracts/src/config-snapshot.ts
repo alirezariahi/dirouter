@@ -12,6 +12,7 @@ import { z } from 'zod';
 
 import { IsoDateTime, Slug, UsdAmount } from './common.js';
 import { GuardrailPolicy } from './guardrails.js';
+import { BodyCaptureRule, BodyCaptureSettings } from './request-body.js';
 
 export const CONFIG_SNAPSHOT_SCHEMA_VERSION = 1 as const;
 
@@ -432,7 +433,13 @@ export const GatewaySettings = z.object({
   /** Global outbound proxy; a provider or credential can override it. */
   proxy: ProxyConfig.optional(),
   defaultRetry: RetryPolicy.default({ maxAttempts: 2, baseDelayMs: 200, maxDelayMs: 2_000 }),
+  /**
+   * Instance-wide default of request body capture (card 24.1): `true` means `full` for keys whose
+   * organization, project and key have no level of their own. `bodyCapture.defaultLevel` wins.
+   */
   logBodies: z.boolean().default(false),
+  /** Request body capture (card 24.1): default level and size cap of each stored part. */
+  bodyCapture: BodyCaptureSettings.optional(),
   /** Short bulkhead queue (card 5.7); gateway defaults: 16 waiting and 2 seconds. */
   bulkhead: z
     .object({
@@ -512,6 +519,8 @@ export const ConfigSnapshot = z.object({
    */
   platformOrganizationId: z.string().optional(),
   mcpServers: z.array(McpServerConfig).default([]),
+  /** Request body capture levels per organization, project or key (card 24.1). */
+  bodyCapture: z.array(BodyCaptureRule).default([]),
 });
 export type ConfigSnapshot = z.infer<typeof ConfigSnapshot>;
 

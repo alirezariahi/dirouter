@@ -373,6 +373,15 @@ erDiagram
 - Dropping a partition is instant and, unlike `DELETE`, does not bloat the table.
 - `usage_hourly`, `usage_daily`, and `usage_ledger` are not deleted. The dashboard and budgets read from these, so old reports remain correct after the raw logs are deleted.
 
+## Request bodies (`request_bodies`)
+
+Stored request and answer bodies (card 24.1, [request bodies](concepts/request-bodies.md)) live in their own table, apart from `request_log`:
+
+- **Daily** native partitions on `created_at` (UTC) in the `partitions` schema (`partitions.request_bodies_YYYY_MM_DD`), plus `request_bodies_default`. The primary key is `(request_id, created_at)`; `created_at` equals the `request_log` row's, and a duplicate is skipped with `ON CONFLICT DO NOTHING`. No foreign keys.
+- The worker job `body-partitions` (hourly, advisory lock) calls `dirouter_ensure_request_body_partitions(3)`: today and the next three days. A day whose rows already sit in the default partition is skipped with a notice.
+- The worker job `body-retention` (daily at 03:27 UTC) calls `dirouter_drop_request_body_partitions(REQUEST_BODY_RETENTION_DAYS)` (default 7): whole days older than that are dropped and the default partition is trimmed to the same cutoff. This runs on its own clock, independent of `REQUEST_LOG_RETENTION_MONTHS`.
+- `body_capture_settings` holds the explicit capture level per `(organization_id, scope, scope_id)`; no row means inherit.
+
 ## Aggregate tables
 
 `usage_hourly` and `usage_daily` with the key `(bucket, organization_id, project_id, api_key_id, model_slug, provider_id)`:

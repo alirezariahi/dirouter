@@ -2,6 +2,7 @@ import type { Logger } from '@dirouter/shared';
 import { type DynamicModule, Module } from '@nestjs/common';
 
 import { AuthModule } from './auth/auth.module.js';
+import { BodiesModule } from './bodies/bodies.module.js';
 import { AlertsModule } from './alerts/alerts.module.js';
 import { BillingModule } from './billing/billing.module.js';
 import { PortalModule } from './portal/portal.module.js';
@@ -56,6 +57,7 @@ export class AppModule {
         SecurityModule,
         SemanticCacheModule,
         PlaygroundModule,
+        BodiesModule,
       ],
       controllers: [HealthController],
       providers: [

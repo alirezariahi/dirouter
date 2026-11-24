@@ -18,6 +18,8 @@ export interface PlaygroundInput {
   apiKey: string;
   models: string[];
   system?: string | undefined;
+  /** Earlier turns of a replayed conversation (card 24.1). */
+  history?: { role: 'user' | 'assistant'; content: string }[] | undefined;
   prompt: string;
   maxTokens: number;
   temperature?: number | undefined;
@@ -115,6 +117,7 @@ export class PlaygroundService {
             model,
             messages: [
               ...(input.system ? [{ role: 'system', content: input.system }] : []),
+              ...(input.history ?? []),
               { role: 'user', content: input.prompt },
             ],
             max_tokens: input.maxTokens,

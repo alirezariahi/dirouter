@@ -16,6 +16,8 @@ worker ──batched (createMany + skipDuplicates)──▶ request_log + usage_
    └── changed hours ──▶ Valkey set ──rollup (30s)──▶ usage_hourly ──▶ usage_daily
 ```
 
+Captured request bodies (card 24.1) never use this pipeline: they go to their own best-effort `request-bodies` queue and table. See [request bodies](concepts/request-bodies.md).
+
 ## Guarantees
 
 | Requirement                                     | How                                                                                                                                                                                                                                                                                                         |

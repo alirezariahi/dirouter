@@ -117,5 +117,6 @@ CI تغییرات و مصرف‌کنندگانشان را lint، typecheck، tes
 - [Runbook عملیاتی](runbook.fa.md)، [مشاهده‌پذیری](observability.fa.md) و [usage pipeline](usage-pipeline.fa.md)
 - [دادهٔ seed](seed.fa.md)، [مسیریابی](concepts/routing.fa.md) و [محدودیتها](concepts/limits.fa.md)
 - [صورتحساب، مالیات بر ارزش افزوده، PDF فارسی و پرتال](concepts/invoices.fa.md)
+- [بدنهٔ درخواست، نمایش payload و replay](concepts/request-bodies.fa.md)
 
 </div>

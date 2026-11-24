@@ -18,6 +18,8 @@ worker ──دسته‌ای (createMany + skipDuplicates)──▶ request_log 
    └── ساعت‌های تغییرکرده ──▶ Valkey set ──rollup (۳۰s)──▶ usage_hourly ──▶ usage_daily
 ```
 
+بدنهٔ ثبت‌شدهٔ درخواست‌ها (کارت ۲۴.۱) هرگز از این مسیر نمی‌رود: صف best effort و جدول خودش (`request-bodies`) را دارد. نگاه کنید به [بدنهٔ درخواست](concepts/request-bodies.fa.md).
+
 ## تضمین‌ها
 
 | خواسته                               | چطور                                                                                                                                                                                                                                                                                    |

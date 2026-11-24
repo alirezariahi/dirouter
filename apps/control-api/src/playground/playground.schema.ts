@@ -9,6 +9,13 @@ export const PlaygroundBody = z.object({
     .max(4)
     .refine((models) => new Set(models).size === models.length, 'models must be distinct'),
   system: z.string().max(20_000).optional(),
+  /** Earlier turns sent before the prompt, e.g. a request replayed from the Log Explorer (24.1). */
+  history: z
+    .array(
+      z.object({ role: z.enum(['user', 'assistant']), content: z.string().min(1).max(50_000) }),
+    )
+    .max(100)
+    .optional(),
   prompt: z.string().min(1).max(50_000),
   maxTokens: z.int().min(1).max(4_096).default(512),
   temperature: z.number().min(0).max(2).optional(),

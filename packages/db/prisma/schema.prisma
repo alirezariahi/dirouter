@@ -1404,3 +1404,49 @@ model AgentProfile {
   @@unique([organizationId, name])
   @@map("agent_profiles")
 }
+
+// ───────────── Request bodies (card 24.1) ─────────────
+
+/// Body capture level of an organization, project or virtual key: none | metadata | full. No row
+/// means "inherit": a key falls back to its project, then its organization, then the instance
+/// default. No foreign key: the scope id points at one of three tables.
+model BodyCaptureSetting {
+  organizationId String   @map("organization_id")
+  /// organization | project | key
+  scope          String
+  scopeId        String   @map("scope_id")
+  level          String
+  updatedById    String?  @map("updated_by_id")
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@id([organizationId, scope, scopeId])
+  @@map("body_capture_settings")
+}
+
+/// Stored request and answer bodies, written by the worker from the `request-bodies` queue.
+/// Daily partitions on created_at with their own retention (REQUEST_BODY_RETENTION_DAYS), apart
+/// from request_log; managed in raw SQL like request_log. No foreign keys (high volume).
+model RequestBody {
+  requestId         String   @map("request_id")
+  createdAt         DateTime @map("created_at") @db.Timestamptz(3)
+  organizationId    String   @map("organization_id")
+  projectId         String   @map("project_id")
+  apiKeyId          String   @map("api_key_id")
+  inboundApi        String   @map("inbound_api")
+  /// metadata | full
+  level             String
+  metadata          Json
+  /// Redacted JSON text, cut at the size cap; null at the metadata level.
+  request           String?
+  requestTruncated  Boolean  @default(false) @map("request_truncated")
+  response          String?
+  responseTruncated Boolean  @default(false) @map("response_truncated")
+  streamed          Boolean  @default(false)
+  redactions        Int      @default(0)
+  /// The conversation as the playground replays it (text only).
+  replay            Json?
+
+  @@id([requestId, createdAt])
+  @@index([organizationId, createdAt])
+  @@map("request_bodies")
+}

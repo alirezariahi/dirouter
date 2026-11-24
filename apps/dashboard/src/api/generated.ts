@@ -5297,6 +5297,7 @@ export const SecurityControllerCreateRoleBodyPermissionsItem = {
   'mcp:read': 'mcp:read',
   'mcp:write': 'mcp:write',
   'health:write': 'health:write',
+  'logs:bodies': 'logs:bodies',
 } as const;
 
 export type SecurityControllerCreateRoleBody = {
@@ -5305,7 +5306,7 @@ export type SecurityControllerCreateRoleBody = {
      * @maxLength 60
      */
   name: string;
-  /** @maxItems 29 */
+  /** @maxItems 30 */
   permissions: SecurityControllerCreateRoleBodyPermissionsItem[];
 };
 
@@ -5344,6 +5345,7 @@ export const SecurityControllerUpdateRoleBodyPermissionsItem = {
   'mcp:read': 'mcp:read',
   'mcp:write': 'mcp:write',
   'health:write': 'health:write',
+  'logs:bodies': 'logs:bodies',
 } as const;
 
 export type SecurityControllerUpdateRoleBody = {
@@ -5352,7 +5354,7 @@ export type SecurityControllerUpdateRoleBody = {
      * @maxLength 60
      */
   name?: string;
-  /** @maxItems 29 */
+  /** @maxItems 30 */
   permissions?: SecurityControllerUpdateRoleBodyPermissionsItem[];
 };
 
@@ -5590,6 +5592,23 @@ export type SemanticCacheControllerInfo200 = {[key: string]: unknown};
 
 export type SemanticCacheControllerPurge200 = {[key: string]: unknown};
 
+export type PlaygroundControllerCompareBodyHistoryItemRole = typeof PlaygroundControllerCompareBodyHistoryItemRole[keyof typeof PlaygroundControllerCompareBodyHistoryItemRole];
+
+
+export const PlaygroundControllerCompareBodyHistoryItemRole = {
+  user: 'user',
+  assistant: 'assistant',
+} as const;
+
+export type PlaygroundControllerCompareBodyHistoryItem = {
+  role: PlaygroundControllerCompareBodyHistoryItemRole;
+  /**
+     * @minLength 1
+     * @maxLength 50000
+     */
+  content: string;
+};
+
 export type PlaygroundControllerCompareBody = {
   /**
      * a virtual key created by the caller; never stored
@@ -5606,6 +5625,8 @@ export type PlaygroundControllerCompareBody = {
   models: string[];
   /** @maxLength 20000 */
   system?: string;
+  /** @maxItems 100 */
+  history?: PlaygroundControllerCompareBodyHistoryItem[];
   /**
      * @minLength 1
      * @maxLength 50000
@@ -5662,6 +5683,149 @@ export type PlaygroundControllerCompare200ResultsItem = {
 export type PlaygroundControllerCompare200 = {
   apiKeyId: string;
   results: PlaygroundControllerCompare200ResultsItem[];
+};
+
+export type BodiesControllerLevels200RulesItem = {
+  scope: string;
+  scopeId: string;
+  level: string;
+  updatedAt: string;
+};
+
+export type BodiesControllerLevels200 = {
+  /** instance default for keys without a level (OWNER setting) */
+  defaultLevel: string;
+  /**
+     * size cap of each stored part, in bytes
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     */
+  maxBytes: number;
+  rules: BodiesControllerLevels200RulesItem[];
+};
+
+export type BodiesControllerSetLevelBodyScope = typeof BodiesControllerSetLevelBodyScope[keyof typeof BodiesControllerSetLevelBodyScope];
+
+
+export const BodiesControllerSetLevelBodyScope = {
+  organization: 'organization',
+  project: 'project',
+  key: 'key',
+} as const;
+
+export const BodiesControllerSetLevelBodyLevel = {  none: 'none',
+  metadata: 'metadata',
+  full: 'full',
+  inherit: 'inherit',
+} as const
+export type BodiesControllerSetLevelBody = {
+  scope: BodiesControllerSetLevelBodyScope;
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  scopeId: string;
+  level: typeof BodiesControllerSetLevelBodyLevel[keyof typeof BodiesControllerSetLevelBodyLevel];
+};
+
+export type BodiesControllerSetLevel200Scope = typeof BodiesControllerSetLevel200Scope[keyof typeof BodiesControllerSetLevel200Scope];
+
+
+export const BodiesControllerSetLevel200Scope = {
+  organization: 'organization',
+  project: 'project',
+  key: 'key',
+} as const;
+
+export const BodiesControllerSetLevel200Level = {  none: 'none',
+  metadata: 'metadata',
+  full: 'full',
+  inherit: 'inherit',
+} as const
+export type BodiesControllerSetLevel200 = {
+  scope: BodiesControllerSetLevel200Scope;
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  scopeId: string;
+  level: typeof BodiesControllerSetLevel200Level[keyof typeof BodiesControllerSetLevel200Level];
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     */
+  configVersion: number;
+};
+
+export type BodiesControllerBody200Level = typeof BodiesControllerBody200Level[keyof typeof BodiesControllerBody200Level];
+
+
+export const BodiesControllerBody200Level = {
+  metadata: 'metadata',
+  full: 'full',
+} as const;
+
+export type BodiesControllerBody200Metadata = {[key: string]: unknown};
+
+export type BodiesControllerBody200ReplayHistoryItemRole = typeof BodiesControllerBody200ReplayHistoryItemRole[keyof typeof BodiesControllerBody200ReplayHistoryItemRole];
+
+
+export const BodiesControllerBody200ReplayHistoryItemRole = {
+  user: 'user',
+  assistant: 'assistant',
+} as const;
+
+export type BodiesControllerBody200ReplayHistoryItem = {
+  role: BodiesControllerBody200ReplayHistoryItemRole;
+  content: string;
+};
+
+/**
+ * the conversation as the playground can send it again
+ * @nullable
+ */
+export type BodiesControllerBody200Replay = {
+  system?: string;
+  history: BodiesControllerBody200ReplayHistoryItem[];
+  prompt: string;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     */
+  maxTokens?: number;
+  temperature?: number;
+  lossy: boolean;
+} | null;
+
+export type BodiesControllerBody200 = {
+  requestId: string;
+  createdAt: string;
+  inboundApi: string;
+  level: BodiesControllerBody200Level;
+  metadata: BodiesControllerBody200Metadata;
+  /**
+     * redacted request JSON as the client sent it
+     * @nullable
+     */
+  request: string | null;
+  requestTruncated: boolean;
+  /**
+     * redacted answer; a stream is rebuilt as one answer
+     * @nullable
+     */
+  response: string | null;
+  responseTruncated: boolean;
+  streamed: boolean;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     */
+  redactions: number;
+  /**
+     * the conversation as the playground can send it again
+     * @nullable
+     */
+  replay: BodiesControllerBody200Replay;
 };
 
 type AwaitedInput<T> = PromiseLike<T> | T;
@@ -27669,3 +27833,299 @@ export function usePlaygroundControllerCompare<TData = Awaited<ReturnType<typeof
 
   return withQueryKey(query, queryOptions.queryKey);
 }
+
+
+
+
+
+
+
+export type bodiesControllerLevelsResponse200 = {
+  data: BodiesControllerLevels200
+  status: 200
+}
+
+export type bodiesControllerLevelsResponseSuccess = (bodiesControllerLevelsResponse200) & {
+  headers: Headers;
+};
+;
+
+export type bodiesControllerLevelsResponse = (bodiesControllerLevelsResponseSuccess)
+
+export const getBodiesControllerLevelsUrl = (orgId: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/body-capture`
+}
+
+export const bodiesControllerLevels = async (orgId: string, options?: Parameters<typeof orvalFetch>[1]): Promise<bodiesControllerLevelsResponse> => {
+
+  return orvalFetch<bodiesControllerLevelsResponse>(getBodiesControllerLevelsUrl(orgId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getBodiesControllerLevelsMutationKey = () => ['bodiesControllerLevels'] as const;
+
+export const getBodiesControllerLevelsMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof bodiesControllerLevels>>, TError,BodiesControllerLevelsMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof bodiesControllerLevels>>, TError,BodiesControllerLevelsMutationVariables, TContext> => {
+
+const mutationKey = getBodiesControllerLevelsMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof bodiesControllerLevels>>, BodiesControllerLevelsMutationVariables> = (props) => {
+          const {orgId} = props ?? {};
+
+          return  bodiesControllerLevels(orgId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type BodiesControllerLevelsMutationResult = NonNullable<Awaited<ReturnType<typeof bodiesControllerLevels>>>
+
+    export type BodiesControllerLevelsMutationError = unknown
+    export type BodiesControllerLevelsMutationVariables = {orgId: string}
+
+    export const useBodiesControllerLevels = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof bodiesControllerLevels>>, TError,BodiesControllerLevelsMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof bodiesControllerLevels>>,
+        TError,
+        BodiesControllerLevelsMutationVariables,
+        TContext
+      > => {
+      return useMutation(getBodiesControllerLevelsMutationOptions(options), queryClient);
+    }
+
+export type bodiesControllerSetLevelResponse200 = {
+  data: BodiesControllerSetLevel200
+  status: 200
+}
+
+export type bodiesControllerSetLevelResponseSuccess = (bodiesControllerSetLevelResponse200) & {
+  headers: Headers;
+};
+;
+
+export type bodiesControllerSetLevelResponse = (bodiesControllerSetLevelResponseSuccess)
+
+export const getBodiesControllerSetLevelUrl = (orgId: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/body-capture`
+}
+
+export const bodiesControllerSetLevel = async (orgId: string,
+    bodiesControllerSetLevelBody: BodiesControllerSetLevelBody, options?: Parameters<typeof orvalFetch>[1]): Promise<bodiesControllerSetLevelResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return orvalFetch<bodiesControllerSetLevelResponse>(getBodiesControllerSetLevelUrl(orgId),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(bodiesControllerSetLevelBody)
+  }
+);}
+
+
+
+
+
+export const getBodiesControllerSetLevelQueryKey = (orgId: string,
+    bodiesControllerSetLevelBody?: BodiesControllerSetLevelBody,) => {
+    return [
+    'PUT', `/api/v1/orgs/${orgId}/body-capture`, bodiesControllerSetLevelBody
+    ] as const;
+    }
+
+
+export const getBodiesControllerSetLevelQueryOptions = <TData = Awaited<ReturnType<typeof bodiesControllerSetLevel>>, TError = unknown>(orgId: string,
+    bodiesControllerSetLevelBody: BodiesControllerSetLevelBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof bodiesControllerSetLevel>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getBodiesControllerSetLevelQueryKey(orgId,bodiesControllerSetLevelBody);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof bodiesControllerSetLevel>>> = ({ signal }) => bodiesControllerSetLevel(orgId,bodiesControllerSetLevelBody, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: orgId !== null && orgId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof bodiesControllerSetLevel>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type BodiesControllerSetLevelQueryResult = NonNullable<Awaited<ReturnType<typeof bodiesControllerSetLevel>>>
+export type BodiesControllerSetLevelQueryError = unknown
+
+
+export function useBodiesControllerSetLevel<TData = Awaited<ReturnType<typeof bodiesControllerSetLevel>>, TError = unknown>(
+ orgId: string,
+    bodiesControllerSetLevelBody: BodiesControllerSetLevelBody, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof bodiesControllerSetLevel>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof bodiesControllerSetLevel>>,
+          TError,
+          Awaited<ReturnType<typeof bodiesControllerSetLevel>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useBodiesControllerSetLevel<TData = Awaited<ReturnType<typeof bodiesControllerSetLevel>>, TError = unknown>(
+ orgId: string,
+    bodiesControllerSetLevelBody: BodiesControllerSetLevelBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof bodiesControllerSetLevel>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof bodiesControllerSetLevel>>,
+          TError,
+          Awaited<ReturnType<typeof bodiesControllerSetLevel>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useBodiesControllerSetLevel<TData = Awaited<ReturnType<typeof bodiesControllerSetLevel>>, TError = unknown>(
+ orgId: string,
+    bodiesControllerSetLevelBody: BodiesControllerSetLevelBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof bodiesControllerSetLevel>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useBodiesControllerSetLevel<TData = Awaited<ReturnType<typeof bodiesControllerSetLevel>>, TError = unknown>(
+ orgId: string,
+    bodiesControllerSetLevelBody: BodiesControllerSetLevelBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof bodiesControllerSetLevel>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getBodiesControllerSetLevelQueryOptions(orgId,bodiesControllerSetLevelBody,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export type bodiesControllerBodyResponse200 = {
+  data: BodiesControllerBody200
+  status: 200
+}
+
+export type bodiesControllerBodyResponseSuccess = (bodiesControllerBodyResponse200) & {
+  headers: Headers;
+};
+;
+
+export type bodiesControllerBodyResponse = (bodiesControllerBodyResponseSuccess)
+
+export const getBodiesControllerBodyUrl = (orgId: string,
+    id: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/logs/${id}/body`
+}
+
+export const bodiesControllerBody = async (orgId: string,
+    id: string, options?: Parameters<typeof orvalFetch>[1]): Promise<bodiesControllerBodyResponse> => {
+
+  return orvalFetch<bodiesControllerBodyResponse>(getBodiesControllerBodyUrl(orgId,id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getBodiesControllerBodyMutationKey = () => ['bodiesControllerBody'] as const;
+
+export const getBodiesControllerBodyMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof bodiesControllerBody>>, TError,BodiesControllerBodyMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof bodiesControllerBody>>, TError,BodiesControllerBodyMutationVariables, TContext> => {
+
+const mutationKey = getBodiesControllerBodyMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof bodiesControllerBody>>, BodiesControllerBodyMutationVariables> = (props) => {
+          const {orgId,id} = props ?? {};
+
+          return  bodiesControllerBody(orgId,id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type BodiesControllerBodyMutationResult = NonNullable<Awaited<ReturnType<typeof bodiesControllerBody>>>
+
+    export type BodiesControllerBodyMutationError = unknown
+    export type BodiesControllerBodyMutationVariables = {orgId: string;id: string}
+
+    export const useBodiesControllerBody = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof bodiesControllerBody>>, TError,BodiesControllerBodyMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof bodiesControllerBody>>,
+        TError,
+        BodiesControllerBodyMutationVariables,
+        TContext
+      > => {
+      return useMutation(getBodiesControllerBodyMutationOptions(options), queryClient);
+    }

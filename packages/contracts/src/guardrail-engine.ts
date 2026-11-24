@@ -968,6 +968,58 @@ export function evaluateGuardrails(
   return result;
 }
 
+/** Matchers that mask credentials in stored bodies whatever the policies say (card 24.1). */
+const STORAGE_SECRET_MATCHERS = SECRET_PATTERNS.map(({ regex }) => ({ re: regex }));
+
+/**
+ * Masks, in every string of a JSON value, what the stage's `redact` policies would mask in live
+ * traffic (card 24.1): request bodies are stored only after this. Credentials (the `secret`
+ * patterns) are masked always, whatever the policies say. Returns a new value; the input is not
+ * modified.
+ */
+export function redactForStorage(
+  policies: readonly GuardrailPolicy[],
+  value: unknown,
+  stage: Exclude<GuardrailStage, 'both'>,
+): { value: unknown; redactions: number } {
+  const matchers: { re: RegExp; valid?: (m: string) => boolean }[] = [
+    ...policies
+      .filter(
+        (p) =>
+          p.enabled &&
+          p.action === 'redact' &&
+          (p.stage === 'both' || p.stage === stage) &&
+          p.type !== 'secret',
+      )
+      .flatMap((p) => matchersFor(p)),
+    ...STORAGE_SECRET_MATCHERS,
+  ];
+  let redactions = 0;
+  const mask = (text: string): string => {
+    let out = text;
+    for (const m of matchers) {
+      const scanned = scan(m.re, out, { redact: true, ...(m.valid ? { valid: m.valid } : {}) });
+      if (scanned.count === 0) continue;
+      redactions += scanned.count;
+      out = scanned.text;
+    }
+    return out;
+  };
+  const walk = (node: unknown, depth: number): unknown => {
+    if (typeof node === 'string') return mask(node);
+    // Deeper than any real request: replaced rather than stored unchecked.
+    if (depth > 64) return '[TOO DEEP]';
+    if (Array.isArray(node)) return node.map((item) => walk(item, depth + 1));
+    if (node !== null && typeof node === 'object')
+      return Object.fromEntries(
+        Object.entries(node as Record<string, unknown>).map(([k, v]) => [k, walk(v, depth + 1)]),
+      );
+    return node;
+  };
+  const out = walk(value, 0);
+  return { value: out, redactions };
+}
+
 /**
  * Policies that apply to a request: those of the key's organization, minus the ones narrowed to
  * another project or another virtual key.

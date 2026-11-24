@@ -31,4 +31,18 @@ describe('PlaygroundBody', () => {
     expect(PlaygroundBody.safeParse({ ...base, models: [] }).success).toBe(false);
     expect(PlaygroundBody.safeParse({ ...base, maxTokens: 100_000 }).success).toBe(false);
   });
+
+  it('accepts the earlier turns of a replayed request (card 24.1)', () => {
+    const history = [
+      { role: 'user', content: 'first' },
+      { role: 'assistant', content: 'answer' },
+    ];
+    expect(PlaygroundBody.parse({ ...base, history }).history).toEqual(history);
+    expect(
+      PlaygroundBody.safeParse({ ...base, history: [{ role: 'system', content: 'x' }] }).success,
+    ).toBe(false);
+    expect(
+      PlaygroundBody.safeParse({ ...base, history: [{ role: 'user', content: '' }] }).success,
+    ).toBe(false);
+  });
 });

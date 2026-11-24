@@ -3,14 +3,17 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { api } from '../lib/api';
+import { api, ApiError } from '../lib/api';
 import { type LogSearch } from '../lib/log-search';
 import LogsPage, { safeLogHeaders } from './logs';
 
-const state = vi.hoisted((): { search: LogSearch; navigate: ReturnType<typeof vi.fn> } => ({
-  search: {},
-  navigate: vi.fn(),
-}));
+const state = vi.hoisted(
+  (): { search: LogSearch; navigate: ReturnType<typeof vi.fn>; bodies: boolean } => ({
+    search: {},
+    navigate: vi.fn(),
+    bodies: false,
+  }),
+);
 vi.mock('@tanstack/react-router', () => ({
   useSearch: () => state.search,
   useNavigate: () => state.navigate,
@@ -20,6 +23,7 @@ vi.mock('../settings', () => ({ useSettings: () => ({ lang: 'en', calendar: 'gre
 vi.mock('../lib/session', () => ({
   useSession: () => undefined,
   currentOrg: () => ({ id: 'org_1' }),
+  can: (_org: unknown, permission: string) => state.bodies && permission === 'logs:bodies',
 }));
 vi.mock(import('../lib/api'), async (importOriginal) => ({
   ...(await importOriginal()),
@@ -53,6 +57,8 @@ function mount() {
   );
 }
 beforeEach(() => {
+  state.bodies = false;
+  sessionStorage.clear();
   state.search = { from: '2026-01-01T00:00:00.000Z', to: '2026-01-02T00:00:00.000Z' };
   state.navigate.mockReset();
   vi.mocked(api).mockReset();
@@ -212,5 +218,85 @@ describe('Request Log Explorer', () => {
         'x-request-id': { secret: true },
       }),
     ).toEqual([['content-type', 'application/json']]);
+  });
+});
+
+describe('stored payload and replay (card 24.1)', () => {
+  const stored = {
+    requestId: 'req_1',
+    createdAt: '2026-01-01T01:00:00Z',
+    inboundApi: 'openai.chat',
+    level: 'full',
+    metadata: {
+      model: 'smart',
+      parameters: ['temperature'],
+      messages: 2,
+      roles: { user: 2 },
+      tools: [],
+      requestBytes: 120,
+      responseBytes: 80,
+      finishReason: 'stop',
+    },
+    request: '{"model":"smart","messages":[{"role":"user","content":"mail [REDACTED]"}]}',
+    requestTruncated: false,
+    response: '{"choices":[{"message":{"content":"done"}}]}',
+    responseTruncated: true,
+    streamed: false,
+    redactions: 1,
+    replay: {
+      history: [{ role: 'user', content: 'first' }],
+      prompt: 'mail [REDACTED]',
+      temperature: 0.2,
+      lossy: false,
+    },
+  };
+  const withBodies = (body: unknown) => {
+    const base = vi.mocked(api).getMockImplementation();
+    vi.mocked(api).mockImplementation((path, ...rest) => {
+      if (path.endsWith('/logs/req_1/body'))
+        return body instanceof Error ? Promise.reject(body) : Promise.resolve(body);
+      if (path.endsWith('/body-capture'))
+        return Promise.resolve({ defaultLevel: 'none', maxBytes: 65536, rules: [] });
+      if (path.endsWith('/projects') || path.endsWith('/keys')) return Promise.resolve([]);
+      return base ? base(path, ...rest) : Promise.resolve(undefined);
+    });
+  };
+
+  it('stays hidden without logs:bodies and never asks for the body', async () => {
+    mount();
+    fireEvent.click(await screen.findByTestId('log-row'));
+    await screen.findByRole('region', { name: 'Request detail' });
+    await screen.findByText('upstream-123');
+    expect(screen.queryByTestId('log-payload')).toBeNull();
+    expect(screen.queryByText('Request body capture')).toBeNull();
+    expect(vi.mocked(api).mock.calls.some(([path]) => path.includes('/body'))).toBe(false);
+  });
+
+  it('shows the redacted payload and hands the conversation to the playground', async () => {
+    state.bodies = true;
+    withBodies(stored);
+    mount();
+    fireEvent.click(await screen.findByTestId('log-row'));
+    const payload = await screen.findByTestId('log-payload');
+    expect(payload.textContent).toContain('[REDACTED]');
+    expect(payload.textContent).toContain('Cut at the size limit.');
+    expect(payload.textContent).toContain('Full body');
+    fireEvent.click(within(payload).getByText('Replay in playground'));
+    expect(state.navigate).toHaveBeenCalledWith({ to: '/playground' });
+    expect(JSON.parse(sessionStorage.getItem('dirouter.replay') ?? '{}')).toMatchObject({
+      requestId: 'req_1',
+      model: 'smart',
+      prompt: 'mail [REDACTED]',
+      history: [{ role: 'user', content: 'first' }],
+    });
+    expect(await screen.findByText('Request body capture')).toBeTruthy();
+  });
+
+  it('says so when nothing was captured', async () => {
+    state.bodies = true;
+    withBodies(new ApiError({ status: 404, code: 'not_found' }));
+    mount();
+    fireEvent.click(await screen.findByTestId('log-row'));
+    expect(await screen.findByText(/No body was stored for this request/)).toBeTruthy();
   });
 });

@@ -17,6 +17,9 @@ import type { SubmitEvent } from '../lib/form';
 import { errorMessage } from '../lib/errors';
 import { currentOrg } from '../lib/session';
 import { MAX_MODELS, toggleModel } from '../lib/s2-helpers';
+import { takeReplay } from '../lib/replay';
+import { bodyMessages } from '../i18n/body-messages';
+import { useSettings } from '../settings';
 
 interface ModelRow {
   id: string;
@@ -47,12 +50,19 @@ export default function PlaygroundPage() {
   const { n, usd } = useFormat();
   const org = currentOrg();
   const base = `/orgs/${org?.id ?? ''}`;
+  const lang = useSettings().lang;
+  // A request replayed from the Log Explorer (card 24.1), taken once; any model can be picked.
+  const [replay, setReplay] = useState(takeReplay);
   const [apiKey, setApiKey] = useState('');
   const [selected, setSelected] = useState<string[]>([]);
-  const [system, setSystem] = useState('');
-  const [prompt, setPrompt] = useState('');
-  const [maxTokens, setMaxTokens] = useState('512');
-  const [temperature, setTemperature] = useState('');
+  const [system, setSystem] = useState(replay?.system ?? '');
+  const [prompt, setPrompt] = useState(replay?.prompt ?? '');
+  const [maxTokens, setMaxTokens] = useState(
+    replay?.maxTokens ? String(Math.min(4096, replay.maxTokens)) : '512',
+  );
+  const [temperature, setTemperature] = useState(
+    replay?.temperature !== undefined ? String(replay.temperature) : '',
+  );
   const [localError, setLocalError] = useState<string>();
 
   const models = useQuery({
@@ -69,6 +79,7 @@ export default function PlaygroundPage() {
           models: selected,
           prompt,
           ...(system.trim() ? { system } : {}),
+          ...(replay?.history.length ? { history: replay.history } : {}),
           maxTokens: Number(maxTokens) || 512,
           ...(temperature !== '' ? { temperature: Number(temperature) } : {}),
         },
@@ -89,6 +100,37 @@ export default function PlaygroundPage() {
     <section className="enter flex flex-col gap-6">
       <PageHeader title={t('s2.playground.title')} subtitle={t('s2.playground.subtitle')} />
       <Section title={t('s2.playground.title')}>
+        {replay ? (
+          <div
+            role="note"
+            data-testid="playground-replay"
+            className="flex flex-wrap items-center gap-2 rounded-lg border border-border p-3 text-sm"
+          >
+            <span>
+              {bodyMessages[lang].replayOf} <bdi dir="ltr">{replay.requestId}</bdi>
+              {replay.model ? (
+                <>
+                  {' '}
+                  (<bdi dir="ltr">{replay.model}</bdi>)
+                </>
+              ) : null}
+              {replay.history.length
+                ? ` · ${bodyMessages[lang].earlierTurns}: ${String(replay.history.length)}`
+                : ''}
+            </span>
+            {replay.lossy ? (
+              <span className="text-xs text-muted">{bodyMessages[lang].replayLossy}</span>
+            ) : null}
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setReplay(undefined);
+              }}
+            >
+              {bodyMessages[lang].dropHistory}
+            </Button>
+          </div>
+        ) : null}
         <form onSubmit={submit} className="flex flex-col gap-3">
           <Field
             name="playground-key"

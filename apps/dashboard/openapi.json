@@ -16151,7 +16151,7 @@
                     "maxLength": 60
                   },
                   "permissions": {
-                    "maxItems": 29,
+                    "maxItems": 30,
                     "type": "array",
                     "items": {
                       "type": "string",
@@ -16184,7 +16184,8 @@
                         "billing:write",
                         "mcp:read",
                         "mcp:write",
-                        "health:write"
+                        "health:write",
+                        "logs:bodies"
                       ]
                     }
                   }
@@ -16254,7 +16255,7 @@
                     "maxLength": 60
                   },
                   "permissions": {
-                    "maxItems": 29,
+                    "maxItems": 30,
                     "type": "array",
                     "items": {
                       "type": "string",
@@ -16287,7 +16288,8 @@
                         "billing:write",
                         "mcp:read",
                         "mcp:write",
-                        "health:write"
+                        "health:write",
+                        "logs:bodies"
                       ]
                     }
                   }
@@ -17239,6 +17241,31 @@
                     "type": "string",
                     "maxLength": 20000
                   },
+                  "history": {
+                    "maxItems": 100,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "role": {
+                          "type": "string",
+                          "enum": [
+                            "user",
+                            "assistant"
+                          ]
+                        },
+                        "content": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 50000
+                        }
+                      },
+                      "required": [
+                        "role",
+                        "content"
+                      ]
+                    }
+                  },
                   "prompt": {
                     "type": "string",
                     "minLength": 1,
@@ -17362,6 +17389,363 @@
         ],
         "tags": [
           "playground"
+        ]
+      }
+    },
+    "/api/v1/orgs/{orgId}/body-capture": {
+      "get": {
+        "operationId": "BodiesController_levels",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "defaultLevel": {
+                      "type": "string",
+                      "description": "instance default for keys without a level (OWNER setting)"
+                    },
+                    "maxBytes": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991,
+                      "description": "size cap of each stored part, in bytes"
+                    },
+                    "rules": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "scope": {
+                            "type": "string"
+                          },
+                          "scopeId": {
+                            "type": "string"
+                          },
+                          "level": {
+                            "type": "string"
+                          },
+                          "updatedAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "scope",
+                          "scopeId",
+                          "level",
+                          "updatedAt"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "defaultLevel",
+                    "maxBytes",
+                    "rules"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "stats & logs"
+        ]
+      },
+      "put": {
+        "operationId": "BodiesController_setLevel",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "scope": {
+                    "type": "string",
+                    "enum": [
+                      "organization",
+                      "project",
+                      "key"
+                    ]
+                  },
+                  "scopeId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "level": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": [
+                          "none",
+                          "metadata",
+                          "full"
+                        ]
+                      },
+                      {
+                        "type": "string",
+                        "enum": [
+                          "inherit"
+                        ]
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "scope",
+                  "scopeId",
+                  "level"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "the level applies once the gateway loads the new snapshot",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "scope": {
+                      "type": "string",
+                      "enum": [
+                        "organization",
+                        "project",
+                        "key"
+                      ]
+                    },
+                    "scopeId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 100
+                    },
+                    "level": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "none",
+                            "metadata",
+                            "full"
+                          ]
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
+                            "inherit"
+                          ]
+                        }
+                      ]
+                    },
+                    "configVersion": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "scope",
+                    "scopeId",
+                    "level",
+                    "configVersion"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "stats & logs"
+        ]
+      }
+    },
+    "/api/v1/orgs/{orgId}/logs/{id}/body": {
+      "get": {
+        "operationId": "BodiesController_body",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "requestId": {
+                      "type": "string"
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "inboundApi": {
+                      "type": "string"
+                    },
+                    "level": {
+                      "type": "string",
+                      "enum": [
+                        "metadata",
+                        "full"
+                      ]
+                    },
+                    "metadata": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    },
+                    "request": {
+                      "nullable": true,
+                      "description": "redacted request JSON as the client sent it",
+                      "type": "string"
+                    },
+                    "requestTruncated": {
+                      "type": "boolean"
+                    },
+                    "response": {
+                      "nullable": true,
+                      "description": "redacted answer; a stream is rebuilt as one answer",
+                      "type": "string"
+                    },
+                    "responseTruncated": {
+                      "type": "boolean"
+                    },
+                    "streamed": {
+                      "type": "boolean"
+                    },
+                    "redactions": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "replay": {
+                      "nullable": true,
+                      "description": "the conversation as the playground can send it again",
+                      "type": "object",
+                      "properties": {
+                        "system": {
+                          "type": "string"
+                        },
+                        "history": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "role": {
+                                "type": "string",
+                                "enum": [
+                                  "user",
+                                  "assistant"
+                                ]
+                              },
+                              "content": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "role",
+                              "content"
+                            ]
+                          }
+                        },
+                        "prompt": {
+                          "type": "string"
+                        },
+                        "maxTokens": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "temperature": {
+                          "type": "number"
+                        },
+                        "lossy": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "history",
+                        "prompt",
+                        "lossy"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "requestId",
+                    "createdAt",
+                    "inboundApi",
+                    "level",
+                    "metadata",
+                    "request",
+                    "requestTruncated",
+                    "response",
+                    "responseTruncated",
+                    "streamed",
+                    "redactions",
+                    "replay"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "stats & logs"
         ]
       }
     }

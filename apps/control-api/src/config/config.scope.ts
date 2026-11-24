@@ -51,6 +51,12 @@ export function sliceForOrg(snapshot: unknown, organizationId: string): Json {
   const out: Json = { ...rest };
   for (const key of ORG_ARRAYS)
     out[key] = items(source, key).filter((item) => item.organizationId === organizationId);
+  // Body capture levels (card 24.1) are read-only here: they change only through their own API,
+  // and a merge always keeps the published ones.
+  if ('bodyCapture' in source)
+    out.bodyCapture = items(source, 'bodyCapture').filter(
+      (item) => item.organizationId === organizationId,
+    );
   return out;
 }
 

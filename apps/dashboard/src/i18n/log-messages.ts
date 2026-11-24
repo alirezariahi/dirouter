@@ -12,8 +12,7 @@ export const logMessages = {
     timeline: 'Attempt timeline',
     noAttempts: 'No attempts recorded.',
     headers: 'Safe diagnostic headers',
-    noHeaders:
-      'No safe headers recorded. Authorization, cookies and request bodies are never displayed.',
+    noHeaders: 'No safe headers recorded. Authorization and cookies are never displayed.',
     input: 'Input tokens',
     output: 'Output tokens',
     cacheRead: 'Cache read tokens',
@@ -49,8 +48,7 @@ export const logMessages = {
     timeline: 'خط زمانی تلاش‌ها',
     noAttempts: 'تلاشی ثبت نشده است.',
     headers: 'هدرهای تشخیصی امن',
-    noHeaders:
-      'هدر امنی ثبت نشده است. اطلاعات احراز هویت، کوکی‌ها و بدنهٔ درخواست نمایش داده نمی‌شوند.',
+    noHeaders: 'هدر امنی ثبت نشده است. اطلاعات احراز هویت و کوکی‌ها نمایش داده نمی‌شوند.',
     input: 'توکن ورودی',
     output: 'توکن خروجی',
     cacheRead: 'توکن خواندن کش',

@@ -3,16 +3,19 @@ import { useNavigate, useSearch } from '@tanstack/react-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { BodyCaptureSettings } from '../components/body-capture-settings';
+import { RequestPayload } from '../components/request-body';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
 import { Empty, ErrorState, Loading } from '../components/ui/states';
 import { VirtualTable } from '../components/ui/virtual-table';
+import { bodyMessages } from '../i18n/body-messages';
 import { logMessages } from '../i18n/log-messages';
 import { api } from '../lib/api';
 import { formatDate, formatNumber } from '../lib/date';
 import { LOG_FILTERS as FILTERS, type LogSearch } from '../lib/log-search';
 import { rangeBounds, useRange } from '../lib/range';
-import { currentOrg, useSession } from '../lib/session';
+import { can, currentOrg, useSession } from '../lib/session';
 import { useSettings } from '../settings';
 
 interface LogItem {
@@ -159,7 +162,18 @@ function FilterEditor({ search, apply }: { search: LogSearch; apply: (next: LogS
   );
 }
 
-function Detail({ orgId, id, close }: { orgId: string; id: string; close: () => void }) {
+function Detail({
+  orgId,
+  id,
+  close,
+  bodies,
+}: {
+  orgId: string;
+  id: string;
+  close: () => void;
+  /** The member holds `logs:bodies` (card 24.1). */
+  bodies: boolean;
+}) {
   const s = useSettings();
   const m = logMessages[s.lang];
   const query = useQuery({
@@ -261,6 +275,12 @@ function Detail({ orgId, id, close }: { orgId: string; id: string; close: () => 
               ) : (
                 <p className="text-sm text-muted">{m.noHeaders}</p>
               )}
+              {bodies ? (
+                <>
+                  <h3 className="mt-4 font-semibold">{bodyMessages[s.lang].payload}</h3>
+                  <RequestPayload orgId={orgId} id={d.id} />
+                </>
+              ) : null}
             </>
           )
         )}
@@ -364,6 +384,7 @@ export default function LogsPage() {
           close={() => {
             setSelected(null);
           }}
+          bodies={can(org, 'logs:bodies')}
         />
       )}
       <Card className="p-0">
@@ -439,6 +460,7 @@ export default function LogsPage() {
           {t('logs.more')}
         </Button>
       )}
+      {org && can(org, 'logs:bodies') ? <BodyCaptureSettings orgId={org.id} /> : null}
     </section>
   );
 }

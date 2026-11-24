@@ -402,6 +402,142 @@ try {
     },
   );
 
+  // ───────────── Epic 24: observability ─────────────
+
+  await scenario(
+    '24.1 request bodies: off by default, redacted before storage, metadata level, replay in the playground, own retention',
+    async () => {
+      const key = await createKey('bodies');
+      const level = (value) =>
+        published(() =>
+          org('PUT', 'body-capture', { scope: 'key', scopeId: key.id, level: value }, 200),
+        );
+      cleanups.push(() =>
+        org('PUT', 'body-capture', { scope: 'key', scopeId: key.id, level: 'inherit' }, null),
+      );
+      const bodyOf = (requestId, expected = 200) =>
+        org('GET', `logs/${requestId}/body`, undefined, expected);
+      const ask = async (content) => {
+        const res = await chat(key.key, {
+          model: 'mock/small',
+          temperature: 0.3,
+          max_tokens: 50,
+          messages: [
+            { role: 'system', content: 'answer briefly' },
+            { role: 'user', content: 'earlier question' },
+            { role: 'assistant', content: 'earlier answer' },
+            { role: 'user', content },
+          ],
+        });
+        assert.equal(res.response.status, 200, res.text);
+        return res.response.headers.get('x-request-id');
+      };
+
+      // 1. Default off: the request is logged, its body is not.
+      const plain = await ask('nothing is kept of this');
+      await waitFor(
+        'request log row',
+        async () => (await org('GET', `logs/${plain}`, undefined, null)).response.status === 200,
+      );
+      await new Promise((r) => setTimeout(r, 1_500));
+      await bodyOf(plain, 404);
+
+      // 2. Full level with a redact policy: the address never reaches storage.
+      const redact = (
+        await published(() =>
+          org(
+            'POST',
+            'guardrails',
+            {
+              name: `s4-bodies-${randomUUID().slice(0, 6)}`,
+              virtualKeyId: key.id,
+              type: 'pii',
+              config: { type: 'email' },
+              stage: 'both',
+              action: 'redact',
+            },
+            201,
+          ),
+        )
+      ).body;
+      cleanups.push(() => org('DELETE', `guardrails/${redact.id}`, undefined, null));
+      await level('full');
+      const full = await ask('please write to jane.doe@example.com today');
+      const stored = await waitFor('stored body', async () => {
+        const res = await bodyOf(full, null);
+        return res.response.status === 200 ? res.body : undefined;
+      });
+      assert.equal(stored.level, 'full');
+      assert.ok(!stored.request.includes('jane.doe@example.com'), stored.request);
+      assert.match(stored.request, /\[REDACTED\]/);
+      assert.ok(stored.redactions >= 1);
+      assert.ok(stored.response.includes('choices'), stored.response);
+      assert.equal(stored.replay.prompt.includes('jane.doe'), false);
+      assert.deepEqual(stored.replay.history, [
+        { role: 'user', content: 'earlier question' },
+        { role: 'assistant', content: 'earlier answer' },
+      ]);
+      const inDb = await sql(
+        `SELECT count(*) FROM request_bodies WHERE request ILIKE '%jane.doe@example.com%'`,
+      );
+      assert.equal(inDb, '0');
+
+      // 3. Replay: the stored conversation runs in the playground with other models.
+      const replayed = await org(
+        'POST',
+        'playground/compare',
+        {
+          apiKey: key.key,
+          models: ['mock/claude', 'mock/gemini'],
+          system: stored.replay.system,
+          history: stored.replay.history,
+          prompt: stored.replay.prompt,
+          maxTokens: 50,
+        },
+        200,
+      );
+      assert.deepEqual(
+        replayed.body.results.map((r) => [r.model, r.ok]),
+        [
+          ['mock/claude', true],
+          ['mock/gemini', true],
+        ],
+      );
+
+      // 4. Metadata level: shape only, no text.
+      await level('metadata');
+      const meta = await ask('metadata only please');
+      const shape = await waitFor('metadata body', async () => {
+        const res = await bodyOf(meta, null);
+        return res.response.status === 200 ? res.body : undefined;
+      });
+      assert.equal(shape.level, 'metadata');
+      assert.equal(shape.request, null);
+      assert.equal(shape.response, null);
+      assert.deepEqual(shape.metadata.roles, { system: 1, user: 2, assistant: 1 });
+
+      // 5. Bodies have their own retention: dropping old body partitions leaves request_log alone.
+      await sql(`INSERT INTO request_bodies (request_id, created_at, organization_id, project_id, api_key_id, inbound_api, level, metadata)
+                 VALUES ('s4-old-body', now() - interval '30 days', '${ORG}', 'prj_dev', '${key.id}', 'openai.chat', 'metadata', '{}')`);
+      const logsBefore = await sql(
+        `SELECT count(*) FROM request_log WHERE created_at < now() - interval '7 days'`,
+      );
+      await sql(`SELECT dirouter_drop_request_body_partitions(7)`);
+      assert.equal(
+        await sql(`SELECT count(*) FROM request_bodies WHERE request_id = 's4-old-body'`),
+        '0',
+      );
+      assert.equal(
+        await sql(`SELECT count(*) FROM request_log WHERE created_at < now() - interval '7 days'`),
+        logsBefore,
+      );
+      assert.equal(
+        await sql(`SELECT count(*) FROM request_bodies WHERE request_id = '${full}'`),
+        '1',
+      );
+    },
+  );
+
   /** A guardrail policy on one key; removed at the end of the run. */
   const guardPolicy = async (body) => {
     const created = (

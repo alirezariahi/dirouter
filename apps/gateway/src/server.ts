@@ -43,6 +43,7 @@ import { handleEmbeddings, handleGeminiEmbeddings } from './embeddings.js';
 import { registerMediaRoutes } from './media.js';
 import { configureUpstreamGuard } from './upstream.js';
 import { Tracer } from './tracing.js';
+import type { RecordBody } from './body-capture.js';
 import { geminiRequestToCanonical } from '@dirouter/translator';
 import { estimateRequestTokens } from '@dirouter/model-catalog';
 import { enabledPlugins, loadPlugins } from '@dirouter/providers';
@@ -67,6 +68,8 @@ export interface GatewayOptions {
   onRequestComplete?: (event: UsageEvent) => void;
   /** Destination of MCP tool-call records (card 20.1). */
   recordMcpCall?: (call: McpCallRecord) => void;
+  /** Destination of captured request bodies (card 24.1); its own queue, never the usage path. */
+  recordBody?: RecordBody;
   /** Local usage outbox for the backlog-size gauge. */
   outbox?: { backlogSize(): Promise<number> };
   /** Tests only: limiter window length. */
@@ -206,6 +209,7 @@ export function buildGateway(opts: GatewayOptions) {
     ...(opts.limiterRedis ? { stateRedis: opts.limiterRedis } : {}),
     ...(opts.stateRedis ? { stateRedis: opts.stateRedis } : {}),
     tracer: new Tracer(() => store.current?.snapshot.settings.tracing, opts.logger),
+    ...(opts.recordBody ? { recordBody: opts.recordBody } : {}),
     ...(opts.controlApiUrl && opts.internalToken
       ? {
           semanticCache: new SemanticCacheClient({

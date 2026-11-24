@@ -99,6 +99,7 @@ import {
 } from './cache.js';
 import { compressRequest } from './compress.js';
 import { externalVerdicts } from './classifiers.js';
+import { type BodyCapture, type RecordBody, startBodyCapture } from './body-capture.js';
 import { evaluateGuardrails, policiesFor, StreamGuardrailBuffer } from './guardrails.js';
 import type { Tracer, TraceSpan } from './tracing.js';
 import { callUpstream, mergeTimeouts, readErrorBody, UpstreamTimeout } from './upstream.js';
@@ -136,6 +137,8 @@ export interface ProxyDeps {
   stateRedis?: Redis;
   /** OTLP tracer (card 17.2). */
   tracer?: Tracer;
+  /** Destination of captured request bodies (card 24.1); never the usage path. */
+  recordBody?: RecordBody;
   /** Asks a small model for the task type when the rules are unsure (card 20.4). */
   classifyWithModel?: (
     model: string,
@@ -153,6 +156,8 @@ interface StreamOutcome {
   response?: CanonicalResponse | undefined;
   /** What the provider said, for `previous_response_id` continuation (set even when guarded). */
   conversation?: CanonicalResponse | undefined;
+  /** The whole answer as the provider streamed it, before stream guardrails (body capture). */
+  assembled?: CanonicalResponse | undefined;
 }
 
 type Outcome =
@@ -401,6 +406,22 @@ export async function handleProxy(
   reply: FastifyReply,
   deps: ProxyDeps,
 ): Promise<void> {
+  const state: { capture?: BodyCapture } = {};
+  try {
+    await proxyRequest(api, req, reply, deps, state);
+  } finally {
+    // A stream's answer is handed over after the response has already closed.
+    state.capture?.handlerDone();
+  }
+}
+
+async function proxyRequest(
+  api: InboundApi,
+  req: FastifyRequest,
+  reply: FastifyReply,
+  deps: ProxyDeps,
+  state: { capture?: BodyCapture },
+): Promise<void> {
   const requestId = req.id;
   const started = Date.now();
   let model = 'unknown';
@@ -527,6 +548,39 @@ export async function handleProxy(
         return;
       }
     }
+  }
+
+  // Request body capture (card 24.1): nothing runs unless the key's level asks for it. The answer
+  // is taken from the reply as it is sent; the record is built and queued once the response has
+  // closed and this handler has finished, whichever comes last.
+  const capture = deps.recordBody
+    ? startBodyCapture(
+        {
+          snapshot: config.snapshot,
+          key,
+          api,
+          requestId,
+          started,
+          body: req.body,
+          canonical,
+          contentLength: Number(req.headers['content-length']) || undefined,
+        },
+        deps.recordBody,
+        (error) => {
+          deps.logger.warn({ err: error, requestId }, 'request body capture failed');
+        },
+      )
+    : undefined;
+  if (capture) {
+    state.capture = capture;
+    const send = reply.send.bind(reply);
+    reply.send = (payload?: unknown) => {
+      capture.setResponse(payload);
+      return send(payload);
+    };
+    reply.raw.once('close', () => {
+      capture.responseClosed();
+    });
   }
 
   const settings = config.snapshot.settings;
@@ -922,6 +976,11 @@ export async function handleProxy(
     } else {
       reply.status(200).send(encodeResponse(api, cached, canonical.model));
     }
+    // A replayed stream is kept as the one JSON answer it was built from, like a live stream.
+    capture?.setResponse(encodeResponse(api, cached, canonical.model), {
+      streamed: canonical.stream,
+      finishReason: cached.finishReason,
+    });
     const cachedCharge = emitUsageEvent(deps, config, {
       api,
       requestId,
@@ -1017,6 +1076,7 @@ export async function handleProxy(
         ...(routing ? { routing } : {}),
         finishSpan,
         ...(span ? { span } : {}),
+        ...(capture ? { capture } : {}),
       },
     );
   } finally {
@@ -1116,6 +1176,8 @@ async function runRoute(
     finishSpan: (status: 'ok' | 'error', extra?: Record<string, string | number>) => void;
     /** Request span; every upstream attempt becomes a child of it. */
     span?: TraceSpan;
+    /** Request body capture (card 24.1); a stream's answer is handed over here. */
+    capture?: BodyCapture;
   },
 ): Promise<{ tokens: number; costUsd: string; chargeUsd: string }> {
   const { config, key, canonical, route, requestId, started, clientGone } = ctx;
@@ -1399,6 +1461,7 @@ async function runRoute(
       .header('x-dirouter-provider', result.candidate.provider.slug)
       .header('x-dirouter-attempts', String(result.attempts.length));
     if (outcome.kind === 'json') {
+      ctx.capture?.setFinishReason(outcome.response.finishReason);
       // Response guardrails (stage=response) run on the canonical answer before it is encoded.
       const policies = policiesFor(config.snapshot.guardrails, key);
       const guard = policies.length
@@ -1472,6 +1535,13 @@ async function runRoute(
       // stream) get hits; the entry is replayed in whichever format the next client uses.
       const streamCache = config.snapshot.settings.cache;
       if (outcome.result.conversation) rememberResponse(outcome.result.conversation);
+      // The streamed answer is stored as the one JSON answer it adds up to (card 24.1).
+      const assembled = outcome.result.assembled;
+      if (assembled)
+        ctx.capture?.setResponse(encodeResponse(api, assembled, canonical.model), {
+          streamed: true,
+          finishReason: assembled.finishReason,
+        });
       if (
         outcome.result.response &&
         !ctx.cacheBypass &&
@@ -1767,6 +1837,7 @@ async function pipeStream(
     if (usageEstimated) await write(encoder.push({ type: 'usage', usage }));
     await write(encoder.end());
     raw.end();
+    const assembled = assembler.result(usage);
     return {
       ok: true,
       value: {
@@ -1776,8 +1847,9 @@ async function pipeStream(
           usageEstimated,
           ttftMs: state.ttftMs,
           // Never cache text that a stream guardrail rewrote: a replay would skip that guardrail.
-          ...(streamGuard.active ? {} : { response: assembler.result(usage) }),
-          ...(api === 'openai.responses' ? { conversation: assembler.result(usage) } : {}),
+          ...(streamGuard.active ? {} : { response: assembled }),
+          ...(api === 'openai.responses' ? { conversation: assembled } : {}),
+          assembled,
         },
       },
     };

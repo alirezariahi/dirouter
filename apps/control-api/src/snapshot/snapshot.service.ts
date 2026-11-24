@@ -158,6 +158,7 @@ export class SnapshotService implements OnModuleInit, OnModuleDestroy {
       wallets,
       organizations,
       mcpServers,
+      bodyCapture,
     ] = await Promise.all([
       db.provider.findMany({
         where: { deletedAt: null },
@@ -191,6 +192,10 @@ export class SnapshotService implements OnModuleInit, OnModuleDestroy {
         select: { id: true, isPlatform: true, customerGroup: { select: { multiplier: true } } },
       }),
       db.mcpServer.findMany({ where: { deletedAt: null }, orderBy: { id: 'asc' } }),
+      // Request body capture levels (card 24.1).
+      db.bodyCaptureSetting.findMany({
+        orderBy: [{ organizationId: 'asc' }, { scope: 'asc' }, { scopeId: 'asc' }],
+      }),
     ]);
     const walletOf = new Map(wallets.map((w) => [w.organizationId, w.id]));
     const platformId = organizations.find((o) => o.isPlatform)?.id;
@@ -384,6 +389,18 @@ export class SnapshotService implements OnModuleInit, OnModuleDestroy {
         forwardIdentity: m.forwardIdentity,
         timeoutMs: m.timeoutMs,
       })),
+      // Request body capture levels (card 24.1); absent while nobody has set one, so the image
+      // (and its checksum) stays the same for instances that do not use the feature.
+      ...(bodyCapture.length > 0
+        ? {
+            bodyCapture: bodyCapture.map((r) => ({
+              organizationId: r.organizationId,
+              scope: r.scope as 'organization' | 'project' | 'key',
+              scopeId: r.scopeId,
+              level: r.level as 'none' | 'metadata' | 'full',
+            })),
+          }
+        : {}),
     };
   }
 

@@ -4,7 +4,7 @@
  */
 import { createServer } from 'node:http';
 
-import { MCP_CALLS_QUEUE, QUEUES, UsageEvent } from '@dirouter/contracts';
+import { MCP_CALLS_QUEUE, QUEUES, REQUEST_BODIES_QUEUE, UsageEvent } from '@dirouter/contracts';
 import { createPrismaClient } from '@dirouter/db';
 import { connectValkey, createLogger, loadEnvOrExit } from '@dirouter/shared';
 import { createMailer } from '@dirouter/shared/mail';
@@ -25,6 +25,7 @@ import { drainHealthSamples } from './health-samples.js';
 import { createMetrics } from './metrics.js';
 import { type UsageDb, UsageBatchWriter } from './writer.js';
 import { dropOldMcpCalls, writeMcpCall } from './mcp-calls.js';
+import { dropOldBodyPartitions, ensureBodyPartitions, writeRequestBody } from './request-bodies.js';
 import {
   auditLedger,
   chargeWallet,
@@ -55,8 +56,9 @@ const mailer = createMailer({
 const usageQueue = new Queue(QUEUES.usage, { connection });
 const deadQueue = new Queue(QUEUES.usageDead, { connection });
 const maintenanceQueue = new Queue(QUEUES.maintenance, { connection });
+const bodiesQueue = new Queue(REQUEST_BODIES_QUEUE, { connection });
 const metrics = createMetrics(
-  [usageQueue, deadQueue, maintenanceQueue].map((q) => ({
+  [usageQueue, deadQueue, maintenanceQueue, bodiesQueue].map((q) => ({
     name: q.name,
     counts: () => q.getJobCounts('waiting', 'active', 'delayed', 'failed', 'completed'),
   })),
@@ -157,6 +159,24 @@ mcpWorker.on('error', (error) => {
   logger.warn({ err: error }, 'MCP call worker error');
 });
 
+// Request bodies (card 24.1): their own queue and table, never the usage path.
+const bodiesWorker = new Worker(
+  REQUEST_BODIES_QUEUE,
+  async (job: Job) => {
+    try {
+      await writeRequestBody(db, job.data);
+    } catch (error) {
+      if (error instanceof Error && error.name === 'ZodError')
+        throw new UnrecoverableError(`invalid request body record: ${error.message}`);
+      throw error;
+    }
+  },
+  { connection, concurrency: 8 },
+);
+bodiesWorker.on('error', (error) => {
+  logger.warn({ err: error }, 'request body worker error');
+});
+
 const mdb = db as unknown as MaintenanceDb;
 const jobs: Record<string, () => Promise<unknown>> = {
   rollup: () => rollup(mdb, connection, logger),
@@ -184,6 +204,8 @@ const jobs: Record<string, () => Promise<unknown>> = {
   'plan-renewals': () => renewPlans(db, connection),
   'invoices-monthly': () => issueMonthlyInvoices(db),
   'mcp-retention': () => dropOldMcpCalls(db, env.MCP_CALL_RETENTION_DAYS),
+  'body-partitions': () => ensureBodyPartitions(mdb, 3),
+  'body-retention': () => dropOldBodyPartitions(mdb, env.REQUEST_BODY_RETENTION_DAYS),
   'health-samples': () =>
     drainHealthSamples(db, connection, logger, { retentionDays: env.HEALTH_SAMPLE_RETENTION_DAYS }),
 };
@@ -228,6 +250,8 @@ const schedule = {
   // Daily, so a missed run (worker down on the 1st) is caught up the next day; issuing is idempotent.
   'invoices-monthly': { pattern: '30 2 * * *', tz: 'UTC' },
   'mcp-retention': { pattern: '47 3 * * *', tz: 'UTC' },
+  'body-partitions': { every: 3_600_000 },
+  'body-retention': { pattern: '27 3 * * *', tz: 'UTC' },
 };
 for (const [name, repeat] of Object.entries(schedule)) {
   await maintenanceQueue.upsertJobScheduler(name, repeat, {
@@ -281,10 +305,18 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) {
     void Promise.all([
       usageWorker.close(),
       mcpWorker.close(),
+      bodiesWorker.close(),
       maintenanceWorker.close(),
       writer.drain(),
     ])
-      .then(() => Promise.all([usageQueue.close(), deadQueue.close(), maintenanceQueue.close()]))
+      .then(() =>
+        Promise.all([
+          usageQueue.close(),
+          deadQueue.close(),
+          maintenanceQueue.close(),
+          bodiesQueue.close(),
+        ]),
+      )
       .then(() => db.$disconnect())
       .finally(() => {
         mailer.close();

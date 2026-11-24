@@ -27,12 +27,14 @@ Roles are at the **organization** level (`memberships` table): OWNER, ADMIN, MEM
 | `models:write`    | ✅    | ✅    | —      | —      |
 | `usage:read`      | ✅    | ✅    | ✅     | ✅     |
 | `audit:read`      | ✅    | ✅    | ✅     | ✅     |
+| `logs:bodies`     | ✅    | ✅    | —      | —      |
 
 Additional rules in the service, separate from the matrix:
 
 - No one grants a role **higher than their own**, or invites with one.
 - Only OWNER grants, takes away or removes an OWNER member's role.
 - The **last OWNER** of an organization cannot be demoted or removed (409 `conflict`).
+- `logs:bodies` (card 24.1) shows stored request bodies in the Log Explorer and changes the body capture level of the organization, its projects and keys. It is deliberately not a `:read` permission, so `usage:read` alone never reveals a prompt; a custom role can add it. See [request bodies](concepts/request-bodies.md).
 - The `providers`, `keys`, `models`, `usage` and `audit` permissions are already defined for cards 3.6 to 3.10. `providers:read` never returns a secret.
 
 ## How it is applied

@@ -375,6 +375,15 @@ erDiagram
 - drop پارتیشن آنی است و بر خلاف `DELETE` جدول را bloat نمی‌کند.
 - `usage_hourly`، `usage_daily` و `usage_ledger` حذف نمی‌شوند. داشبورد و بودجه از این‌ها می‌خوانند، پس گزارش‌های قدیمی بعد از حذف لاگ خام هم درست می‌مانند.
 
+## بدنهٔ درخواست (`request_bodies`)
+
+بدنهٔ ذخیره‌شدهٔ درخواست و پاسخ (کارت ۲۴.۱، [بدنهٔ درخواست](concepts/request-bodies.fa.md)) در جدول جدای خودش است، جدا از `request_log`:
+
+- پارتیشن native **روزانه** روی `created_at` (UTC) در schema `partitions` (`partitions.request_bodies_YYYY_MM_DD`) به‌علاوهٔ `request_bodies_default`. کلید اصلی `(request_id, created_at)` است؛ `created_at` با ردیف `request_log` برابر است و تکراری با `ON CONFLICT DO NOTHING` رد می‌شود. کلید خارجی ندارد.
+- job `body-partitions` در worker (هر ساعت، با advisory lock) تابع `dirouter_ensure_request_body_partitions(3)` را صدا می‌زند: امروز و سه روز بعد. روزی که ردیف‌هایش از قبل در پارتیشن default است با یک notice رد می‌شود.
+- job `body-retention` (هر روز ساعت 03:27 UTC) تابع `dirouter_drop_request_body_partitions(REQUEST_BODY_RETENTION_DAYS)` (پیش‌فرض ۷) را صدا می‌زند: روزهای کامل قدیمی‌تر حذف و پارتیشن default تا همان مرز پاک می‌شود. این کار مستقل از `REQUEST_LOG_RETENTION_MONTHS` اجرا می‌شود.
+- جدول `body_capture_settings` سطح ثبت تعیین‌شده را برای هر `(organization_id, scope, scope_id)` نگه می‌دارد؛ نبود ردیف یعنی ارث‌بری.
+
 ## جداول تجمیعی
 
 `usage_hourly` و `usage_daily` با کلید `(bucket, organization_id, project_id, api_key_id, model_slug, provider_id)`:
