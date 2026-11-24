@@ -52,7 +52,7 @@ The Docker matrix is built from the packages selected by Turbo.
 
 Available images: `gateway`, `control-api`, `worker`, `mock-provider`, and `dashboard`.
 The Dockerfiles in `deploy/docker/` are prerequisites for the image stage and must be available to the runner along with the repository.
-In this card only `linux/amd64` is built; multi-architecture builds belong to card 2.1.
+Since v1.1 (card 29.1) every image is built for `linux/amd64` and `linux/arm64`. Each architecture builds natively (`ubuntu-24.04` and `ubuntu-24.04-arm` runners), is scanned by Trivy, gets its own SBOM (`sbom-<app>-<arch>`), and is pushed by digest, signed and attested on its own. The `Manifest (<app>)` job then joins both digests into one manifest list under the `sha-…` and version tags, fails unless both architectures are in it, and signs the list. `docker pull` picks the right architecture by itself.
 
 ## Integration test and local reproduction
 

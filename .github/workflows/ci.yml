@@ -30,6 +30,7 @@ jobs:
     outputs:
       filter: ${{ steps.plan.outputs.filter }}
       matrix: ${{ steps.plan.outputs.matrix }}
+      image-matrix: ${{ steps.plan.outputs.image-matrix }}
       has-images: ${{ steps.plan.outputs.has-images }}
       has-packages: ${{ steps.plan.outputs.has-packages }}
       has-helm: ${{ steps.plan.outputs.has-helm }}
@@ -153,13 +154,14 @@ jobs:
             --skip-dirs /src/scripts/ci/fixtures --skip-dirs /src/node_modules /src
 
   images:
-    name: Image (${{ matrix.app }})
+    name: Image (${{ matrix.app }}, ${{ matrix.arch }})
     needs: [plan, checks, integration]
     if: >-
       !cancelled() && needs.plan.outputs.has-images == 'true' &&
       needs.checks.result == 'success' &&
       (needs.integration.result == 'success' || needs.integration.result == 'skipped')
-    runs-on: ubuntu-24.04
+    # Each architecture builds natively (card 29.1): emulated arm64 builds of the Node apps are slow.
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
     permissions:
       contents: read
@@ -168,7 +170,7 @@ jobs:
       id-token: write
     strategy:
       fail-fast: false
-      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+      matrix: ${{ fromJSON(needs.plan.outputs.image-matrix) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -184,15 +186,13 @@ jobs:
           APP: ${{ matrix.app }}
         run: echo "name=ghcr.io/${REPOSITORY,,}/${APP}" >> "$GITHUB_OUTPUT"
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
-      - name: Image tags and labels
+      - name: Image labels
         id: meta
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
           images: ${{ steps.image.outputs.name }}
           flavor: latest=false
-          tags: |
-            type=sha,format=long
-            type=semver,pattern={{version}}
+          tags: type=sha,format=long
       - name: Login to GHCR
         if: github.event_name == 'push'
         uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
@@ -208,12 +208,17 @@ jobs:
           build-args: |
             APP=${{ matrix.app }}
             ${{ matrix.port != '' && format('PORT={0}', matrix.port) || '' }}
-          platforms: linux/amd64
+          platforms: linux/${{ matrix.arch }}
           load: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha,scope=${{ matrix.app }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.app }}
+          cache-from: type=gha,scope=${{ matrix.app }}-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.app }}-${{ matrix.arch }}
+      - name: Check the image architecture
+        env:
+          IMAGE: ${{ steps.image.outputs.name }}:sha-${{ github.sha }}
+          ARCH: ${{ matrix.arch }}
+        run: test "$(docker image inspect --format '{{.Architecture}}' "$IMAGE")" = "$ARCH"
       - name: Scan the image (fails on Critical)
         env:
           IMAGE: ${{ steps.image.outputs.name }}:sha-${{ github.sha }}
@@ -224,22 +229,23 @@ jobs:
             "$IMAGE" > "$report" 2>&1; then
             cat "$report"
             # Job logs need a GitHub sign-in; the summary of a public run does not.
-            { echo "### Critical vulnerabilities in ${{ matrix.app }}"; echo '```'; tail -n 60 "$report"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+            { echo "### Critical vulnerabilities in ${{ matrix.app }} (${{ matrix.arch }})"; echo '```'; tail -n 60 "$report"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
             exit 1
           fi
       - name: SBOM (SPDX)
         env:
           IMAGE: ${{ steps.image.outputs.name }}:sha-${{ github.sha }}
+          SBOM: ${{ matrix.app }}-${{ matrix.arch }}.spdx.json
         run: |
           mkdir -p sbom
           docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$PWD/sbom:/out" \
-            "$SYFT_IMAGE" "docker:$IMAGE" -o "spdx-json=/out/${{ matrix.app }}.spdx.json"
+            "$SYFT_IMAGE" "docker:$IMAGE" -o "spdx-json=/out/$SBOM"
       - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
-          name: sbom-${{ matrix.app }}
-          path: sbom/${{ matrix.app }}.spdx.json
+          name: sbom-${{ matrix.app }}-${{ matrix.arch }}
+          path: sbom/${{ matrix.app }}-${{ matrix.arch }}.spdx.json
           retention-days: 90
-      - name: Publish image (trusted pushes only)
+      - name: Publish the image by digest (trusted pushes only)
         id: push
         if: github.event_name == 'push'
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
@@ -249,15 +255,15 @@ jobs:
           build-args: |
             APP=${{ matrix.app }}
             ${{ matrix.port != '' && format('PORT={0}', matrix.port) || '' }}
-          platforms: linux/amd64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
+          platforms: linux/${{ matrix.arch }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha,scope=${{ matrix.app }}
+          outputs: type=image,name=${{ steps.image.outputs.name }},push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=${{ matrix.app }}-${{ matrix.arch }}
       - name: Sign the image and attach the SBOM (keyless, Sigstore)
         if: github.event_name == 'push'
         env:
           REF: ${{ steps.image.outputs.name }}@${{ steps.push.outputs.digest }}
+          SBOM: ${{ matrix.app }}-${{ matrix.arch }}.spdx.json
           IDENTITY: ^https://github.com/${{ github.repository }}/\.github/workflows/ci\.yml@
         run: |
           # The cosign image runs as a non-root user: registry credentials come in through
@@ -271,7 +277,7 @@ jobs:
           log=$(mktemp)
           if ! {
             cosign sign "$REF" &&
-              cosign attest --type spdxjson --predicate "/sbom/${{ matrix.app }}.spdx.json" "$REF" &&
+              cosign attest --type spdxjson --predicate "/sbom/$SBOM" "$REF" &&
               cosign verify --certificate-identity-regexp "$IDENTITY" \
                 --certificate-oidc-issuer https://token.actions.githubusercontent.com "$REF" > /dev/null
           } > "$log" 2>&1; then
@@ -281,6 +287,95 @@ jobs:
             exit 1
           fi
           echo "Signed, attested and verified $REF" >> "$GITHUB_STEP_SUMMARY"
+      - name: Record the digest
+        if: github.event_name == 'push'
+        env:
+          DIGEST: ${{ steps.push.outputs.digest }}
+        run: |
+          mkdir -p digests
+          touch "digests/${DIGEST#sha256:}"
+      - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        if: github.event_name == 'push'
+        with:
+          name: digests-${{ matrix.app }}-${{ matrix.arch }}
+          path: digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  manifests:
+    name: Manifest (${{ matrix.app }})
+    needs: [plan, images]
+    if: >-
+      !cancelled() && github.event_name == 'push' && needs.plan.outputs.has-images == 'true' &&
+      needs.images.result == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    steps:
+      - name: Set lowercase image name
+        id: image
+        env:
+          REPOSITORY: ${{ github.repository }}
+          APP: ${{ matrix.app }}
+        run: echo "name=ghcr.io/${REPOSITORY,,}/${APP}" >> "$GITHUB_OUTPUT"
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: digests-${{ matrix.app }}-*
+          path: digests
+          merge-multiple: true
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Image tags
+        id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ${{ steps.image.outputs.name }}
+          flavor: latest=false
+          tags: |
+            type=sha,format=long
+            type=semver,pattern={{version}}
+      - name: Login to GHCR
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Join both architectures into one manifest
+        id: manifest
+        env:
+          IMAGE: ${{ steps.image.outputs.name }}
+          TAGS: ${{ steps.meta.outputs.tags }}
+        run: |
+          args=()
+          while IFS= read -r tag; do [ -n "$tag" ] && args+=(-t "$tag"); done <<< "$TAGS"
+          refs=()
+          for digest in digests/*; do refs+=("$IMAGE@sha256:$(basename "$digest")"); done
+          docker buildx imagetools create "${args[@]}" "${refs[@]}"
+          first=$(head -n1 <<< "$TAGS")
+          platforms=$(docker buildx imagetools inspect --raw "$first" |
+            jq -r '[.manifests[] | select(.platform.os == "linux") | .platform.architecture] | sort | join(",")')
+          echo "$first: $platforms" >> "$GITHUB_STEP_SUMMARY"
+          test "$platforms" = "amd64,arm64"
+          echo "digest=$(docker buildx imagetools inspect --format '{{json .Manifest}}' "$first" | jq -r .digest)" >> "$GITHUB_OUTPUT"
+      - name: Sign the manifest list (keyless, Sigstore)
+        env:
+          REF: ${{ steps.image.outputs.name }}@${{ steps.manifest.outputs.digest }}
+          IDENTITY: ^https://github.com/${{ github.repository }}/\.github/workflows/ci\.yml@
+        run: |
+          cosign() {
+            docker run --rm -e COSIGN_YES=true -e HOME=/tmp -e DOCKER_CONFIG=/docker \
+              -e ACTIONS_ID_TOKEN_REQUEST_URL -e ACTIONS_ID_TOKEN_REQUEST_TOKEN \
+              -v "$HOME/.docker:/docker:ro" "$COSIGN_IMAGE" "$@"
+          }
+          cosign sign "$REF"
+          cosign verify --certificate-identity-regexp "$IDENTITY" \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com "$REF" > /dev/null
+          echo "Signed and verified $REF" >> "$GITHUB_STEP_SUMMARY"
 
   helm:
     name: Helm chart on kind
@@ -386,7 +481,7 @@ jobs:
 
   ci:
     name: CI passed
-    needs: [plan, checks, integration, images, supply-chain, helm]
+    needs: [plan, checks, integration, images, manifests, supply-chain, helm]
     if: always()
     runs-on: ubuntu-24.04
     timeout-minutes: 2
@@ -397,6 +492,8 @@ jobs:
           CHECKS: ${{ needs.checks.result }}
           INTEGRATION: ${{ needs.integration.result }}
           IMAGES: ${{ needs.images.result }}
+          MANIFESTS: ${{ needs.manifests.result }}
+          EVENT: ${{ github.event_name }}
           SUPPLY_CHAIN: ${{ needs.supply-chain.result }}
           HELM: ${{ needs.helm.result }}
           HAS_HELM: ${{ needs.plan.outputs.has-helm }}
@@ -420,4 +517,9 @@ jobs:
             test "$IMAGES" = success
           else
             test "$IMAGES" = skipped
+          fi
+          if [ "$HAS_IMAGES" = true ] && [ "$EVENT" = push ]; then
+            test "$MANIFESTS" = success
+          else
+            test "$MANIFESTS" = skipped
           fi

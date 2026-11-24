@@ -114,6 +114,17 @@ test('shared root configuration and CI changes check and build everything', () =
   }
 });
 
+test('every image is built for amd64 and arm64 on native runners (card 29.1)', () => {
+  const result = plan(push, fixture({ files: ['turbo.json'] }).run);
+  const gateway = result.imageMatrix.include.filter(({ app }) => app === 'gateway');
+  assert.deepEqual(
+    gateway.map(({ arch, runner }) => `${arch}@${runner}`),
+    ['amd64@ubuntu-24.04', 'arm64@ubuntu-24.04-arm'],
+  );
+  assert.equal(result.imageMatrix.include.length, result.matrix.include.length * 2);
+  assert.equal(gateway[0].dockerfile, 'deploy/docker/node.Dockerfile');
+});
+
 test('migration image follows database changes and its Dockerfile', () => {
   assert.deepEqual(
     plan(push, fixture({ files: ['deploy/docker/migrate.Dockerfile'] }).run).matrix.include.map(

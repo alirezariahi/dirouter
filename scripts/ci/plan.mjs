@@ -16,6 +16,12 @@ const applications = [
   dockerfile: `deploy/docker/${['dashboard', 'portal', 'docs', 'migrate'].includes(app.app) ? app.app : 'node'}.Dockerfile`,
 }));
 
+/** Every image is built natively on both architectures and joined into one manifest (card 29.1). */
+export const architectures = [
+  { arch: 'amd64', runner: 'ubuntu-24.04' },
+  { arch: 'arm64', runner: 'ubuntu-24.04-arm' },
+];
+
 const globalFiles = new Set([
   'package.json',
   'pnpm-lock.yaml',
@@ -114,6 +120,9 @@ export function plan({ eventName, event = {}, ref = '', head }, run = execute) {
   return {
     filter,
     matrix: { include },
+    imageMatrix: {
+      include: include.flatMap((app) => architectures.map((a) => ({ ...app, ...a }))),
+    },
     hasImages: include.length > 0,
     hasPackages: packages.size > 0,
     hasHelm,
@@ -130,7 +139,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   });
   appendFileSync(
     process.env.GITHUB_OUTPUT,
-    `filter=${result.filter}\nmatrix=${JSON.stringify(result.matrix)}\nhas-images=${result.hasImages}\nhas-packages=${result.hasPackages}\nhas-helm=${result.hasHelm}\n`,
+    `filter=${result.filter}\nmatrix=${JSON.stringify(result.matrix)}\nimage-matrix=${JSON.stringify(result.imageMatrix)}\nhas-images=${result.hasImages}\nhas-packages=${result.hasPackages}\nhas-helm=${result.hasHelm}\n`,
   );
   appendFileSync(
     process.env.GITHUB_STEP_SUMMARY,

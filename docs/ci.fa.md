@@ -54,7 +54,7 @@ pnpm exec turbo run lint typecheck test build --filter="...[$BASE...$HEAD]"
 
 ایمیج‌های موجود: `gateway`، `control-api`، `worker`، `mock-provider` و `dashboard`.
 Dockerfileهای موجود در `deploy/docker/` پیش‌نیاز اجرای مرحلهٔ ایمیج هستند و باید همراه مخزن در دسترس runner باشند.
-در این کارت فقط `linux/amd64` ساخته می‌شود؛ ساخت چندمعماری مربوط به کارت ۲.۱ است.
+از v1.1 (کارت ۲۹.۱) هر ایمیج برای `linux/amd64` و `linux/arm64` ساخته می‌شود. هر معماری روی runner بومی خودش (`ubuntu-24.04` و `ubuntu-24.04-arm`) ساخته، با Trivy اسکن و SBOM جدا (`sbom-<app>-<arch>`) برایش تولید می‌شود و با digest منتشر، امضا و attest می‌شود. سپس کار `Manifest (<app>)` دو digest را در یک manifest list با برچسب‌های `sha-…` و نسخه جمع می‌کند، اگر هر دو معماری در آن نباشد شکست می‌خورد و فهرست را امضا می‌کند. `docker pull` خودش معماری درست را برمی‌دارد.
 
 ## تست یکپارچه و بازتولید محلی
 
