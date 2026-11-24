@@ -25,10 +25,22 @@ export const SYSTEM_WALLETS = {
   promo: 'wal_system_promo',
   /** Usage that was served but could not be collected from the wallet. */
   writeoff: 'wal_system_writeoff',
+  /** VAT collected for the tax office (card 26.1): split off revenue when an invoice is issued. */
+  vat: 'wal_system_vat',
+  /** Amounts invoiced to postpaid customers and not yet settled (card 26.1). */
+  receivable: 'wal_system_receivable',
 } as const;
 export type SystemWallet = keyof typeof SYSTEM_WALLETS;
 
-export type TransactionKind = 'usage' | 'topup' | 'gift' | 'adjustment' | 'refund' | 'plan';
+export type TransactionKind =
+  | 'usage'
+  | 'topup'
+  | 'gift'
+  | 'adjustment'
+  | 'refund'
+  | 'plan'
+  /** An issued invoice's VAT split and, for postpaid customers, its sale (card 26.1). */
+  | 'invoice';
 
 export type LedgerErrorCode =
   'invalid_amount' | 'unbalanced' | 'wallet_not_found' | 'insufficient_funds';

@@ -1,9 +1,14 @@
-/** Monthly invoices, their ledger check, the PDF and the profit report (card 19.6). */
+/**
+ * Monthly invoices, their ledger check, the PDF and the profit report (card 19.6); VAT booked in
+ * the ledger, legal details, the Persian PDF and gap-free numbering (card 26.1).
+ */
 import {
   chargeUsage,
   ensureWallet,
+  issueInvoice,
   postTransaction,
   previousPeriod,
+  type Prisma,
   SYSTEM_WALLETS,
 } from '@dirouter/db';
 import { generateKey } from '@dirouter/shared';
@@ -14,12 +19,14 @@ import { TokenService } from '../auth/crypto.js';
 import { createApp } from '../bootstrap.js';
 import { envSchema } from '../env.js';
 import { PrismaService } from '../infra/prisma.service.js';
+import { readPdf, rtlReading, visualText } from './pdf/pdf-reader.js';
 
 const DATABASE_URL = process.env.INTEGRATION_DATABASE_URL;
 const VALKEY_URL = process.env.INTEGRATION_VALKEY_URL;
 const PREPAID = 'org_inv_prepaid';
 const POSTPAID = 'org_inv_postpaid';
 const OTHER = 'org_inv_other';
+const BUYER = 'شرکت نمونهٔ پارسیان';
 
 describe.skipIf(!DATABASE_URL || !VALKEY_URL)('invoices over HTTP', () => {
   let app: NestFastifyApplication;
@@ -32,7 +39,9 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('invoices over HTTP', () => {
   /** A moment inside last month. */
   const lastMonth = new Date(Date.UTC(Number(year), Number(month) - 1, 10, 12));
 
-  const call = (url: string, t: string, method = 'GET') =>
+  let savedSettings: Prisma.InputJsonValue | null = null;
+
+  const call = (url: string, t: string, method = 'GET', payload?: object) =>
     app
       .getHttpAdapter()
       .getInstance()
@@ -40,6 +49,7 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('invoices over HTTP', () => {
         method: method as 'GET',
         url: `/api/v1/${url}`,
         headers: { authorization: `Bearer ${t}` },
+        ...(payload ? { payload } : {}),
       });
 
   beforeAll(async () => {
@@ -100,6 +110,28 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('invoices over HTTP', () => {
     customer = await tokens.signAccess({ sub: 'usr_inv_a', email: 'a@example.com' });
     stranger = await tokens.signAccess({ sub: 'usr_inv_c', email: 'c@example.com' });
 
+    // Card 26.1: 10% VAT and a rial rate in the operator's settings, and both parties' details.
+    const settings = await db.billingSetting.findUnique({ where: { id: 'global' } });
+    savedSettings = (settings?.settings as Prisma.InputJsonValue | undefined) ?? null;
+    const terms = { exchangeRates: { IRR: '1050000' }, tax: { vatPercent: '10' } };
+    await db.billingSetting.upsert({
+      where: { id: 'global' },
+      create: { id: 'global', settings: terms },
+      update: { settings: terms },
+    });
+    expect(
+      (
+        await call(`orgs/${platform}/billing-profile`, operator, 'PUT', {
+          partyType: 'legal',
+          legalName: 'دی‌روتر',
+          nationalId: '14000000001',
+          economicCode: '411111111111',
+          address: 'تهران، خیابان آزادی',
+          postalCode: '1234567890',
+        })
+      ).statusCode,
+    ).toBe(200);
+
     // Last month's activity of the prepaid customer, posted through the real ledger.
     const wallet = (await ensureWallet(db, PREPAID)).id;
     const post = (kind: 'topup' | 'gift' | 'adjustment' | 'plan', key: string, amount: string) =>
@@ -155,7 +187,40 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('invoices over HTTP', () => {
   });
 
   afterAll(async () => {
+    const db = app.get(PrismaService).client;
+    await (savedSettings === null
+      ? db.billingSetting.deleteMany({ where: { id: 'global' } })
+      : db.billingSetting.update({ where: { id: 'global' }, data: { settings: savedSettings } }));
     await app.close();
+  });
+
+  it('keeps legal details per organization, with Persian digits accepted and checked', async () => {
+    const res = await call(`orgs/${PREPAID}/billing-profile`, customer, 'PUT', {
+      partyType: 'legal',
+      legalName: BUYER,
+      nationalId: '۱۰۱۰۱۰۱۰۱۰۱',
+      economicCode: '422222222222',
+      address: 'اصفهان، میدان نقش جهان',
+      postalCode: '۸۱۰۰۰۰۰۰۰۰',
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({
+      legalName: BUYER,
+      nationalId: '10101010101',
+      postalCode: '8100000000',
+    });
+    expect((await call(`orgs/${PREPAID}/billing-profile`, customer)).json()).toMatchObject({
+      economicCode: '422222222222',
+    });
+    for (const bad of [
+      { legalName: 'x y', postalCode: '123' },
+      { legalName: 'شخص', partyType: 'natural', nationalId: '10101010101' },
+    ])
+      expect((await call(`orgs/${OTHER}/billing-profile`, stranger, 'PUT', bad)).statusCode).toBe(
+        422,
+      );
+    // Another organization's member cannot read or write it.
+    expect((await call(`orgs/${PREPAID}/billing-profile`, stranger)).statusCode).toBe(404);
   });
 
   it('the monthly run issues each invoice once', async () => {
@@ -207,7 +272,28 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('invoices over HTTP', () => {
         { model: 'shop/smart', requests: 1, amountUsd: '3.12500000' },
         { model: 'shop/fast', requests: 2, amountUsd: '1.25000000' },
       ],
+      // Card 26.1: usage 4.375 + plan 2 charged, VAT 10% included in it.
+      vatPercent: '10.00',
+      grossUsd: '6.37500000',
+      netUsd: '5.79545455',
+      vatUsd: '0.57954545',
+      exchangeRateIrr: '1050000.00000000',
+      seller: { legalName: 'دی‌روتر', economicCode: '411111111111' },
+      buyer: { legalName: BUYER, nationalId: '10101010101' },
     });
+    // The VAT is its own ledger line: moved from revenue to the VAT account, wallet untouched.
+    const db = app.get(PrismaService).client;
+    const entries = await db.walletEntry.findMany({
+      where: {
+        transactionId: (invoice as { ledgerTransactionId?: string }).ledgerTransactionId ?? '',
+      },
+      include: { transaction: true },
+    });
+    expect(entries.map((e) => [e.walletId, e.amountUsd.toFixed(8)]).sort()).toEqual([
+      [SYSTEM_WALLETS.revenue, '-0.57954545'],
+      [SYSTEM_WALLETS.vat, '0.57954545'],
+    ]);
+    expect(entries[0]?.transaction.kind).toBe('invoice');
     const wallet = await app
       .get(PrismaService)
       .client.wallet.findUniqueOrThrow({ where: { organizationId: PREPAID } });
@@ -219,18 +305,44 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('invoices over HTTP', () => {
     expect(check.json()).toEqual({ ok: true, problems: [] });
   });
 
-  it('a postpaid invoice bills the usage charges by model', async () => {
+  it('a postpaid invoice bills the usage charges by model and books the sale with its VAT', async () => {
     const all = (await call(`orgs/${platform}/billing/invoices?period=${period}`, operator)).json<
-      { organizationId: string; basis: string; closingUsd: string; lines: { model: string }[] }[]
+      {
+        id: string;
+        organizationId: string;
+        basis: string;
+        closingUsd: string;
+        lines: { model: string }[];
+        ledgerTransactionId: string;
+      }[]
     >();
-    expect(all.find((i) => i.organizationId === POSTPAID)).toMatchObject({
+    const invoice = all.find((i) => i.organizationId === POSTPAID);
+    expect(invoice).toMatchObject({
       basis: 'postpaid',
       closingUsd: '8.00000000',
       lines: [{ model: 'shop/smart' }, { model: 'shop/fast' }],
+      grossUsd: '8.00000000',
+      netUsd: '7.27272727',
+      vatUsd: '0.72727273',
+      // No billing profile: the organization's name stands in.
+      buyer: { legalName: 'شرکت نمونه', nationalId: null },
     });
+    const entries = await app.get(PrismaService).client.walletEntry.findMany({
+      where: { transactionId: invoice?.ledgerTransactionId ?? '' },
+    });
+    expect(entries.map((e) => [e.walletId, e.amountUsd.toFixed(8)]).sort()).toEqual([
+      [SYSTEM_WALLETS.receivable, '-8.00000000'],
+      [SYSTEM_WALLETS.revenue, '7.27272727'],
+      [SYSTEM_WALLETS.vat, '0.72727273'],
+    ]);
+    expect(
+      (
+        await call(`orgs/${platform}/billing/invoices/${invoice?.id ?? ''}/verify`, operator)
+      ).json(),
+    ).toEqual({ ok: true, problems: [] });
   });
 
-  it('the PDF is a well-formed document only its organization can download', async () => {
+  it('the PDF is a Persian document only its organization can download', async () => {
     const [invoice] = (await call(`orgs/${PREPAID}/invoices`, customer)).json<
       { id: string; number: string }[]
     >();
@@ -238,11 +350,18 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('invoices over HTTP', () => {
     expect(res.statusCode).toBe(200);
     expect(res.headers['content-type']).toBe('application/pdf');
     const pdf = res.rawPayload.toString('latin1');
-    expect(pdf.startsWith('%PDF-1.4')).toBe(true);
+    expect(pdf.startsWith('%PDF-')).toBe(true);
     expect(pdf.trimEnd().endsWith('%%EOF')).toBe(true);
-    expect(pdf).toContain(`Invoice ${invoice?.number ?? ''}`);
-    expect(pdf).toContain('Acme Labs');
-    expect(pdf).toContain('$17.625');
+    // What a viewer shows: the Persian buyer name read right to left, the number left to right,
+    // the closing balance and the VAT total in Persian digits.
+    const { lines } = readPdf(res.rawPayload);
+    const has = (read: (l: (typeof lines)[number]) => string, text: string) =>
+      lines.some((l) => read(l).includes(text.replace(/\s/g, '')));
+    expect(has(rtlReading, BUYER)).toBe(true);
+    expect(has(rtlReading, 'مالیات بر ارزش افزوده')).toBe(true);
+    expect(has(visualText, invoice?.number ?? '-')).toBe(true);
+    expect(has(visualText, '۱۷٫۶۲۵')).toBe(true);
+    expect(has(visualText, '۶٬۶۹۳٬۷۵۰')).toBe(true);
     // The cross-reference offset really points at the xref table.
     const startxref = Number(/startxref\n(\d+)/.exec(pdf)?.[1]);
     expect(pdf.slice(startxref, startxref + 4)).toBe('xref');
@@ -345,5 +464,43 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('invoices over HTTP', () => {
         profitUsd: '0.00000000',
       });
     }
+  });
+
+  it('numbers invoices without gaps and never lets one change or disappear', async () => {
+    const db = app.get(PrismaService).client;
+    const numbers = async () =>
+      (await db.invoice.findMany({ where: { number: { startsWith: `INV-${year}-` } } }))
+        .map((i) => Number(i.number.slice(9)))
+        .sort((a, b) => a - b);
+    expect(await numbers()).toEqual([1, 2]);
+    // Last, so the extra usage below stays out of the profit report above.
+    // Five organizations invoiced at the same time still get the next five numbers.
+    const orgs = ['a', 'b', 'c', 'd', 'e'].map((x) => `org_inv_gap_${x}`);
+    const day = lastMonth.toISOString().slice(0, 10);
+    for (const org of orgs) {
+      await db.organization.create({
+        data: { id: org, name: org, slug: org.replaceAll('_', '-') },
+      });
+      await db.$executeRaw`
+        INSERT INTO usage_daily (bucket, organization_id, project_id, api_key_id, model_slug, provider_id, requests, cost_usd, charge_usd)
+        VALUES (${day}::date, ${org}, 'prj', 'key', 'shop/fast', 'prv', 1, 0.5, 1.1)`;
+    }
+    const issued = await Promise.all(orgs.map((org) => issueInvoice(db, org, period)));
+    expect(issued.every((r) => r.created)).toBe(true);
+    expect(await numbers()).toEqual([1, 2, 3, 4, 5, 6, 7]);
+    // The database refuses a skipped number, an edit and a deletion.
+    const sample = issued[0]?.invoice;
+    await expect(
+      db.$executeRaw`
+        INSERT INTO invoices (id, number, organization_id, period, basis, opening_usd, closing_usd, totals, lines)
+        VALUES ('inv_gap', ${`INV-${year}-000009`}, ${OTHER}, '2000-01', 'postpaid', 0, 0, '{}', '[]')`,
+    ).rejects.toThrow(/breaks the sequence/);
+    await expect(
+      db.$executeRaw`UPDATE invoices SET closing_usd = 0 WHERE id = ${sample?.id ?? ''}`,
+    ).rejects.toThrow(/cannot be changed or deleted/);
+    await expect(
+      db.$executeRaw`DELETE FROM invoices WHERE id = ${sample?.id ?? ''}`,
+    ).rejects.toThrow(/cannot be changed or deleted/);
+    expect(await numbers()).toEqual([1, 2, 3, 4, 5, 6, 7]);
   });
 });

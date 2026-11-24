@@ -11594,6 +11594,19 @@
                         "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
                       }
                     }
+                  },
+                  "tax": {
+                    "default": {
+                      "vatPercent": "0"
+                    },
+                    "type": "object",
+                    "properties": {
+                      "vatPercent": {
+                        "default": "0",
+                        "type": "string",
+                        "pattern": "^\\d{1,2}(\\.\\d{1,2})?$"
+                      }
+                    }
                   }
                 }
               }
@@ -12980,6 +12993,134 @@
             }
           }
         ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "billing"
+        ]
+      }
+    },
+    "/api/v1/orgs/{orgId}/billing-profile": {
+      "get": {
+        "operationId": "BillingProfileController_get",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "billing"
+        ]
+      },
+      "put": {
+        "operationId": "BillingProfileController_put",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "partyType": {
+                    "default": "legal",
+                    "type": "string",
+                    "enum": [
+                      "legal",
+                      "natural"
+                    ]
+                  },
+                  "legalName": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 200
+                  },
+                  "nationalId": {
+                    "nullable": true,
+                    "type": "string"
+                  },
+                  "economicCode": {
+                    "nullable": true,
+                    "type": "string"
+                  },
+                  "registrationNumber": {
+                    "nullable": true,
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 50
+                  },
+                  "address": {
+                    "nullable": true,
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 500
+                  },
+                  "postalCode": {
+                    "nullable": true,
+                    "type": "string"
+                  },
+                  "phone": {
+                    "nullable": true,
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 30
+                  }
+                },
+                "required": [
+                  "legalName"
+                ]
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "",

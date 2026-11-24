@@ -9,7 +9,11 @@ import {
 import { PaymentsService } from './payments/payments.service.js';
 import { GiftBatchesController, RedeemController } from './gift-codes.controller.js';
 import { GiftCodesService } from './gift-codes.service.js';
-import { InvoicesAdminController, InvoicesController } from './invoices.controller.js';
+import {
+  BillingProfileController,
+  InvoicesAdminController,
+  InvoicesController,
+} from './invoices.controller.js';
 import { InvoicesService } from './invoices.service.js';
 import { PlatformGuard } from './platform.guard.js';
 import { PricingAdminController, SubscriptionController } from './pricing.controller.js';
@@ -30,6 +34,7 @@ import { WalletsService } from './wallets.service.js';
     SubscriptionController,
     InvoicesController,
     InvoicesAdminController,
+    BillingProfileController,
   ],
   providers: [
     WalletsService,

@@ -1634,6 +1634,106 @@ try {
       // path is covered by portal.integration.test.ts against an in-process provider.
     },
   );
+
+  // ───────────── Epic 26: invoices and the portal ─────────────
+
+  await scenario(
+    '26.1 Persian invoice: VAT booked in the ledger, legal details, rials, embedded font, gap-free numbers',
+    async () => {
+      // A postpaid customer with usage last month, its legal details, and 10% VAT with a rial rate.
+      const now = new Date();
+      const last = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 10));
+      const period = last.toISOString().slice(0, 7);
+      const customer = `org_s4inv${randomUUID().slice(0, 8)}`;
+      await sql(`INSERT INTO organizations (id, name, slug, updated_at)
+                 VALUES ('${customer}', 'شرکت آزمون', '${customer.replaceAll('_', '-')}', now())`);
+      await sql(`INSERT INTO billing_profiles (organization_id, party_type, legal_name, national_id, economic_code, postal_code, address)
+                 VALUES ('${customer}', 'legal', 'شرکت آزمون پارسیان', '10101010101', '422222222222', '8100000000', 'اصفهان')`);
+      await sql(`INSERT INTO usage_daily (bucket, organization_id, project_id, api_key_id, model_slug, provider_id, requests, cost_usd, charge_usd)
+                 VALUES ('${last.toISOString().slice(0, 10)}', '${customer}', 'prj_s4', 'key_s4', 'mock/small', 'prv_s4', 3, 1, 2.2)`);
+      // An issued invoice can never be deleted, so the customer stays; it is soft-deleted instead.
+      cleanups.push(() =>
+        sql(`UPDATE organizations SET deleted_at = now() WHERE id = '${customer}'`),
+      );
+      const before = (await org('GET', 'billing/settings')).body;
+      cleanups.push(() => org('PUT', 'billing/settings', before, null));
+      await org('PUT', 'billing/settings', {
+        ...before,
+        exchangeRates: { ...before.exchangeRates, IRR: '1050000' },
+        tax: { vatPercent: '10' },
+      });
+      const profile = await org('PUT', 'billing-profile', {
+        partyType: 'legal',
+        legalName: 'دی‌روتر',
+        nationalId: '۱۴۰۰۰۰۰۰۰۰۱',
+        economicCode: '411111111111',
+        postalCode: '1234567890',
+      });
+      assert.equal(profile.body.nationalId, '14000000001');
+
+      await org('POST', `billing/invoices/generate?period=${period}`);
+      const invoice = (await org('GET', `billing/invoices?period=${period}`)).body.find(
+        (i) => i.organizationId === customer,
+      );
+      assert.ok(invoice, 'the customer was invoiced');
+      assert.equal(invoice.grossUsd, '2.20000000');
+      assert.equal(invoice.vatUsd, '0.20000000');
+      assert.equal(invoice.netUsd, '2.00000000');
+      assert.equal(invoice.exchangeRateIrr, '1050000.00000000');
+      assert.equal(invoice.buyer.legalName, 'شرکت آزمون پارسیان');
+      assert.equal(invoice.seller.economicCode, '411111111111');
+
+      // The VAT is its own ledger line and the invoice agrees with the ledger.
+      const legs = await sql(`SELECT w.code || '=' || e.amount_usd FROM wallet_entries e
+                                JOIN wallets w ON w.id = e.wallet_id
+                               WHERE e.transaction_id = '${invoice.ledgerTransactionId}' ORDER BY 1`);
+      assert.deepEqual(legs.split('\n'), [
+        'receivable=-2.20000000',
+        'revenue=2.00000000',
+        'vat=0.20000000',
+      ]);
+      assert.deepEqual((await org('GET', `billing/invoices/${invoice.id}/verify`)).body, {
+        ok: true,
+        problems: [],
+      });
+
+      // The PDF embeds a Vazirmatn subset with a ToUnicode map, and no Helvetica.
+      const token = await login(
+        (await readEnv('.data/seed-admin.env')).SEED_ADMIN_EMAIL,
+        (await readEnv('.data/seed-admin.env')).SEED_ADMIN_PASSWORD,
+      );
+      const pdf = await fetch(
+        `${urls.admin}/api/v1/orgs/${ORG}/billing/invoices/${invoice.id}/pdf`,
+        {
+          headers: { authorization: `Bearer ${token}` },
+        },
+      );
+      assert.equal(pdf.status, 200);
+      assert.equal(pdf.headers.get('content-type'), 'application/pdf');
+      const bytes = Buffer.from(await pdf.arrayBuffer()).toString('latin1');
+      assert.ok(bytes.startsWith('%PDF-'));
+      assert.match(bytes, /\/BaseFont \/[A-Z]{6}\+Vazirmatn-Regular/);
+      assert.match(bytes, /\/FontFile2 \d+ 0 R/);
+      assert.match(bytes, /\/ToUnicode \d+ 0 R/);
+      assert.doesNotMatch(bytes, /Helvetica/);
+
+      // Numbers of the year have no gap, and the database refuses to delete an invoice.
+      const year = period.slice(0, 4);
+      const numbers = (
+        await sql(
+          `SELECT substr(number, 10)::int FROM invoices WHERE number LIKE 'INV-${year}-%' ORDER BY 1`,
+        )
+      )
+        .split('\n')
+        .map(Number);
+      assert.deepEqual(
+        numbers,
+        numbers.map((_, i) => i + 1),
+      );
+      await assert.rejects(sql(`DELETE FROM invoices WHERE id = '${invoice.id}'`));
+      console.log(`     ${invoice.number}: VAT ${invoice.vatUsd} of ${invoice.grossUsd} USD`);
+    },
+  );
 } catch (error) {
   crashed = true;
   console.error(error);

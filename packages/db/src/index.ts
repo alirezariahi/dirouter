@@ -25,3 +25,4 @@ export function createPrismaClient(options: CreatePrismaOptions): PrismaClient {
 export * from './ledger.js';
 export * from './subscriptions.js';
 export * from './invoices.js';
+export * from './tax.js';

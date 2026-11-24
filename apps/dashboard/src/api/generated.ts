@@ -4234,11 +4234,17 @@ export type BillingPaymentsAdminControllerPutSettingsBodyPortal = {
   welcomeCreditUsd?: string;
 };
 
+export type BillingPaymentsAdminControllerPutSettingsBodyTax = {
+  /** @pattern ^\d{1,2}(\.\d{1,2})?$ */
+  vatPercent?: string;
+};
+
 export type BillingPaymentsAdminControllerPutSettingsBody = {
   exchangeRates?: BillingPaymentsAdminControllerPutSettingsBodyExchangeRates;
   topup?: BillingPaymentsAdminControllerPutSettingsBodyTopup;
   providers?: BillingPaymentsAdminControllerPutSettingsBodyProvidersItem[];
   portal?: BillingPaymentsAdminControllerPutSettingsBodyPortal;
+  tax?: BillingPaymentsAdminControllerPutSettingsBodyTax;
 };
 
 export type BillingPaymentsAdminControllerPutSettings200 = {[key: string]: unknown};
@@ -4423,6 +4429,51 @@ export type InvoicesAdminControllerProfitParams = {
 };
 
 export type InvoicesAdminControllerProfit200 = {[key: string]: unknown};
+
+export type BillingProfileControllerGet200 = {[key: string]: unknown};
+
+export type BillingProfileControllerPutBodyPartyType = typeof BillingProfileControllerPutBodyPartyType[keyof typeof BillingProfileControllerPutBodyPartyType];
+
+
+export const BillingProfileControllerPutBodyPartyType = {
+  legal: 'legal',
+  natural: 'natural',
+} as const;
+
+export type BillingProfileControllerPutBody = {
+  partyType?: BillingProfileControllerPutBodyPartyType;
+  /**
+     * @minLength 2
+     * @maxLength 200
+     */
+  legalName: string;
+  /** @nullable */
+  nationalId?: string | null;
+  /** @nullable */
+  economicCode?: string | null;
+  /**
+     * @minLength 1
+     * @maxLength 50
+     * @nullable
+     */
+  registrationNumber?: string | null;
+  /**
+     * @minLength 1
+     * @maxLength 500
+     * @nullable
+     */
+  address?: string | null;
+  /** @nullable */
+  postalCode?: string | null;
+  /**
+     * @minLength 1
+     * @maxLength 30
+     * @nullable
+     */
+  phone?: string | null;
+};
+
+export type BillingProfileControllerPut200 = {[key: string]: unknown};
 
 export type PortalControllerConfig200 = {[key: string]: unknown};
 
@@ -21056,6 +21107,214 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       > => {
       return useMutation(getInvoicesAdminControllerProfitMutationOptions(options), queryClient);
     }
+
+export type billingProfileControllerGetResponse200 = {
+  data: BillingProfileControllerGet200
+  status: 200
+}
+
+export type billingProfileControllerGetResponseSuccess = (billingProfileControllerGetResponse200) & {
+  headers: Headers;
+};
+;
+
+export type billingProfileControllerGetResponse = (billingProfileControllerGetResponseSuccess)
+
+export const getBillingProfileControllerGetUrl = (orgId: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/billing-profile`
+}
+
+export const billingProfileControllerGet = async (orgId: string, options?: Parameters<typeof orvalFetch>[1]): Promise<billingProfileControllerGetResponse> => {
+
+  return orvalFetch<billingProfileControllerGetResponse>(getBillingProfileControllerGetUrl(orgId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getBillingProfileControllerGetMutationKey = () => ['billingProfileControllerGet'] as const;
+
+export const getBillingProfileControllerGetMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof billingProfileControllerGet>>, TError,BillingProfileControllerGetMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof billingProfileControllerGet>>, TError,BillingProfileControllerGetMutationVariables, TContext> => {
+
+const mutationKey = getBillingProfileControllerGetMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof billingProfileControllerGet>>, BillingProfileControllerGetMutationVariables> = (props) => {
+          const {orgId} = props ?? {};
+
+          return  billingProfileControllerGet(orgId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type BillingProfileControllerGetMutationResult = NonNullable<Awaited<ReturnType<typeof billingProfileControllerGet>>>
+
+    export type BillingProfileControllerGetMutationError = unknown
+    export type BillingProfileControllerGetMutationVariables = {orgId: string}
+
+    export const useBillingProfileControllerGet = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof billingProfileControllerGet>>, TError,BillingProfileControllerGetMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof billingProfileControllerGet>>,
+        TError,
+        BillingProfileControllerGetMutationVariables,
+        TContext
+      > => {
+      return useMutation(getBillingProfileControllerGetMutationOptions(options), queryClient);
+    }
+
+export type billingProfileControllerPutResponse200 = {
+  data: BillingProfileControllerPut200
+  status: 200
+}
+
+export type billingProfileControllerPutResponseSuccess = (billingProfileControllerPutResponse200) & {
+  headers: Headers;
+};
+;
+
+export type billingProfileControllerPutResponse = (billingProfileControllerPutResponseSuccess)
+
+export const getBillingProfileControllerPutUrl = (orgId: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/billing-profile`
+}
+
+export const billingProfileControllerPut = async (orgId: string,
+    billingProfileControllerPutBody: BillingProfileControllerPutBody, options?: Parameters<typeof orvalFetch>[1]): Promise<billingProfileControllerPutResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return orvalFetch<billingProfileControllerPutResponse>(getBillingProfileControllerPutUrl(orgId),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(billingProfileControllerPutBody)
+  }
+);}
+
+
+
+
+
+export const getBillingProfileControllerPutQueryKey = (orgId: string,
+    billingProfileControllerPutBody?: BillingProfileControllerPutBody,) => {
+    return [
+    'PUT', `/api/v1/orgs/${orgId}/billing-profile`, billingProfileControllerPutBody
+    ] as const;
+    }
+
+
+export const getBillingProfileControllerPutQueryOptions = <TData = Awaited<ReturnType<typeof billingProfileControllerPut>>, TError = unknown>(orgId: string,
+    billingProfileControllerPutBody: BillingProfileControllerPutBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof billingProfileControllerPut>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getBillingProfileControllerPutQueryKey(orgId,billingProfileControllerPutBody);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof billingProfileControllerPut>>> = ({ signal }) => billingProfileControllerPut(orgId,billingProfileControllerPutBody, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: orgId !== null && orgId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof billingProfileControllerPut>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type BillingProfileControllerPutQueryResult = NonNullable<Awaited<ReturnType<typeof billingProfileControllerPut>>>
+export type BillingProfileControllerPutQueryError = unknown
+
+
+export function useBillingProfileControllerPut<TData = Awaited<ReturnType<typeof billingProfileControllerPut>>, TError = unknown>(
+ orgId: string,
+    billingProfileControllerPutBody: BillingProfileControllerPutBody, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof billingProfileControllerPut>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof billingProfileControllerPut>>,
+          TError,
+          Awaited<ReturnType<typeof billingProfileControllerPut>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useBillingProfileControllerPut<TData = Awaited<ReturnType<typeof billingProfileControllerPut>>, TError = unknown>(
+ orgId: string,
+    billingProfileControllerPutBody: BillingProfileControllerPutBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof billingProfileControllerPut>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof billingProfileControllerPut>>,
+          TError,
+          Awaited<ReturnType<typeof billingProfileControllerPut>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useBillingProfileControllerPut<TData = Awaited<ReturnType<typeof billingProfileControllerPut>>, TError = unknown>(
+ orgId: string,
+    billingProfileControllerPutBody: BillingProfileControllerPutBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof billingProfileControllerPut>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useBillingProfileControllerPut<TData = Awaited<ReturnType<typeof billingProfileControllerPut>>, TError = unknown>(
+ orgId: string,
+    billingProfileControllerPutBody: BillingProfileControllerPutBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof billingProfileControllerPut>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getBillingProfileControllerPutQueryOptions(orgId,billingProfileControllerPutBody,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export type portalControllerConfigResponse200 = {
   data: PortalControllerConfig200

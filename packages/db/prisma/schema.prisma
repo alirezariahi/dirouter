@@ -65,6 +65,7 @@ model Organization {
   customerGroup   CustomerGroup? @relation(fields: [customerGroupId], references: [id], onDelete: SetNull)
   subscription    Subscription?
   invoices        Invoice[]
+  billingProfile  BillingProfile?
   mcpServers      McpServer[]
   agentProfiles   AgentProfile[]
 
@@ -1059,7 +1060,7 @@ model Wallet {
 /// One balanced journal entry: its entries always sum to zero (deferred constraint trigger).
 model WalletTransaction {
   id             String   @id
-  /// usage | topup | gift | adjustment | refund
+  /// usage | topup | gift | adjustment | refund | plan | invoice
   kind           String
   /// Makes every posting idempotent (`usage:<requestId>`, `payment:<id>`, ...).
   idempotencyKey String   @unique @map("idempotency_key")
@@ -1294,6 +1295,20 @@ model Invoice {
   /// breakdown by model; amounts are decimal strings.
   totals         Json
   lines          Json
+  /// Tax fields (card 26.1); null on invoices issued before them. Charges include VAT: the
+  /// invoice splits the taxable amount (gross) into net + VAT at this rate.
+  vatPercent     Decimal? @map("vat_percent") @db.Decimal(5, 2)
+  /// What the customer was charged in the period for services: usage and plan fees.
+  grossUsd       Decimal  @default(0) @map("gross_usd") @db.Decimal(18, 8)
+  netUsd         Decimal  @default(0) @map("net_usd") @db.Decimal(18, 8)
+  vatUsd         Decimal  @default(0) @map("vat_usd") @db.Decimal(18, 8)
+  /// Rials per USD from the billing settings when the invoice was issued; null when none was set.
+  exchangeRateIrr Decimal? @map("exchange_rate_irr") @db.Decimal(18, 8)
+  /// Seller and buyer legal details as they were when the invoice was issued.
+  seller         Json?
+  buyer          Json?
+  /// The ledger transaction that booked this invoice's VAT (and a postpaid sale), if any.
+  ledgerTransactionId String? @map("ledger_transaction_id")
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
@@ -1301,6 +1316,26 @@ model Invoice {
   @@unique([organizationId, period])
   @@index([period])
   @@map("invoices")
+}
+
+/// Legal details printed on invoices (card 26.1): the buyer's for a customer organization, the
+/// seller's for the platform organization.
+model BillingProfile {
+  organizationId String   @id @map("organization_id")
+  /// legal (company: 11-digit national ID) | natural (person: 10-digit national code)
+  partyType      String   @default("legal") @map("party_type")
+  legalName      String   @map("legal_name")
+  nationalId     String?  @map("national_id")
+  economicCode   String?  @map("economic_code")
+  registrationNumber String? @map("registration_number")
+  address        String?
+  postalCode     String?  @map("postal_code")
+  phone          String?
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("billing_profiles")
 }
 
 /// An MCP server the gateway aggregates under /mcp (card 20.1).

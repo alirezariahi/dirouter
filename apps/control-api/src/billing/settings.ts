@@ -26,6 +26,19 @@ export const BillingSettings = z.object({
       welcomeCreditUsd: Decimal.default('0'),
     })
     .default({ signupEnabled: false, welcomeCreditUsd: '0' }),
+  /**
+   * Invoice tax (card 26.1). Charges include VAT: each invoice splits what the customer paid for
+   * services into net + VAT at this rate, as of the day it is issued. 0 (the default) means no VAT.
+   */
+  tax: z
+    .object({
+      vatPercent: z
+        .string()
+        .trim()
+        .regex(/^\d{1,2}(\.\d{1,2})?$/, 'a percentage below 100 with at most 2 decimals')
+        .default('0'),
+    })
+    .default({ vatPercent: '0' }),
 });
 export type BillingSettings = z.infer<typeof BillingSettings>;
 export type BillingSettingsInput = z.input<typeof BillingSettings>;

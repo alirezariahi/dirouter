@@ -114,3 +114,4 @@ CI runs lint, typecheck, test, and build for the changed packages and their cons
 - [Production deployment](deploy-production.md) and [env reference](env-reference.md)
 - [Operational runbook](runbook.md), [observability](observability.md), and [usage pipeline](usage-pipeline.md)
 - [Seed data](seed.md), [routing](concepts/routing.md), and [limits](concepts/limits.md)
+- [Invoices, VAT and the Persian PDF](concepts/invoices.md)

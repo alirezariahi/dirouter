@@ -2,12 +2,15 @@
  * Invoices and the profit report (card 19.6).
  *
  * Invoice figures come from `@dirouter/db`'s invoices module (the wallet ledger for prepaid
- * organizations); this service lists them, renders the PDF and gives the operator the monthly run,
- * the ledger check of an invoice and the cost-against-revenue report by model.
+ * organizations); this service lists them, renders the Persian PDF (card 26.1), keeps the legal
+ * details printed on invoices and gives the operator the monthly run, the ledger check of an
+ * invoice and the cost-against-revenue report by model.
  */
 import {
   computeInvoice,
   fromUnits,
+  invoiceParty,
+  type InvoiceParty,
   issueInvoice,
   organizationsToInvoice,
   periodRange,
@@ -15,30 +18,14 @@ import {
   toUnits,
   verifyInvoice,
 } from '@dirouter/db';
-import { DiRouterError } from '@dirouter/shared';
+import { DiRouterError, prefixedId } from '@dirouter/shared';
 import { Inject, Injectable } from '@nestjs/common';
 
 import { PrismaService } from '../infra/prisma.service.js';
-import { PdfDocument } from './pdf.js';
+import type { OrgContext } from '../rbac/org.guard.js';
+import { renderInvoicePdf } from './pdf/invoice-pdf.js';
 
 type InvoiceRow = Awaited<ReturnType<PrismaService['client']['invoice']['findUniqueOrThrow']>>;
-
-/** Exact USD: as many decimals as the amount needs, at least two. */
-export function money(amount: string): string {
-  const negative = amount.startsWith('-');
-  const [whole = '0', fraction = ''] = amount.replace(/^-/, '').split('.');
-  const digits = fraction.replace(/0+$/, '').padEnd(2, '0');
-  return `${negative ? '-' : ''}$${whole}.${digits}`;
-}
-
-const KIND_LABELS: [string, string][] = [
-  ['topup', 'Top-ups'],
-  ['gift', 'Gift and recharge codes'],
-  ['adjustment', 'Adjustments'],
-  ['refund', 'Refunds'],
-  ['plan', 'Plan fees'],
-  ['usage', 'Usage'],
-];
 
 export function invoiceView(i: InvoiceRow) {
   return {
@@ -51,7 +38,46 @@ export function invoiceView(i: InvoiceRow) {
     closingUsd: i.closingUsd.toFixed(8),
     totals: i.totals as Record<string, string>,
     lines: i.lines as { model: string; requests: number; amountUsd: string }[],
+    /** null on invoices issued before the tax fields (card 26.1). */
+    vatPercent: i.vatPercent?.toFixed(2) ?? null,
+    grossUsd: i.grossUsd.toFixed(8),
+    netUsd: i.netUsd.toFixed(8),
+    vatUsd: i.vatUsd.toFixed(8),
+    exchangeRateIrr: i.exchangeRateIrr?.toFixed(8) ?? null,
+    seller: (i.seller as InvoiceParty | null) ?? null,
+    buyer: (i.buyer as InvoiceParty | null) ?? null,
+    ledgerTransactionId: i.ledgerTransactionId,
     createdAt: i.createdAt.toISOString(),
+  };
+}
+
+export interface BillingProfileInput {
+  partyType: 'legal' | 'natural';
+  legalName: string;
+  nationalId?: string | null | undefined;
+  economicCode?: string | null | undefined;
+  registrationNumber?: string | null | undefined;
+  address?: string | null | undefined;
+  postalCode?: string | null | undefined;
+  phone?: string | null | undefined;
+}
+
+type ProfileRow = Awaited<
+  ReturnType<PrismaService['client']['billingProfile']['findUniqueOrThrow']>
+>;
+
+function profileView(p: ProfileRow) {
+  return {
+    organizationId: p.organizationId,
+    partyType: p.partyType,
+    legalName: p.legalName,
+    nationalId: p.nationalId,
+    economicCode: p.economicCode,
+    registrationNumber: p.registrationNumber,
+    address: p.address,
+    postalCode: p.postalCode,
+    phone: p.phone,
+    updatedAt: p.updatedAt.toISOString(),
   };
 }
 
@@ -108,93 +134,64 @@ export class InvoicesService {
   }
 
   async pdf(id: string, organizationId?: string): Promise<{ filename: string; body: Buffer }> {
-    const invoice = invoiceView(await this.get(id, organizationId));
-    const org = await this.db.organization.findUnique({
-      where: { id: invoice.organizationId },
-      select: { name: true, slug: true },
+    const row = await this.get(id, organizationId);
+    const invoice = invoiceView(row);
+    // Invoices issued before card 26.1 have no snapshot of the parties: today's details are used.
+    const buyer = invoice.buyer ?? (await invoiceParty(this.db, invoice.organizationId));
+    const body = await renderInvoicePdf({
+      ...invoice,
+      createdAt: row.createdAt,
+      buyer,
+      seller: invoice.seller ?? (await this.#platformParty()),
     });
-    // Helvetica covers Latin-1 only; a Persian name is shown by its slug.
-    const customer =
-      org && /^[\x20-\xff]+$/.test(org.name) ? org.name : (org?.slug ?? invoice.organizationId);
-    const doc = new PdfDocument();
-    const right = doc.right;
-    let y = doc.y;
-    doc.text({ x: doc.left, y, text: 'DiRouter', size: 18, bold: true });
-    doc.text({
-      x: right,
-      y,
-      text: `Invoice ${invoice.number}`,
-      size: 12,
-      bold: true,
-      alignRight: true,
-    });
-    y = doc.down(22);
-    doc.text({ x: doc.left, y, text: `Customer: ${customer}` });
-    doc.text({ x: right, y, text: `Period: ${invoice.period}`, alignRight: true });
-    y = doc.down(14);
-    doc.text({ x: doc.left, y, text: `Organization ID: ${invoice.organizationId}`, size: 8 });
-    doc.text({
-      x: right,
-      y,
-      text: `Issued: ${invoice.createdAt.slice(0, 10)}`,
-      size: 8,
-      alignRight: true,
-    });
-    y = doc.down(26);
+    return { filename: `${invoice.number}.pdf`, body };
+  }
 
-    const row = (label: string, amount: string, bold = false) => {
-      doc.text({ x: doc.left, y, text: label, bold });
-      doc.text({ x: right, y, text: money(amount), bold, alignRight: true });
-      y = doc.down(16);
+  async #platformParty(): Promise<InvoiceParty | null> {
+    const platform = await this.db.organization.findFirst({
+      where: { isPlatform: true, deletedAt: null },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true },
+    });
+    return platform ? invoiceParty(this.db, platform.id) : null;
+  }
+
+  // ───────────── Legal details printed on invoices (card 26.1) ─────────────
+
+  async profile(organizationId: string) {
+    const row = await this.db.billingProfile.findUnique({ where: { organizationId } });
+    return row ? profileView(row) : null;
+  }
+
+  async putProfile(ctx: OrgContext, input: BillingProfileInput) {
+    const data = {
+      partyType: input.partyType,
+      legalName: input.legalName,
+      nationalId: input.nationalId ?? null,
+      economicCode: input.economicCode ?? null,
+      registrationNumber: input.registrationNumber ?? null,
+      address: input.address ?? null,
+      postalCode: input.postalCode ?? null,
+      phone: input.phone ?? null,
     };
-    doc.text({ x: doc.left, y, text: 'Summary', size: 12, bold: true });
-    y = doc.down(8);
-    doc.rule(y);
-    y = doc.down(16);
-    if (invoice.basis === 'prepaid') row('Opening balance', invoice.openingUsd);
-    for (const [kind, label] of KIND_LABELS)
-      if (invoice.totals[kind] !== undefined) row(label, invoice.totals[kind] ?? '0');
-    doc.rule(y + 10);
-    row(invoice.basis === 'prepaid' ? 'Closing balance' : 'Amount due', invoice.closingUsd, true);
-
-    if (invoice.lines.length > 0) {
-      y = doc.down(18);
-      doc.text({ x: doc.left, y, text: 'Usage by model', size: 12, bold: true });
-      y = doc.down(18);
-      doc.text({ x: doc.left, y, text: 'Model', size: 9, bold: true });
-      doc.text({ x: right - 140, y, text: 'Requests', size: 9, bold: true, alignRight: true });
-      doc.text({ x: right, y, text: 'Amount', size: 9, bold: true, alignRight: true });
-      y = doc.down(6);
-      doc.rule(y);
-      y = doc.down(14);
-      for (const line of invoice.lines) {
-        doc.text({ x: doc.left, y, text: line.model, size: 9 });
-        doc.text({ x: right - 140, y, text: String(line.requests), size: 9, alignRight: true });
-        doc.text({ x: right, y, text: money(line.amountUsd), size: 9, alignRight: true });
-        y = doc.down(13);
-      }
-      const total = invoice.lines.reduce((s, l) => s + toUnits(l.amountUsd), 0n);
-      doc.rule(y + 9);
-      doc.text({
-        x: right,
-        y,
-        text: money(fromUnits(total)),
-        size: 9,
-        bold: true,
-        alignRight: true,
-      });
-    }
-    y = doc.down(30);
-    doc.text({
-      x: doc.left,
-      y,
-      text:
-        invoice.basis === 'prepaid'
-          ? 'Prepaid account: figures are taken from the wallet ledger. Amounts in USD.'
-          : 'Usage charges for the period. Amounts in USD.',
-      size: 8,
+    const row = await this.db.billingProfile.upsert({
+      where: { organizationId: ctx.organizationId },
+      create: { organizationId: ctx.organizationId, ...data },
+      update: data,
     });
-    return { filename: `${invoice.number}.pdf`, body: doc.toBuffer() };
+    await this.db.auditLog.create({
+      data: {
+        id: prefixedId('aud'),
+        organizationId: ctx.organizationId,
+        actorUserId: ctx.userId,
+        ...(ctx.ip ? { ip: ctx.ip } : {}),
+        action: 'billing.profile_changed',
+        targetType: 'billing_profile',
+        targetId: ctx.organizationId,
+        diff: data,
+      },
+    });
+    return profileView(row);
   }
 
   /**
@@ -269,6 +266,9 @@ export class InvoicesService {
       // System accounts move opposite to customers: revenue is credited, funding and promo debited.
       ledger: {
         revenueBookedUsd: fromUnits(byCode.revenue ?? 0n),
+        // Card 26.1: VAT split off sales, and postpaid sales invoiced but not yet settled.
+        vatCollectedUsd: fromUnits(byCode.vat ?? 0n),
+        receivableUsd: fromUnits(-(byCode.receivable ?? 0n)),
         writtenOffUsd: fromUnits(-(byCode.writeoff ?? 0n)),
         promoGivenUsd: fromUnits(-(byCode.promo ?? 0n)),
         fundsReceivedUsd: fromUnits(-(byCode.funding ?? 0n)),

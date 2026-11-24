@@ -1,10 +1,12 @@
 import {
+  Body,
   Controller,
   Get,
   HttpCode,
   Inject,
   Param,
   Post,
+  Put,
   Query,
   Res,
   UseGuards,
@@ -14,7 +16,14 @@ import type { FastifyReply } from 'fastify';
 import { z } from 'zod';
 
 import { AccessGuard } from '../auth/auth.guard.js';
-import { ApiZodOk, ApiZodQuery, JsonListSchema, JsonObjectSchema, ZodPipe } from '../common/zod.js';
+import {
+  ApiZodBody,
+  ApiZodOk,
+  ApiZodQuery,
+  JsonListSchema,
+  JsonObjectSchema,
+  ZodPipe,
+} from '../common/zod.js';
 import { Org, OrgGuard, type OrgContext, RequirePermission } from '../rbac/org.guard.js';
 import { invoiceView, InvoicesService } from './invoices.service.js';
 import { PlatformGuard } from './platform.guard.js';
@@ -31,6 +40,36 @@ const ProfitQuery = z.object({
   /** One model slug (card 25.2). */
   model: z.string().trim().min(1).max(200).optional(),
 });
+
+/** Persian or Arabic-Indic digits to ASCII, so `۱۲۳` and `123` are the same identifier. */
+const asciiDigits = (s: string) =>
+  s.replace(/[\u06F0-\u06F9\u0660-\u0669]/g, (d) => String((d.codePointAt(0) ?? 0) & 0xf));
+const Digits = (min: number, max: number, label: string) =>
+  z
+    .string()
+    .trim()
+    .transform(asciiDigits)
+    .pipe(z.string().regex(new RegExp(`^\\d{${String(min)},${String(max)}}$`), label))
+    .nullish();
+const Text = (max: number) => z.string().trim().min(1).max(max).nullish();
+
+/** Legal details printed on invoices (card 26.1). */
+export const BillingProfileBody = z
+  .object({
+    /** legal: a company (11-digit national ID); natural: a person (10-digit national code). */
+    partyType: z.enum(['legal', 'natural']).default('legal'),
+    legalName: z.string().trim().min(2).max(200),
+    nationalId: Digits(10, 11, 'a national ID of 11 digits or a national code of 10'),
+    economicCode: Digits(10, 14, 'an economic code of 10 to 14 digits'),
+    registrationNumber: Text(50),
+    address: Text(500),
+    postalCode: Digits(10, 10, 'a postal code of 10 digits'),
+    phone: Text(30),
+  })
+  .refine((p) => !p.nationalId || p.nationalId.length === (p.partyType === 'legal' ? 11 : 10), {
+    message: 'a company has an 11-digit national ID, a person a 10-digit national code',
+    path: ['nationalId'],
+  });
 
 async function sendPdf(reply: FastifyReply, file: { filename: string; body: Buffer }) {
   await reply
@@ -75,6 +114,37 @@ export class InvoicesController {
   @ApiZodOk(z.string(), 'PDF')
   async pdf(@Org() org: OrgContext, @Param('id') id: string, @Res() reply: FastifyReply) {
     await sendPdf(reply, await this.invoices.pdf(id, org.organizationId));
+  }
+}
+
+/**
+ * The organization's legal details printed on its invoices: the buyer's for a customer, the
+ * seller's for the platform organization (card 26.1). Changes apply to invoices issued afterwards;
+ * an issued invoice keeps the details it was issued with.
+ */
+@ApiTags('billing')
+@ApiBearerAuth()
+@Controller('orgs/:orgId/billing-profile')
+@UseGuards(AccessGuard, OrgGuard)
+export class BillingProfileController {
+  constructor(@Inject(InvoicesService) private readonly invoices: InvoicesService) {}
+
+  @Get()
+  @RequirePermission('billing:read')
+  @ApiZodOk(JsonObjectSchema)
+  async get(@Org() org: OrgContext) {
+    return (await this.invoices.profile(org.organizationId)) ?? {};
+  }
+
+  @Put()
+  @RequirePermission('billing:write')
+  @ApiZodBody(BillingProfileBody)
+  @ApiZodOk(JsonObjectSchema)
+  put(
+    @Org() org: OrgContext,
+    @Body(new ZodPipe(BillingProfileBody)) body: z.infer<typeof BillingProfileBody>,
+  ) {
+    return this.invoices.putProfile(org, body);
   }
 }
 
