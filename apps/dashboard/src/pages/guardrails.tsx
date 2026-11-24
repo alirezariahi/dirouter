@@ -184,7 +184,7 @@ export default function GuardrailsPage() {
         : undefined;
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="enter flex flex-col gap-6">
       <PageHeader title={t('s2.guardrails.title')} subtitle={t('s2.guardrails.subtitle')} />
       <FormError message={localError ?? (failure ? errorMessage(failure, t) : undefined)} />
 
@@ -419,7 +419,7 @@ export default function GuardrailsPage() {
               }}
             />
 
-            <fieldset className="flex flex-col gap-2 rounded-md border border-border p-3">
+            <fieldset className="flex flex-col gap-2 rounded-lg border border-border p-3">
               <legend className="px-1 text-sm font-medium">{t('s2.guardrails.testTitle')}</legend>
               <p className="text-xs text-muted">{t('s2.guardrails.testHelp')}</p>
               <label htmlFor="guardrail-sample" className="flex flex-col gap-1 text-sm">

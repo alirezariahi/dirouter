@@ -2,37 +2,148 @@
 @import '@fontsource-variable/vazirmatn';
 
 /* Theme via CSS variables; the dark class is on <html>. Spacing uses logical properties only
-   (ps/pe/ms/me, start/end) تا RTL و LTR بدون کد اضافه درست شوند. */
+   (ps/pe/ms/me, start/end) so RTL and LTR both work without extra code.
+
+   Design direction: a control room. Surfaces are neutral graphite and stay quiet; one cobalt
+   accent marks the selection and the primary action; color otherwise belongs to data (charts)
+   and to status (the live lamp). */
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
   --font-sans: 'Vazirmatn Variable', ui-sans-serif, system-ui, sans-serif;
-  --color-bg: oklch(98.5% 0.002 247);
-  --color-surface: oklch(100% 0 0);
-  --color-fg: oklch(21% 0.02 265);
-  --color-muted: oklch(55% 0.02 264);
-  --color-border: oklch(92% 0.01 264);
-  --color-brand: oklch(55% 0.19 265);
-  --color-brand-fg: oklch(99% 0 0);
-  --color-danger: oklch(58% 0.21 27);
+  --font-mono: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, Consolas, monospace;
+
+  /* Neutral ramp */
+  --color-bg: #fafafa;
+  --color-sidebar: #f4f4f5;
+  --color-surface: #ffffff;
+  --color-surface-2: #f4f4f5;
+  --color-border: #e6e6e8;
+  --color-fg: #171717;
+  --color-fg-2: #525252;
+  --color-muted: #737373;
+
+  /* Accent and status */
+  --color-brand: #2a78d6;
+  --color-brand-fg: #ffffff;
+  --color-good: #15803d;
+  --color-warn: #b45309;
+  --color-danger: #dc2626;
+
+  /* Data: fixed categorical order (blue, orange, aqua, yellow), validated for CVD */
+  --color-chart-1: #2a78d6;
+  --color-chart-2: #eb6834;
+  --color-chart-3: #1baf7a;
+  --color-chart-4: #eda100;
+  --color-chart-grid: #ececee;
+
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .dark {
-  --color-bg: oklch(17% 0.015 265);
-  --color-surface: oklch(21% 0.018 265);
-  --color-fg: oklch(95% 0.01 265);
-  --color-muted: oklch(70% 0.02 264);
-  --color-border: oklch(30% 0.02 265);
-  --color-brand: oklch(68% 0.16 265);
+  --color-bg: #141415;
+  --color-sidebar: #0f0f10;
+  --color-surface: #19191b;
+  --color-surface-2: #232325;
+  --color-border: #2a2a2d;
+  --color-fg: #ededed;
+  --color-fg-2: #a1a1a6;
+  --color-muted: #85858b;
+
+  --color-brand: #5b9dff;
+  --color-brand-fg: #0b1220;
+  --color-good: #4cc38a;
+  --color-warn: #f5a524;
+  --color-danger: #e5484d;
+
+  --color-chart-1: #3987e5;
+  --color-chart-2: #d95926;
+  --color-chart-3: #199e70;
+  --color-chart-4: #c98500;
+  --color-chart-grid: #242427;
 }
 
 html {
   background: var(--color-bg);
   color: var(--color-fg);
   font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: color-mix(in oklab, var(--color-brand) 28%, transparent);
 }
 
 :focus-visible {
   outline: 2px solid var(--color-brand);
   outline-offset: 2px;
+}
+
+@layer base {
+  /* Form controls share one shape wherever a page writes them by hand. */
+  :where(input:not([type='checkbox'], [type='radio'], [type='range']), select, textarea) {
+    border-radius: 8px;
+    transition:
+      border-color 150ms var(--ease-out),
+      box-shadow 150ms var(--ease-out);
+  }
+  :where(
+    input:not([type='checkbox'], [type='radio'], [type='range']),
+    select,
+    textarea
+  ):focus-visible {
+    outline: none;
+    border-color: var(--color-brand);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-brand) 18%, transparent);
+  }
+  :where(input[type='checkbox'], input[type='radio']) {
+    accent-color: var(--color-brand);
+  }
+  :where(th) {
+    font-weight: 500;
+    color: var(--color-muted);
+  }
+  :where(code, kbd, pre) {
+    font-family: var(--font-mono);
+  }
+  :where(h1, h2, h3) {
+    text-wrap: balance;
+  }
+}
+
+/* Figures: one format, aligned in columns. */
+@utility num {
+  font-variant-numeric: tabular-nums;
+}
+
+/* The signature: a small status lamp. It breathes only where the thing is live. */
+@utility lamp {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  background: currentColor;
+  box-shadow: 0 0 0 3px color-mix(in oklab, currentColor 18%, transparent);
+  flex-shrink: 0;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+@utility enter {
+  animation: rise 360ms var(--ease-out) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .enter {
+    animation: none;
+  }
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
 }

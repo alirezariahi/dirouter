@@ -93,9 +93,9 @@ export default function SimulatorPage() {
   const candidates = result?.candidates ?? [];
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="enter flex flex-col gap-6">
       <header>
-        <h1 className="text-2xl font-bold">{t('s2.simulator.title')}</h1>
+        <h1 className="text-2xl leading-8 font-semibold">{t('s2.simulator.title')}</h1>
         <p className="mt-1 text-sm text-muted">{t('s2.simulator.subtitle')}</p>
       </header>
 
@@ -125,7 +125,7 @@ export default function SimulatorPage() {
               onChange={(event) => {
                 setKeyId(event.target.value);
               }}
-              className="h-10 rounded-md border border-border bg-surface px-3"
+              className="h-10 rounded-lg border border-border bg-surface px-3"
             >
               <option value="">{t('s2.simulator.anyKey')}</option>
               {list<KeyRow>(keys.data).map((k) => (

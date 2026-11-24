@@ -35,7 +35,7 @@ export function PluginPicker({
       <label className="flex flex-col gap-1 text-sm">
         <span className="font-medium">{t('s3.plugins.choose')}</span>
         <select
-          className="h-10 rounded-md border border-border bg-surface px-3 text-sm"
+          className="h-10 rounded-lg border border-border bg-surface px-3 text-sm"
           value={selected?.name ?? ''}
           onChange={(event) => {
             const plugin = plugins.data.find((p) => p.name === event.target.value);
@@ -58,7 +58,7 @@ export function PluginPicker({
       {selected?.termsWarning ? (
         <div
           role="alert"
-          className="flex flex-col gap-2 rounded-md border border-amber-500/50 bg-amber-500/10 p-3 text-sm"
+          className="flex flex-col gap-2 rounded-lg border border-warn/40 bg-warn/10 p-3 text-sm"
         >
           <strong>{t('s3.plugins.termsTitle')}</strong>
           <p>{selected.termsWarning.text}</p>

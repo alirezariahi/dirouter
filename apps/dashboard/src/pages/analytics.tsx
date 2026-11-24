@@ -8,12 +8,16 @@ import { useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { BarChart } from '../components/charts/bar-chart';
-import { PageHeader, RangeTabs, Section, Stat } from '../components/s2/common';
+import { Download } from 'lucide-react';
+
+import { BarList } from '../components/charts/bar-list';
+import { TrendChart } from '../components/charts/trend-chart';
+import { PageHeader, RangeTabs, Section, Segmented, Stat } from '../components/s2/common';
+import { Button } from '../components/ui/button';
 import { ErrorState, Loading } from '../components/ui/states';
 import { api } from '../lib/api';
 import { useFormat } from '../lib/s2-format';
-import { formatDate } from '../lib/date';
+import { formatDate, formatTick } from '../lib/date';
 import type { LogSearch } from '../lib/log-search';
 import { rangeBounds, useRange } from '../lib/range';
 import { currentOrg } from '../lib/session';
@@ -22,7 +26,21 @@ import { DRILL, metricValue } from '../lib/s2-helpers';
 interface TopItem {
   id: string;
   requests: number;
+  errors?: number;
+  tokens?: number;
   costUsd: string;
+}
+
+/** The report as a CSV file, with raw numbers so a spreadsheet can sum them. */
+function downloadCsv(name: string, header: string[], rows: (string | number)[][]) {
+  const cell = (v: string | number) => `"${String(v).replaceAll('"', '""')}"`;
+  const csv = [header, ...rows].map((r) => r.map(cell).join(',')).join('\n');
+  const url = URL.createObjectURL(new Blob([`\ufeff${csv}`], { type: 'text/csv;charset=utf-8' }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = name;
+  link.click();
+  URL.revokeObjectURL(url);
 }
 interface Point {
   bucket: string;
@@ -67,17 +85,37 @@ export default function AnalyticsPage() {
     void navigate({ to: '/logs', search: { from: bounds.from, to: bounds.to, ...search } });
   const format = (value: number) => (metric === 'cost' ? usd(value) : n(value));
 
+  const totalCost = data.byModel.items.reduce((sum, item) => sum + Number(item.costUsd), 0);
+  const col = (key: string) => t(`s2.analytics.col.${key}`);
+  const breakdown = (group: keyof typeof DRILL) =>
+    data[group].items.map((item) => ({
+      id: item.id,
+      label: item.id,
+      value: metric === 'cost' ? Number(item.costUsd) : item.requests,
+      display: metric === 'cost' ? usd(item.costUsd) : n(item.requests),
+      meta: metric === 'cost' ? n(item.requests) : usd(item.costUsd),
+    }));
+
   return (
-    <section className="flex flex-col gap-4">
+    <section className="enter flex flex-col gap-6">
       <PageHeader title={t('s2.analytics.title')} subtitle={t('s2.analytics.subtitle')}>
         <RangeTabs />
       </PageHeader>
 
-      <div className="grid gap-3 md:grid-cols-4">
-        <Stat label={t('s2.analytics.metric.requests')} value={n(data.overview.requests)} />
-        <Stat label={t('s2.analytics.metric.cost')} value={usd(data.overview.costUsd)} />
-        <Stat label={t('s2.analytics.errorRate')} value={percent(data.overview.errorRate)} />
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Stat
+          size="lg"
+          label={t('s2.analytics.metric.requests')}
+          value={n(data.overview.requests)}
+        />
+        <Stat size="lg" label={t('s2.analytics.metric.cost')} value={usd(data.overview.costUsd)} />
+        <Stat
+          size="lg"
+          label={t('s2.analytics.errorRate')}
+          value={percent(data.overview.errorRate)}
+        />
+        <Stat
+          size="lg"
           label={t('s2.analytics.p95')}
           value={
             data.overview.latencyP95Ms === null
@@ -90,35 +128,39 @@ export default function AnalyticsPage() {
       <Section
         title={t('s2.analytics.trend')}
         action={
-          <div role="radiogroup" className="flex gap-1 rounded-lg border border-border p-1">
-            {METRICS.map((key) => (
-              <button
-                key={key}
-                type="button"
-                role="radio"
-                aria-checked={metric === key}
-                onClick={() => {
-                  setMetric(key);
-                }}
-                className={`rounded-md px-3 py-1 text-sm ${metric === key ? 'bg-brand text-white' : 'hover:bg-surface-2'}`}
-              >
-                {t(`s2.analytics.metric.${key}`)}
-              </button>
-            ))}
-          </div>
+          <Segmented
+            size="sm"
+            value={metric}
+            onChange={setMetric}
+            options={METRICS.map((key) => ({ value: key, label: t(`s2.analytics.metric.${key}`) }))}
+          />
         }
       >
-        <BarChart
+        <TrendChart
+          kind="bars"
+          height={300}
           ariaLabel={t('s2.analytics.trend')}
+          seriesLabel={t(`s2.analytics.metric.${metric}`)}
+          secondaryLabel={t('s2.analytics.metric.errors')}
           format={format}
-          bars={data.series.points.map((point) => ({
+          axisFormat={(v) =>
+            metric === 'cost'
+              ? n(v, { style: 'currency', currency: 'USD', notation: 'compact' })
+              : n(v, { notation: 'compact', maximumFractionDigits: 1 })
+          }
+          points={data.series.points.map((point) => ({
             label: formatDate(point.bucket, {
               calendar: settings.calendar,
               lang: settings.lang,
               time: bounds.granularity === 'hour',
             }),
+            tick: formatTick(point.bucket, {
+              calendar: settings.calendar,
+              lang: settings.lang,
+              hourly: bounds.granularity === 'hour',
+            }),
             value: metricValue(point, metric),
-            ...(metric === 'requests' ? { highlight: point.errors } : {}),
+            ...(metric === 'requests' ? { secondary: point.errors } : {}),
           }))}
           onSelect={(index) => {
             const point = data.series.points[index];
@@ -133,35 +175,106 @@ export default function AnalyticsPage() {
         />
       </Section>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-2">
         {(Object.keys(DRILL) as (keyof typeof DRILL)[]).map((group) => (
           <Section key={group} title={t(`s2.analytics.${group}`)}>
-            {data[group].items.length === 0 ? (
-              <p className="text-sm text-muted">{t('s2.common.none')}</p>
-            ) : (
-              <ul data-testid={`analytics-${group}`} className="flex flex-col">
-                {data[group].items.map((item) => (
-                  <li key={item.id}>
-                    <button
-                      type="button"
-                      title={t('s2.common.viewLogs')}
-                      className="flex w-full items-center justify-between gap-2 border-t border-border py-1.5 text-sm hover:bg-border/30"
-                      onClick={() => {
-                        toLogs({ [DRILL[group]]: item.id });
-                      }}
-                    >
-                      <span dir="ltr">{item.id}</span>
-                      <span className="text-muted">
-                        {n(item.requests)} · {usd(item.costUsd)}
-                      </span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
+            <BarList
+              testId={`analytics-${group}`}
+              tone={group === 'byModel' ? 'brand' : 'neutral'}
+              items={breakdown(group)}
+              empty={t('s2.common.none')}
+              onSelect={(id) => {
+                toLogs({ [DRILL[group]]: id });
+              }}
+            />
           </Section>
         ))}
       </div>
+
+      <Section
+        title={t('s2.analytics.report')}
+        help={t('s2.analytics.reportHelp')}
+        action={
+          <Button
+            variant="outline"
+            disabled={data.byModel.items.length === 0}
+            onClick={() => {
+              downloadCsv(
+                `dirouter-usage-${bounds.from.slice(0, 10)}_${bounds.to.slice(0, 10)}.csv`,
+                ['model', 'requests', 'errors', 'tokens', 'cost_usd'],
+                data.byModel.items.map((item) => [
+                  item.id,
+                  item.requests,
+                  item.errors ?? 0,
+                  item.tokens ?? 0,
+                  item.costUsd,
+                ]),
+              );
+            }}
+          >
+            <Download aria-hidden className="size-4" strokeWidth={1.5} />
+            {t('s2.analytics.export')}
+          </Button>
+        }
+      >
+        {data.byModel.items.length === 0 ? (
+          <p className="py-6 text-center text-sm text-muted">{t('s2.common.none')}</p>
+        ) : (
+          <div className="-mx-5 overflow-x-auto">
+            <table className="w-full text-[13px]">
+              <thead>
+                <tr className="border-y border-border bg-surface-2/60 text-xs">
+                  <th className="px-5 py-2.5 text-start">{col('model')}</th>
+                  <th className="px-3 py-2.5 text-end">{col('requests')}</th>
+                  <th className="px-3 py-2.5 text-end">{col('errors')}</th>
+                  <th className="px-3 py-2.5 text-end">{col('errorRate')}</th>
+                  <th className="px-3 py-2.5 text-end">{col('tokens')}</th>
+                  <th className="px-3 py-2.5 text-end">{col('cost')}</th>
+                  <th className="w-56 px-5 py-2.5 text-start">{col('share')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.byModel.items.map((item) => {
+                  const share = totalCost > 0 ? Number(item.costUsd) / totalCost : 0;
+                  return (
+                    <tr
+                      key={item.id}
+                      className="cursor-pointer border-b border-border transition-colors duration-150 last:border-0 hover:bg-surface-2/60"
+                      onClick={() => {
+                        toLogs({ model: item.id });
+                      }}
+                    >
+                      <td className="px-5 py-3 font-mono" dir="ltr">
+                        <bdi>{item.id}</bdi>
+                      </td>
+                      <td className="num px-3 py-3 text-end">{n(item.requests)}</td>
+                      <td className="num px-3 py-3 text-end text-fg-2">{n(item.errors ?? 0)}</td>
+                      <td className="num px-3 py-3 text-end text-fg-2">
+                        {percent(item.requests > 0 ? (item.errors ?? 0) / item.requests : 0)}
+                      </td>
+                      <td className="num px-3 py-3 text-end text-fg-2">
+                        {n(item.tokens ?? 0, { notation: 'compact', maximumFractionDigits: 1 })}
+                      </td>
+                      <td className="num px-3 py-3 text-end font-medium">{usd(item.costUsd)}</td>
+                      <td className="px-5 py-3">
+                        <span className="flex items-center gap-3">
+                          <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-2">
+                            <span
+                              className="block h-full rounded-full bg-chart-1"
+                              style={{ width: `${String(share * 100)}%` }}
+                            />
+                          </span>
+                          <span className="num w-12 text-end text-fg-2">{percent(share)}</span>
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Section>
     </section>
   );
 }

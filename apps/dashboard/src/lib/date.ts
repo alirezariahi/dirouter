@@ -18,6 +18,21 @@ export function formatDate(
   }).format(date);
 }
 
+/** Short axis label for a chart bucket: the time for hourly buckets, day and month for daily. */
+export function formatTick(
+  value: Date | string | number,
+  opts: { calendar: Calendar; lang: 'fa' | 'en'; hourly: boolean },
+): string {
+  const date = value instanceof Date ? value : new Date(value);
+  const locale = `${opts.lang === 'fa' ? 'fa-IR' : 'en-US'}-u-ca-${opts.calendar}${opts.lang === 'fa' ? '-nu-arabext' : ''}`;
+  return new Intl.DateTimeFormat(locale, {
+    ...(opts.hourly
+      ? { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }
+      : { month: 'short', day: 'numeric' }),
+    timeZone: 'Asia/Tehran',
+  }).format(date);
+}
+
 export function formatNumber(
   value: number,
   lang: 'fa' | 'en',

@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '../components/ui/button';
+import { Mark } from '../components/ui/mark';
 import { Card } from '../components/ui/card';
 import { Field, FormError } from '../components/ui/field';
 import { text, type SubmitEvent } from '../lib/form';
@@ -108,8 +109,10 @@ export default function LoginPage() {
 
   return (
     <main className="flex min-h-screen items-center justify-center p-4">
-      <Card className="w-full max-w-sm">
-        <h1 className="mb-4 text-xl font-bold">{t('auth.loginTitle')}</h1>
+      <Card className="w-full max-w-sm p-7">
+        <Mark className="size-9" />
+        <h1 className="mt-5 text-xl font-semibold">{t('auth.loginTitle')}</h1>
+        <p className="mt-1 mb-5 text-sm text-fg-2">{t('app.tagline')}</p>
         <form ref={formRef} onSubmit={(e) => void onSubmit(e)} className="flex flex-col gap-3">
           <FormError message={error} />
           <Field

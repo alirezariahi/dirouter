@@ -139,7 +139,7 @@ export default function ConfigPage() {
     formatDate(iso, { calendar: display.calendar, lang: display.lang, time: true });
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="enter flex flex-col gap-6">
       <PageHeader title={t('s2.config.title')} subtitle={t('s2.config.subtitle')} />
       <FormError message={localError ?? (failure ? describe(failure) : undefined)} />
       {notice ? (
@@ -280,9 +280,7 @@ export default function ConfigPage() {
                             <br />
                             <span className="text-danger">- {short(change.before)}</span>
                             <br />
-                            <span className="text-emerald-700 dark:text-emerald-300">
-                              + {short(change.after)}
-                            </span>
+                            <span className="text-good">+ {short(change.after)}</span>
                           </li>
                         ))}
                       </ul>

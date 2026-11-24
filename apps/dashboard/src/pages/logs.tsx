@@ -70,7 +70,7 @@ function FilterEditor({ search, apply }: { search: LogSearch; apply: (next: LogS
   const [invalid, setInvalid] = useState(false);
   return (
     <form
-      className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"
+      className="grid gap-x-4 gap-y-3 rounded-xl border border-border bg-surface p-5 sm:grid-cols-2 lg:grid-cols-4"
       onSubmit={(event) => {
         event.preventDefault();
         const next: LogSearch = {};
@@ -116,14 +116,18 @@ function FilterEditor({ search, apply }: { search: LogSearch; apply: (next: LogS
         const label = key === 'from' || key === 'to' ? m[key] : t(`logs.filter.${key}`);
         const props = {
           id: `log-filter-${key}`,
-          className: 'rounded border border-border bg-surface px-2 py-1',
+          className: 'h-9 rounded-lg border border-border bg-bg px-3 text-sm',
           value: draft[key],
           onChange: (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
             setDraft({ ...draft, [key]: event.target.value });
           },
         };
         return (
-          <label key={key} className="flex flex-col gap-1 text-sm" htmlFor={props.id}>
+          <label
+            key={key}
+            className="flex flex-col gap-1.5 text-[13px] text-fg-2"
+            htmlFor={props.id}
+          >
             {label}
             {key === 'status' ? (
               <select {...props}>
@@ -148,7 +152,9 @@ function FilterEditor({ search, apply }: { search: LogSearch; apply: (next: LogS
           {m.invalid}
         </p>
       )}
-      <Button type="submit">{m.apply}</Button>
+      <Button type="submit" className="self-end">
+        {m.apply}
+      </Button>
     </form>
   );
 }
@@ -170,7 +176,7 @@ function Detail({ orgId, id, close }: { orgId: string; id: string; close: () => 
     <Card>
       <section aria-label={m.detail}>
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-bold">{m.detail}</h2>
+          <h2 className="text-xl font-semibold">{m.detail}</h2>
           <Button variant="outline" onClick={close}>
             {m.close}
           </Button>
@@ -209,7 +215,7 @@ function Detail({ orgId, id, close }: { orgId: string; id: string; close: () => 
                 ))}
               </dl>
               <p>{d.usageEstimated ? m.estimated : m.actual}</p>
-              <h3 className="mt-4 font-bold">{m.timeline}</h3>
+              <h3 className="mt-4 font-semibold">{m.timeline}</h3>
               {Array.isArray(d.attempts) && d.attempts.length ? (
                 <ol className="ms-3 border-s border-border">
                   {d.attempts.map((value: unknown, index: number) => {
@@ -242,7 +248,7 @@ function Detail({ orgId, id, close }: { orgId: string; id: string; close: () => 
               ) : (
                 <Empty title={m.noAttempts} />
               )}
-              <h3 className="mt-4 font-bold">{m.headers}</h3>
+              <h3 className="mt-4 font-semibold">{m.headers}</h3>
               {headers.length ? (
                 <dl>
                   {headers.map(([name, value]) => (
@@ -308,8 +314,8 @@ export default function LogsPage() {
   };
   const rows = query.data?.pages.flatMap((p) => p.items) ?? [];
   return (
-    <section className="flex flex-col gap-4">
-      <h1 className="text-2xl font-bold">{t('logs.title')}</h1>
+    <section className="enter flex flex-col gap-6">
+      <h1 className="text-2xl leading-8 font-semibold">{t('logs.title')}</h1>
       <FilterEditor
         key={JSON.stringify(search)}
         search={{ ...search, from: from.slice(0, 19), to: to.slice(0, 19) }}
@@ -371,34 +377,54 @@ export default function LogsPage() {
           error={query.error}
           onRetry={() => void query.refetch()}
           columns={[
-            { key: 'time', label: t('logs.col.time'), render: (r) => date(r.createdAt) },
+            {
+              key: 'time',
+              label: t('logs.col.time'),
+              width: 'minmax(0, 1.6fr)',
+              render: (r) => <span className="text-fg-2">{date(r.createdAt)}</span>,
+            },
             {
               key: 'model',
               label: t('logs.col.model'),
-              render: (r) => <span dir="ltr">{r.requestedModel}</span>,
+              width: 'minmax(0, 2fr)',
+              render: (r) => (
+                <span className="font-mono text-[13px]" dir="ltr">
+                  {r.requestedModel}
+                </span>
+              ),
             },
             {
               key: 'status',
               label: t('logs.col.status'),
+              width: 'minmax(0, 1.4fr)',
               render: (r) => (
-                <span className={r.status === 'success' ? 'text-emerald-600' : 'text-danger'}>
-                  {n(r.httpStatus)} {r.errorCode}
+                <span className="flex items-center gap-2">
+                  <span
+                    aria-hidden
+                    className={`lamp ${r.status === 'success' ? 'bg-good' : 'bg-danger'}`}
+                  />
+                  <span className={r.status === 'success' ? 'text-good' : 'text-danger'}>
+                    {n(r.httpStatus)} {r.errorCode}
+                  </span>
                 </span>
               ),
             },
             {
               key: 'tokens',
               label: t('logs.col.tokens'),
+              align: 'end',
               render: (r) => n(r.inputTokens + r.outputTokens),
             },
             {
               key: 'cost',
               label: t('logs.col.cost'),
+              align: 'end',
               render: (r) => `$${Number(r.costUsd).toFixed(6)}`,
             },
             {
               key: 'latency',
               label: t('logs.col.latency'),
+              align: 'end',
               render: (r) => `${n(r.latencyMs)} ${t('overview.ms')}`,
             },
           ]}

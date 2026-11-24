@@ -69,7 +69,7 @@ export default function InvitePage() {
   return (
     <main className="flex min-h-screen items-center justify-center p-4">
       <Card className="w-full max-w-sm">
-        <h1 className="mb-2 text-xl font-bold">{t('s2.mfa.invite.title')}</h1>
+        <h1 className="mb-2 text-xl font-semibold">{t('s2.mfa.invite.title')}</h1>
         <p className="mb-4 text-xs text-muted">{t('s2.mfa.invite.help')}</p>
         <form onSubmit={(e) => void onSubmit(e)} className="flex flex-col gap-3">
           <FormError message={error} />

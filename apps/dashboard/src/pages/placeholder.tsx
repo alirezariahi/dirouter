@@ -7,8 +7,8 @@ import type { NavKey } from '../components/layout/nav';
 export function Placeholder({ page }: { page: NavKey }) {
   const { t } = useTranslation();
   return (
-    <section className="flex flex-col gap-4">
-      <h1 className="text-2xl font-bold">{t(`nav.${page}`)}</h1>
+    <section className="enter flex flex-col gap-6">
+      <h1 className="text-2xl leading-8 font-semibold">{t(`nav.${page}`)}</h1>
       <Card>
         <Empty>{t('state.soon')}</Empty>
       </Card>

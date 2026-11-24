@@ -11,13 +11,16 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
 
-import { BarChart } from '../components/charts/bar-chart';
+import { CircleCheck } from 'lucide-react';
+
+import { BarList } from '../components/charts/bar-list';
+import { TrendChart } from '../components/charts/trend-chart';
 import { PageHeader, RangeTabs, Section, Stat } from '../components/s2/common';
 import { SemanticCacheSection } from '../components/s2/semantic-cache';
 import { ErrorState, Loading } from '../components/ui/states';
 import { api } from '../lib/api';
 import { useFormat } from '../lib/s2-format';
-import { formatDate } from '../lib/date';
+import { formatDate, formatTick } from '../lib/date';
 import type { LogSearch } from '../lib/log-search';
 import { rangeBounds, useRange } from '../lib/range';
 import { currentOrg } from '../lib/session';
@@ -116,21 +119,25 @@ export default function CostPage() {
     : '';
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="enter flex flex-col gap-6">
       <PageHeader title={t('s2.cost.title')} subtitle={t('s2.cost.subtitle')}>
         <RangeTabs />
       </PageHeader>
 
-      <div className="grid gap-3 md:grid-cols-3">
-        <Stat label={t('s2.cost.total')} value={usd(data.overview.costUsd)} />
+      <div className="grid gap-4 md:grid-cols-3">
+        <Stat size="lg" label={t('s2.cost.total')} value={usd(data.overview.costUsd)} />
         <Stat
+          size="lg"
           label={t('s2.cost.ledger')}
           value={usd(data.ledgerTotal.costUsd)}
           hint={t('s2.cost.ledgerEntries', { n: n(data.ledgerTotal.entries) })}
         />
-        <Stat label={t('s2.cost.requests')} value={n(data.overview.requests)} />
+        <Stat size="lg" label={t('s2.cost.requests')} value={n(data.overview.requests)} />
       </div>
-      <div data-testid="ledger-reconciliation" className="flex flex-col gap-1 text-sm">
+      <div
+        data-testid="ledger-reconciliation"
+        className="-mt-2 flex flex-col gap-1 rounded-lg bg-surface-2/60 px-4 py-2.5 text-[13px]"
+      >
         {!settled ? (
           <p className="text-muted">{t('s2.cost.noSettled')}</p>
         ) : settledCost.isError ? (
@@ -138,8 +145,9 @@ export default function CostPage() {
         ) : !check ? (
           <p className="text-muted">{t('s2.cost.checking')}</p>
         ) : check.matches ? (
-          <p className="text-emerald-700 dark:text-emerald-300">
-            ✓ {t('s2.cost.match', { time: boundary })}
+          <p className="flex items-center gap-2 text-good">
+            <CircleCheck aria-hidden className="size-4 shrink-0" strokeWidth={1.5} />
+            {t('s2.cost.match', { time: boundary })}
           </p>
         ) : (
           <p className="text-danger">
@@ -154,53 +162,54 @@ export default function CostPage() {
         ) : null}
       </div>
 
-      <Section title={t('s2.cost.perDay')}>
-        <BarChart
-          ariaLabel={t('s2.cost.perDay')}
-          format={(value) => usd(value)}
-          bars={data.series.points.map((point) => ({
-            label: formatDate(point.bucket, { calendar: settings.calendar, lang: settings.lang }),
-            value: Number(point.costUsd),
-          }))}
-          onSelect={(index) => {
-            const point = data.series.points[index];
-            if (!point) return;
-            const from = new Date(point.bucket);
-            toLogs({
-              from: from.toISOString(),
-              to: new Date(from.getTime() + 86_400_000).toISOString(),
-            });
-          }}
-        />
-      </Section>
+      <div className="grid gap-4 lg:grid-cols-3">
+        <Section className="lg:col-span-2" title={t('s2.cost.perDay')}>
+          <TrendChart
+            kind="bars"
+            ariaLabel={t('s2.cost.perDay')}
+            seriesLabel={t('s2.cost.total')}
+            format={(value) => usd(value)}
+            axisFormat={(value) =>
+              n(value, { style: 'currency', currency: 'USD', notation: 'compact' })
+            }
+            points={data.series.points.map((point) => ({
+              label: formatDate(point.bucket, { calendar: settings.calendar, lang: settings.lang }),
+              tick: formatTick(point.bucket, {
+                calendar: settings.calendar,
+                lang: settings.lang,
+                hourly: false,
+              }),
+              value: Number(point.costUsd),
+            }))}
+            onSelect={(index) => {
+              const point = data.series.points[index];
+              if (!point) return;
+              const from = new Date(point.bucket);
+              toLogs({
+                from: from.toISOString(),
+                to: new Date(from.getTime() + 86_400_000).toISOString(),
+              });
+            }}
+          />
+        </Section>
+        <Section title={t('s2.cost.topModels')}>
+          <BarList
+            empty={t('s2.common.none')}
+            items={data.top.items.map((item) => ({
+              id: item.id,
+              label: item.id,
+              value: Number(item.costUsd),
+              display: usd(item.costUsd),
+              meta: n(item.requests),
+            }))}
+            onSelect={(id) => {
+              toLogs({ model: id });
+            }}
+          />
+        </Section>
+      </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Section title={t('s2.cost.topModels')}>
-          {data.top.items.length === 0 ? (
-            <p className="text-sm text-muted">{t('s2.common.none')}</p>
-          ) : (
-            <ul className="flex flex-col">
-              {data.top.items.map((item) => (
-                <li key={item.id}>
-                  <button
-                    type="button"
-                    title={t('s2.common.viewLogs')}
-                    className="flex w-full items-center justify-between gap-2 border-t border-border py-1.5 text-sm hover:bg-border/30"
-                    onClick={() => {
-                      toLogs({ model: item.id });
-                    }}
-                  >
-                    <span dir="ltr">{item.id}</span>
-                    <span className="text-muted">
-                      {usd(item.costUsd)} · {n(item.requests)}
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Section>
-
         <Section title={t('s2.cost.cache')}>
           {cache.data ? (
             <div className="flex flex-col gap-2 text-sm">
@@ -260,10 +269,10 @@ export default function CostPage() {
                       aria-valuemin={0}
                       aria-valuemax={100}
                       aria-valuenow={Math.min(100, used)}
-                      className="mt-1 h-2 overflow-hidden rounded bg-border/60"
+                      className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-2"
                     >
                       <div
-                        className={`h-full ${used >= 100 ? 'bg-danger' : used >= 80 ? 'bg-amber-500' : 'bg-brand'}`}
+                        className={`h-full rounded-full ${used >= 100 ? 'bg-danger' : used >= 80 ? 'bg-warn' : 'bg-chart-1'}`}
                         style={{ width: `${String(Math.min(100, used))}%` }}
                       />
                     </div>

@@ -8,12 +8,15 @@ import { useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { BarChart } from '../components/charts/bar-chart';
+import { BarList } from '../components/charts/bar-list';
+import { ShareBar } from '../components/charts/share-bar';
+import { TrendChart } from '../components/charts/trend-chart';
+import { Delta, PageHeader, RangeTabs, Section, Segmented, Stat } from '../components/s2/common';
 import { Card } from '../components/ui/card';
 import { ErrorState, Loading } from '../components/ui/states';
 import { api } from '../lib/api';
-import { formatDate, formatNumber } from '../lib/date';
-import { RANGES, rangeBounds, setRange, useRange } from '../lib/range';
+import { formatDate, formatNumber, formatTick } from '../lib/date';
+import { rangeBounds, useRange } from '../lib/range';
 import { currentOrg, useSession } from '../lib/session';
 import { useSettings } from '../settings';
 import type { LogSearch } from '../lib/log-search';
@@ -31,7 +34,15 @@ interface Overview {
   activeKeys: number;
 }
 interface Series {
-  points: { bucket: string; requests: number; errors: number; costUsd: string }[];
+  points: {
+    bucket: string;
+    requests: number;
+    errors: number;
+    costUsd: string;
+    inputTokens?: number;
+    outputTokens?: number;
+    avgLatencyMs?: number | null;
+  }[];
 }
 interface Top {
   items: { id: string; requests: number; costUsd: string }[];
@@ -58,7 +69,8 @@ function useTop(
     ...opts,
   });
 }
-type Metric = 'requests' | 'cost' | 'errors';
+const METRICS = ['requests', 'cost', 'errors', 'tokens', 'latency'] as const;
+type Metric = (typeof METRICS)[number];
 
 export default function OverviewPage() {
   const { t } = useTranslation();
@@ -170,175 +182,231 @@ export default function OverviewPage() {
     ];
 
   const points = series.data?.points ?? [];
-  const bars = points.map((p) => ({
+  const valueOf = (p: Series['points'][number]) =>
+    metric === 'cost'
+      ? Number(p.costUsd)
+      : metric === 'errors'
+        ? p.errors
+        : metric === 'tokens'
+          ? (p.inputTokens ?? 0) + (p.outputTokens ?? 0)
+          : metric === 'latency'
+            ? (p.avgLatencyMs ?? 0)
+            : p.requests;
+  const trend = points.map((p) => ({
     label: formatDate(p.bucket, {
       calendar: s.calendar,
       lang: s.lang,
       time: b.granularity === 'hour',
     }),
-    value: metric === 'cost' ? Number(p.costUsd) : metric === 'errors' ? p.errors : p.requests,
-    ...(metric === 'requests' ? { highlight: p.errors } : {}),
+    tick: formatTick(p.bucket, {
+      calendar: s.calendar,
+      lang: s.lang,
+      hourly: b.granularity === 'hour',
+    }),
+    value: valueOf(p),
+    ...(metric === 'requests' ? { secondary: p.errors } : {}),
   }));
+  const formatMetric = (v: number) =>
+    metric === 'cost' ? usd(v) : metric === 'latency' ? ms(Math.round(v)) : n(v);
+  const compact = (v: number) =>
+    metric === 'cost'
+      ? n(v, { style: 'currency', currency: 'USD', notation: 'compact', maximumFractionDigits: 2 })
+      : n(v, { notation: 'compact', maximumFractionDigits: 1 });
+  const percent = (v: number) => n(v, { style: 'percent', maximumFractionDigits: 1 });
   const toLogs = (search: LogSearch) => void navigate({ to: '/logs', search });
+  const tile = (key: string) => {
+    const k = kpis.find((x) => x.key === key);
+    if (!k) return null;
+    const good =
+      k.change === undefined
+        ? true
+        : k.goodWhenUp === undefined
+          ? k.change <= 0
+          : k.change > 0 === k.goodWhenUp;
+    return {
+      label: t(`overview.kpi.${k.key}`),
+      value: k.value,
+      testId: `kpi-${k.key}`,
+      delta:
+        k.change === undefined ? undefined : (
+          <Delta
+            up={k.change > 0}
+            good={good}
+            text={t('overview.vsPrevious', {
+              change: n(k.change, {
+                style: 'percent',
+                maximumFractionDigits: 0,
+                signDisplay: 'exceptZero',
+              }),
+            })}
+          />
+        ),
+    };
+  };
+  const topList = (by: 'model' | 'key' | 'project') =>
+    (tops[by].data?.items ?? []).map((item) => ({
+      id: item.id,
+      label: item.id,
+      value: Number(item.costUsd),
+      display: usd(Number(item.costUsd)),
+      meta: n(item.requests),
+    }));
+  const drillTop = (by: 'model' | 'key' | 'project') => (id: string) => {
+    toLogs({
+      from: b.from,
+      to: b.to,
+      ...(by === 'model' ? { model: id } : by === 'key' ? { apiKeyId: id } : { projectId: id }),
+    });
+  };
 
   return (
-    <section className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-2xl font-bold">{t('overview.title')}</h1>
-        <div
-          role="radiogroup"
-          aria-label={t('overview.range')}
-          className="flex gap-1 rounded-lg border border-border p-1"
+    <section className="enter flex flex-col gap-6">
+      <PageHeader title={t('overview.title')}>
+        <RangeTabs />
+      </PageHeader>
+
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        {(['requests', 'cost', 'errorRate', 'p95'] as const).map((key) => {
+          const k = tile(key);
+          return k ? <Stat key={key} size="lg" {...k} /> : null;
+        })}
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-3">
+        <Section
+          className="lg:col-span-2"
+          title={t('overview.chart')}
+          help={t('overview.drillHint')}
+          action={
+            <Segmented
+              mode="toggle"
+              size="sm"
+              value={metric}
+              onChange={setMetric}
+              options={METRICS.map((m) => ({ value: m, label: t(`overview.metric.${m}`) }))}
+            />
+          }
         >
-          {RANGES.map((r) => (
-            <button
-              key={r}
-              type="button"
-              role="radio"
-              aria-checked={range === r}
-              onClick={() => {
-                setRange(r);
+          {points.length === 0 ? (
+            <p className="py-24 text-center text-sm text-muted">{t('overview.noData')}</p>
+          ) : (
+            <TrendChart
+              kind={metric === 'errors' ? 'bars' : 'area'}
+              points={trend}
+              ariaLabel={t('overview.chart')}
+              seriesLabel={t(`overview.metric.${metric}`)}
+              secondaryLabel={t('overview.metric.errors')}
+              format={formatMetric}
+              axisFormat={metric === 'latency' ? (v) => n(v) : compact}
+              onSelect={(i) => {
+                const p = points[i];
+                if (!p) return;
+                toLogs({
+                  from: new Date(Date.parse(p.bucket)).toISOString(),
+                  to: new Date(Date.parse(p.bucket) + b.bucketMs).toISOString(),
+                  ...(metric === 'errors' ? { status: 'error' as const } : {}),
+                });
               }}
-              className={`rounded-md px-3 py-1 text-sm ${range === r ? 'bg-brand text-white' : 'hover:bg-surface-2'}`}
-            >
-              {t(`overview.ranges.${r}`)}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        {kpis.map((k) => (
-          <Card key={k.key}>
-            <p className="text-sm text-muted">{t(`overview.kpi.${k.key}`)}</p>
-            <p className="mt-1 text-xl font-semibold" data-testid={`kpi-${k.key}`}>
-              {k.value}
-            </p>
-            {k.change !== undefined && (
-              <p
-                className={`text-xs ${
-                  k.goodWhenUp === undefined
-                    ? k.change > 0
-                      ? 'text-danger'
-                      : 'text-emerald-600'
-                    : k.change > 0 === k.goodWhenUp
-                      ? 'text-emerald-600'
-                      : 'text-danger'
-                }`}
-              >
-                {t('overview.vsPrevious', {
-                  change: n(k.change, {
-                    style: 'percent',
-                    maximumFractionDigits: 0,
-                    signDisplay: 'exceptZero',
-                  }),
-                })}
-              </p>
-            )}
-          </Card>
-        ))}
-      </div>
-
-      <Card>
-        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-          <h2 className="font-semibold">{t('overview.chart')}</h2>
-          <div className="flex gap-1">
-            {(['requests', 'cost', 'errors'] as const).map((m) => (
-              <button
-                key={m}
-                type="button"
-                aria-pressed={metric === m}
-                onClick={() => {
-                  setMetric(m);
-                }}
-                className={`rounded px-2 py-0.5 text-xs ${metric === m ? 'bg-surface-2 font-semibold' : 'text-muted'}`}
-              >
-                {t(`overview.metric.${m}`)}
-              </button>
-            ))}
-          </div>
-        </div>
-        {points.length === 0 ? (
-          <p className="py-10 text-center text-sm text-muted">{t('overview.noData')}</p>
-        ) : (
-          <BarChart
-            bars={bars}
-            ariaLabel={t('overview.chart')}
-            format={(v) => (metric === 'cost' ? usd(v) : n(v))}
-            onSelect={(i) => {
-              const p = points[i];
-              if (!p) return;
-              toLogs({
-                from: new Date(Date.parse(p.bucket)).toISOString(),
-                to: new Date(Date.parse(p.bucket) + b.bucketMs).toISOString(),
-                ...(metric === 'errors' ? { status: 'error' as const } : {}),
-              });
-            }}
+            />
+          )}
+        </Section>
+        <Section title={t('overview.top.model')}>
+          <BarList
+            items={topList('model')}
+            empty={t('overview.noData')}
+            onSelect={drillTop('model')}
           />
-        )}
-        <p className="mt-1 text-xs text-muted">{t('overview.drillHint')}</p>
+        </Section>
+      </div>
+
+      <Card className="grid grid-cols-2 gap-y-5 p-0 lg:grid-cols-4 lg:divide-x lg:divide-border rtl:lg:divide-x-reverse">
+        {(['tokens', 'p50', 'ttft', 'activeKeys'] as const).map((key) => {
+          const k = tile(key);
+          return k ? (
+            <div key={key} className="flex flex-col gap-1.5 px-5 py-4">
+              <span className="text-[13px] text-fg-2">{k.label}</span>
+              <span data-testid={k.testId} className="num text-xl leading-none font-medium">
+                <bdi>{k.value}</bdi>
+              </span>
+              {k.delta}
+            </div>
+          ) : null;
+        })}
       </Card>
 
-      <div className="grid gap-3 md:grid-cols-3">
-        {(['model', 'key', 'project'] as const).map((by) => (
-          <Card key={by}>
-            <h2 className="mb-2 font-semibold">{t(`overview.top.${by}`)}</h2>
-            <ul className="flex flex-col gap-1 text-sm">
-              {(tops[by].data?.items ?? []).map((item) => (
-                <li key={item.id}>
-                  <button
-                    type="button"
-                    className="flex w-full justify-between gap-2 rounded px-1 py-0.5 text-start hover:bg-surface-2"
-                    onClick={() => {
-                      toLogs({
-                        from: b.from,
-                        to: b.to,
-                        ...(by === 'model'
-                          ? { model: item.id }
-                          : by === 'key'
-                            ? { apiKeyId: item.id }
-                            : { projectId: item.id }),
-                      });
-                    }}
-                  >
-                    <span className="truncate" dir="ltr">
-                      {item.id}
-                    </span>
-                    <span className="shrink-0 text-muted">
-                      {usd(Number(item.costUsd))} · {n(item.requests)}
-                    </span>
-                  </button>
-                </li>
-              ))}
-              {(tops[by].data?.items ?? []).length === 0 && (
-                <li className="text-muted">{t('overview.noData')}</li>
-              )}
-            </ul>
-          </Card>
+      <div className="grid gap-4 lg:grid-cols-3">
+        <div className="flex flex-col gap-4">
+          <Section title={t('overview.outcomes')}>
+            <ShareBar
+              ariaLabel={t('overview.outcomes')}
+              percent={percent}
+              parts={[
+                {
+                  label: t('overview.succeeded'),
+                  value: cur.requests - cur.errors,
+                  display: n(cur.requests - cur.errors),
+                  color: 'bg-chart-3',
+                },
+                {
+                  label: t('overview.failed'),
+                  value: cur.errors,
+                  display: n(cur.errors),
+                  color: 'bg-danger',
+                },
+              ]}
+            />
+          </Section>
+          <Section title={t('overview.tokenMix')}>
+            <ShareBar
+              ariaLabel={t('overview.tokenMix')}
+              percent={percent}
+              parts={[
+                {
+                  label: t('overview.input'),
+                  value: cur.inputTokens,
+                  display: n(cur.inputTokens, { notation: 'compact' }),
+                  color: 'bg-chart-1',
+                },
+                {
+                  label: t('overview.output'),
+                  value: cur.outputTokens,
+                  display: n(cur.outputTokens, { notation: 'compact' }),
+                  color: 'bg-chart-2',
+                },
+              ]}
+            />
+          </Section>
+        </div>
+        {(['key', 'project'] as const).map((by) => (
+          <Section key={by} title={t(`overview.top.${by}`)}>
+            <BarList
+              tone="neutral"
+              items={topList(by)}
+              empty={t('overview.noData')}
+              onSelect={drillTop(by)}
+            />
+          </Section>
         ))}
       </div>
 
       {runtime.data?.providers && (
-        <Card>
-          <h2 className="mb-2 font-semibold">{t('overview.providers')}</h2>
-          <ul className="flex flex-wrap gap-2 text-sm">
+        <Section title={t('overview.providers')}>
+          <ul className="grid gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-4">
             {runtime.data.providers.map((p) => {
               const state = p.breaker?.state ?? 'closed';
               return (
-                <li
-                  key={p.id}
-                  className="flex items-center gap-1 rounded-full border border-border px-2 py-0.5"
-                >
+                <li key={p.id} className="flex items-center gap-2.5 text-[13px]">
                   <span
                     aria-hidden
-                    className={`size-2 rounded-full ${state === 'closed' ? 'bg-emerald-500' : state === 'open' ? 'bg-danger' : 'bg-amber-500'}`}
+                    className={`lamp ${state === 'closed' ? 'text-good' : state === 'open' ? 'text-danger' : 'text-warn'}`}
                   />
-                  {p.name} <span className="text-muted">({t(`health.state.${state}`)})</span>
+                  <span className="min-w-0 truncate font-medium">{p.name}</span>
+                  <span className="ms-auto shrink-0 text-muted">{t(`health.state.${state}`)}</span>
                 </li>
               );
             })}
           </ul>
-        </Card>
+        </Section>
       )}
     </section>
   );

@@ -23,7 +23,7 @@ export function ChangeRequestNotice() {
     <div
       role="status"
       data-testid="change-request-notice"
-      className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-md border border-amber-500/50 bg-amber-500/10 px-4 py-3 text-sm"
+      className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-warn/40 bg-warn/10 px-4 py-3 text-sm"
     >
       <span>
         {t('s3.changes.queued')} {summary ? <strong>{summary}</strong> : null}

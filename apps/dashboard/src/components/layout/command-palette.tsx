@@ -47,7 +47,7 @@ export function CommandPalette({
                 void navigate({ to: n.to });
                 close();
               }}
-              className="cursor-pointer rounded-md px-3 py-2 aria-selected:bg-border/60"
+              className="cursor-pointer rounded-lg px-3 py-2 aria-selected:bg-border/60"
             >
               {t(`nav.${n.key}`)}
             </Command.Item>
@@ -62,7 +62,7 @@ export function CommandPalette({
               s.setTheme(s.theme === 'dark' ? 'light' : 'dark');
               close();
             }}
-            className="cursor-pointer rounded-md px-3 py-2 aria-selected:bg-border/60"
+            className="cursor-pointer rounded-lg px-3 py-2 aria-selected:bg-border/60"
           >
             {t('palette.toggleTheme')}
           </Command.Item>
@@ -71,7 +71,7 @@ export function CommandPalette({
               s.setLang(s.lang === 'fa' ? 'en' : 'fa');
               close();
             }}
-            className="cursor-pointer rounded-md px-3 py-2 aria-selected:bg-border/60"
+            className="cursor-pointer rounded-lg px-3 py-2 aria-selected:bg-border/60"
           >
             {t('palette.toggleLanguage')}
           </Command.Item>

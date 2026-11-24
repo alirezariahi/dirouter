@@ -198,9 +198,9 @@ function Badge({
   children: ReactNode;
 }) {
   const color = {
-    good: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
+    good: 'bg-good/15 text-good',
     bad: 'bg-danger/15 text-danger',
-    warn: 'bg-amber-500/15 text-amber-700 dark:text-amber-300',
+    warn: 'bg-warn/15 text-warn',
     muted: 'bg-border/50 text-muted',
   }[tone];
   return <span className={`rounded-full px-2 py-0.5 text-xs ${color}`}>{children}</span>;
@@ -225,7 +225,7 @@ function LabeledSelect({
       <span className="font-medium">{label}</span>
       <select
         id={id}
-        className="h-10 rounded-md border border-border bg-surface px-3 outline-none focus:border-brand"
+        className="h-10 rounded-lg border border-border bg-surface px-3 outline-none focus:border-brand"
         {...props}
       >
         {children}
@@ -243,7 +243,7 @@ function LabeledArea({
       <span className="font-medium">{label}</span>
       <textarea
         id={id}
-        className="min-h-20 rounded-md border border-border bg-surface px-3 py-2 outline-none focus:border-brand"
+        className="min-h-20 rounded-lg border border-border bg-surface px-3 py-2 outline-none focus:border-brand"
         {...props}
       />
     </label>
@@ -253,7 +253,7 @@ function NetworkFields({ provider }: { provider?: Provider }) {
   const { t } = useTranslation();
   const [showSecrets, setShowSecrets] = useState(false);
   return (
-    <fieldset className="flex flex-col gap-3 rounded-md border border-border p-3">
+    <fieldset className="flex flex-col gap-3 rounded-lg border border-border p-3">
       <legend className="px-1 text-sm font-medium">{t('providers.network')}</legend>
       {provider?.proxyUrl ? (
         <p className="text-xs text-muted" dir="ltr">
@@ -382,10 +382,7 @@ function CredentialFields({ credential }: { credential?: Credential }) {
 function ProbeNotice({ result }: { result: ProbeResult }) {
   const { t } = useTranslation();
   return (
-    <p
-      role="status"
-      className={`text-sm ${result.ok ? 'text-emerald-700 dark:text-emerald-300' : 'text-danger'}`}
-    >
+    <p role="status" className={`text-sm ${result.ok ? 'text-good' : 'text-danger'}`}>
       {result.ok
         ? t('providers.testOk', {
             latency: result.latencyMs,
@@ -650,10 +647,10 @@ export default function ProvidersPage() {
     : undefined;
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="enter flex flex-col gap-6">
       <div className="flex flex-wrap items-center gap-3">
         <div>
-          <h1 className="text-2xl font-bold">{t('providers.title')}</h1>
+          <h1 className="text-2xl leading-8 font-semibold">{t('providers.title')}</h1>
           <p className="text-sm text-muted">{t('providers.subtitle')}</p>
         </div>
         {canWrite ? (
@@ -669,19 +666,17 @@ export default function ProvidersPage() {
           </Button>
         ) : null}
       </div>
-      <p className="rounded-md bg-brand/10 px-3 py-2 text-xs text-muted">
+      <p className="rounded-lg bg-brand/10 px-3 py-2 text-xs text-muted">
         {t('providers.secretPolicy')}
       </p>
       {notice ? (
-        <p role="status" className="rounded-md bg-emerald-500/10 px-3 py-2 text-sm">
+        <p role="status" className="rounded-lg bg-good/10 px-3 py-2 text-sm">
           {notice}
         </p>
       ) : null}
       {actionError ? <FormError message={errorMessage(actionError, t)} /> : null}
       {health.data && !health.data.gatewayReachable ? (
-        <p className="text-sm text-amber-700 dark:text-amber-300">
-          {t('providers.healthUnavailable')}
-        </p>
+        <p className="text-sm text-warn">{t('providers.healthUnavailable')}</p>
       ) : null}
 
       {rows.length === 0 ? (
@@ -880,7 +875,7 @@ export default function ProvidersPage() {
                                 </td>
                                 <td className="py-3 pe-3 text-xs">
                                   {cooldown ? (
-                                    <span className="text-amber-700 dark:text-amber-300">
+                                    <span className="text-warn">
                                       {t('providers.cooldownUntil', {
                                         date: formatDate(cooldown, {
                                           calendar: settings.calendar,
@@ -901,7 +896,7 @@ export default function ProvidersPage() {
                                   {runtimeCredential?.lockouts.map((lockout) => (
                                     <span
                                       key={lockout.modelId}
-                                      className="block text-amber-700 dark:text-amber-300"
+                                      className="block text-warn"
                                       dir="ltr"
                                     >
                                       {lockout.modelId}
@@ -990,7 +985,7 @@ export default function ProvidersPage() {
 
       {providerModal ? (
         <div
-          className="fixed inset-0 z-50 overflow-y-auto bg-black/50 p-4"
+          className="fixed inset-0 z-50 overflow-y-auto bg-black/50 backdrop-blur-[2px] p-4"
           role="dialog"
           aria-modal="true"
           aria-label={editing ? t('providers.editProvider') : t('providers.add')}
@@ -1072,7 +1067,7 @@ export default function ProvidersPage() {
                         </option>
                       ))}
                     </LabeledSelect>
-                    <p className="rounded-md bg-border/30 p-3 text-sm text-muted">
+                    <p className="rounded-lg bg-border/30 p-3 text-sm text-muted">
                       {t(`providers.presetHelp.${activePreset.type}`)}
                     </p>
                     {activePreset.type === 'plugin' ? (
@@ -1209,7 +1204,7 @@ export default function ProvidersPage() {
 
       {credentialModal ? (
         <div
-          className="fixed inset-0 z-50 overflow-y-auto bg-black/50 p-4"
+          className="fixed inset-0 z-50 overflow-y-auto bg-black/50 backdrop-blur-[2px] p-4"
           role="dialog"
           aria-modal="true"
           aria-label={rotating ? t('providers.rotateCredential') : t('providers.addCredential')}
@@ -1259,7 +1254,7 @@ export default function ProvidersPage() {
 
       {discoverProvider ? (
         <div
-          className="fixed inset-0 z-50 overflow-y-auto bg-black/50 p-4"
+          className="fixed inset-0 z-50 overflow-y-auto bg-black/50 backdrop-blur-[2px] p-4"
           role="dialog"
           aria-modal="true"
           aria-label={t('providers.discover')}

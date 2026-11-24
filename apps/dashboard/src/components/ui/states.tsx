@@ -8,7 +8,11 @@ import { Button } from './button';
 export function Loading({ label }: { label?: string }) {
   const { t } = useTranslation();
   return (
-    <div role="status" aria-live="polite" className="flex items-center gap-3 p-8 text-muted">
+    <div
+      role="status"
+      aria-live="polite"
+      className="flex items-center justify-center gap-3 p-12 text-sm text-muted"
+    >
       <span className="size-4 animate-spin rounded-full border-2 border-border border-t-brand" />
       {label ?? t('state.loading')}
     </div>
@@ -18,7 +22,7 @@ export function Loading({ label }: { label?: string }) {
 export function Empty({ title, children }: { title?: string; children?: ReactNode }) {
   const { t } = useTranslation();
   return (
-    <div className="flex flex-col items-center gap-2 p-10 text-center">
+    <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border p-10 text-center">
       <p className="font-medium">{title ?? t('state.empty')}</p>
       {children ? <div className="text-sm text-muted">{children}</div> : null}
     </div>

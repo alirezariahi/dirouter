@@ -73,7 +73,7 @@ export default function LivePage() {
     });
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="enter flex flex-col gap-6">
       <PageHeader title={t('s2.live.title')} subtitle={t('s2.live.subtitle')}>
         <div className="flex items-center gap-2">
           <span className="text-xs text-muted">
@@ -91,7 +91,7 @@ export default function LivePage() {
         </div>
       </PageHeader>
 
-      <div className="grid gap-3 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Stat
           label={t('s2.live.perMinute')}
           value={`${n(counts.lastMinute)}${counts.saturated ? '+' : ''}`}
@@ -120,39 +120,48 @@ export default function LivePage() {
           <div className="overflow-x-auto">
             <table data-testid="live-table" className="w-full text-sm">
               <thead>
-                <tr className="text-xs text-muted">
-                  <th className="py-1 text-start font-medium">{t('s2.live.time')}</th>
-                  <th className="py-1 text-start font-medium">{t('s2.live.model')}</th>
-                  <th className="py-1 text-start font-medium">{t('s2.live.status')}</th>
-                  <th className="py-1 text-end font-medium">{t('s2.live.latency')}</th>
-                  <th className="py-1 text-end font-medium">{t('s2.live.tokens')}</th>
-                  <th className="py-1 text-end font-medium">{t('s2.live.cost')}</th>
+                <tr className="border-b border-border text-xs text-muted">
+                  <th className="py-2.5 text-start font-medium">{t('s2.live.time')}</th>
+                  <th className="py-2.5 text-start font-medium">{t('s2.live.model')}</th>
+                  <th className="py-2.5 text-start font-medium">{t('s2.live.status')}</th>
+                  <th className="py-2.5 text-end font-medium">{t('s2.live.latency')}</th>
+                  <th className="py-2.5 text-end font-medium">{t('s2.live.tokens')}</th>
+                  <th className="py-2.5 text-end font-medium">{t('s2.live.cost')}</th>
                 </tr>
               </thead>
               <tbody>
                 {items.map((item) => (
-                  <tr key={item.id} className="border-t border-border">
-                    <td className="whitespace-nowrap py-1.5">{time(item.createdAt)}</td>
-                    <td className="py-1.5" dir="ltr">
+                  <tr
+                    key={item.id}
+                    className="border-b border-border transition-colors duration-150 last:border-0 hover:bg-surface-2/60"
+                  >
+                    <td className="num py-2.5 whitespace-nowrap text-fg-2">
+                      {time(item.createdAt)}
+                    </td>
+                    <td className="py-2.5 font-mono text-[13px]" dir="ltr">
                       {item.requestedModel}
                       {item.stream ? (
                         <span className="ms-2 text-xs text-muted">{t('s2.live.stream')}</span>
                       ) : null}
                     </td>
-                    <td className="py-1.5">
+                    <td className="num py-2.5">
                       {item.status === 'success' ? (
-                        <span className="text-emerald-700 dark:text-emerald-300">
+                        <span className="inline-flex items-center gap-2">
+                          <span aria-hidden className="lamp text-good" />
                           {t('s2.live.ok')}
                         </span>
                       ) : (
-                        <span className="text-danger" dir="ltr">
-                          {item.errorCode ?? String(item.httpStatus)}
+                        <span className="inline-flex items-center gap-2 text-danger">
+                          <span aria-hidden className="lamp" />
+                          <bdi dir="ltr">{item.errorCode ?? String(item.httpStatus)}</bdi>
                         </span>
                       )}
                     </td>
-                    <td className="py-1.5 text-end">{n(item.latencyMs)}</td>
-                    <td className="py-1.5 text-end">{n(item.inputTokens + item.outputTokens)}</td>
-                    <td className="py-1.5 text-end">{usd(item.costUsd)}</td>
+                    <td className="num py-2.5 text-end">{n(item.latencyMs)}</td>
+                    <td className="num py-2.5 text-end">
+                      {n(item.inputTokens + item.outputTokens)}
+                    </td>
+                    <td className="num py-2.5 text-end">{usd(item.costUsd)}</td>
                   </tr>
                 ))}
               </tbody>

@@ -68,7 +68,7 @@ function TextListField({
         defaultValue={defaultValue}
         placeholder={placeholder}
         dir="ltr"
-        className="rounded-md border border-border bg-surface px-3 py-2 outline-none focus:border-brand"
+        className="rounded-lg border border-border bg-surface px-3 py-2 outline-none focus:border-brand"
       />
     </label>
   );
@@ -126,7 +126,7 @@ function KeyFields({ initial, error }: { initial?: VirtualKey; error?: unknown }
         <legend className="mb-2 text-sm font-medium">{t('keys.budgets')}</legend>
         <div className="flex flex-col gap-3">
           {(['daily', 'monthly'] as const).map((period) => (
-            <div key={period} className="rounded-md border border-border p-3">
+            <div key={period} className="rounded-lg border border-border p-3">
               <p className="mb-2 text-sm font-medium">{t(`keys.period.${period}`)}</p>
               <div className="grid gap-3 sm:grid-cols-2">
                 <Field
@@ -225,7 +225,7 @@ function Dialog({
     };
   }, [onClose]);
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-[2px] p-4">
       <button
         type="button"
         className="absolute inset-0"
@@ -270,7 +270,7 @@ function SecretDialog({ secret, onClose }: { secret: string; onClose: () => void
         <code
           data-testid="one-time-secret"
           dir="ltr"
-          className="break-all rounded-md bg-surface-2 p-3 text-sm select-all"
+          className="break-all rounded-lg bg-surface-2 p-3 text-sm select-all"
         >
           {secret}
         </code>
@@ -452,9 +452,9 @@ export default function KeysPage() {
   const errorText = error ? errorMessage(error, t) : undefined;
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="enter flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold">{t('keys.title')}</h1>
+        <h1 className="text-2xl leading-8 font-semibold">{t('keys.title')}</h1>
         {canWrite ? (
           <Button
             onClick={() => {
@@ -476,7 +476,7 @@ export default function KeysPage() {
             setSearch(event.target.value);
           }}
           placeholder={t('keys.search')}
-          className="h-9 min-w-56 rounded-md border border-border bg-surface px-3 text-sm"
+          className="h-9 min-w-56 rounded-lg border border-border bg-surface px-3 text-sm"
         />
         <label className="sr-only" htmlFor="key-project">
           {t('keys.project')}
@@ -487,7 +487,7 @@ export default function KeysPage() {
           onChange={(event) => {
             setProjectFilter(event.target.value);
           }}
-          className="h-9 rounded-md border border-border bg-surface px-2 text-sm"
+          className="h-9 rounded-lg border border-border bg-surface px-2 text-sm"
         >
           <option value="">{t('keys.allProjects')}</option>
           {projects.data?.map((project) => (
@@ -505,7 +505,7 @@ export default function KeysPage() {
           onChange={(event) => {
             setStateFilter(event.target.value);
           }}
-          className="h-9 rounded-md border border-border bg-surface px-2 text-sm"
+          className="h-9 rounded-lg border border-border bg-surface px-2 text-sm"
         >
           <option value="">{t('keys.allStates')}</option>
           {(['active', 'rotating', 'expired', 'revoked'] as const).map((state) => (
@@ -516,7 +516,7 @@ export default function KeysPage() {
         </select>
       </div>
       {notice ? (
-        <p role="status" className="text-sm text-emerald-600">
+        <p role="status" className="text-sm text-good">
           {notice}
         </p>
       ) : null}
@@ -525,7 +525,7 @@ export default function KeysPage() {
       ) : (
         <Card className="overflow-x-auto p-0">
           <table className="w-full min-w-[900px] text-sm">
-            <thead className="text-muted">
+            <thead className="text-xs text-muted">
               <tr className="border-b border-border">
                 {(
                   ['name', 'project', 'status', 'limits', 'usage', 'lastUsed', 'actions'] as const
@@ -562,7 +562,7 @@ export default function KeysPage() {
                     </td>
                     <td className="px-3 py-3">{projectName(key.projectId)}</td>
                     <td className="px-3 py-3">
-                      <span className={key.state === 'active' ? 'text-emerald-600' : 'text-muted'}>
+                      <span className={key.state === 'active' ? 'text-good' : 'text-muted'}>
                         {t(`keys.state.${key.state}`)}
                       </span>
                       {key.expiresAt ? (
@@ -664,7 +664,7 @@ export default function KeysPage() {
                 <select
                   name="projectId"
                   required
-                  className="h-10 rounded-md border border-border bg-surface px-2"
+                  className="h-10 rounded-lg border border-border bg-surface px-2"
                 >
                   <option value="">{t('keys.selectProject')}</option>
                   {projects.data?.map((project) => (

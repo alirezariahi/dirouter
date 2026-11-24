@@ -86,7 +86,7 @@ export default function PlaygroundPage() {
   const available = listOf<ModelRow>(models.data).filter((model) => model.enabled !== false);
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="enter flex flex-col gap-6">
       <PageHeader title={t('s2.playground.title')} subtitle={t('s2.playground.subtitle')} />
       <Section title={t('s2.playground.title')}>
         <form onSubmit={submit} className="flex flex-col gap-3">

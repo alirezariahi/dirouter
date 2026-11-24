@@ -242,7 +242,7 @@ export default function AlertsPage() {
     formatDate(iso, { calendar: settings.calendar, lang: settings.lang, time: true });
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="enter flex flex-col gap-6">
       <PageHeader title={t('s2.alerts.title')} subtitle={t('s2.alerts.subtitle')} />
       <FormError message={failure ? errorMessage(failure, t) : undefined} />
 

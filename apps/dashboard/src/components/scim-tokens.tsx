@@ -60,7 +60,7 @@ export function ScimTokens({ base, canManage }: { base: string; canManage: boole
         <FormError message={failure ? errorMessage(failure, t) : undefined} />
       </div>
       {created ? (
-        <p className="mt-3 text-sm text-amber-700 dark:text-amber-300" data-testid="scim-token">
+        <p className="mt-3 text-sm text-warn" data-testid="scim-token">
           {t('s3.saml.shownOnce')}{' '}
           <code dir="ltr" className="break-all">
             {created}

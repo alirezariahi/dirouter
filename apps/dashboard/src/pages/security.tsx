@@ -369,7 +369,7 @@ function SsoSection({ base, canManage }: { base: string; canManage: boolean }) {
               id="sso-protocol"
               value={draft.protocol}
               onChange={set('protocol')}
-              className="h-10 rounded-md border border-border bg-surface px-3"
+              className="h-10 rounded-lg border border-border bg-surface px-3"
             >
               <option value="oidc">OpenID Connect</option>
               <option value="saml">SAML 2.0</option>
@@ -423,7 +423,7 @@ function SsoSection({ base, canManage }: { base: string; canManage: boolean }) {
                   rows={4}
                   value={draft.samlCert}
                   onChange={set('samlCert')}
-                  className="rounded-md border border-border bg-surface px-3 py-2 font-mono text-xs"
+                  className="rounded-lg border border-border bg-surface px-3 py-2 font-mono text-xs"
                 />
               </label>
             </>
@@ -458,7 +458,7 @@ function SsoSection({ base, canManage }: { base: string; canManage: boolean }) {
               id="sso-role"
               value={draft.defaultRole}
               onChange={set('defaultRole')}
-              className="h-10 rounded-md border border-border bg-surface px-3"
+              className="h-10 rounded-lg border border-border bg-surface px-3"
             >
               {SSO_ROLES.map((role) => (
                 <option key={role} value={role}>
@@ -802,9 +802,9 @@ export default function SecurityPage() {
   if (!org) return <Loading />;
   const base = `/orgs/${org.id}`;
   return (
-    <section className="flex flex-col gap-4">
+    <section className="enter flex flex-col gap-6">
       <header>
-        <h1 className="text-2xl font-bold">{t('s2.security.title')}</h1>
+        <h1 className="text-2xl leading-8 font-semibold">{t('s2.security.title')}</h1>
         <p className="mt-1 text-sm text-muted">{t('s2.security.subtitle')}</p>
       </header>
       <PolicySection base={base} canWrite={canWrite} />

@@ -47,7 +47,7 @@ interface CreatedInvitation extends Invitation {
 
 const ROLES: Role[] = ['OWNER', 'ADMIN', 'MEMBER', 'VIEWER'];
 const rank: Record<Role, number> = { VIEWER: 0, MEMBER: 1, ADMIN: 2, OWNER: 3 };
-const inputClass = 'h-10 rounded-md border border-border bg-surface px-3 text-sm';
+const inputClass = 'h-10 rounded-lg border border-border bg-surface px-3 text-sm';
 
 export default function OrganizationPage() {
   const { t } = useTranslation();
@@ -147,9 +147,9 @@ export default function OrganizationPage() {
   );
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="enter flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold">{t('organization.title')}</h1>
+        <h1 className="text-2xl leading-8 font-semibold">{t('organization.title')}</h1>
         {(user?.organizations.length ?? 0) > 1 ? (
           <label className="flex items-center gap-2 text-sm">
             <span>{t('organization.current')}</span>
@@ -174,7 +174,7 @@ export default function OrganizationPage() {
       </div>
       <FormError message={error ? errorMessage(error, t) : undefined} />
       {notice ? (
-        <p role="status" className="rounded-md bg-brand/10 px-3 py-2 text-sm">
+        <p role="status" className="rounded-lg bg-brand/10 px-3 py-2 text-sm">
           {notice}
         </p>
       ) : null}
@@ -314,7 +314,7 @@ export default function OrganizationPage() {
             </Button>
           </form>
           {invitationUrl ? (
-            <div className="mt-4 rounded-md border border-border p-3">
+            <div className="mt-4 rounded-lg border border-border p-3">
               <p className="mb-2 text-sm">{t('organization.inviteLinkOnce')}</p>
               <code className="block break-all text-sm" dir="ltr" data-testid="invitation-url">
                 {invitationUrl}

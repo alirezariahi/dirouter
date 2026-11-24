@@ -281,7 +281,7 @@ function Select({
     <label className="flex flex-col gap-1 text-sm">
       <span className="font-medium">{label}</span>
       <select
-        className="h-10 rounded-md border border-border bg-surface px-2 outline-none focus:border-brand"
+        className="h-10 rounded-lg border border-border bg-surface px-2 outline-none focus:border-brand"
         {...props}
       >
         {children}
@@ -339,7 +339,7 @@ function CatalogTable({
   return (
     <Card className="overflow-x-auto p-0">
       <table className="w-full text-sm" data-testid="model-catalog-table">
-        <thead className="text-muted">
+        <thead className="text-xs text-muted">
           <tr className="border-b border-border">
             {['name', 'upstream', 'context', 'pricing', 'capabilities', 'status', 'actions'].map(
               (key) => (
@@ -529,7 +529,7 @@ function ComboEditor({
               onChange={(event) => {
                 update({ slug: event.target.value });
               }}
-              className="h-10 rounded-md border border-border bg-surface px-3 outline-none focus:border-brand"
+              className="h-10 rounded-lg border border-border bg-surface px-3 outline-none focus:border-brand"
             />
           </label>
           <Select
@@ -557,7 +557,7 @@ function ComboEditor({
               onChange={(event) => {
                 update({ retryMaxAttempts: event.target.value });
               }}
-              className="h-10 rounded-md border border-border bg-surface px-3 outline-none focus:border-brand"
+              className="h-10 rounded-lg border border-border bg-surface px-3 outline-none focus:border-brand"
             />
           </label>
         </div>
@@ -590,7 +590,7 @@ function ComboEditor({
                 onDragEnd={() => {
                   setDragged(undefined);
                 }}
-                className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-surface-2/40 p-2"
+                className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-surface-2/40 p-2"
               >
                 <span aria-hidden="true" className="cursor-grab px-1 text-muted">
                   ⋮⋮
@@ -671,7 +671,7 @@ function ComboEditor({
             </Select>
             <button
               type="button"
-              className="h-10 rounded-md border border-border px-3 text-sm hover:bg-border/40"
+              className="h-10 rounded-lg border border-border px-3 text-sm hover:bg-border/40"
               disabled={
                 !selectedModel ||
                 draft.targets.length >= 20 ||
@@ -740,7 +740,7 @@ function ComboEditor({
 
         <section
           aria-label={t('models.executionPreview')}
-          className="rounded-md border border-border bg-surface-2/30 p-3"
+          className="rounded-lg border border-border bg-surface-2/30 p-3"
         >
           <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
             <h3 className="text-sm font-medium">{t('models.executionPreview')}</h3>
@@ -780,14 +780,14 @@ function ComboEditor({
           <button
             type="submit"
             disabled={busy}
-            className="h-9 rounded-md bg-brand px-3 text-sm font-medium text-brand-fg disabled:opacity-50"
+            className="h-9 rounded-lg bg-brand px-3 text-sm font-medium text-brand-fg disabled:opacity-50"
           >
             {t('models.save')}
           </button>
           <button
             type="button"
             onClick={onCancel}
-            className="h-9 rounded-md border border-border px-3 text-sm"
+            className="h-9 rounded-lg border border-border px-3 text-sm"
           >
             {t('models.cancel')}
           </button>
@@ -1217,7 +1217,7 @@ export default function ModelsPage() {
     <section className="flex flex-col gap-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold">{t('models.title')}</h1>
+          <h1 className="text-2xl leading-8 font-semibold">{t('models.title')}</h1>
           <p className="text-sm text-muted">{t('models.subtitle')}</p>
         </div>
         {data && (

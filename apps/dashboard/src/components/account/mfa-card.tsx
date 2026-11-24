@@ -91,9 +91,7 @@ export function MfaCard() {
         <h2 className="text-base font-semibold">{t('s2.mfa.title')}</h2>
         <span
           className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-            s?.enabled
-              ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
-              : 'bg-border/60 text-muted'
+            s?.enabled ? 'bg-good/15 text-good' : 'bg-border/60 text-muted'
           }`}
         >
           {s?.enabled ? t('s2.mfa.enabled') : t('s2.mfa.disabled')}
@@ -102,7 +100,7 @@ export function MfaCard() {
       <FormError message={failure ? errorMessage(failure, t) : undefined} />
 
       {backupCodes ? (
-        <div className="flex flex-col gap-2 rounded-md border border-border p-3">
+        <div className="flex flex-col gap-2 rounded-lg border border-border p-3">
           <h3 className="text-sm font-medium">{t('s2.mfa.backupTitle')}</h3>
           <p className="text-xs text-muted">{t('s2.mfa.backupHelp')}</p>
           <ul

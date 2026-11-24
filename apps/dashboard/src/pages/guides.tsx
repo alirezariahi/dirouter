@@ -91,7 +91,7 @@ function toolSnippet(tool: ToolId, key: string, model = 'gpt-4.1'): string {
   }
 }
 
-const inputClass = 'h-10 rounded-md border border-border bg-surface px-3 text-sm';
+const inputClass = 'h-10 rounded-lg border border-border bg-surface px-3 text-sm';
 
 export default function GuidesPage() {
   const { t } = useTranslation();
@@ -158,9 +158,9 @@ export default function GuidesPage() {
   }
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="enter flex flex-col gap-6">
       <div>
-        <h1 className="text-2xl font-bold">{t('guides.title')}</h1>
+        <h1 className="text-2xl leading-8 font-semibold">{t('guides.title')}</h1>
         <p className="mt-1 text-sm text-muted">{t('guides.subtitle')}</p>
       </div>
       <FormError message={error ? errorMessage(error, t) : undefined} />
@@ -244,7 +244,7 @@ export default function GuidesPage() {
           </details>
         ) : null}
         {enteredKey && selectedKey ? (
-          <div className="mt-3 rounded-md bg-brand/10 p-3">
+          <div className="mt-3 rounded-lg bg-brand/10 p-3">
             <p className="mb-2 text-sm">{t('guides.newKeyOnce')}</p>
             <code
               className="block break-all font-mono text-sm"
@@ -273,7 +273,7 @@ export default function GuidesPage() {
                   setTool(item.id);
                   setCopied(false);
                 }}
-                className={`rounded-md px-3 py-2 text-start text-sm ${tool === item.id ? 'bg-brand text-brand-fg' : 'hover:bg-surface-2'}`}
+                className={`rounded-lg px-3 py-2 text-start text-sm ${tool === item.id ? 'bg-brand text-brand-fg' : 'hover:bg-surface-2'}`}
               >
                 {item.name}
               </button>
@@ -317,17 +317,13 @@ export default function GuidesPage() {
             id="guide-snippet"
             role="tabpanel"
             aria-labelledby={`guide-tab-${tool}`}
-            className="mt-2 overflow-x-auto rounded-md bg-border/40 p-4 text-sm leading-6"
+            className="mt-2 overflow-x-auto rounded-lg bg-border/40 p-4 text-sm leading-6"
             dir="ltr"
             data-testid="guide-snippet"
           >
             <code>{snippet}</code>
           </pre>
-          {!secret ? (
-            <p className="mt-2 text-sm text-amber-700 dark:text-amber-300">
-              {t('guides.addSecretHint')}
-            </p>
-          ) : null}
+          {!secret ? <p className="mt-2 text-sm text-warn">{t('guides.addSecretHint')}</p> : null}
         </Card>
       </div>
       <AgentProfiles base={base} projects={projects.data ?? []} canWrite={canCreateKey} />

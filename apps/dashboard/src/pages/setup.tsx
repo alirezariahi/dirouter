@@ -87,7 +87,7 @@ export default function SetupPage() {
     <main className="flex min-h-screen items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <p className="text-xs text-muted">{t('setup.step', { n: step })}</p>
-        <h1 className="mb-4 text-xl font-bold">{t('setup.title')}</h1>
+        <h1 className="mb-4 text-xl font-semibold">{t('setup.title')}</h1>
         {step === 1 ? (
           <form onSubmit={(e) => void step1(e)} className="flex flex-col gap-3">
             <h2 className="font-medium">{t('setup.orgStep')}</h2>
@@ -134,7 +134,7 @@ export default function SetupPage() {
                 onChange={(e) => {
                   setType(e.target.value as (typeof PROVIDER_TYPES)[number]);
                 }}
-                className="h-10 rounded-md border border-border bg-surface px-2"
+                className="h-10 rounded-lg border border-border bg-surface px-2"
               >
                 {PROVIDER_TYPES.map((p) => (
                   <option key={p} value={p}>
@@ -199,7 +199,7 @@ export default function SetupPage() {
             <code
               data-testid="new-key"
               dir="ltr"
-              className="break-all rounded-md bg-border/40 p-3 text-sm"
+              className="break-all rounded-lg bg-border/40 p-3 text-sm"
             >
               {key}
             </code>
@@ -214,7 +214,7 @@ export default function SetupPage() {
               {copied ? t('setup.copied') : t('setup.copy')}
             </Button>
             <p className="text-sm text-muted">{t('setup.usage')}</p>
-            <code dir="ltr" className="rounded-md bg-border/40 p-3 text-xs">
+            <code dir="ltr" className="rounded-lg bg-border/40 p-3 text-xs">
               {gatewayUrl}/v1
             </code>
             <Button onClick={() => void navigate({ to: '/' })}>{t('setup.finish')}</Button>

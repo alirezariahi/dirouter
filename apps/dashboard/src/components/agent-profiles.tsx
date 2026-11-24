@@ -36,7 +36,7 @@ interface Generated {
   key?: string;
 }
 
-const selectClass = 'h-10 rounded-md border border-border bg-surface px-3 text-sm';
+const selectClass = 'h-10 rounded-lg border border-border bg-surface px-3 text-sm';
 
 function download(name: string, content: string) {
   const url = URL.createObjectURL(new Blob([content], { type: 'text/x-shellscript' }));
@@ -257,11 +257,7 @@ export function AgentProfiles({
               </Button>
             </div>
           </div>
-          {output.key ? (
-            <p className="text-sm text-amber-700 dark:text-amber-300">
-              {t('s3.agentProfiles.keyOnce')}
-            </p>
-          ) : null}
+          {output.key ? <p className="text-sm text-warn">{t('s3.agentProfiles.keyOnce')}</p> : null}
           <p className="text-sm text-muted">{t('s3.agentProfiles.installHint')}</p>
           {output.files.map((file) => (
             <div key={file.name}>
@@ -270,7 +266,7 @@ export function AgentProfiles({
                 <span className="text-muted">{file.description}</span>
               </p>
               <pre
-                className="mt-1 overflow-x-auto rounded-md bg-border/40 p-3 text-xs leading-5"
+                className="mt-1 overflow-x-auto rounded-lg bg-border/40 p-3 text-xs leading-5"
                 dir="ltr"
               >
                 <code>{file.content}</code>

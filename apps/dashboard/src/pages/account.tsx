@@ -34,7 +34,7 @@ export default function AccountPage() {
 
   return (
     <section className="flex max-w-md flex-col gap-4">
-      <h1 className="text-2xl font-bold">{t('auth.changePassword')}</h1>
+      <h1 className="text-2xl leading-8 font-semibold">{t('auth.changePassword')}</h1>
       <Card>
         <form onSubmit={(e) => void onSubmit(e)} className="flex flex-col gap-3">
           <FormError message={error ? errorMessage(error, t) : undefined} />
