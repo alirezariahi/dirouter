@@ -26,6 +26,7 @@ import {
   openAIUsageToCanonical,
 } from './openai.js';
 import { encodeSse } from './sse.js';
+import { StructuredOutputStream } from './structured.js';
 
 // ───────────── OpenAI chunks → canonical ─────────────
 
@@ -103,8 +104,14 @@ export class OpenAIStreamDecoder {
 export class AnthropicStreamDecoder {
   #usage: CanonicalUsage = emptyUsage();
   #inputRaw = 0;
+  /** Turns the structured-output fallback tool back into text (card 27.1). */
+  readonly #structured = new StructuredOutputStream();
 
   push(event: AnthropicStreamEvent): CanonicalStreamEvent[] {
+    return this.#decode(event).flatMap((e) => this.#structured.push(e));
+  }
+
+  #decode(event: AnthropicStreamEvent): CanonicalStreamEvent[] {
     switch (event.type) {
       case 'message_start': {
         const u = event.message.usage;

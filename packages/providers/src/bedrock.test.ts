@@ -11,7 +11,11 @@ import type {
   ModelConfig,
   ProviderConfig,
 } from '@dirouter/contracts';
-import { AnthropicStreamEncoder } from '@dirouter/translator';
+import {
+  AnthropicStreamEncoder,
+  JSON_ONLY_INSTRUCTION,
+  STRUCTURED_OUTPUT_TOOL,
+} from '@dirouter/translator';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -760,6 +764,121 @@ describe('event-stream decoder', () => {
     expect(messages).toHaveLength(1);
     expect(messages[0]?.headers).toEqual({});
     expect(messages[0]?.payload).toHaveLength(0);
+  });
+
+  it('turns the structured-output fallback tool into text deltas (card 27.1)', () => {
+    const d = decoder();
+    const events = d.feedChunk(
+      Buffer.concat([
+        event('messageStart', { role: 'assistant' }),
+        event('contentBlockStart', {
+          contentBlockIndex: 0,
+          start: { toolUse: { toolUseId: 't1', name: STRUCTURED_OUTPUT_TOOL } },
+        }),
+        event('contentBlockDelta', { contentBlockIndex: 0, delta: { toolUse: { input: '{"ci' } } }),
+        event('contentBlockDelta', {
+          contentBlockIndex: 0,
+          delta: { toolUse: { input: 'ty":"Tehran","temp":21}' } },
+        }),
+        event('contentBlockStop', { contentBlockIndex: 0 }),
+        event('messageStop', { stopReason: 'tool_use' }),
+      ]),
+    );
+    const text = events.flatMap((e) => (e.type === 'text_delta' ? [e.text] : [])).join('');
+    expect(JSON.parse(text)).toEqual({ city: 'Tehran', temp: 21 });
+    expect(events.some((e) => e.type === 'tool_call_start')).toBe(false);
+    expect(events.at(-1)).toEqual({
+      type: 'finish',
+      finishReason: 'stop',
+      rawFinishReason: 'tool_use',
+    });
+  });
+});
+
+describe('structured output on Bedrock (card 27.1)', () => {
+  const SCHEMA = {
+    type: 'object',
+    properties: { city: { type: 'string' } },
+    required: ['city'],
+    additionalProperties: false,
+  };
+  const withFormat = (over: Partial<CanonicalRequest> = {}) =>
+    request({ responseFormat: { type: 'json_schema', name: 'weather', schema: SCHEMA }, ...over });
+
+  it('golden: older Claude models get a forced fallback tool', () => {
+    const body = canonicalToConverseRequest(withFormat(), 'anthropic.claude-sonnet-4-5-v1:0');
+    expect(body.toolConfig).toEqual({
+      tools: [
+        {
+          toolSpec: {
+            name: STRUCTURED_OUTPUT_TOOL,
+            description:
+              'Return the final answer (weather) by calling this tool. Its input is the answer.',
+            inputSchema: { json: SCHEMA },
+          },
+        },
+      ],
+      toolChoice: { tool: { name: STRUCTURED_OUTPUT_TOOL } },
+    });
+    expect(body.additionalModelRequestFields).toBeUndefined();
+  });
+
+  it('golden: models that reject a forced tool get output_config.format natively', () => {
+    const body = canonicalToConverseRequest(withFormat(), 'us.anthropic.claude-opus-5-5-v1:0');
+    expect(body.toolConfig).toBeUndefined();
+    expect(body.additionalModelRequestFields).toEqual({
+      output_config: { format: { type: 'json_schema', schema: SCHEMA } },
+    });
+  });
+
+  it('client tools keep their place and toolChoice becomes any', () => {
+    const body = canonicalToConverseRequest(
+      withFormat({ tools: [{ name: 'lookup', parameters: { type: 'object' } }] }),
+      'anthropic.claude-3-5-sonnet-20241022-v2:0',
+    );
+    const config = body.toolConfig as {
+      tools: { toolSpec: { name: string } }[];
+      toolChoice: unknown;
+    };
+    expect(config.tools.map((t) => t.toolSpec.name)).toEqual(['lookup', STRUCTURED_OUTPUT_TOOL]);
+    expect(config.toolChoice).toEqual({ any: {} });
+  });
+
+  it('json_object on a native model is an instruction in system', () => {
+    const body = canonicalToConverseRequest(
+      request({ responseFormat: { type: 'json_object' } }),
+      'us.anthropic.claude-sonnet-5-5-v1:0',
+    );
+    expect(body.system).toEqual([{ text: 'be brief' }, { text: JSON_ONLY_INSTRUCTION }]);
+  });
+
+  it('the provider option structuredOutput overrides the default', () => {
+    const built = new BedrockAdapter().buildRequest({
+      provider: provider({ options: { region: 'us-east-1', structuredOutput: 'native' } }),
+      model: model(),
+      apiKey: 'AKIA:secret',
+      request: withFormat(),
+    });
+    const body = JSON.parse(built.body ?? '{}') as Record<string, unknown>;
+    expect(body.additionalModelRequestFields).toBeDefined();
+    expect(body.toolConfig).toBeUndefined();
+  });
+
+  it('golden: the fallback tool in a Converse response becomes JSON text', () => {
+    const response = converseResponseToCanonical({
+      output: {
+        message: {
+          content: [
+            {
+              toolUse: { toolUseId: 't', name: STRUCTURED_OUTPUT_TOOL, input: { city: 'Tehran' } },
+            },
+          ],
+        },
+      },
+      stopReason: 'tool_use',
+    });
+    expect(response.content).toEqual([{ type: 'text', text: '{"city":"Tehran"}' }]);
+    expect(response.finishReason).toBe('stop');
   });
 });
 

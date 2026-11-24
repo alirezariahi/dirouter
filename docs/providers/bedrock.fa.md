@@ -29,6 +29,7 @@
 - `tool_call` → `toolUse` و `tool_result` → `toolResult`؛ `toolChoice` به `toolChoice` نگاشت می‌شود.
 - Converse نقش‌های یک‌درمیان می‌خواهد؛ پس نوبت‌های پیاپی با نقش یکسان ادغام می‌شوند: چند پیام `tool` یک پیام `user` با چند بلوک `toolResult` می‌شود.
 - `maxOutputTokens` → `inferenceConfig.maxTokens`، `temperature`، `topP`، `stop` هم نگاشت می‌شوند.
+- `response_format` (کارت ۲۷.۱): به‌طور پیش‌فرض ابزار اجباری `dirouter_structured_output` (`toolConfig.toolChoice.tool`) که در پاسخ و stream دوباره به متن JSON تبدیل می‌شود؛ مدل‌هایی که ابزار اجباری را رد می‌کنند (Claude Opus 5.5، Sonnet 5.5، Fable و Mythos 5.1 به بعد) `additionalModelRequestFields.output_config.format` می‌گیرند. `options.structuredOutput` (`native` یا `tool`) این انتخاب را عوض می‌کند.
 - پاسخ: `output.message.content[]` و `stopReason` (`end_turn`/`tool_use`/`max_tokens`/…) و `usage`.
 - stream: قالب باینری `vnd.amazon.eventstream` پارس می‌شود (نه SSE). هر فریم طول‌دار است و دو checksum از نوع CRC-32 (prelude و کل پیام) دارد که هر دو بررسی می‌شوند. نام رویداد از هدر `:event-type` می‌آید (`messageStart`، `contentBlockStart`، `contentBlockDelta`، `contentBlockStop`، `messageStop`، `metadata`) و payload فقط بدنهٔ همان رویداد است.
 - `contentBlockIndex` بالادست همان index بلوک canonical است؛ پس بلوک‌های متن، reasoning و ابزار هیچ‌وقت index مشترک ندارند.

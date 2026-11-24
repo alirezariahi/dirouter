@@ -24,7 +24,7 @@
 | `topK`                      | —                                                                          | `top_k`                                                              |                                                                         |
 | `stop[]`                    | `stop`                                                                     | `stop_sequences`                                                     |                                                                         |
 | `seed`                      | `seed`                                                                     | —                                                                    |                                                                         |
-| `responseFormat`            | `response_format`                                                          | —                                                                    | Anthropic حالت JSON بومی ندارد                                          |
+| `responseFormat`            | `response_format`                                                          | `output_config.format` یا ابزار اجباری                               | [Structured output](#structured-output) را ببینید                       |
 | `reasoning.budgetTokens`    | effort: <۴k=low، <۱۶k=medium، بقیه=high                                    | `thinking.budget_tokens` (حداقل ۱۰۲۴؛ `max_tokens` بالاتر از budget) | effort→budget: minimal ۱۰۲۴، low ۲۰۴۸، medium ۸۱۹۲، high ۱۶۳۸۴          |
 | `user`                      | `user`                                                                     | `metadata.user_id`                                                   |                                                                         |
 | `stream`                    | `stream` + همیشه `stream_options.include_usage`                            | `stream`                                                             |                                                                         |
@@ -48,9 +48,30 @@
 - Anthropic: `input_tokens` **شامل** توکن‌های cache نیست؛ پس `inputTokens = input + cache_creation + cache_read` و برعکس.
 - اگر پاسخ OpenAI-compatible اصلاً `usage` نداشته باشد، `CanonicalResponse.usage` خالی می‌ماند (صفر گذاشته نمی‌شود) و گیت‌وی با tokenizer تخمین می‌زند. جزئیات در [concepts/cost.md](../concepts/cost.fa.md).
 
+<a id="structured-output"></a>
+
+## Structured output
+
+> کارت ۲۷.۱. `response_format` (و `output_config.format` کلاینت Anthropic) روی همهٔ providerها کار می‌کند.
+
+| مقصد                                       | `json_schema`                                                                  | `json_object`                                                      |
+| ------------------------------------------ | ------------------------------------------------------------------------------ | ------------------------------------------------------------------ |
+| OpenAI و سازگارها                          | `response_format` بدون تغییر                                                   | `response_format` بدون تغییر                                       |
+| Gemini و Vertex                            | `responseMimeType` + `responseJsonSchema`                                      | `responseMimeType: application/json`                               |
+| Anthropic، مدل با پشتیبانی بومی            | `output_config.format: {type: json_schema, schema}`                            | دستور system برای پاسخ با یک شیء JSON (به‌عنوان drop گزارش می‌شود) |
+| Anthropic، مدل قدیمی‌تر                    | ابزار اجباری `dirouter_structured_output` که `input_schema` آن همان schema است | همان ابزار با `{"type":"object"}`                                  |
+| Bedrock (Converse)، پیش‌فرض                | ابزار اجباری `dirouter_structured_output` (`toolConfig.toolChoice.tool`)       | همان ابزار با `{"type":"object"}`                                  |
+| Bedrock، مدلی که ابزار اجباری را رد می‌کند | `additionalModelRequestFields.output_config.format`                            | دستور system                                                       |
+
+- پشتیبانی بومی از روی نام مدل upstream تعیین می‌شود: Claude Opus 4.1، 4.5، 4.8 و 5.x، Sonnet 5.x، Haiku 4.5 و 5.x، Fable و Mythos. در Bedrock ابزار اجباری پیش‌فرض است و فقط مدل‌هایی که `tool_choice` اجباری را رد می‌کنند (Opus 5.5، Sonnet 5.5، Fable و Mythos 5.1 به بعد) فیلد بومی را می‌گیرند. گزینهٔ provider به نام `structuredOutput` (`native` یا `tool`) این انتخاب را عوض می‌کند، مثلاً برای مدلی که هنوز در فهرست نیست.
+- فراخوانی ابزار جایگزین دوباره به متن تبدیل می‌شود: کلاینت JSON را در `message.content` (در stream به‌صورت content delta) و `finish_reason: stop` می‌گیرد، نه tool call. فراخوانی هر ابزار دیگری `finish_reason: tool_calls` را نگه می‌دارد.
+- اگر کلاینت ابزارهای خودش را هم بفرستد، ابزار جایگزین به آن‌ها اضافه می‌شود و `tool_choice` برابر `any` می‌شود (یا روی ابزاری که کلاینت نام برده می‌ماند). با extended thinking، Anthropic ابزار اجباری را رد می‌کند؛ پس ابزار در system prompt خواسته می‌شود و `tool_choice: auto` است.
+- `output_config.format` کلاینت Anthropic (یا `output_format` قدیمی) به `responseFormat` در canonical تبدیل می‌شود تا به OpenAI و Gemini هم برسد؛ بقیهٔ فیلدهای `output_config` (`effort`) همچنان به Anthropic می‌رسند.
+- نام ابزار `dirouter_structured_output` رزرو است.
+
 ## فیلدهای کنارگذاشته‌شده
 
-مترجم هر فیلد بی‌معادل را با `onDrop(field, reason)` گزارش می‌کند و گیت‌وی آن را با سطح debug لاگ می‌کند. فهرست: `n>1`، `input_audio` و `file` در OpenAI، `document` و تصویر `file` در Anthropic، `top_k` به OpenAI، `seed` و `response_format` به Anthropic، reasoning به OpenAI، thinking بدون امضا به Anthropic، تصویر در نتیجهٔ ابزار به OpenAI، دمای بالای ۱ به Anthropic.
+مترجم هر فیلد بی‌معادل را با `onDrop(field, reason)` گزارش می‌کند و گیت‌وی آن را با سطح debug لاگ می‌کند. فهرست: `n>1`، `input_audio` و `file` در OpenAI، `document` و تصویر `file` در Anthropic، `top_k` به OpenAI، `seed` به Anthropic، `json_object` به مدل Claude با structured output بومی (به‌صورت دستور فرستاده می‌شود)، reasoning به OpenAI، thinking بدون امضا به Anthropic، تصویر در نتیجهٔ ابزار به OpenAI، دمای بالای ۱ به Anthropic.
 
 ## تست‌ها
 

@@ -811,7 +811,8 @@ describe('dropped and edge cases', () => {
       }),
       { upstreamModel: 'u', onDrop },
     );
-    expect(drops).toEqual(['assistant.reasoning', 'seed', 'response_format']);
+    // response_format is no longer dropped: it becomes a forced tool (card 27.1).
+    expect(drops).toEqual(['assistant.reasoning', 'seed']);
   });
 
   it('drops document and file-image blocks from Anthropic input', () => {

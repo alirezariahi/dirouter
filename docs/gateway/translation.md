@@ -22,7 +22,7 @@
 | `topK`                         | —                                                                                     | `top_k`                                                                      |                                                                                           |
 | `stop[]`                       | `stop`                                                                                | `stop_sequences`                                                             |                                                                                           |
 | `seed`                         | `seed`                                                                                | —                                                                            |                                                                                           |
-| `responseFormat`               | `response_format`                                                                     | —                                                                            | Anthropic has no native JSON mode                                                         |
+| `responseFormat`               | `response_format`                                                                     | `output_config.format` or a forced tool                                      | see [Structured output](#structured-output)                                               |
 | `reasoning.budgetTokens`       | effort: <4k=low, <16k=medium, the rest=high                                           | `thinking.budget_tokens` (minimum 1024; `max_tokens` higher than the budget) | effort→budget: minimal 1024, low 2048, medium 8192, high 16384                            |
 | `user`                         | `user`                                                                                | `metadata.user_id`                                                           |                                                                                           |
 | `stream`                       | `stream` + always `stream_options.include_usage`                                      | `stream`                                                                     |                                                                                           |
@@ -46,9 +46,28 @@
 - Anthropic: `input_tokens` **does not include** cache tokens, so `inputTokens = input + cache_creation + cache_read`, and vice versa.
 - If an OpenAI-compatible response has no `usage` at all, `CanonicalResponse.usage` stays empty (it is not set to zero), and the gateway estimates it with a tokenizer. Details are in [concepts/cost.md](../concepts/cost.md).
 
+## Structured output
+
+> Card 27.1. `response_format` (and an Anthropic client's `output_config.format`) works on every provider.
+
+| Destination                               | `json_schema`                                                               | `json_object`                                                          |
+| ----------------------------------------- | --------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| OpenAI and compatible                     | `response_format` unchanged                                                 | `response_format` unchanged                                            |
+| Gemini and Vertex                         | `responseMimeType` + `responseJsonSchema`                                   | `responseMimeType: application/json`                                   |
+| Anthropic, model with native support      | `output_config.format: {type: json_schema, schema}`                         | system instruction to answer with one JSON object (reported as a drop) |
+| Anthropic, older model                    | forced tool `dirouter_structured_output` whose `input_schema` is the schema | the same tool with `{"type":"object"}`                                 |
+| Bedrock (Converse), default               | forced tool `dirouter_structured_output` (`toolConfig.toolChoice.tool`)     | the same tool with `{"type":"object"}`                                 |
+| Bedrock, model that rejects a forced tool | `additionalModelRequestFields.output_config.format`                         | system instruction                                                     |
+
+- Native support is decided from the upstream model name: Claude Opus 4.1, 4.5, 4.8 and 5.x, Sonnet 5.x, Haiku 4.5 and 5.x, Fable and Mythos. On Bedrock the forced tool is the default and only the models that reject a forced `tool_choice` (Opus 5.5, Sonnet 5.5, Fable and Mythos 5.1 and later) use the native field. The provider option `structuredOutput` (`native` or `tool`) overrides the choice, for example for a model the list does not know yet.
+- The fallback tool's call is turned back into text: the client receives the JSON in `message.content` (stream: content deltas) and `finish_reason: stop`, never a tool call. A call to any other tool keeps `finish_reason: tool_calls`.
+- When the client sends its own tools as well, the fallback tool is added to them and `tool_choice` becomes `any` (or stays on the tool the client named). With extended thinking Anthropic rejects a forced tool, so the tool is requested in the system prompt with `tool_choice: auto`.
+- An Anthropic client's `output_config.format` (or the older `output_format`) becomes the canonical `responseFormat`, so it also reaches OpenAI and Gemini; other `output_config` fields (`effort`) still pass through to Anthropic.
+- The tool name `dirouter_structured_output` is reserved.
+
 ## Dropped fields
 
-The translator reports each field that has no equivalent through `onDrop(field, reason)`, and the gateway logs it at debug level. The list: `n>1`, `input_audio` and `file` in OpenAI, `document` and image `file` in Anthropic, `top_k` to OpenAI, `seed` and `response_format` to Anthropic, reasoning to OpenAI, thinking without a signature to Anthropic, images in tool results to OpenAI, and temperature above 1 to Anthropic.
+The translator reports each field that has no equivalent through `onDrop(field, reason)`, and the gateway logs it at debug level. The list: `n>1`, `input_audio` and `file` in OpenAI, `document` and image `file` in Anthropic, `top_k` to OpenAI, `seed` to Anthropic, `json_object` to a Claude model with native structured output (sent as an instruction), reasoning to OpenAI, thinking without a signature to Anthropic, images in tool results to OpenAI, and temperature above 1 to Anthropic.
 
 ## Tests
 

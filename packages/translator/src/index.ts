@@ -6,3 +6,4 @@ export * from './sse.js';
 export * from './stream.js';
 export * from './gemini-inbound.js';
 export * from './responses.js';
+export * from './structured.js';

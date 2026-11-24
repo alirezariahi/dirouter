@@ -13,16 +13,17 @@
 
 ## مسیرها
 
-| مسیر                                                                   | توضیح                                               |
-| ---------------------------------------------------------------------- | --------------------------------------------------- |
-| `POST /v1/chat/completions`                                            | OpenAI و OpenAI-compatible                          |
-| `POST /openai/deployments/{deployment}/chat/completions?api-version=…` | Azure OpenAI                                        |
-| `POST /v1/messages`                                                    | Anthropic                                           |
-| `GET /v1/models`                                                       | لیست مدل‌ها                                         |
-| `GET /__mock/stats`                                                    | تعداد درخواست بر اساس کلید و status، و ۲۰ بدنهٔ آخر |
-| `POST /__mock/reset`                                                   | صفر کردن آمار                                       |
-| `PUT /__mock/config`                                                   | `{"directives":"…"}` سناریوی پیش‌فرض سراسری         |
-| `GET /healthz`                                                         | سلامت                                               |
+| مسیر                                                                   | توضیح                                                                   |
+| ---------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `POST /v1/chat/completions`                                            | OpenAI و OpenAI-compatible                                              |
+| `POST /openai/deployments/{deployment}/chat/completions?api-version=…` | Azure OpenAI                                                            |
+| `POST /v1/messages`                                                    | Anthropic                                                               |
+| `POST /model/{modelId}/converse` و `/converse-stream`                  | AWS Bedrock Converse (stream با eventstream باینری؛ امضا بررسی نمی‌شود) |
+| `GET /v1/models`                                                       | لیست مدل‌ها                                                             |
+| `GET /__mock/stats`                                                    | تعداد درخواست بر اساس کلید و status، و ۲۰ بدنهٔ آخر                     |
+| `POST /__mock/reset`                                                   | صفر کردن آمار                                                           |
+| `PUT /__mock/config`                                                   | `{"directives":"…"}` سناریوی پیش‌فرض سراسری                             |
+| `GET /healthz`                                                         | سلامت                                                                   |
 
 ## انتخاب سناریو
 
@@ -51,6 +52,8 @@ directiveها با `,` یا `;` جدا می‌شوند. منبع به ترتیب
 | `tool[=name]`                             | پاسخ با فراخوانی ابزار (پیش‌فرض `get_weather`)                                        |
 | `text=<str>`                              | متن پاسخ                                                                              |
 | `no_usage`                                | بدون `usage` (برای تست تخمین توکن، کارت ۶.۲)                                          |
+
+Structured output (کارت ۲۷.۱): اگر درخواست Anthropic فیلد `output_config.format` (یا درخواست Bedrock فیلد `additionalModelRequestFields.output_config.format`) داشته باشد، متن پاسخ JSON ساخته‌شده از schema است؛ اگر ابزار `dirouter_structured_output` گیت‌وی را داشته باشد، پاسخ فراخوانی همان ابزار با ورودی ساخته‌شده از schema است. رشته‌ها `"mock"`، عددها `1` (یا `minimum`)، بولی‌ها `true` و آرایه‌ها به تعداد `minItems` عضو می‌گیرند.
 
 نمونه‌ها:
 

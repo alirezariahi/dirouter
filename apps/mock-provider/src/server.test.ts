@@ -218,3 +218,80 @@ describe('guardrail classifiers (cards 23.2 and 23.3)', () => {
     expect(JSON.parse(text ?? '{}')).toEqual({ injection: true, score: 0.97 });
   });
 });
+
+describe('structured output (card 27.1)', () => {
+  const schema = {
+    type: 'object',
+    properties: { city: { type: 'string' }, temp: { type: 'number' }, ok: { type: 'boolean' } },
+    required: ['city', 'temp', 'ok'],
+    additionalProperties: false,
+  };
+
+  it('Anthropic output_config.format: the text is JSON built from the schema', async () => {
+    const res = await post('/v1/messages', {
+      ...an,
+      output_config: { format: { type: 'json_schema', schema } },
+    });
+    const body = (await res.json()) as { content: { text: string }[] };
+    expect(JSON.parse(body.content[0]?.text ?? '')).toEqual({ city: 'mock', temp: 1, ok: true });
+  });
+
+  it('Anthropic fallback tool: tool_use with input built from the schema, stream too', async () => {
+    const request = {
+      ...an,
+      tools: [{ name: 'dirouter_structured_output', input_schema: schema }],
+      tool_choice: { type: 'tool', name: 'dirouter_structured_output' },
+    };
+    const json = (await (await post('/v1/messages', request)).json()) as {
+      content: { name: string; input: unknown }[];
+    };
+    expect(json.content[0]).toMatchObject({
+      name: 'dirouter_structured_output',
+      input: { city: 'mock', temp: 1, ok: true },
+    });
+    const events = await sse(await post('/v1/messages', { ...request, stream: true }));
+    const partial = events
+      .map((e) => JSON.parse(e.data) as { delta?: { partial_json?: string } })
+      .map((e) => e.delta?.partial_json ?? '')
+      .join('');
+    expect(JSON.parse(partial)).toEqual({ city: 'mock', temp: 1, ok: true });
+  });
+
+  it('Bedrock Converse: fallback tool, native format and an eventstream', async () => {
+    const converse = (body: unknown, action = 'converse') =>
+      post(`/model/${encodeURIComponent('anthropic.claude-3-5-sonnet-v2:0')}/${action}`, body);
+    const fallback = {
+      messages: [{ role: 'user', content: [{ text: 'hi' }] }],
+      toolConfig: {
+        tools: [
+          { toolSpec: { name: 'dirouter_structured_output', inputSchema: { json: schema } } },
+        ],
+        toolChoice: { tool: { name: 'dirouter_structured_output' } },
+      },
+    };
+    const tool = (await (await converse(fallback)).json()) as {
+      output: { message: { content: { toolUse?: { input: unknown } }[] } };
+      stopReason: string;
+    };
+    expect(tool.output.message.content[0]?.toolUse?.input).toEqual({
+      city: 'mock',
+      temp: 1,
+      ok: true,
+    });
+    expect(tool.stopReason).toBe('tool_use');
+    const native = (await (
+      await converse({
+        messages: fallback.messages,
+        additionalModelRequestFields: {
+          output_config: { format: { type: 'json_schema', schema } },
+        },
+      })
+    ).json()) as { output: { message: { content: { text?: string }[] } } };
+    expect(JSON.parse(native.output.message.content[0]?.text ?? '')).toMatchObject({ ok: true });
+    const stream = await converse(fallback, 'converse-stream');
+    expect(stream.headers.get('content-type')).toBe('application/vnd.amazon.eventstream');
+    const bytes = Buffer.from(await stream.arrayBuffer());
+    expect(bytes.readUInt32BE(0)).toBeLessThan(bytes.length);
+    expect(bytes.toString('utf8')).toContain('dirouter_structured_output');
+  });
+});

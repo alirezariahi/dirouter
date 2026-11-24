@@ -27,6 +27,7 @@
 - `tool_call` → `toolUse` and `tool_result` → `toolResult`; `toolChoice` maps to `toolChoice`.
 - Converse requires alternating roles, so consecutive turns of the same role are merged: several `tool` messages become one `user` message with one `toolResult` block each.
 - `maxOutputTokens` → `inferenceConfig.maxTokens`; `temperature`, `topP` and `stop` are mapped too.
+- `response_format` (card 27.1): a forced `dirouter_structured_output` tool (`toolConfig.toolChoice.tool`) by default, turned back into JSON text in the response and the stream; models that reject a forced tool (Claude Opus 5.5, Sonnet 5.5, Fable and Mythos 5.1+) get `additionalModelRequestFields.output_config.format`. `options.structuredOutput` (`native` or `tool`) overrides the choice.
 - Response: `output.message.content[]`, `stopReason` (`end_turn`/`tool_use`/`max_tokens`/…) and `usage`.
 - Stream: the binary `vnd.amazon.eventstream` format is parsed (not SSE). Each frame is length-prefixed and protected by two CRC-32 checksums (prelude and message), which are verified. The event name comes from the `:event-type` header (`messageStart`, `contentBlockStart`, `contentBlockDelta`, `contentBlockStop`, `messageStop`, `metadata`) and the payload is the bare event body.
 - The upstream `contentBlockIndex` is kept as the canonical block index, so text, reasoning and tool blocks never share an index.

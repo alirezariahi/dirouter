@@ -15,6 +15,13 @@ import {
   type Scenario,
 } from './scenario.js';
 import { registerA2a } from './a2a.js';
+import { registerBedrock } from './bedrock.js';
+import {
+  STRUCTURED_OUTPUT_TOOL,
+  anthropicFallbackSchema,
+  anthropicNativeSchema,
+  sampleFor,
+} from './structured.js';
 import { registerMcp } from './mcp.js';
 import { registerMedia, registerWorkersAi } from './media.js';
 import { type PaymentMockOptions, registerPayments } from './payments.js';
@@ -382,8 +389,16 @@ export function buildServer(options: MockServerOptions = {}) {
     const model = body.model ?? 'mock';
     const inputTokens = tokens([body.system, body.messages]);
     const id = `msg_mock${Date.now().toString(36)}`;
-    const pieces = chunksOf(s.text, s.chunks);
-    const outputTokens = s.tool ? 12 : pieces.length * 2;
+    // Structured output (card 27.1): native JSON text, or a call to the gateway's fallback tool.
+    const raw = (req.body ?? {}) as Record<string, unknown>;
+    const nativeSchema = anthropicNativeSchema(raw);
+    const fallbackSchema = s.tool ? undefined : anthropicFallbackSchema(raw);
+    const tool = s.tool ?? (fallbackSchema !== undefined ? STRUCTURED_OUTPUT_TOOL : undefined);
+    const toolInput = fallbackSchema !== undefined ? sampleFor(fallbackSchema) : { city: 'Tehran' };
+    const toolJson = JSON.stringify(toolInput);
+    const text = nativeSchema !== undefined ? JSON.stringify(sampleFor(nativeSchema)) : s.text;
+    const pieces = chunksOf(text, s.chunks);
+    const outputTokens = tool ? 12 : pieces.length * 2;
     const usage = {
       input_tokens: inputTokens,
       output_tokens: outputTokens,
@@ -399,10 +414,10 @@ export function buildServer(options: MockServerOptions = {}) {
         type: 'message',
         role: 'assistant',
         model,
-        content: s.tool
-          ? [{ type: 'tool_use', id: 'toolu_mock1', name: s.tool, input: { city: 'Tehran' } }]
-          : [{ type: 'text', text: s.text }],
-        stop_reason: s.tool ? 'tool_use' : 'end_turn',
+        content: tool
+          ? [{ type: 'tool_use', id: 'toolu_mock1', name: tool, input: toolInput }]
+          : [{ type: 'text', text }],
+        stop_reason: tool ? 'tool_use' : 'end_turn',
         stop_sequence: null,
         usage: s.noUsage ? { input_tokens: 0, output_tokens: 0 } : usage,
       });
@@ -435,13 +450,14 @@ export function buildServer(options: MockServerOptions = {}) {
         usage: { ...usage, output_tokens: 1 },
       },
     });
-    if (s.tool) {
+    if (tool) {
       send('content_block_start', {
         type: 'content_block_start',
         index: 0,
-        content_block: { type: 'tool_use', id: 'toolu_mock1', name: s.tool, input: {} },
+        content_block: { type: 'tool_use', id: 'toolu_mock1', name: tool, input: {} },
       });
-      for (const part of ['{"city":', ' "Tehran"}']) {
+      const half = Math.ceil(toolJson.length / 2);
+      for (const part of [toolJson.slice(0, half), toolJson.slice(half)]) {
         if (drop()) return res.destroy();
         await sleep(s.chunkDelayMs);
         send('content_block_delta', {
@@ -474,7 +490,7 @@ export function buildServer(options: MockServerOptions = {}) {
     send('content_block_stop', { type: 'content_block_stop', index: 0 });
     send('message_delta', {
       type: 'message_delta',
-      delta: { stop_reason: s.tool ? 'tool_use' : 'end_turn', stop_sequence: null },
+      delta: { stop_reason: tool ? 'tool_use' : 'end_turn', stop_sequence: null },
       usage: { output_tokens: s.noUsage ? 0 : outputTokens },
     });
     send('message_stop', { type: 'message_stop' });
@@ -626,6 +642,7 @@ export function buildServer(options: MockServerOptions = {}) {
   registerA2a(app);
   registerMedia(app);
   registerWorkersAi(app);
+  registerBedrock(app, { record });
 
   app.get('/healthz', () => ({ status: 'ok' }));
   app.get('/__mock/stats', () => stats);

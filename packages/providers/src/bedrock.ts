@@ -19,9 +19,20 @@ import type {
   CanonicalRequest,
   CanonicalResponse,
   CanonicalStreamEvent,
+  CanonicalTool,
   CanonicalUsage,
 } from '@dirouter/contracts';
-import { type DropReporter, ignoreDrops } from '@dirouter/translator';
+import {
+  type DropReporter,
+  JSON_ONLY_INSTRUCTION,
+  StructuredOutputStream,
+  STRUCTURED_OUTPUT_TOOL,
+  type StructuredOutputMode,
+  bedrockStructuredOutputMode,
+  ignoreDrops,
+  structuredOutputTool,
+  unwrapStructuredOutput,
+} from '@dirouter/translator';
 
 import {
   type ClassifiedError,
@@ -254,10 +265,16 @@ function toConverseMessage(
   return { role, content };
 }
 
+export interface ConverseRequestOptions {
+  /** How `response_format` is sent (card 27.1); defaults to `bedrockStructuredOutputMode`. */
+  structuredOutput?: StructuredOutputMode;
+}
+
 export function canonicalToConverseRequest(
   request: CanonicalRequest,
   modelId: string,
   onDrop: DropReporter = ignoreDrops,
+  options: ConverseRequestOptions = {},
 ): Record<string, unknown> {
   // Converse requires strictly alternating roles. Canonical `tool` messages become user turns, so
   // consecutive tool results (and a tool result followed by user text) are merged into one message.
@@ -273,37 +290,82 @@ export function canonicalToConverseRequest(
     modelId,
     messages,
   };
-  if (request.system.length) body.system = request.system.map((s) => ({ text: s.text }));
+  const system: ConversePart[] = request.system.map((s) => ({ text: s.text }));
   const inferenceConfig: Record<string, unknown> = {};
   if (request.maxOutputTokens !== undefined) inferenceConfig.maxTokens = request.maxOutputTokens;
   if (request.temperature !== undefined) inferenceConfig.temperature = request.temperature;
   if (request.topP !== undefined) inferenceConfig.topP = request.topP;
   if (request.stop?.length) inferenceConfig.stopSequences = request.stop;
   if (Object.keys(inferenceConfig).length) body.inferenceConfig = inferenceConfig;
-  if (request.tools?.length) {
+  const structured = converseStructuredOutput(request, modelId, options, onDrop);
+  if (structured.instruction) system.push({ text: structured.instruction });
+  if (structured.additional) body.additionalModelRequestFields = structured.additional;
+  if (system.length) body.system = system;
+  const tools = [...(request.tools ?? [])];
+  if (structured.tool) tools.push(structured.tool);
+  if (tools.length) {
+    const toolChoice =
+      structured.toolChoice ??
+      (request.toolChoice
+        ? typeof request.toolChoice === 'string'
+          ? request.toolChoice === 'required'
+            ? { any: {} }
+            : request.toolChoice === 'none'
+              ? undefined
+              : { auto: {} }
+          : { tool: { name: request.toolChoice.name } }
+        : undefined);
     body.toolConfig = {
-      tools: request.tools.map((t) => ({
+      tools: tools.map((t) => ({
         toolSpec: {
           name: t.name,
           ...(t.description ? { description: t.description } : {}),
           inputSchema: { json: t.parameters },
         },
       })),
-      ...(request.toolChoice
-        ? {
-            toolChoice:
-              typeof request.toolChoice === 'string'
-                ? request.toolChoice === 'required'
-                  ? { any: {} }
-                  : request.toolChoice === 'none'
-                    ? undefined
-                    : { auto: {} }
-                : { tool: { name: request.toolChoice.name } },
-          }
-        : {}),
+      ...(toolChoice ? { toolChoice } : {}),
     };
   }
   return body;
+}
+
+interface ConverseStructuredPlan {
+  tool?: CanonicalTool;
+  toolChoice?: Record<string, unknown>;
+  additional?: Record<string, unknown>;
+  instruction?: string;
+}
+
+/**
+ * Card 27.1: `response_format` on Bedrock. The default is a forced tool (`toolChoice.tool`) whose
+ * call the response decoders turn back into text; models that reject a forced tool get Anthropic's
+ * `output_config.format` through `additionalModelRequestFields`.
+ */
+function converseStructuredOutput(
+  request: CanonicalRequest,
+  modelId: string,
+  options: ConverseRequestOptions,
+  onDrop: DropReporter,
+): ConverseStructuredPlan {
+  const format = request.responseFormat;
+  if (!format || format.type === 'text') return {};
+  const mode = options.structuredOutput ?? bedrockStructuredOutputMode(modelId);
+  if (mode === 'native') {
+    if (format.type === 'json_schema')
+      return {
+        additional: { output_config: { format: { type: 'json_schema', schema: format.schema } } },
+      };
+    onDrop('response_format', 'json_object has no schema; sent as an instruction');
+    return { instruction: JSON_ONLY_INSTRUCTION };
+  }
+  const tool = structuredOutputTool(format);
+  if (!tool) return {};
+  if (request.tools?.length) {
+    if (typeof request.toolChoice === 'object')
+      return { tool, toolChoice: { tool: { name: request.toolChoice.name } } };
+    if (request.toolChoice !== 'none') return { tool, toolChoice: { any: {} } };
+  }
+  return { tool, toolChoice: { tool: { name: STRUCTURED_OUTPUT_TOOL } } };
 }
 
 const FINISH_FROM_BEDROCK: Record<string, CanonicalFinishReason> = {
@@ -349,7 +411,7 @@ export function converseResponseToCanonical(json: unknown, model = 'bedrock'): C
   }
   const rawFinish = body.stopReason ?? 'end_turn';
   const usage = converseUsage(body.usage);
-  return {
+  return unwrapStructuredOutput({
     id: `bedrock_${Date.now().toString(36)}`,
     model,
     content,
@@ -357,7 +419,7 @@ export function converseResponseToCanonical(json: unknown, model = 'bedrock'): C
     rawFinishReason: rawFinish,
     ...(usage ? { usage } : {}),
     created: Math.floor(Date.now() / 1000),
-  };
+  });
 }
 
 // ───────────── eventstream decoder ─────────────
@@ -537,6 +599,8 @@ class BedrockDecoder implements StreamDecoder {
   /** Set after an error event: the stream is over and later bytes are ignored. */
   #failed = false;
   #usage: CanonicalUsage | undefined;
+  /** Turns the structured-output fallback tool back into text (card 27.1). */
+  readonly #structured = new StructuredOutputStream();
 
   constructor(model: string) {
     this.#model = model;
@@ -546,7 +610,7 @@ class BedrockDecoder implements StreamDecoder {
     if (this.#failed) return [];
     const events: CanonicalStreamEvent[] = [];
     for (const message of this.#parser.feed(chunk)) {
-      const decoded = this.#message(message);
+      const decoded = this.#message(message).flatMap((e) => this.#structured.push(e));
       events.push(...decoded);
       // An exception ends the stream; whatever follows it is not part of the response.
       if (decoded.some((event) => event.type === 'error')) return events;
@@ -704,7 +768,12 @@ export class BedrockAdapter implements ProviderAdapter {
 
   buildRequest(ctx: BuildContext): UpstreamRequest {
     const body = JSON.stringify(
-      canonicalToConverseRequest(ctx.request, ctx.model.upstreamModel, ctx.onDrop),
+      canonicalToConverseRequest(ctx.request, ctx.model.upstreamModel, ctx.onDrop, {
+        structuredOutput: bedrockStructuredOutputMode(
+          ctx.model.upstreamModel,
+          ctx.provider.options.structuredOutput,
+        ),
+      }),
     );
     const action = ctx.request.stream ? 'converse-stream' : 'converse';
     const url = `${trimSlash(ctx.provider.baseUrl)}/model/${encodeURIComponent(ctx.model.upstreamModel)}/${action}`;

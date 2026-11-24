@@ -27,6 +27,7 @@ import {
   canonicalToAnthropicRequest,
   canonicalToGeminiRequest,
   canonicalToOpenAIRequest,
+  claudeStructuredOutputMode,
   geminiResponseToCanonical,
   openAIResponseToCanonical,
 } from '@dirouter/translator';
@@ -406,6 +407,10 @@ class AnthropicAdapter implements ProviderAdapter {
       ...(ctx.model.maxOutputTokens
         ? { defaultMaxTokens: Math.min(ctx.model.maxOutputTokens, 8_192) }
         : {}),
+      structuredOutput: claudeStructuredOutputMode(
+        ctx.model.upstreamModel,
+        ctx.provider.options.structuredOutput,
+      ),
       ...(ctx.onDrop ? { onDrop: ctx.onDrop } : {}),
     });
     const version =

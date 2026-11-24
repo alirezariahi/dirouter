@@ -485,6 +485,140 @@ try {
       assert.equal((await ask(key.key, 'what time is it')).response.status, 200);
     },
   );
+
+  // ───────────── Epic 27: translation and providers ─────────────
+
+  const providerList = (await org('GET', 'providers')).body;
+  const modelList = (await org('GET', 'models')).body;
+  /** A provider of `type` backed by the mock, and a model on it (reused when it already exists). */
+  async function mockModel(slug, type, upstreamModel, options = {}) {
+    let provider = (providerList.items ?? providerList).find((p) => p.slug === `s4-${type}`);
+    if (!provider) {
+      provider = (
+        await published(() =>
+          org(
+            'POST',
+            'providers',
+            {
+              name: `s4-${type}`,
+              slug: `s4-${type}`,
+              type,
+              baseUrl: 'http://mock-provider:8090',
+              ...(type === 'bedrock' ? { options: { region: 'us-east-1' } } : {}),
+              credentials: [
+                { name: 'k', secret: type === 'bedrock' ? 'AKIAMOCKE2E:secret' : 'sk-mock' },
+              ],
+            },
+            201,
+          ),
+        )
+      ).body;
+      (providerList.items ?? providerList).push(provider);
+    }
+    const existing = (modelList.items ?? modelList).find((m) => m.slug === slug);
+    if (existing) return existing;
+    const created = (
+      await published(() =>
+        org(
+          'POST',
+          'models',
+          {
+            providerId: provider.id,
+            upstreamModel,
+            slug,
+            pricing: { inputPerMTok: '1', outputPerMTok: '1' },
+            ...options,
+          },
+          201,
+        ),
+      )
+    ).body;
+    (modelList.items ?? modelList).push(created);
+    return created;
+  }
+
+  /** Minimal JSON Schema check for the shapes used below (type, required, items). */
+  function conforms(value, schema) {
+    if (schema.type === 'object') {
+      if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+      if ((schema.required ?? []).some((k) => !(k in value))) return false;
+      return Object.entries(schema.properties ?? {}).every(
+        ([k, s]) => !(k in value) || conforms(value[k], s),
+      );
+    }
+    if (schema.type === 'array')
+      return (
+        Array.isArray(value) &&
+        value.length >= (schema.minItems ?? 0) &&
+        value.every((v) => conforms(v, schema.items ?? {}))
+      );
+    if (schema.type === 'string') return typeof value === 'string';
+    if (schema.type === 'number') return typeof value === 'number';
+    return true;
+  }
+
+  await scenario(
+    '27.1 structured output: OpenAI json_schema reaches Claude and Bedrock and comes back valid (stream and non-stream)',
+    async () => {
+      const key = await createKey('structured');
+      const schema = {
+        type: 'object',
+        properties: {
+          city: { type: 'string' },
+          temp: { type: 'number' },
+          tags: { type: 'array', items: { type: 'string' }, minItems: 1 },
+        },
+        required: ['city', 'temp', 'tags'],
+        additionalProperties: false,
+      };
+      const targets = [
+        ['s4/claude-tool', 'anthropic', 'claude-sonnet-4-5', 'tool'],
+        ['s4/claude-native', 'anthropic', 'claude-sonnet-5-5', 'native'],
+        ['s4/bedrock-tool', 'bedrock', 'anthropic.claude-sonnet-4-5-20250929-v1:0', 'tool'],
+        ['s4/bedrock-native', 'bedrock', 'us.anthropic.claude-opus-5-5-v1:0', 'native'],
+      ];
+      for (const [slug, type, upstream] of targets) await mockModel(slug, type, upstream);
+      await waitFor('gateway to know the s4 models', async () => {
+        const res = await fetch(`${urls.gateway}/v1/models`, {
+          headers: { authorization: `Bearer ${key.key}` },
+        });
+        const ids = ((await res.json()).data ?? []).map((m) => m.id);
+        return targets.every(([slug]) => ids.includes(slug));
+      });
+      for (const [slug, type, , mode] of targets) {
+        const body = {
+          model: slug,
+          messages: [{ role: 'user', content: 'Weather in Tehran' }],
+          response_format: {
+            type: 'json_schema',
+            json_schema: { name: 'weather', schema, strict: true },
+          },
+        };
+        await mockReset();
+        const plain = await chat(key.key, body);
+        assert.equal(plain.response.status, 200, `${slug}: ${plain.text}`);
+        const choice = plain.body.choices[0];
+        assert.equal(choice.finish_reason, 'stop', slug);
+        assert.equal(choice.message.tool_calls, undefined, slug);
+        assert.ok(conforms(JSON.parse(choice.message.content), schema), choice.message.content);
+        const upstream = (await request(`${urls.mock}/__mock/stats`, {}, 200)).body.last.at(-1);
+        const nativeField =
+          type === 'bedrock' ? upstream.additionalModelRequestFields : upstream.output_config;
+        assert.equal(nativeField !== undefined, mode === 'native', `${slug}: ${mode}`);
+
+        const streamed = await request(`${urls.gateway}/v1/chat/completions`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', authorization: `Bearer ${key.key}` },
+          body: JSON.stringify({ ...body, stream: true }),
+        });
+        assert.equal(streamed.response.status, 200, streamed.text);
+        const text = streamedText(streamed.text);
+        assert.ok(conforms(JSON.parse(text), schema), `${slug} stream: ${text}`);
+        assert.ok(!streamed.text.includes('dirouter_structured_output'), streamed.text);
+        console.log(`     ${slug} (${mode}): ${text}`);
+      }
+    },
+  );
 } catch (error) {
   crashed = true;
   console.error(error);

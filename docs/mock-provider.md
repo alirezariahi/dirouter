@@ -11,16 +11,17 @@ A fake provider compatible with OpenAI, Azure OpenAI and Anthropic (stream and n
 
 ## Routes
 
-| Route                                                                  | Description                                             |
-| ---------------------------------------------------------------------- | ------------------------------------------------------- |
-| `POST /v1/chat/completions`                                            | OpenAI and OpenAI-compatible                            |
-| `POST /openai/deployments/{deployment}/chat/completions?api-version=…` | Azure OpenAI                                            |
-| `POST /v1/messages`                                                    | Anthropic                                               |
-| `GET /v1/models`                                                       | Model list                                              |
-| `GET /__mock/stats`                                                    | Request count by key and status, and the last 20 bodies |
-| `POST /__mock/reset`                                                   | Reset the statistics                                    |
-| `PUT /__mock/config`                                                   | `{"directives":"…"}` global default scenario            |
-| `GET /healthz`                                                         | Health                                                  |
+| Route                                                                  | Description                                                                            |
+| ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `POST /v1/chat/completions`                                            | OpenAI and OpenAI-compatible                                                           |
+| `POST /openai/deployments/{deployment}/chat/completions?api-version=…` | Azure OpenAI                                                                           |
+| `POST /v1/messages`                                                    | Anthropic                                                                              |
+| `POST /model/{modelId}/converse` and `/converse-stream`                | AWS Bedrock Converse (binary eventstream for the stream; the signature is not checked) |
+| `GET /v1/models`                                                       | Model list                                                                             |
+| `GET /__mock/stats`                                                    | Request count by key and status, and the last 20 bodies                                |
+| `POST /__mock/reset`                                                   | Reset the statistics                                                                   |
+| `PUT /__mock/config`                                                   | `{"directives":"…"}` global default scenario                                           |
+| `GET /healthz`                                                         | Health                                                                                 |
 
 ## Scenario selection
 
@@ -49,6 +50,8 @@ Directives are separated by `,` or `;`. Sources in priority order:
 | `tool[=name]`                             | Response with a tool call (default `get_weather`)                                                    |
 | `text=<str>`                              | Response text                                                                                        |
 | `no_usage`                                | No `usage` (for testing token estimation, card 6.2)                                                  |
+
+Structured output (card 27.1): when an Anthropic request carries `output_config.format` (or a Bedrock request `additionalModelRequestFields.output_config.format`), the answer text is JSON built from the schema; when it carries the gateway's `dirouter_structured_output` tool, the answer is a call to that tool with input built from the schema. Strings become `"mock"`, numbers `1` (or `minimum`), booleans `true`, arrays get `minItems` items.
 
 Examples:
 

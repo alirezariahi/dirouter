@@ -30,6 +30,14 @@ import {
   parseToolArguments,
   type TranslateOptions,
 } from './common.js';
+import {
+  claudeStructuredOutputMode,
+  JSON_ONLY_INSTRUCTION,
+  STRUCTURED_OUTPUT_TOOL,
+  type StructuredOutputMode,
+  structuredOutputTool,
+  unwrapStructuredOutput,
+} from './structured.js';
 
 const CONSUMED_REQUEST_FIELDS = new Set([
   'model',
@@ -163,6 +171,7 @@ export function anthropicRequestToCanonical(
   for (const [key, value] of Object.entries(req)) {
     if (!CONSUMED_REQUEST_FIELDS.has(key) && value !== undefined) passthrough[key] = value;
   }
+  const responseFormat = anthropicFormatIn(passthrough);
 
   const tools: CanonicalRequest['tools'] = [];
   const serverTools: unknown[] = [];
@@ -204,6 +213,7 @@ export function anthropicRequestToCanonical(
     ...(tools.length ? { tools } : {}),
     ...(toolChoice !== undefined ? { toolChoice } : {}),
     ...(parallelToolCalls !== undefined ? { parallelToolCalls } : {}),
+    ...(responseFormat ? { responseFormat } : {}),
     maxOutputTokens: req.max_tokens,
     ...(req.temperature !== undefined ? { temperature: req.temperature } : {}),
     ...(req.top_p !== undefined ? { topP: req.top_p } : {}),
@@ -219,12 +229,41 @@ export function anthropicRequestToCanonical(
   };
 }
 
+/**
+ * Structured output requested by an Anthropic client (`output_config.format`, or the older
+ * `output_format`) becomes the canonical `responseFormat`, so it also reaches OpenAI and Gemini.
+ * The field is taken out of the passthrough; the translator to Anthropic writes it back.
+ */
+function anthropicFormatIn(
+  passthrough: Record<string, unknown>,
+): CanonicalRequest['responseFormat'] | undefined {
+  const asObject = (v: unknown): Record<string, unknown> | undefined =>
+    v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : undefined;
+  const config = asObject(passthrough.output_config);
+  const format = asObject(config?.format) ?? asObject(passthrough.output_format);
+  const schema = asObject(format?.schema);
+  if (format?.type !== 'json_schema' || !schema) return undefined;
+  if (config?.format !== undefined) {
+    const { format: _format, ...rest } = config;
+    if (Object.keys(rest).length > 0) passthrough.output_config = rest;
+    else delete passthrough.output_config;
+  } else {
+    delete passthrough.output_format;
+  }
+  return { type: 'json_schema', name: 'output', schema };
+}
+
 // ───────────── canonical → Anthropic request (provider) ─────────────
 
 export interface ToAnthropicRequestOptions extends TranslateOptions {
   upstreamModel: string;
   /** max_tokens is required in Anthropic; this value is used if the client does not send one. */
   defaultMaxTokens?: number;
+  /**
+   * How `response_format` is sent (card 27.1): `native` uses `output_config.format`, `tool` a forced
+   * tool. Defaults to what the upstream model is known to support.
+   */
+  structuredOutput?: StructuredOutputMode;
 }
 
 const BUDGET_FROM_EFFORT = { minimal: 1_024, low: 2_048, medium: 8_192, high: 16_384 } as const;
@@ -339,9 +378,14 @@ export function canonicalToAnthropicRequest(
     input_schema: t.parameters,
   }));
   if (Array.isArray(serverTools)) tools.push(...(serverTools as unknown[]));
+
+  const structured = structuredOutputFor(req, options, onDrop);
+  if (structured.tool) tools.push(structured.tool);
   if (tools.length > 0) body.tools = tools;
 
-  if (req.toolChoice !== undefined || req.parallelToolCalls === false) {
+  if (structured.toolChoice) {
+    body.tool_choice = structured.toolChoice;
+  } else if (req.toolChoice !== undefined || req.parallelToolCalls === false) {
     const choice = req.toolChoice ?? 'auto';
     const base: Block =
       choice === 'auto'
@@ -375,11 +419,81 @@ export function canonicalToAnthropicRequest(
   if (req.topK !== undefined) body.top_k = req.topK;
   if (req.stop?.length) body.stop_sequences = req.stop;
   if (req.seed !== undefined) onDrop('seed', 'Anthropic has no seed');
-  if (req.responseFormat && req.responseFormat.type !== 'text')
-    onDrop('response_format', 'Anthropic has no native JSON mode');
+  if (structured.format) {
+    const current = body.output_config;
+    body.output_config = {
+      ...(current && typeof current === 'object' ? current : {}),
+      format: structured.format,
+    };
+  }
+  if (structured.instruction) {
+    const text = structured.instruction;
+    if (typeof body.system === 'string') body.system = `${body.system}\n\n${text}`;
+    else if (Array.isArray(body.system))
+      body.system = [...(body.system as unknown[]), { type: 'text', text }];
+    else body.system = text;
+  }
   if (req.user !== undefined) body.metadata = { user_id: req.user };
   if (req.stream) body.stream = true;
   return body;
+}
+
+interface StructuredOutputPlan {
+  /** `output_config.format` (native structured outputs). */
+  format?: Block;
+  /** Fallback tool definition and the `tool_choice` that forces it. */
+  tool?: Block;
+  toolChoice?: Block;
+  /** Extra system text when neither guarantees JSON. */
+  instruction?: string;
+}
+
+/**
+ * Card 27.1: `response_format` for Claude. Native models get `output_config.format`; the rest get a
+ * forced tool whose call the response translators turn back into text. `json_object` has no schema
+ * to enforce natively, so on native-only models it becomes an instruction (reported as a drop).
+ */
+function structuredOutputFor(
+  req: CanonicalRequest,
+  options: ToAnthropicRequestOptions,
+  onDrop: DropReporter,
+): StructuredOutputPlan {
+  const format = req.responseFormat;
+  if (!format || format.type === 'text') return {};
+  const mode = options.structuredOutput ?? claudeStructuredOutputMode(options.upstreamModel);
+  if (mode === 'native') {
+    if (format.type === 'json_schema')
+      return { format: { type: 'json_schema', schema: format.schema } };
+    onDrop('response_format', 'json_object has no schema; sent as an instruction');
+    return { instruction: JSON_ONLY_INSTRUCTION };
+  }
+  const fallback = structuredOutputTool(format);
+  if (!fallback) return {};
+  const tool: Block = {
+    name: fallback.name,
+    description: fallback.description,
+    input_schema: fallback.parameters,
+  };
+  const thinking = req.reasoning?.budgetTokens !== undefined || req.reasoning?.effort !== undefined;
+  const clientTools = (req.tools?.length ?? 0) > 0;
+  // Anthropic rejects a forced tool_choice together with extended thinking: ask instead.
+  if (thinking)
+    return {
+      tool,
+      toolChoice: { type: 'auto' },
+      instruction: `Give your final answer by calling the ${STRUCTURED_OUTPUT_TOOL} tool.`,
+    };
+  if (clientTools) {
+    if (typeof req.toolChoice === 'object')
+      return { tool, toolChoice: { type: 'tool', name: req.toolChoice.name } };
+    if (req.toolChoice === 'none')
+      return { tool, toolChoice: { type: 'tool', name: STRUCTURED_OUTPUT_TOOL } };
+    return { tool, toolChoice: { type: 'any' } };
+  }
+  return {
+    tool,
+    toolChoice: { type: 'tool', name: STRUCTURED_OUTPUT_TOOL, disable_parallel_tool_use: true },
+  };
 }
 
 // ───────────── Anthropic response → canonical ─────────────
@@ -443,7 +557,7 @@ export function anthropicBlockToCanonical(
 }
 
 export function anthropicResponseToCanonical(res: AnthropicMessagesResponse): CanonicalResponse {
-  return {
+  return unwrapStructuredOutput({
     id: res.id,
     model: res.model,
     content: res.content
@@ -453,7 +567,7 @@ export function anthropicResponseToCanonical(res: AnthropicMessagesResponse): Ca
     ...(res.stop_reason ? { rawFinishReason: res.stop_reason } : {}),
     usage: anthropicUsageToCanonical(res.usage),
     created: Math.floor(Date.now() / 1000),
-  };
+  });
 }
 
 // ───────────── canonical → Anthropic response (client) ─────────────
