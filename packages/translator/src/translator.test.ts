@@ -762,13 +762,14 @@ describe('dropped and edge cases', () => {
         messages: [
           {
             role: 'user',
-            content: [{ type: 'input_audio', input_audio: { data: 'x', format: 'wav' } }],
+            content: [{ type: 'file', file: { filename: 'empty.pdf' } }],
           },
         ],
       }),
       { onDrop },
     );
-    expect(drops).toEqual(['messages[].content[].input_audio', 'n']);
+    // input_audio and file are translated since card 27.2; a file part with no data is not.
+    expect(drops).toEqual(['messages[].content[].file', 'n']);
   });
 
   it('reports Anthropic-only features sent to OpenAI', () => {
@@ -815,7 +816,7 @@ describe('dropped and edge cases', () => {
     expect(drops).toEqual(['assistant.reasoning', 'seed']);
   });
 
-  it('drops document and file-image blocks from Anthropic input', () => {
+  it('keeps document blocks (card 27.2) and drops file-image blocks from Anthropic input', () => {
     const { drops, onDrop } = collectDrops();
     anthropicRequestToCanonical(
       anReq({
@@ -832,7 +833,7 @@ describe('dropped and edge cases', () => {
       }),
       { onDrop },
     );
-    expect(drops).toEqual(['messages[].content[].document', 'image.source.file']);
+    expect(drops).toEqual(['image.source.file']);
   });
 
   it('keeps redacted thinking as redacted_thinking', () => {

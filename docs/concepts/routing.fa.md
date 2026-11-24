@@ -178,6 +178,7 @@ curl -X POST $A/aliases -H "authorization: Bearer $TOKEN" -H 'content-type: appl
 - `packages/model-catalog/src/catalog.json` فایل نسخه‌دار (`version: YYYY.MM.DD`) قیمت و قابلیت مدل‌های اصلی است. `GET /orgs/:orgId/catalog` آن را نشان می‌دهد.
 - مدلی که با `catalogKey` ساخته شده، با `POST /orgs/:orgId/models/sync-catalog` به قیمت و context نسخهٔ تازهٔ کاتالوگ به‌روز می‌شود. پس به‌روزرسانی قیمت فقط تغییر JSON و deploy است و migration لازم ندارد.
 - قیمت دستی (`PATCH` با `pricing`) مدل را از کاتالوگ جدا می‌کند (`catalogKey: null`) تا sync آن را بازنویسی نکند.
+- قابلیت‌های `documents` و `audioInput` (کارت ۲۷.۲) می‌گویند مدل در چت ورودی PDF/فایل و صوت می‌پذیرد یا نه. `false` چنین درخواست‌هایی را از مدل دور نگه می‌دارد؛ مقدار خالی تصمیم را به توان ترجمهٔ نوع provider می‌سپارد. [ترجمه](../gateway/translation.fa.md#documents-and-audio) را ببینید.
 - control-api فقط `@dirouter/model-catalog/catalog` را import می‌کند. js-tiktoken برای این پکیج peer اختیاری است و در ایمیج control-api نصب نمی‌شود.
 
 ## مسیریابی پیشرفته (اسپرینت ۲)

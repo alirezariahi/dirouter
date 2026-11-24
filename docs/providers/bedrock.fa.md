@@ -53,6 +53,7 @@
 
 - امبدینگ و list models بومی Bedrock در این نسخه پیاده نشده‌اند.
 - تصویر در tool_result پشتیبانی نمی‌شود و با گزارش drop حذف می‌شود.
+- سند (کارت ۲۷.۲) به‌صورت درون‌خطی در بلوک `document` فرستاده می‌شود (pdf، csv، doc، docx، xls، xlsx، html، txt، md)؛ سند با URL یا شناسهٔ فایل provider و هر ورودی صوتی با 400 رد می‌شود.
 - برای نقش‌های IAM موقت، session token را در secret بگذارید (بخش امضا را ببینید)؛ گیت‌وی آن را تمدید نمی‌کند.
 
 تست‌ها: `packages/providers/src/bedrock.test.ts` برای امضا و eventstream، و `native.test.ts` برای ثبت آداپتر.

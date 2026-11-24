@@ -11,6 +11,7 @@ import type {
   AnthropicOutputContentBlock,
   AnthropicStopReason,
   AnthropicUsage,
+  CanonicalDocumentPart,
   CanonicalFinishReason,
   CanonicalImagePart,
   CanonicalMessage,
@@ -23,12 +24,14 @@ import type {
 } from '@dirouter/contracts';
 
 import {
+  describeMedia,
   type DropReporter,
   emptyUsage,
   type FinishReasonMap,
   ignoreDrops,
   parseToolArguments,
   type TranslateOptions,
+  UnsupportedContentError,
 } from './common.js';
 import {
   claudeStructuredOutputMode,
@@ -71,6 +74,64 @@ function imageIn(
   if (source.type === 'url') return { type: 'image', source: { kind: 'url', url: source.url } };
   onDrop('image.source.file', 'Files API references are not portable');
   return undefined;
+}
+
+/**
+ * Anthropic `document` block → canonical (card 27.2). Sources: `base64` (PDF), `url`, `text`,
+ * `content` (blocks, kept as their text) and `file` (Files API id).
+ */
+function documentIn(
+  block: Extract<AnthropicInputContentBlock, { type: 'document' }>,
+  onDrop: DropReporter,
+): CanonicalDocumentPart | undefined {
+  const source = block.source as Record<string, unknown>;
+  const str = (v: unknown) => (typeof v === 'string' ? v : undefined);
+  let canonical: CanonicalDocumentPart['source'] | undefined;
+  switch (source.type) {
+    case 'base64':
+      canonical = {
+        kind: 'base64',
+        mediaType: str(source.media_type) ?? 'application/pdf',
+        data: str(source.data) ?? '',
+      };
+      break;
+    case 'url':
+      canonical = { kind: 'url', url: str(source.url) ?? '' };
+      break;
+    case 'text':
+      canonical = {
+        kind: 'text',
+        text: str(source.data) ?? '',
+        mediaType: str(source.media_type) ?? 'text/plain',
+      };
+      break;
+    case 'content': {
+      const blocks = Array.isArray(source.content) ? (source.content as unknown[]) : [];
+      const texts = blocks.flatMap((b) => {
+        const item = b as { type?: unknown; text?: unknown };
+        if (item.type === 'text' && typeof item.text === 'string') return [item.text];
+        onDrop('document.source.content[]', 'only text blocks of a content document are kept');
+        return [];
+      });
+      if (typeof source.content === 'string') texts.push(source.content);
+      canonical = { kind: 'text', text: texts.join('\n\n') };
+      break;
+    }
+    case 'file':
+      canonical = { kind: 'file', fileId: str(source.file_id) ?? '', origin: 'anthropic' };
+      break;
+    default:
+      onDrop('document.source', `unknown document source '${String(source.type)}'`);
+      return undefined;
+  }
+  const citations = (block as { citations?: { enabled?: unknown } | null }).citations;
+  return {
+    type: 'document',
+    source: canonical,
+    ...(block.title ? { title: block.title } : {}),
+    ...(block.context ? { context: block.context } : {}),
+    ...(citations?.enabled === true ? { citations: true } : {}),
+  };
 }
 
 function toolResultContent(
@@ -157,9 +218,11 @@ export function anthropicRequestToCanonical(
         case 'redacted_thinking':
           content.push({ type: 'reasoning', text: '', redacted: block.data });
           break;
-        case 'document':
-          onDrop('messages[].content[].document', 'document blocks are not portable');
+        case 'document': {
+          const document = documentIn(block, onDrop);
+          if (document) content.push(document);
           break;
+        }
       }
     }
     // In canonical, tool_results are separate "tool" messages and come before the rest of the user content.
@@ -280,6 +343,51 @@ function imageBlock(part: CanonicalImagePart): Block {
   };
 }
 
+/**
+ * Canonical document → Anthropic `document` block (card 27.2). PDFs travel as `base64` or `url`,
+ * text as a `text` source (base64 `text/plain` is decoded); Anthropic has no audio input.
+ */
+function documentBlock(part: CanonicalDocumentPart): Block {
+  const refuse = (why: string) =>
+    new UnsupportedContentError(
+      'messages[].content[].document',
+      `Anthropic cannot take ${describeMedia(part)}: ${why}`,
+    );
+  const { source } = part;
+  let wire: Block;
+  switch (source.kind) {
+    case 'base64':
+      if (source.mediaType === 'application/pdf')
+        wire = { type: 'base64', media_type: source.mediaType, data: source.data };
+      else if (source.mediaType.startsWith('text/'))
+        wire = {
+          type: 'text',
+          media_type: 'text/plain',
+          data: Buffer.from(source.data, 'base64').toString('utf8'),
+        };
+      else throw refuse('only PDF and plain-text documents are accepted');
+      break;
+    case 'url':
+      wire = { type: 'url', url: source.url };
+      break;
+    case 'text':
+      wire = { type: 'text', media_type: 'text/plain', data: source.text };
+      break;
+    case 'file':
+      if (source.origin !== 'anthropic')
+        throw refuse(`a ${source.origin} file id is not valid here`);
+      wire = { type: 'file', file_id: source.fileId };
+      break;
+  }
+  return {
+    type: 'document',
+    source: wire,
+    ...(part.title !== undefined ? { title: part.title } : {}),
+    ...(part.context !== undefined ? { context: part.context } : {}),
+    ...(part.citations ? { citations: { enabled: true } } : {}),
+  };
+}
+
 function blocksFor(message: CanonicalMessage, onDrop: DropReporter): Block[] {
   const reasoning: Block[] = [];
   const rest: Block[] = [];
@@ -295,6 +403,14 @@ function blocksFor(message: CanonicalMessage, onDrop: DropReporter): Block[] {
       case 'image':
         rest.push(imageBlock(part));
         break;
+      case 'document':
+        rest.push(documentBlock(part));
+        break;
+      case 'audio':
+        throw new UnsupportedContentError(
+          'messages[].content[].audio',
+          `Anthropic cannot take ${describeMedia(part)}: Claude has no audio input`,
+        );
       case 'tool_call':
         rest.push({
           type: 'tool_use',

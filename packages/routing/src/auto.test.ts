@@ -10,7 +10,11 @@ import { RouterStats } from './stats.js';
 
 const request = (
   text: string,
-  extra: Partial<Pick<CanonicalRequest, 'tools' | 'maxOutputTokens'>> & { image?: boolean } = {},
+  extra: Partial<Pick<CanonicalRequest, 'tools' | 'maxOutputTokens'>> & {
+    image?: boolean;
+    pdf?: boolean;
+    audio?: boolean;
+  } = {},
 ) => ({
   system: [],
   messages: [
@@ -19,6 +23,22 @@ const request = (
       content: [
         { type: 'text' as const, text },
         ...(extra.image ? [{ type: 'image' as const, url: 'https://x.test/a.png' }] : []),
+        ...(extra.pdf
+          ? [
+              {
+                type: 'document' as const,
+                source: { kind: 'base64', mediaType: 'application/pdf', data: 'JVBERi0=' },
+              },
+            ]
+          : []),
+        ...(extra.audio
+          ? [
+              {
+                type: 'audio' as const,
+                source: { kind: 'base64', mediaType: 'audio/wav', data: 'UklGRg==' },
+              },
+            ]
+          : []),
       ],
     },
   ],
@@ -111,11 +131,12 @@ describe('auto aliases', () => {
     thinker: model('thinker', 10, {}, 200_000),
     mini: model('mini', 0.1, {}, 16_000),
     seer: model('seer', 2, { vision: true }),
+    reader: model('reader', 4, { vision: true, documents: true, audioInput: true }),
   };
   const config: AutoRoutingConfig = {
     enabled: true,
     targets: { coding: 'coder', reasoning: 'thinker', chat: 'mini', summarization: 'mini' },
-    pool: ['mini', 'seer', 'thinker'],
+    pool: ['mini', 'seer', 'thinker', 'reader'],
     classifierThreshold: 0.5,
   };
   const stats = new RouterStats();
@@ -147,6 +168,19 @@ describe('auto aliases', () => {
     );
     expect(decision).toMatchObject({ target: 'seer' });
     expect('reasons' in decision && decision.reasons.at(-1)).toMatch(/mini lacks images/);
+  });
+
+  it('documents and audio need a model marked for them (card 27.2)', () => {
+    const pdf = classify('summarize this file', { pdf: true });
+    expect(pdf.needs.documents).toBe(true);
+    expect(pdf.reasons).toContain('document input');
+    expect(decideAuto('auto', config, pdf, ctx)).toMatchObject({ target: 'reader' });
+    const audio = classify('transcribe and answer', { audio: true });
+    expect(audio.needs.audio).toBe(true);
+    expect(decideAuto('auto/cheap', config, audio, ctx)).toMatchObject({ target: 'reader' });
+    expect(decideAuto('auto/cheap', { ...config, pool: ['mini', 'seer'] }, audio, ctx)).toEqual({
+      error: 'no model in the auto routing pool can serve this request',
+    });
   });
 
   it('auto/cheap and auto/fast choose from the pool', () => {

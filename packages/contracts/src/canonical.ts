@@ -27,6 +27,40 @@ export const CanonicalImagePart = z.object({
   detail: z.enum(['auto', 'low', 'high']).optional(),
 });
 
+/**
+ * A document (card 27.2): PDF or another file, inline (`base64`), by URL, as plain text, or as a
+ * provider file id (`file`), which only the provider that issued it can read.
+ */
+export const CanonicalDocumentPart = z.object({
+  type: z.literal('document'),
+  source: z.discriminatedUnion('kind', [
+    z.object({ kind: z.literal('base64'), mediaType: z.string(), data: z.string() }),
+    z.object({ kind: z.literal('url'), url: z.string(), mediaType: z.string().optional() }),
+    z.object({ kind: z.literal('text'), text: z.string(), mediaType: z.string().optional() }),
+    z.object({
+      kind: z.literal('file'),
+      fileId: z.string(),
+      /** The API family that issued the id. */
+      origin: z.enum(['openai', 'anthropic']),
+    }),
+  ]),
+  filename: z.string().optional(),
+  title: z.string().optional(),
+  /** Anthropic `context`: text about the document that is not part of it. */
+  context: z.string().optional(),
+  /** Anthropic citations requested for this document. */
+  citations: z.boolean().optional(),
+});
+
+/** Audio input (card 27.2), inline (`base64`, e.g. `audio/wav`) or by URL. */
+export const CanonicalAudioPart = z.object({
+  type: z.literal('audio'),
+  source: z.discriminatedUnion('kind', [
+    z.object({ kind: z.literal('base64'), mediaType: z.string(), data: z.string() }),
+    z.object({ kind: z.literal('url'), url: z.string(), mediaType: z.string().optional() }),
+  ]),
+});
+
 export const CanonicalToolCallPart = z.object({
   type: z.literal('tool_call'),
   id: z.string(),
@@ -53,6 +87,8 @@ export const CanonicalReasoningPart = z.object({
 
 export type CanonicalTextPart = z.infer<typeof CanonicalTextPart>;
 export type CanonicalImagePart = z.infer<typeof CanonicalImagePart>;
+export type CanonicalDocumentPart = z.infer<typeof CanonicalDocumentPart>;
+export type CanonicalAudioPart = z.infer<typeof CanonicalAudioPart>;
 export type CanonicalToolCallPart = z.infer<typeof CanonicalToolCallPart>;
 export type CanonicalToolResultPart = z.infer<typeof CanonicalToolResultPart>;
 export type CanonicalReasoningPart = z.infer<typeof CanonicalReasoningPart>;
@@ -60,6 +96,8 @@ export type CanonicalReasoningPart = z.infer<typeof CanonicalReasoningPart>;
 export const CanonicalPart = z.discriminatedUnion('type', [
   CanonicalTextPart,
   CanonicalImagePart,
+  CanonicalDocumentPart,
+  CanonicalAudioPart,
   CanonicalToolCallPart,
   CanonicalToolResultPart,
   CanonicalReasoningPart,

@@ -23,11 +23,13 @@ import {
   GeminiStreamDecoder,
   OpenAIStreamDecoder,
   type SseEvent,
+  UnsupportedContentError,
   anthropicResponseToCanonical,
   canonicalToAnthropicRequest,
   canonicalToGeminiRequest,
   canonicalToOpenAIRequest,
   claudeStructuredOutputMode,
+  describeMedia,
   geminiResponseToCanonical,
   openAIResponseToCanonical,
 } from '@dirouter/translator';
@@ -809,6 +811,12 @@ function cohereMessages(request: CanonicalRequest): Record<string, unknown>[] {
   const system = request.system.map((s) => s.text).join('\n');
   if (system) messages.push({ role: 'system', content: system });
   for (const message of request.messages) {
+    const media = message.content.find((p) => p.type === 'document' || p.type === 'audio');
+    if (media?.type === 'document' || media?.type === 'audio')
+      throw new UnsupportedContentError(
+        `messages[].content[].${media.type}`,
+        `Cohere cannot take ${describeMedia(media)}: only text and images are accepted`,
+      );
     if (message.role === 'tool') {
       for (const part of message.content)
         if (part.type === 'tool_result')
@@ -1205,6 +1213,41 @@ const ADAPTERS: Partial<Record<ProviderType, ProviderAdapter>> = {
   deepgram: new MediaOnlyAdapter('deepgram'),
   fal: new MediaOnlyAdapter('fal'),
 };
+
+/**
+ * Chat input beyond text and images that each provider type's translation can carry (card 27.2):
+ * documents (PDF and other files) and audio. Types not listed carry neither; plugin providers
+ * translate for themselves and are let through.
+ */
+export const MEDIA_INPUT: Readonly<
+  Partial<Record<ProviderType, { documents: boolean; audio: boolean }>>
+> = {
+  openai: { documents: true, audio: true },
+  'azure-openai': { documents: true, audio: true },
+  'openai-compatible': { documents: true, audio: true },
+  mock: { documents: true, audio: true },
+  anthropic: { documents: true, audio: false },
+  gemini: { documents: true, audio: true },
+  vertex: { documents: true, audio: true },
+  bedrock: { documents: true, audio: false },
+  plugin: { documents: true, audio: true },
+};
+
+/**
+ * Whether a target can take the documents and audio a request carries: its provider type must
+ * translate them, and the model must not be marked without them (`capabilities.documents` or
+ * `capabilities.audioInput` set to false).
+ */
+export function acceptsMedia(
+  providerType: ProviderType,
+  capabilities: Pick<ModelConfig['capabilities'], 'documents' | 'audioInput'>,
+  needs: { documents: boolean; audio: boolean },
+): boolean {
+  const support = MEDIA_INPUT[providerType] ?? { documents: false, audio: false };
+  if (needs.documents && (!support.documents || capabilities.documents === false)) return false;
+  if (needs.audio && (!support.audio || capabilities.audioInput === false)) return false;
+  return true;
+}
 
 export function adapterFor(type: ProviderType): ProviderAdapter {
   const adapter = ADAPTERS[type];

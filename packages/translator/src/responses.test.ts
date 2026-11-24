@@ -177,7 +177,7 @@ describe('Responses request → canonical', () => {
           {
             type: 'message',
             role: 'user',
-            content: [{ type: 'input_file', file_id: 'f1' }],
+            content: [{ type: 'input_video', video_url: 'v' }],
           },
         ],
       },

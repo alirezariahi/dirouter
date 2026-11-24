@@ -2307,6 +2307,8 @@ export type ModelsControllerCreateBodyCapabilities = {
   images?: boolean;
   speech?: boolean;
   transcription?: boolean;
+  documents?: boolean;
+  audioInput?: boolean;
 };
 
 export type ModelsControllerCreateBodySale = {
@@ -2505,6 +2507,8 @@ export type ModelsControllerUpdateBodyCapabilities = {
   images?: boolean;
   speech?: boolean;
   transcription?: boolean;
+  documents?: boolean;
+  audioInput?: boolean;
 };
 
 export type ModelsControllerUpdateBodySale = {

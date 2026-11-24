@@ -8,13 +8,14 @@ import type {
   ProviderConfig,
   ProviderType,
 } from '@dirouter/contracts';
-import { SseParser } from '@dirouter/translator';
+import { SseParser, UnsupportedContentError } from '@dirouter/translator';
 import { describe, expect, it } from 'vitest';
 
 import {
   EMBEDDING_BATCH_CONTRACT_MAX,
   MAX_EMBEDDING_BATCH,
   PRESETS,
+  acceptsMedia,
   adapterFor,
   hasAdapter,
   maxEmbeddingBatch,
@@ -418,5 +419,58 @@ describe('Voyage and Jina embedding adapters', () => {
         request: request(),
       }),
     ).toThrow(/only supports embeddings/);
+  });
+});
+
+describe('documents and audio support (card 27.2)', () => {
+  const none = { documents: false, audio: false };
+  const pdf = { documents: true, audio: false };
+  const audio = { documents: false, audio: true };
+
+  it.each([
+    ['openai', true, true],
+    ['openai-compatible', true, true],
+    ['anthropic', true, false],
+    ['gemini', true, true],
+    ['vertex', true, true],
+    ['bedrock', true, false],
+    ['cohere', false, false],
+    ['mistral', false, false],
+  ] as const)('%s: documents %s, audio %s', (type, documents, audioInput) => {
+    expect(acceptsMedia(type, {}, none)).toBe(true);
+    expect(acceptsMedia(type, {}, pdf)).toBe(documents);
+    expect(acceptsMedia(type, {}, audio)).toBe(audioInput);
+  });
+
+  it('a model marked without the capability is excluded, unset means the provider decides', () => {
+    expect(acceptsMedia('openai', { documents: false }, pdf)).toBe(false);
+    expect(acceptsMedia('openai', { audioInput: false }, audio)).toBe(false);
+    expect(acceptsMedia('openai', { documents: true }, pdf)).toBe(true);
+    // A capability flag cannot add what the translation cannot carry.
+    expect(acceptsMedia('anthropic', { audioInput: true }, audio)).toBe(false);
+  });
+
+  it('Cohere refuses a document with a clear error', () => {
+    const build = () =>
+      adapterFor('cohere').buildRequest({
+        provider: provider('cohere', { baseUrl: 'https://api.cohere.com' }),
+        model: model(),
+        apiKey: 'k',
+        request: request({
+          messages: [
+            {
+              role: 'user',
+              content: [
+                {
+                  type: 'document',
+                  source: { kind: 'base64', mediaType: 'application/pdf', data: 'JVBERi0=' },
+                },
+              ],
+            },
+          ],
+        }),
+      });
+    expect(build).toThrow(UnsupportedContentError);
+    expect(build).toThrow(/Cohere cannot take document application\/pdf/);
   });
 });

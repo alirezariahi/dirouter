@@ -22,6 +22,10 @@ import type {
 } from '@dirouter/contracts';
 
 import {
+  audioFormatToMediaType,
+  audioMediaTypeToFormat,
+  describeMedia,
+  documentFromFileData,
   type DropReporter,
   emptyUsage,
   type FinishReasonMap,
@@ -30,6 +34,7 @@ import {
   imageToUrl,
   textOf,
   type TranslateOptions,
+  UnsupportedContentError,
 } from './common.js';
 
 /** OpenAI request fields that are translated directly; the rest are passed through. */
@@ -85,9 +90,41 @@ function userParts(
             ...(part.image_url.detail ? { detail: part.image_url.detail } : {}),
           },
         ];
+      case 'input_audio':
+        return [
+          {
+            type: 'audio',
+            source: {
+              kind: 'base64',
+              mediaType: audioFormatToMediaType(part.input_audio.format),
+              data: part.input_audio.data,
+            },
+          },
+        ];
+      case 'file': {
+        const { file_id: fileId, file_data: fileData, filename } = part.file;
+        if (fileData)
+          return [
+            {
+              type: 'document',
+              source: documentFromFileData(fileData, filename),
+              ...(filename ? { filename } : {}),
+            },
+          ];
+        if (fileId)
+          return [
+            {
+              type: 'document',
+              source: { kind: 'file', fileId, origin: 'openai' },
+              ...(filename ? { filename } : {}),
+            },
+          ];
+        onDrop('messages[].content[].file', 'file part without file_data or file_id');
+        return [];
+      }
       default:
         onDrop(
-          `messages[].content[].${part.type}`,
+          `messages[].content[].${(part as { type: string }).type}`,
           'content type not supported by canonical model',
         );
         return [];
@@ -234,13 +271,57 @@ export interface ToOpenAIRequestOptions extends TranslateOptions {
 const EFFORT_FROM_BUDGET = (budget: number): 'low' | 'medium' | 'high' =>
   budget < 4_096 ? 'low' : budget < 16_384 ? 'medium' : 'high';
 
+type OpenAIUserPart =
+  | { type: 'text'; text: string }
+  | { type: 'image_url'; image_url: { url: string; detail?: 'auto' | 'low' | 'high' } }
+  | { type: 'file'; file: { file_data?: string; file_id?: string; filename?: string } }
+  | { type: 'input_audio'; input_audio: { data: string; format: 'wav' | 'mp3' } };
+
+/**
+ * Card 27.2: documents and audio for OpenAI Chat. PDFs travel as a `file` part (data URL or an
+ * OpenAI file id), plain-text documents as text, audio as `input_audio` (wav or mp3). Anything
+ * else cannot be carried and is refused instead of dropped.
+ */
+function openAIMediaPart(
+  part: Extract<CanonicalPart, { type: 'document' | 'audio' }>,
+): OpenAIUserPart {
+  const refuse = (why: string) =>
+    new UnsupportedContentError(
+      `messages[].content[].${part.type}`,
+      `OpenAI Chat cannot take ${describeMedia(part)}: ${why}`,
+    );
+  if (part.type === 'audio') {
+    if (part.source.kind !== 'base64') throw refuse('audio must be sent inline (base64)');
+    const format = audioMediaTypeToFormat(part.source.mediaType);
+    if (!format) throw refuse('only wav and mp3 audio are accepted');
+    return { type: 'input_audio', input_audio: { data: part.source.data, format } };
+  }
+  const { source } = part;
+  switch (source.kind) {
+    case 'text':
+      return { type: 'text', text: part.title ? `${part.title}\n\n${source.text}` : source.text };
+    case 'base64':
+      if (source.mediaType !== 'application/pdf') throw refuse('only PDF files are accepted');
+      return {
+        type: 'file',
+        file: {
+          filename: part.filename ?? (part.title ? `${part.title}.pdf` : 'document.pdf'),
+          file_data: `data:${source.mediaType};base64,${source.data}`,
+        },
+      };
+    case 'file':
+      if (source.origin !== 'openai') throw refuse(`a ${source.origin} file id is not valid here`);
+      return { type: 'file', file: { file_id: source.fileId } };
+    case 'url':
+      throw refuse('files by URL are not accepted; send the file inline');
+  }
+}
+
 function openAIUserContent(parts: readonly CanonicalPart[], onDrop: DropReporter) {
-  const out: (
-    | { type: 'text'; text: string }
-    | { type: 'image_url'; image_url: { url: string; detail?: 'auto' | 'low' | 'high' } }
-  )[] = [];
+  const out: OpenAIUserPart[] = [];
   for (const part of parts) {
     if (part.type === 'text') out.push({ type: 'text', text: part.text });
+    else if (part.type === 'document' || part.type === 'audio') out.push(openAIMediaPart(part));
     else if (part.type === 'image')
       out.push({
         type: 'image_url',

@@ -51,6 +51,8 @@ function capable(models: ModelConfig[], c: Classification, ctx: AutoContext): bo
       m.enabled &&
       (!c.needs.vision || m.capabilities.vision) &&
       (!c.needs.tools || m.capabilities.tools) &&
+      (!c.needs.documents || m.capabilities.documents === true) &&
+      (!c.needs.audio || m.capabilities.audioInput === true) &&
       (m.contextWindow === undefined || m.contextWindow >= needed),
   );
 }
@@ -88,7 +90,13 @@ function usablePool(config: AutoRoutingConfig, c: Classification, ctx: AutoConte
 }
 
 const needsText = (c: Classification) =>
-  [c.needs.vision && 'images', c.needs.tools && 'tools', c.needs.longContext && 'a long context']
+  [
+    c.needs.vision && 'images',
+    c.needs.documents && 'documents',
+    c.needs.audio && 'audio',
+    c.needs.tools && 'tools',
+    c.needs.longContext && 'a long context',
+  ]
     .filter(Boolean)
     .join(', ');
 

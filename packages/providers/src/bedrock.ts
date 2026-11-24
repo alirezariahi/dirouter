@@ -13,6 +13,7 @@
 import { createHash, createHmac } from 'node:crypto';
 
 import type {
+  CanonicalDocumentPart,
   CanonicalFinishReason,
   CanonicalMessage,
   CanonicalPart,
@@ -25,6 +26,8 @@ import type {
 import {
   type DropReporter,
   JSON_ONLY_INSTRUCTION,
+  UnsupportedContentError,
+  describeMedia,
   StructuredOutputStream,
   STRUCTURED_OUTPUT_TOOL,
   type StructuredOutputMode,
@@ -201,8 +204,74 @@ function imageFormat(mediaType: string): string {
   return sub;
 }
 
-function partToConverse(part: CanonicalPart, onDrop: DropReporter): ConversePart[] {
+/** Converse `document.format` per media type (card 27.2). */
+const DOCUMENT_FORMATS: Readonly<Record<string, string>> = {
+  'application/pdf': 'pdf',
+  'text/csv': 'csv',
+  'application/msword': 'doc',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+  'application/vnd.ms-excel': 'xls',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
+  'text/html': 'html',
+  'text/plain': 'txt',
+  'text/markdown': 'md',
+};
+
+/**
+ * Converse document names allow letters, digits, single spaces, hyphens, parentheses and square
+ * brackets; anything else becomes a space. Names must be unique within a request.
+ */
+function documentName(part: CanonicalDocumentPart, ordinal: number): string {
+  const raw = (part.title ?? part.filename?.replace(/\.[a-z0-9]+$/i, '') ?? '').trim();
+  const clean = raw
+    .replace(/[^A-Za-z0-9\-()[\] ]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 180);
+  return `${clean || 'document'} ${String(ordinal)}`;
+}
+
+function documentToConverse(part: CanonicalDocumentPart, ordinal: number): ConversePart {
+  const refuse = (why: string) =>
+    new UnsupportedContentError(
+      'messages[].content[].document',
+      `Bedrock cannot take ${describeMedia(part)}: ${why}`,
+    );
+  const { source } = part;
+  let format: string | undefined;
+  let bytes: string;
+  switch (source.kind) {
+    case 'base64':
+      format = DOCUMENT_FORMATS[source.mediaType];
+      bytes = source.data;
+      break;
+    case 'text':
+      format = DOCUMENT_FORMATS[source.mediaType ?? 'text/plain'] ?? 'txt';
+      bytes = Buffer.from(source.text, 'utf8').toString('base64');
+      break;
+    case 'url':
+      throw refuse('Converse reads documents inline or from S3, not by URL');
+    case 'file':
+      throw refuse(`a ${source.origin} file id is not valid here`);
+  }
+  if (!format)
+    throw refuse('the format is not one of pdf, csv, doc, docx, xls, xlsx, html, txt, md');
+  return { document: { format, name: documentName(part, ordinal), source: { bytes } } };
+}
+
+function partToConverse(
+  part: CanonicalPart,
+  onDrop: DropReporter,
+  nextDocument: () => number,
+): ConversePart[] {
   switch (part.type) {
+    case 'document':
+      return [documentToConverse(part, nextDocument())];
+    case 'audio':
+      throw new UnsupportedContentError(
+        'messages[].content[].audio',
+        `Bedrock cannot take ${describeMedia(part)}: Converse has no audio input`,
+      );
     case 'text':
       return [{ text: part.text }];
     case 'reasoning':
@@ -257,8 +326,9 @@ function safeJson(raw: string): Record<string, unknown> {
 function toConverseMessage(
   message: CanonicalMessage,
   onDrop: DropReporter,
+  nextDocument: () => number,
 ): ConverseMessage | undefined {
-  const content = message.content.flatMap((p) => partToConverse(p, onDrop));
+  const content = message.content.flatMap((p) => partToConverse(p, onDrop, nextDocument));
   if (content.length === 0) return undefined;
   // Bedrock has no `tool` role: tool results travel in a user turn.
   const role = message.role === 'assistant' ? 'assistant' : 'user';
@@ -279,8 +349,10 @@ export function canonicalToConverseRequest(
   // Converse requires strictly alternating roles. Canonical `tool` messages become user turns, so
   // consecutive tool results (and a tool result followed by user text) are merged into one message.
   const messages: ConverseMessage[] = [];
+  let documents = 0;
+  const nextDocument = () => ++documents;
   for (const message of request.messages) {
-    const converted = toConverseMessage(message, onDrop);
+    const converted = toConverseMessage(message, onDrop, nextDocument);
     if (!converted) continue;
     const previous = messages.at(-1);
     if (previous?.role === converted.role) previous.content.push(...converted.content);

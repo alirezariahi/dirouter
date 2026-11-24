@@ -14,6 +14,8 @@
  *   `additionalProperties`, …) are removed.
  */
 import type {
+  CanonicalAudioPart,
+  CanonicalDocumentPart,
   CanonicalFinishReason,
   CanonicalImagePart,
   CanonicalMessage,
@@ -28,10 +30,13 @@ import type {
 } from '@dirouter/contracts';
 
 import {
+  describeMedia,
   type DropReporter,
   ignoreDrops,
+  mediaTypeFromName,
   parseToolArguments,
   type TranslateOptions,
+  UnsupportedContentError,
 } from './common.js';
 
 type Json = Record<string, unknown>;
@@ -159,6 +164,33 @@ function imagePart(part: CanonicalImagePart): Json {
   return { fileData: { mimeType: EXT_MIME[ext] ?? 'image/jpeg', fileUri: part.source.url } };
 }
 
+/**
+ * Documents and audio for Gemini (card 27.2): inline bytes become `inlineData`, URLs `fileData`
+ * (Gemini reads Files API URIs, `gs://` objects on Vertex and public URLs), plain text a text part.
+ */
+function mediaPart(part: CanonicalDocumentPart | CanonicalAudioPart): Json {
+  const { source } = part;
+  if (source.kind === 'base64')
+    return { inlineData: { mimeType: source.mediaType, data: source.data } };
+  if (source.kind === 'url') {
+    const mimeType =
+      source.mediaType ??
+      mediaTypeFromName(source.url) ??
+      (part.type === 'document' ? 'application/pdf' : undefined);
+    if (!mimeType)
+      throw new UnsupportedContentError(
+        'messages[].content[].audio',
+        `Gemini cannot take ${describeMedia(part)}: the audio format of the URL is unknown`,
+      );
+    return { fileData: { mimeType, fileUri: source.url } };
+  }
+  if (source.kind === 'text') return { text: source.text };
+  throw new UnsupportedContentError(
+    'messages[].content[].document',
+    `Gemini cannot take ${describeMedia(part)}: a ${source.origin} file id is not valid here`,
+  );
+}
+
 function toolResponse(text: string, isError: boolean): Json {
   if (!isError) {
     try {
@@ -185,6 +217,10 @@ function partsFor(
         break;
       case 'image':
         parts.push(imagePart(part));
+        break;
+      case 'document':
+      case 'audio':
+        parts.push(mediaPart(part));
         break;
       case 'tool_call': {
         const { signature } = decodeGeminiToolCallId(part.id);

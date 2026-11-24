@@ -1,6 +1,6 @@
 /**
  * Translation through the whole gateway against the mock provider (sprint 4, epic 27): structured
- * output to Claude and Bedrock (27.1).
+ * output to Claude and Bedrock (27.1), documents and audio (27.2).
  */
 import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -39,7 +39,12 @@ const provider = (id: string, type: ProviderType, secret: string) => ({
   ],
 });
 
-const model = (id: string, providerId: string, upstreamModel: string) => ({
+const model = (
+  id: string,
+  providerId: string,
+  upstreamModel: string,
+  capabilities: Record<string, boolean> = {},
+) => ({
   id,
   organizationId: 'org',
   slug: id,
@@ -48,7 +53,7 @@ const model = (id: string, providerId: string, upstreamModel: string) => ({
   enabled: true,
   contextWindow: 200_000,
   pricing: { inputPerMTok: '1.00', outputPerMTok: '2.00' },
-  capabilities: {},
+  capabilities,
 });
 
 beforeAll(async () => {
@@ -72,8 +77,20 @@ beforeAll(async () => {
       model('bedrock-new', 'br', 'us.anthropic.claude-opus-5-5-v1:0'),
       model('gemini', 'gm', 'gemini-2.5-flash'),
       model('openai', 'oa', 'mock-small'),
+      model('openai-nodocs', 'oa', 'mock-small', { documents: false }),
     ],
-    combos: [],
+    combos: [
+      {
+        id: 'claude-then-gemini',
+        organizationId: 'org',
+        slug: 'claude-then-gemini',
+        strategy: 'priority',
+        targets: [
+          { modelId: 'claude-old', order: 0 },
+          { modelId: 'gemini', order: 1 },
+        ],
+      },
+    ],
     aliases: [],
     virtualKeys: [
       {
@@ -202,4 +219,190 @@ describe('card 27.1: OpenAI json_schema to Claude and Bedrock', () => {
       expect(validateJsonSchema(JSON.parse(text), SCHEMA)).toEqual([]);
     },
   );
+});
+
+const PDF =
+  'JVBERi0xLjQKJcfsj6IKMSAwIG9iago8PC9UeXBlL0NhdGFsb2c+PgplbmRvYmoKdHJhaWxlcjw8Pj4KJSVFT0Y=';
+const WAV = 'UklGRiQAAABXQVZFZm10IBAAAAABAAEAgD4AAAB9AAACABAAZGF0YQAAAAA=';
+
+describe('card 27.2: documents and audio', () => {
+  const openAIPdf = (model: string) => ({
+    model,
+    messages: [
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: 'Summarize this' },
+          {
+            type: 'file',
+            file: { filename: 'report.pdf', file_data: `data:application/pdf;base64,${PDF}` },
+          },
+        ],
+      },
+    ],
+  });
+  const lastUserContent = async () => {
+    const [body] = await upstreamBodies();
+    return body;
+  };
+
+  it('a PDF from an OpenAI client reaches Claude as a document block', async () => {
+    const res = await post('/v1/chat/completions', openAIPdf('claude-old'));
+    expect(res.status).toBe(200);
+    const body = (await lastUserContent()) as { messages: { content: unknown[] }[] };
+    expect(body.messages[0]?.content).toContainEqual({
+      type: 'document',
+      source: { type: 'base64', media_type: 'application/pdf', data: PDF },
+    });
+  });
+
+  it('a PDF from an OpenAI client reaches Gemini as inlineData', async () => {
+    const res = await post('/v1/chat/completions', { ...openAIPdf('gemini'), stream: true });
+    expect(res.status).toBe(200);
+    await res.text();
+    const body = (await lastUserContent()) as { contents: { parts: unknown[] }[] };
+    expect(body.contents[0]?.parts).toContainEqual({
+      inlineData: { mimeType: 'application/pdf', data: PDF },
+    });
+  });
+
+  it('a PDF from an OpenAI client reaches Bedrock as a Converse document', async () => {
+    const res = await post('/v1/chat/completions', openAIPdf('bedrock-old'));
+    expect(res.status).toBe(200);
+    const body = (await lastUserContent()) as { messages: { content: unknown[] }[] };
+    expect(body.messages[0]?.content).toContainEqual({
+      document: { format: 'pdf', name: 'report 1', source: { bytes: PDF } },
+    });
+  });
+
+  it('a PDF from an Anthropic client (and a Gemini client) reaches OpenAI as a file part', async () => {
+    const res = await post(
+      '/v1/messages',
+      {
+        model: 'openai',
+        max_tokens: 100,
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'document',
+                title: 'report',
+                source: { type: 'base64', media_type: 'application/pdf', data: PDF },
+              },
+              { type: 'text', text: 'Summarize this' },
+            ],
+          },
+        ],
+      },
+      { 'anthropic-version': '2023-06-01' },
+    );
+    expect(res.status).toBe(200);
+    const fromAnthropic = (await lastUserContent()) as { messages: { content: unknown[] }[] };
+    expect(fromAnthropic.messages[0]?.content).toContainEqual({
+      type: 'file',
+      file: { filename: 'report.pdf', file_data: `data:application/pdf;base64,${PDF}` },
+    });
+
+    await fetch(`${mockUrl}/__mock/reset`, { method: 'POST' });
+    const gemini = await fetch(`${base}/v1beta/models/openai:generateContent`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-goog-api-key': KEY },
+      body: JSON.stringify({
+        contents: [
+          {
+            role: 'user',
+            parts: [
+              { inlineData: { mimeType: 'application/pdf', data: PDF } },
+              { text: 'Summarize' },
+            ],
+          },
+        ],
+      }),
+    });
+    expect(gemini.status).toBe(200);
+    const fromGemini = (await lastUserContent()) as { messages: { content: unknown[] }[] };
+    expect(fromGemini.messages[0]?.content).toContainEqual({
+      type: 'file',
+      file: { filename: 'document.pdf', file_data: `data:application/pdf;base64,${PDF}` },
+    });
+  });
+
+  it('audio reaches the models that take it: OpenAI as input_audio, Gemini as inlineData', async () => {
+    const audio = (model: string) => ({
+      model,
+      messages: [
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: 'What is said here?' },
+            { type: 'input_audio', input_audio: { data: WAV, format: 'wav' } },
+          ],
+        },
+      ],
+    });
+    expect((await post('/v1/chat/completions', audio('openai'))).status).toBe(200);
+    const openai = (await lastUserContent()) as { messages: { content: unknown[] }[] };
+    expect(openai.messages[0]?.content).toContainEqual({
+      type: 'input_audio',
+      input_audio: { data: WAV, format: 'wav' },
+    });
+
+    await fetch(`${mockUrl}/__mock/reset`, { method: 'POST' });
+    // The combo's first target (Claude) cannot take audio, so the request goes to Gemini.
+    const res = await post('/v1/chat/completions', audio('claude-then-gemini'));
+    expect(res.status).toBe(200);
+    const stats = (await (await fetch(`${mockUrl}/__mock/stats`)).json()) as {
+      requests: number;
+      last: { contents?: { parts: unknown[] }[] }[];
+    };
+    expect(stats.requests).toBe(1);
+    expect(stats.last[0]?.contents?.[0]?.parts).toContainEqual({
+      inlineData: { mimeType: 'audio/wav', data: WAV },
+    });
+  });
+
+  it.each([
+    ['audio to a Claude-only model', 'claude-old', 'audio', /cannot take audio input/],
+    ['audio to a Bedrock model', 'bedrock-old', 'audio', /cannot take audio input/],
+    ['a PDF to a model marked without documents', 'openai-nodocs', 'pdf', /cannot take document/],
+    ['a PDF by URL to Bedrock', 'bedrock-old', 'pdf-url', /Converse reads documents inline/],
+    ['a Word file to OpenAI', 'openai', 'docx', /only PDF files are accepted/],
+  ])('%s: a clear 400, and nothing reaches the provider', async (_name, model, kind, message) => {
+    const part =
+      kind === 'audio'
+        ? { type: 'input_audio', input_audio: { data: WAV, format: 'wav' } }
+        : kind === 'pdf'
+          ? { type: 'file', file: { file_data: `data:application/pdf;base64,${PDF}` } }
+          : kind === 'docx'
+            ? { type: 'file', file: { filename: 'a.docx', file_data: 'UEsDBA==' } }
+            : undefined;
+    const res =
+      kind === 'pdf-url'
+        ? await post(
+            '/v1/messages',
+            {
+              model,
+              max_tokens: 50,
+              messages: [
+                {
+                  role: 'user',
+                  content: [
+                    { type: 'document', source: { type: 'url', url: 'https://x.test/a.pdf' } },
+                  ],
+                },
+              ],
+            },
+            { 'anthropic-version': '2023-06-01' },
+          )
+        : await post('/v1/chat/completions', {
+            model,
+            messages: [{ role: 'user', content: [{ type: 'text', text: 'hi' }, part] }],
+          });
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error: { message: string } };
+    expect(body.error.message).toMatch(message);
+    const stats = (await (await fetch(`${mockUrl}/__mock/stats`)).json()) as { requests: number };
+    expect(stats.requests).toBe(0);
+  });
 });

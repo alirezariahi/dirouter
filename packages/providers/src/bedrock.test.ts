@@ -15,6 +15,7 @@ import {
   AnthropicStreamEncoder,
   JSON_ONLY_INSTRUCTION,
   STRUCTURED_OUTPUT_TOOL,
+  UnsupportedContentError,
 } from '@dirouter/translator';
 import { describe, expect, it } from 'vitest';
 
@@ -879,6 +880,68 @@ describe('structured output on Bedrock (card 27.1)', () => {
     });
     expect(response.content).toEqual([{ type: 'text', text: '{"city":"Tehran"}' }]);
     expect(response.finishReason).toBe('stop');
+  });
+});
+
+describe('documents and audio on Bedrock (card 27.2)', () => {
+  const withParts = (content: CanonicalRequest['messages'][number]['content']) =>
+    request({ messages: [{ role: 'user', content }] });
+
+  it('golden: a PDF and a text document become Converse document blocks', () => {
+    const body = canonicalToConverseRequest(
+      withParts([
+        {
+          type: 'document',
+          source: { kind: 'base64', mediaType: 'application/pdf', data: 'JVBERi0=' },
+          filename: 'Q3 report (final).v2.pdf',
+        },
+        { type: 'document', source: { kind: 'text', text: 'hi' }, title: 'notes: draft/1' },
+        { type: 'text', text: 'Summarize both' },
+      ]),
+      'anthropic.claude-sonnet-4-5-v1:0',
+    );
+    expect(body.messages).toEqual([
+      {
+        role: 'user',
+        content: [
+          {
+            document: {
+              format: 'pdf',
+              name: 'Q3 report (final) v2 1',
+              source: { bytes: 'JVBERi0=' },
+            },
+          },
+          { document: { format: 'txt', name: 'notes draft 1 2', source: { bytes: 'aGk=' } } },
+          { text: 'Summarize both' },
+        ],
+      },
+    ]);
+  });
+
+  it.each([
+    [
+      'a document by URL',
+      { type: 'document', source: { kind: 'url', url: 'https://x.test/a.pdf' } },
+      /not by URL/,
+    ],
+    [
+      'an unknown format',
+      { type: 'document', source: { kind: 'base64', mediaType: 'image/svg+xml', data: 'AA' } },
+      /format is not one of/,
+    ],
+    [
+      'audio',
+      { type: 'audio', source: { kind: 'base64', mediaType: 'audio/wav', data: 'AA' } },
+      /no audio input/,
+    ],
+  ])('refuses %s with a clear error', (_name, part, message) => {
+    const run = () =>
+      canonicalToConverseRequest(
+        withParts([part as CanonicalRequest['messages'][number]['content'][number]]),
+        'm',
+      );
+    expect(run).toThrow(UnsupportedContentError);
+    expect(run).toThrow(message);
   });
 });
 

@@ -51,6 +51,7 @@ Models are defined with the full Bedrock identifier, for example `anthropic.clau
 
 - Native Bedrock embeddings and list-models are not implemented in this version.
 - Images inside a tool_result are not supported and are dropped with a drop report.
+- Documents (card 27.2) travel inline as `document` blocks (pdf, csv, doc, docx, xls, xlsx, html, txt, md); a document by URL or a provider file id, and any audio input, are refused with a 400.
 - For temporary IAM roles, put the session token in the secret (see Signing); the gateway does not refresh it.
 
 Tests: `packages/providers/src/bedrock.test.ts` for signing and the event stream, and `native.test.ts` for adapter registration.

@@ -143,6 +143,12 @@ export const ModelCapabilities = z.object({
   images: z.boolean().optional(),
   speech: z.boolean().optional(),
   transcription: z.boolean().optional(),
+  /**
+   * Chat input beyond text and images (card 27.2): PDF and other documents, and audio. `false`
+   * keeps such requests away from the model; unset means "whatever the provider type supports".
+   */
+  documents: z.boolean().optional(),
+  audioInput: z.boolean().optional(),
 });
 export type ModelCapabilities = z.infer<typeof ModelCapabilities>;
 

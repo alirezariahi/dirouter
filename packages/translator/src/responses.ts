@@ -22,10 +22,12 @@ import type {
 } from '@dirouter/contracts';
 
 import {
+  documentFromFileData,
   type DropReporter,
   emptyUsage,
   ignoreDrops,
   imageFromUrl,
+  mediaTypeFromName,
   type TranslateOptions,
 } from './common.js';
 import { encodeSse } from './sse.js';
@@ -80,10 +82,43 @@ function contentPart(
   return [];
 }
 
+/**
+ * `input_file` (card 27.2): `file_data` (data URL or bare base64), `file_url` or an OpenAI
+ * `file_id`, each with an optional `filename`.
+ */
+function filePart(part: ResponsesContentPart, onDrop: DropReporter): CanonicalPart[] {
+  const str = (v: unknown) => (typeof v === 'string' && v !== '' ? v : undefined);
+  const filename = str(part.filename);
+  const named = filename ? { filename } : {};
+  const fileData = str(part.file_data);
+  if (fileData)
+    return [{ type: 'document', source: documentFromFileData(fileData, filename), ...named }];
+  const fileUrl = str(part.file_url);
+  if (fileUrl) {
+    const mediaType = mediaTypeFromName(filename ?? fileUrl);
+    return [
+      {
+        type: 'document',
+        source: { kind: 'url', url: fileUrl, ...(mediaType ? { mediaType } : {}) },
+        ...named,
+      },
+    ];
+  }
+  const fileId = str(part.file_id);
+  if (fileId)
+    return [{ type: 'document', source: { kind: 'file', fileId, origin: 'openai' }, ...named }];
+  onDrop('input[].content[]', 'input_file without file_data, file_url or file_id');
+  return [];
+}
+
 function itemParts(item: ResponsesInputItem, onDrop: DropReporter): CanonicalPart[] {
   if (typeof item.content === 'string') return [{ type: 'text', text: item.content }];
   if (!Array.isArray(item.content)) return [];
-  return item.content.flatMap((part) => contentPart(part, 'input[].content[]', onDrop));
+  return item.content.flatMap((part) =>
+    part.type === 'input_file'
+      ? filePart(part, onDrop)
+      : contentPart(part, 'input[].content[]', onDrop),
+  );
 }
 
 /** `function_call_output.output` is a string or an array of input parts. */

@@ -12,6 +12,36 @@ const enc = () => (encoder ??= new Tiktoken(o200k));
 
 /** Approximate cost of each image (equivalent to detail=low in OpenAI). */
 const IMAGE_TOKENS = 85;
+/**
+ * Documents and audio (card 27.2) are estimated from their size: about 250 tokens per KB of a PDF
+ * (a dense page is ~1.5–3k tokens) and 2 tokens per KB of audio (~32 tokens per second of
+ * 128 kbit/s audio). A document or audio given by URL or file id counts as a fixed amount.
+ */
+const DOCUMENT_TOKENS_PER_KB = 250;
+const AUDIO_TOKENS_PER_KB = 2;
+const REMOTE_MEDIA_TOKENS = 1_000;
+
+const base64Kb = (data: string) => (data.length * 3) / 4 / 1024;
+
+/** Tokens of an input part that is not text (image, document, audio). */
+function mediaTokens(part: CanonicalPart, count: (text: string) => number): number | undefined {
+  switch (part.type) {
+    case 'image':
+      return IMAGE_TOKENS;
+    case 'document':
+      if (part.source.kind === 'text') return count(part.source.text);
+      if (part.source.kind === 'base64')
+        return Math.ceil(base64Kb(part.source.data) * DOCUMENT_TOKENS_PER_KB);
+      return REMOTE_MEDIA_TOKENS;
+    case 'audio':
+      return part.source.kind === 'base64'
+        ? Math.ceil(base64Kb(part.source.data) * AUDIO_TOKENS_PER_KB)
+        : REMOTE_MEDIA_TOKENS;
+    default:
+      return undefined;
+  }
+}
+
 /** Overhead per message (role and separators). */
 const MESSAGE_OVERHEAD = 4;
 
@@ -38,6 +68,8 @@ function partText(part: CanonicalPart): string {
     case 'reasoning':
       return part.text;
     case 'image':
+    case 'document':
+    case 'audio':
       return '';
   }
 }
@@ -47,7 +79,7 @@ export function estimateOutputTokens(
   parts: readonly CanonicalPart[],
   count: (text: string) => number = countTokens,
 ): number {
-  return parts.reduce((n, p) => n + (p.type === 'image' ? IMAGE_TOKENS : count(partText(p))), 0);
+  return parts.reduce((n, p) => n + (mediaTokens(p, count) ?? count(partText(p))), 0);
 }
 
 /**
@@ -75,8 +107,7 @@ export function estimateRequestTokens(
   let total = req.system.reduce((n, p) => n + count(p.text), 0);
   for (const message of req.messages) {
     total += MESSAGE_OVERHEAD;
-    for (const part of message.content)
-      total += part.type === 'image' ? IMAGE_TOKENS : count(partText(part));
+    for (const part of message.content) total += mediaTokens(part, count) ?? count(partText(part));
   }
   for (const tool of req.tools ?? [])
     total += count(`${tool.name} ${tool.description ?? ''} ${JSON.stringify(tool.parameters)}`);

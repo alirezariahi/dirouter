@@ -12,7 +12,14 @@ export type RequestSize = 'small' | 'medium' | 'large';
 export interface Classification {
   taskType: TaskType;
   size: RequestSize;
-  needs: { tools: boolean; vision: boolean; longContext: boolean };
+  /** `documents` and `audio`: PDF/file and audio input (card 27.2). */
+  needs: {
+    tools: boolean;
+    vision: boolean;
+    longContext: boolean;
+    documents: boolean;
+    audio: boolean;
+  };
   /** 0..1: how clearly the rules matched; low values can be handed to a small model. */
   confidence: number;
   /** Human-readable signals that led to the decision (logged with the request). */
@@ -100,10 +107,14 @@ export function classifyRequest(
   const reasons: string[] = [];
   let lastUser = '';
   let vision = false;
+  let documents = false;
+  let audio = false;
   for (let i = request.messages.length - 1; i >= 0; i--) {
     const m = request.messages[i];
     if (!m) continue;
     if (hasImage(m.content)) vision = true;
+    if (m.content.some((part) => part.type === 'document')) documents = true;
+    if (m.content.some((part) => part.type === 'audio')) audio = true;
     if (m.role === 'user' && !lastUser) lastUser = textOf(m.content);
   }
   const system = textOf(request.system);
@@ -139,8 +150,16 @@ export function classifyRequest(
   const size: RequestSize = total > 16_000 ? 'large' : total > 2_000 ? 'medium' : 'small';
   const longContext = total > LONG_CONTEXT_TOKENS;
   if (vision) reasons.push('image input');
+  if (documents) reasons.push('document input');
+  if (audio) reasons.push('audio input');
   if (longContext) reasons.push(`long context (~${String(total)} tokens)`);
-  return { taskType, size, needs: { tools, vision, longContext }, confidence, reasons };
+  return {
+    taskType,
+    size,
+    needs: { tools, vision, longContext, documents, audio },
+    confidence,
+    reasons,
+  };
 }
 
 // V8 compiles each pattern on first use and the JIT warms the function up; doing that once at load

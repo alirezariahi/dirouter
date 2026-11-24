@@ -5770,6 +5770,12 @@
                       },
                       "transcription": {
                         "type": "boolean"
+                      },
+                      "documents": {
+                        "type": "boolean"
+                      },
+                      "audioInput": {
+                        "type": "boolean"
                       }
                     }
                   },
@@ -6273,6 +6279,12 @@
                         "type": "boolean"
                       },
                       "transcription": {
+                        "type": "boolean"
+                      },
+                      "documents": {
+                        "type": "boolean"
+                      },
+                      "audioInput": {
                         "type": "boolean"
                       }
                     }

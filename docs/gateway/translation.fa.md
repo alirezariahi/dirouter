@@ -8,27 +8,27 @@
 
 ## درخواست
 
-| canonical                   | OpenAI Chat                                                                | Anthropic Messages                                                   | یادداشت                                                                 |
-| --------------------------- | -------------------------------------------------------------------------- | -------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| `system[]`                  | پیام‌های `system` و `developer` (به هم پیوسته با `\n\n`)                   | `system` (رشته، یا بلوک‌ها وقتی `cache_control` هست)                 | جایگاه system میانهٔ گفتگو در Anthropic حفظ نمی‌شود                     |
-| پیام `user`                 | `content` رشته یا parts                                                    | `content` بلوک‌ها                                                    | پیام‌های هم‌نقش پشت‌سرهم برای Anthropic ادغام می‌شوند                   |
-| تصویر                       | `image_url` (URL یا data URL)                                              | `image` با `source` از نوع `url` یا `base64`                         | `file` (Files API) قابل‌انتقال نیست                                     |
-| `tool_call`                 | `assistant.tool_calls[]` (آرگومان رشتهٔ JSON)                              | بلوک `tool_use` (`input` شیء)                                        | آرگومان نامعتبر → `{}` و گزارش drop                                     |
-| پیام `tool` / `tool_result` | پیام `tool` با `tool_call_id` (فقط متن)                                    | بلوک `tool_result` در اول پیام `user`                                | ترتیب نتیجه‌ها حفظ می‌شود؛ تصویر در نتیجهٔ ابزار برای OpenAI حذف می‌شود |
-| `reasoning`                 | `reasoning_effort` (ورودی) / `reasoning_content` (پاسخ providerهای سازگار) | بلوک `thinking` امضاشده و `redacted_thinking`                        | thinking بدون امضا به Anthropic فرستاده نمی‌شود                         |
-| `tools[]`                   | `tools[].function`                                                         | `tools[]` با `input_schema`                                          | server toolهای Anthropic فقط به Anthropic می‌روند                       |
-| `toolChoice`                | `auto` / `none` / `required` / `{function}`                                | `auto` / `none` / `any` / `tool`                                     |                                                                         |
-| `parallelToolCalls=false`   | `parallel_tool_calls: false`                                               | `tool_choice.disable_parallel_tool_use`                              |                                                                         |
-| `maxOutputTokens`           | `max_completion_tokens` (OpenAI) یا `max_tokens` (سازگار)                  | `max_tokens` (اجباری؛ پیش‌فرض ۴۰۹۶ یا سقف مدل)                       |                                                                         |
-| `temperature`               | ۰ تا ۲                                                                     | ۰ تا ۱                                                               | بالای ۱ برای Anthropic به ۱ محدود می‌شود                                |
-| `topK`                      | —                                                                          | `top_k`                                                              |                                                                         |
-| `stop[]`                    | `stop`                                                                     | `stop_sequences`                                                     |                                                                         |
-| `seed`                      | `seed`                                                                     | —                                                                    |                                                                         |
-| `responseFormat`            | `response_format`                                                          | `output_config.format` یا ابزار اجباری                               | [Structured output](#structured-output) را ببینید                       |
-| `reasoning.budgetTokens`    | effort: <۴k=low، <۱۶k=medium، بقیه=high                                    | `thinking.budget_tokens` (حداقل ۱۰۲۴؛ `max_tokens` بالاتر از budget) | effort→budget: minimal ۱۰۲۴، low ۲۰۴۸، medium ۸۱۹۲، high ۱۶۳۸۴          |
-| `user`                      | `user`                                                                     | `metadata.user_id`                                                   |                                                                         |
-| `stream`                    | `stream` + همیشه `stream_options.include_usage`                            | `stream`                                                             |                                                                         |
-| `passthrough`               | فیلدهای ناشناختهٔ ورودی OpenAI                                             | فیلدهای ناشناختهٔ ورودی Anthropic                                    | فقط به provider همان خانواده فرستاده می‌شود                             |
+| canonical                   | OpenAI Chat                                                                | Anthropic Messages                                                   | یادداشت                                                                                |
+| --------------------------- | -------------------------------------------------------------------------- | -------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `system[]`                  | پیام‌های `system` و `developer` (به هم پیوسته با `\n\n`)                   | `system` (رشته، یا بلوک‌ها وقتی `cache_control` هست)                 | جایگاه system میانهٔ گفتگو در Anthropic حفظ نمی‌شود                                    |
+| پیام `user`                 | `content` رشته یا parts                                                    | `content` بلوک‌ها                                                    | پیام‌های هم‌نقش پشت‌سرهم برای Anthropic ادغام می‌شوند                                  |
+| تصویر                       | `image_url` (URL یا data URL)                                              | `image` با `source` از نوع `url` یا `base64`                         | تصویر `file` (Files API) قابل‌انتقال نیست؛ سند و صوت: [پایین‌تر](#documents-and-audio) |
+| `tool_call`                 | `assistant.tool_calls[]` (آرگومان رشتهٔ JSON)                              | بلوک `tool_use` (`input` شیء)                                        | آرگومان نامعتبر → `{}` و گزارش drop                                                    |
+| پیام `tool` / `tool_result` | پیام `tool` با `tool_call_id` (فقط متن)                                    | بلوک `tool_result` در اول پیام `user`                                | ترتیب نتیجه‌ها حفظ می‌شود؛ تصویر در نتیجهٔ ابزار برای OpenAI حذف می‌شود                |
+| `reasoning`                 | `reasoning_effort` (ورودی) / `reasoning_content` (پاسخ providerهای سازگار) | بلوک `thinking` امضاشده و `redacted_thinking`                        | thinking بدون امضا به Anthropic فرستاده نمی‌شود                                        |
+| `tools[]`                   | `tools[].function`                                                         | `tools[]` با `input_schema`                                          | server toolهای Anthropic فقط به Anthropic می‌روند                                      |
+| `toolChoice`                | `auto` / `none` / `required` / `{function}`                                | `auto` / `none` / `any` / `tool`                                     |                                                                                        |
+| `parallelToolCalls=false`   | `parallel_tool_calls: false`                                               | `tool_choice.disable_parallel_tool_use`                              |                                                                                        |
+| `maxOutputTokens`           | `max_completion_tokens` (OpenAI) یا `max_tokens` (سازگار)                  | `max_tokens` (اجباری؛ پیش‌فرض ۴۰۹۶ یا سقف مدل)                       |                                                                                        |
+| `temperature`               | ۰ تا ۲                                                                     | ۰ تا ۱                                                               | بالای ۱ برای Anthropic به ۱ محدود می‌شود                                               |
+| `topK`                      | —                                                                          | `top_k`                                                              |                                                                                        |
+| `stop[]`                    | `stop`                                                                     | `stop_sequences`                                                     |                                                                                        |
+| `seed`                      | `seed`                                                                     | —                                                                    |                                                                                        |
+| `responseFormat`            | `response_format`                                                          | `output_config.format` یا ابزار اجباری                               | [Structured output](#structured-output) را ببینید                                      |
+| `reasoning.budgetTokens`    | effort: <۴k=low، <۱۶k=medium، بقیه=high                                    | `thinking.budget_tokens` (حداقل ۱۰۲۴؛ `max_tokens` بالاتر از budget) | effort→budget: minimal ۱۰۲۴، low ۲۰۴۸، medium ۸۱۹۲، high ۱۶۳۸۴                         |
+| `user`                      | `user`                                                                     | `metadata.user_id`                                                   |                                                                                        |
+| `stream`                    | `stream` + همیشه `stream_options.include_usage`                            | `stream`                                                             |                                                                                        |
+| `passthrough`               | فیلدهای ناشناختهٔ ورودی OpenAI                                             | فیلدهای ناشناختهٔ ورودی Anthropic                                    | فقط به provider همان خانواده فرستاده می‌شود                                            |
 
 ## پاسخ
 
@@ -69,9 +69,40 @@
 - `output_config.format` کلاینت Anthropic (یا `output_format` قدیمی) به `responseFormat` در canonical تبدیل می‌شود تا به OpenAI و Gemini هم برسد؛ بقیهٔ فیلدهای `output_config` (`effort`) همچنان به Anthropic می‌رسند.
 - نام ابزار `dirouter_structured_output` رزرو است.
 
+<a id="documents-and-audio"></a>
+
+## سند و صوت
+
+> کارت ۲۷.۲. PDF، فایل‌های دیگر و صوت به هر providerی که بتواند بخواندشان می‌رسند؛ اگر مقصد نتواند، کلاینت خطای 400 می‌گیرد که بخش مربوط را نام می‌برد، نه پاسخی که فایل بی‌صدا از آن حذف شده باشد.
+
+بخش‌های canonical: `document` (منبع `base64`، `url`، `text` یا `file`: شناسهٔ فایل provider همراه با مبدأ آن، به‌علاوهٔ `filename`، `title`، `context` و `citations`) و `audio` (منبع `base64` یا `url`).
+
+| ورودی                                                                                   | canonical                                                                                       |
+| --------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| OpenAI Chat `file` (`file_data` به‌صورت data URL یا base64 خام + `filename`؛ `file_id`) | `document` (`base64`؛ `file` با مبدأ `openai`)                                                  |
+| OpenAI Chat `input_audio` (`wav`، `mp3`)                                                | `audio` (`audio/wav`، `audio/mpeg`)                                                             |
+| Responses `input_file` (`file_data`، `file_url`، `file_id`)                             | `document` (`base64`، `url`، `file`)                                                            |
+| Anthropic `document` (`base64`، `url`، `text`، `content`، `file`)                       | `document`؛ منبع `content` بلوک‌های متنی‌اش را نگه می‌دارد                                      |
+| Gemini `inlineData` / `fileData`                                                        | بر اساس media type: `image`، `document` (PDF، `text/*`، `application/*`) یا `audio` (`audio/*`) |
+
+| canonical                             | OpenAI Chat                                 | Anthropic                                | Gemini / Vertex | Bedrock (Converse)                                                      |
+| ------------------------------------- | ------------------------------------------- | ---------------------------------------- | --------------- | ----------------------------------------------------------------------- |
+| PDF درون‌خطی                          | `file.file_data` (data URL)                 | `document` `base64`                      | `inlineData`    | `document` با `format: pdf` و `source.bytes`                            |
+| سند متنی                              | بخش متنی                                    | `document` `text`                        | بخش متنی        | `document` با `format: txt`                                             |
+| فایل‌های دیگر (docx، csv، …) درون‌خطی | 400                                         | 400 (`text/*` به منبع text تبدیل می‌شود) | `inlineData`    | `document` با قالب خودش (pdf، csv، doc، docx، xls، xlsx، html، txt، md) |
+| سند با URL                            | 400                                         | `document` `url`                         | `fileData`      | 400 (Converse فقط S3 می‌خواند)                                          |
+| شناسهٔ فایل                           | فقط شناسهٔ OpenAI                           | فقط شناسهٔ Anthropic                     | 400             | 400                                                                     |
+| صوت درون‌خطی                          | `input_audio` (wav، mp3؛ قالب‌های دیگر 400) | 400                                      | `inlineData`    | 400                                                                     |
+| صوت با URL                            | 400                                         | 400                                      | `fileData`      | 400                                                                     |
+
+- نام سند در Converse فقط حرف، رقم، فاصلهٔ تکی، خط تیره، پرانتز و کروشه می‌پذیرد: عنوان یا نام فایل پاک‌سازی و شماره‌گذاری می‌شود (`report 1`).
+- مسیریابی: گیت‌وی پیش از ارسال فقط مقصدهایی را نگه می‌دارد که سند و صوت درخواست را می‌پذیرند (`MEDIA_INPUT` برای هر نوع provider در `packages/providers`، و قابلیت‌های مدل `documents` و `audioInput`؛ `false` مدل را کنار می‌گذارد و مقدار خالی تصمیم را به نوع provider می‌سپارد). اگر مقصدی نماند، پاسخ 400 با نام مدل است؛ combo مقصدهایی را که ورودی را نمی‌پذیرند رد می‌کند. aliasهای `auto` فقط مدل‌هایی را انتخاب می‌کنند که قابلیتشان `true` باشد. کاتالوگ مدل‌های OpenAI، Anthropic و Gemini را علامت زده است.
+- جزئیاتی که مقصد نمی‌تواند حمل کند (URL برای Bedrock، flac برای OpenAI) را مترجم با `UnsupportedContentError` رد می‌کند و پاسخ 400 (`invalid_request`) است.
+- تخمین توکن برای هر KB سند حدود ۲۵۰ و برای هر KB صوت ۲ توکن حساب می‌کند.
+
 ## فیلدهای کنارگذاشته‌شده
 
-مترجم هر فیلد بی‌معادل را با `onDrop(field, reason)` گزارش می‌کند و گیت‌وی آن را با سطح debug لاگ می‌کند. فهرست: `n>1`، `input_audio` و `file` در OpenAI، `document` و تصویر `file` در Anthropic، `top_k` به OpenAI، `seed` به Anthropic، `json_object` به مدل Claude با structured output بومی (به‌صورت دستور فرستاده می‌شود)، reasoning به OpenAI، thinking بدون امضا به Anthropic، تصویر در نتیجهٔ ابزار به OpenAI، دمای بالای ۱ به Anthropic.
+مترجم هر فیلد بی‌معادل را با `onDrop(field, reason)` گزارش می‌کند و گیت‌وی آن را با سطح debug لاگ می‌کند. فهرست: `n>1` و بخش `file` بدون داده و شناسه در OpenAI، تصویر `file` در Anthropic، ویدیو و بخش‌های ناشناختهٔ دیگر در Gemini و Responses، `top_k` به OpenAI، `seed` به Anthropic، `json_object` به مدل Claude با structured output بومی (به‌صورت دستور فرستاده می‌شود)، reasoning به OpenAI، thinking بدون امضا به Anthropic، تصویر در نتیجهٔ ابزار به OpenAI، دمای بالای ۱ به Anthropic.
 
 ## تست‌ها
 

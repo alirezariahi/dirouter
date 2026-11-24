@@ -506,7 +506,15 @@ try {
               baseUrl: 'http://mock-provider:8090',
               ...(type === 'bedrock' ? { options: { region: 'us-east-1' } } : {}),
               credentials: [
-                { name: 'k', secret: type === 'bedrock' ? 'AKIAMOCKE2E:secret' : 'sk-mock' },
+                {
+                  name: 'k',
+                  secret:
+                    type === 'bedrock'
+                      ? 'AKIAMOCKE2E:secret'
+                      : type === 'gemini'
+                        ? 'AIza-mock'
+                        : 'sk-mock',
+                },
               ],
             },
             201,
@@ -616,6 +624,157 @@ try {
         assert.ok(conforms(JSON.parse(text), schema), `${slug} stream: ${text}`);
         assert.ok(!streamed.text.includes('dirouter_structured_output'), streamed.text);
         console.log(`     ${slug} (${mode}): ${text}`);
+      }
+    },
+  );
+
+  await scenario(
+    '27.2 documents and audio: a PDF reaches Claude, Gemini and Bedrock and back to OpenAI, audio reaches models that take it, the rest is a clear 400',
+    async () => {
+      const key = await createKey('media');
+      const targets = [
+        ['s4/claude-tool', 'anthropic', 'claude-sonnet-4-5'],
+        ['s4/gemini', 'gemini', 'gemini-2.5-flash'],
+        ['s4/bedrock-tool', 'bedrock', 'anthropic.claude-sonnet-4-5-20250929-v1:0'],
+      ];
+      for (const [slug, type, upstream] of targets) await mockModel(slug, type, upstream);
+      await waitFor('gateway to know the s4 media models', async () => {
+        const res = await fetch(`${urls.gateway}/v1/models`, {
+          headers: { authorization: `Bearer ${key.key}` },
+        });
+        const ids = ((await res.json()).data ?? []).map((m) => m.id);
+        return targets.every(([slug]) => ids.includes(slug));
+      });
+      const pdf = Buffer.from('%PDF-1.4\n1 0 obj <<>> endobj\ntrailer <<>>\n%%EOF').toString(
+        'base64',
+      );
+      const wav = Buffer.from('RIFF$\u0000\u0000\u0000WAVEfmt ').toString('base64');
+      const lastUpstream = async () =>
+        (await request(`${urls.mock}/__mock/stats`, {}, 200)).body.last.at(-1);
+      const openAIPdf = (model) => ({
+        model,
+        messages: [
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: 'Summarize this' },
+              {
+                type: 'file',
+                file: { filename: 'report.pdf', file_data: `data:application/pdf;base64,${pdf}` },
+              },
+            ],
+          },
+        ],
+      });
+
+      // OpenAI client → Claude, Gemini and Bedrock.
+      const expected = {
+        's4/claude-tool': (body) =>
+          body.messages[0].content.some((b) => b.type === 'document' && b.source.data === pdf),
+        's4/gemini': (body) =>
+          body.contents[0].parts.some(
+            (p) => p.inlineData?.mimeType === 'application/pdf' && p.inlineData.data === pdf,
+          ),
+        's4/bedrock-tool': (body) =>
+          body.messages[0].content.some(
+            (b) => b.document?.format === 'pdf' && b.document.source.bytes === pdf,
+          ),
+      };
+      for (const [slug] of targets) {
+        await mockReset();
+        const res = await chat(key.key, openAIPdf(slug));
+        assert.equal(res.response.status, 200, `${slug}: ${res.text}`);
+        const upstream = await lastUpstream();
+        assert.ok(expected[slug](upstream), `${slug}: ${JSON.stringify(upstream).slice(0, 400)}`);
+      }
+
+      // Anthropic client → OpenAI provider (mock/small) as a file part.
+      await mockReset();
+      const anthropic = await request(`${urls.gateway}/v1/messages`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'anthropic-version': '2023-06-01',
+          authorization: `Bearer ${key.key}`,
+        },
+        body: JSON.stringify({
+          model: 'mock/small',
+          max_tokens: 100,
+          messages: [
+            {
+              role: 'user',
+              content: [
+                {
+                  type: 'document',
+                  title: 'report',
+                  source: { type: 'base64', media_type: 'application/pdf', data: pdf },
+                },
+                { type: 'text', text: 'Summarize this' },
+              ],
+            },
+          ],
+        }),
+      });
+      assert.equal(anthropic.response.status, 200, anthropic.text);
+      const toOpenAI = await lastUpstream();
+      assert.ok(
+        toOpenAI.messages[0].content.some(
+          (p) => p.type === 'file' && p.file.file_data === `data:application/pdf;base64,${pdf}`,
+        ),
+        JSON.stringify(toOpenAI).slice(0, 400),
+      );
+
+      // Audio reaches OpenAI-compatible and Gemini models.
+      const audio = (model) => ({
+        model,
+        messages: [
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: 'What is said?' },
+              { type: 'input_audio', input_audio: { data: wav, format: 'wav' } },
+            ],
+          },
+        ],
+      });
+      await mockReset();
+      assert.equal((await chat(key.key, audio('mock/small'))).response.status, 200);
+      assert.ok((await lastUpstream()).messages[0].content.some((p) => p.type === 'input_audio'));
+      await mockReset();
+      assert.equal((await chat(key.key, audio('s4/gemini'))).response.status, 200);
+      assert.ok(
+        (await lastUpstream()).contents[0].parts.some(
+          (p) => p.inlineData?.mimeType === 'audio/wav',
+        ),
+      );
+
+      // Unsupported: audio to Claude and Bedrock, an OpenAI file id to Bedrock. Clear 400, no upstream call.
+      for (const [model, body, message] of [
+        ['s4/claude-tool', audio('s4/claude-tool'), /cannot take audio input/],
+        ['s4/bedrock-tool', audio('s4/bedrock-tool'), /cannot take audio input/],
+        [
+          's4/bedrock-tool',
+          {
+            model: 's4/bedrock-tool',
+            messages: [
+              {
+                role: 'user',
+                content: [
+                  { type: 'text', text: 'hi' },
+                  { type: 'file', file: { file_id: 'file-abc123' } },
+                ],
+              },
+            ],
+          },
+          /Bedrock cannot take document/,
+        ],
+      ]) {
+        await mockReset();
+        const refused = await chat(key.key, body);
+        assert.equal(refused.response.status, 400, `${model}: ${refused.text}`);
+        assert.match(refused.body.error.message, message);
+        const stats = (await request(`${urls.mock}/__mock/stats`, {}, 200)).body;
+        assert.equal(stats.requests, 0, `${model}: the provider must not be called`);
       }
     },
   );

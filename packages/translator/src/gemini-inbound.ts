@@ -105,21 +105,35 @@ function partToCanonical(
     return part.thought
       ? [{ type: 'reasoning', text: part.text }]
       : [{ type: 'text', text: part.text }];
-  if (part.inlineData)
-    return [
-      {
-        type: 'image',
-        source: {
-          kind: 'base64',
-          mediaType: part.inlineData.mimeType,
-          data: part.inlineData.data,
-        },
-      },
-    ];
-  if (part.fileData)
-    return [{ type: 'image', source: { kind: 'url', url: part.fileData.fileUri } }];
+  // Card 27.2: inline bytes and file URIs are images, documents or audio by their media type.
+  if (part.inlineData) {
+    const { mimeType, data } = part.inlineData;
+    const kind = mediaKind(mimeType);
+    if (kind === 'audio')
+      return [{ type: 'audio', source: { kind: 'base64', mediaType: mimeType, data } }];
+    if (kind === 'document')
+      return [{ type: 'document', source: { kind: 'base64', mediaType: mimeType, data } }];
+    return [{ type: 'image', source: { kind: 'base64', mediaType: mimeType, data } }];
+  }
+  if (part.fileData) {
+    const { fileUri: url, mimeType } = part.fileData;
+    const kind = mediaKind(mimeType);
+    const typed = mimeType ? { mediaType: mimeType } : {};
+    if (kind === 'audio') return [{ type: 'audio', source: { kind: 'url', url, ...typed } }];
+    if (kind === 'document') return [{ type: 'document', source: { kind: 'url', url, ...typed } }];
+    return [{ type: 'image', source: { kind: 'url', url } }];
+  }
   onDrop('contents[].parts[]', 'part type not supported by the canonical model');
   return [];
+}
+
+/** Images stay images (also when the type is unknown); PDFs, text and office files are documents. */
+function mediaKind(mimeType: string | undefined): 'image' | 'document' | 'audio' {
+  const type = (mimeType ?? '').toLowerCase();
+  if (type.startsWith('audio/')) return 'audio';
+  if (type === 'application/pdf' || type.startsWith('text/') || type.startsWith('application/'))
+    return 'document';
+  return 'image';
 }
 
 const GEMINI_SCHEMA_TYPES = new Set([

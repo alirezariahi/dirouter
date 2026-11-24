@@ -133,6 +133,49 @@ describe('token estimation', () => {
     expect(n).toBeGreaterThan(100);
     expect(n).toBeLessThan(140);
   });
+
+  it('estimates documents and audio from their size (card 27.2)', () => {
+    const request = (
+      content: Parameters<typeof estimateRequestTokens>[0]['messages'][0]['content'],
+    ) =>
+      estimateRequestTokens({
+        inboundApi: 'openai.chat',
+        model: 'x',
+        stream: false,
+        system: [],
+        messages: [{ role: 'user', content }],
+      });
+    // 40 KB of PDF → about 10k tokens; 160 KB of audio (~10 s) → about 320 tokens.
+    const pdf = request([
+      {
+        type: 'document',
+        source: { kind: 'base64', mediaType: 'application/pdf', data: 'A'.repeat(54_614) },
+      },
+    ]);
+    expect(pdf).toBeGreaterThan(9_500);
+    expect(pdf).toBeLessThan(10_500);
+    const audio = request([
+      {
+        type: 'audio',
+        source: { kind: 'base64', mediaType: 'audio/wav', data: 'A'.repeat(218_454) },
+      },
+    ]);
+    expect(audio).toBeGreaterThan(300);
+    expect(audio).toBeLessThan(340);
+    expect(request([{ type: 'document', source: { kind: 'text', text: 'hello world' } }])).toBe(6);
+    expect(request([{ type: 'document', source: { kind: 'url', url: 'u' } }])).toBe(1_004);
+  });
+
+  it('marks document and audio input in the catalog', () => {
+    expect(findCatalogEntry('anthropic/claude-sonnet-4-5')?.capabilities).toMatchObject({
+      documents: true,
+      audioInput: false,
+    });
+    expect(findCatalogEntry('gemini/gemini-2.5-flash')?.capabilities).toMatchObject({
+      documents: true,
+      audioInput: true,
+    });
+  });
 });
 
 describe('usage estimation without provider usage', () => {

@@ -1,5 +1,5 @@
 {
-  "version": "2026.11.07",
+  "version": "2026.11.25",
   "currency": "USD",
   "unit": "per 1M tokens",
   "models": [
@@ -10,7 +10,13 @@
       "contextWindow": 1047576,
       "maxOutputTokens": 32768,
       "pricing": { "inputPerMTok": "2.00", "outputPerMTok": "8.00", "cacheReadPerMTok": "0.50" },
-      "capabilities": { "tools": true, "vision": true, "jsonMode": true }
+      "capabilities": {
+        "tools": true,
+        "vision": true,
+        "jsonMode": true,
+        "documents": true,
+        "audioInput": false
+      }
     },
     {
       "key": "openai/gpt-4.1-mini",
@@ -19,7 +25,13 @@
       "contextWindow": 1047576,
       "maxOutputTokens": 32768,
       "pricing": { "inputPerMTok": "0.40", "outputPerMTok": "1.60", "cacheReadPerMTok": "0.10" },
-      "capabilities": { "tools": true, "vision": true, "jsonMode": true }
+      "capabilities": {
+        "tools": true,
+        "vision": true,
+        "jsonMode": true,
+        "documents": true,
+        "audioInput": false
+      }
     },
     {
       "key": "openai/gpt-4.1-nano",
@@ -28,7 +40,13 @@
       "contextWindow": 1047576,
       "maxOutputTokens": 32768,
       "pricing": { "inputPerMTok": "0.10", "outputPerMTok": "0.40", "cacheReadPerMTok": "0.025" },
-      "capabilities": { "tools": true, "vision": true, "jsonMode": true }
+      "capabilities": {
+        "tools": true,
+        "vision": true,
+        "jsonMode": true,
+        "documents": true,
+        "audioInput": false
+      }
     },
     {
       "key": "openai/gpt-4o",
@@ -37,7 +55,13 @@
       "contextWindow": 128000,
       "maxOutputTokens": 16384,
       "pricing": { "inputPerMTok": "2.50", "outputPerMTok": "10.00", "cacheReadPerMTok": "1.25" },
-      "capabilities": { "tools": true, "vision": true, "jsonMode": true }
+      "capabilities": {
+        "tools": true,
+        "vision": true,
+        "jsonMode": true,
+        "documents": true,
+        "audioInput": false
+      }
     },
     {
       "key": "openai/gpt-4o-mini",
@@ -46,7 +70,13 @@
       "contextWindow": 128000,
       "maxOutputTokens": 16384,
       "pricing": { "inputPerMTok": "0.15", "outputPerMTok": "0.60", "cacheReadPerMTok": "0.075" },
-      "capabilities": { "tools": true, "vision": true, "jsonMode": true }
+      "capabilities": {
+        "tools": true,
+        "vision": true,
+        "jsonMode": true,
+        "documents": true,
+        "audioInput": false
+      }
     },
     {
       "key": "openai/o3",
@@ -55,7 +85,14 @@
       "contextWindow": 200000,
       "maxOutputTokens": 100000,
       "pricing": { "inputPerMTok": "2.00", "outputPerMTok": "8.00", "cacheReadPerMTok": "0.50" },
-      "capabilities": { "tools": true, "vision": true, "reasoning": true, "jsonMode": true }
+      "capabilities": {
+        "tools": true,
+        "vision": true,
+        "reasoning": true,
+        "jsonMode": true,
+        "documents": true,
+        "audioInput": false
+      }
     },
     {
       "key": "openai/o4-mini",
@@ -64,7 +101,14 @@
       "contextWindow": 200000,
       "maxOutputTokens": 100000,
       "pricing": { "inputPerMTok": "1.10", "outputPerMTok": "4.40", "cacheReadPerMTok": "0.275" },
-      "capabilities": { "tools": true, "vision": true, "reasoning": true, "jsonMode": true }
+      "capabilities": {
+        "tools": true,
+        "vision": true,
+        "reasoning": true,
+        "jsonMode": true,
+        "documents": true,
+        "audioInput": false
+      }
     },
     {
       "key": "anthropic/claude-opus-4-1",
@@ -78,7 +122,13 @@
         "cacheReadPerMTok": "1.50",
         "cacheWritePerMTok": "18.75"
       },
-      "capabilities": { "tools": true, "vision": true, "reasoning": true }
+      "capabilities": {
+        "tools": true,
+        "vision": true,
+        "reasoning": true,
+        "documents": true,
+        "audioInput": false
+      }
     },
     {
       "key": "anthropic/claude-sonnet-4-5",
@@ -92,7 +142,13 @@
         "cacheReadPerMTok": "0.30",
         "cacheWritePerMTok": "3.75"
       },
-      "capabilities": { "tools": true, "vision": true, "reasoning": true }
+      "capabilities": {
+        "tools": true,
+        "vision": true,
+        "reasoning": true,
+        "documents": true,
+        "audioInput": false
+      }
     },
     {
       "key": "anthropic/claude-haiku-4-5",
@@ -106,7 +162,13 @@
         "cacheReadPerMTok": "0.10",
         "cacheWritePerMTok": "1.25"
       },
-      "capabilities": { "tools": true, "vision": true, "reasoning": true }
+      "capabilities": {
+        "tools": true,
+        "vision": true,
+        "reasoning": true,
+        "documents": true,
+        "audioInput": false
+      }
     },
     {
       "key": "gemini/gemini-2.5-pro",
@@ -115,7 +177,14 @@
       "contextWindow": 1048576,
       "maxOutputTokens": 65536,
       "pricing": { "inputPerMTok": "1.25", "outputPerMTok": "10.00", "cacheReadPerMTok": "0.31" },
-      "capabilities": { "tools": true, "vision": true, "reasoning": true, "jsonMode": true }
+      "capabilities": {
+        "tools": true,
+        "vision": true,
+        "reasoning": true,
+        "jsonMode": true,
+        "documents": true,
+        "audioInput": true
+      }
     },
     {
       "key": "gemini/gemini-2.5-flash",
@@ -124,7 +193,14 @@
       "contextWindow": 1048576,
       "maxOutputTokens": 65536,
       "pricing": { "inputPerMTok": "0.30", "outputPerMTok": "2.50", "cacheReadPerMTok": "0.075" },
-      "capabilities": { "tools": true, "vision": true, "reasoning": true, "jsonMode": true }
+      "capabilities": {
+        "tools": true,
+        "vision": true,
+        "reasoning": true,
+        "jsonMode": true,
+        "documents": true,
+        "audioInput": true
+      }
     },
     {
       "key": "deepseek/deepseek-chat",
@@ -133,7 +209,7 @@
       "contextWindow": 65536,
       "maxOutputTokens": 8192,
       "pricing": { "inputPerMTok": "0.27", "outputPerMTok": "1.10", "cacheReadPerMTok": "0.07" },
-      "capabilities": { "tools": true, "jsonMode": true }
+      "capabilities": { "tools": true, "jsonMode": true, "documents": false, "audioInput": false }
     },
     {
       "key": "deepseek/deepseek-reasoner",
@@ -142,7 +218,7 @@
       "contextWindow": 65536,
       "maxOutputTokens": 32768,
       "pricing": { "inputPerMTok": "0.55", "outputPerMTok": "2.19", "cacheReadPerMTok": "0.14" },
-      "capabilities": { "reasoning": true }
+      "capabilities": { "reasoning": true, "documents": false, "audioInput": false }
     },
     {
       "key": "groq/llama-3.3-70b-versatile",
@@ -151,7 +227,7 @@
       "contextWindow": 131072,
       "maxOutputTokens": 32768,
       "pricing": { "inputPerMTok": "0.59", "outputPerMTok": "0.79" },
-      "capabilities": { "tools": true, "jsonMode": true }
+      "capabilities": { "tools": true, "jsonMode": true, "documents": false, "audioInput": false }
     },
     {
       "key": "mistral/mistral-large-latest",
@@ -159,7 +235,7 @@
       "upstreamModel": "mistral-large-latest",
       "contextWindow": 131072,
       "pricing": { "inputPerMTok": "2.00", "outputPerMTok": "6.00" },
-      "capabilities": { "tools": true, "jsonMode": true }
+      "capabilities": { "tools": true, "jsonMode": true, "documents": false, "audioInput": false }
     },
     {
       "key": "mistral/mistral-small-latest",
@@ -167,7 +243,13 @@
       "upstreamModel": "mistral-small-latest",
       "contextWindow": 131072,
       "pricing": { "inputPerMTok": "0.10", "outputPerMTok": "0.30" },
-      "capabilities": { "tools": true, "vision": true, "jsonMode": true }
+      "capabilities": {
+        "tools": true,
+        "vision": true,
+        "jsonMode": true,
+        "documents": false,
+        "audioInput": false
+      }
     },
     {
       "key": "xai/grok-4",
@@ -175,7 +257,13 @@
       "upstreamModel": "grok-4",
       "contextWindow": 256000,
       "pricing": { "inputPerMTok": "3.00", "outputPerMTok": "15.00", "cacheReadPerMTok": "0.75" },
-      "capabilities": { "tools": true, "vision": true, "reasoning": true }
+      "capabilities": {
+        "tools": true,
+        "vision": true,
+        "reasoning": true,
+        "documents": false,
+        "audioInput": false
+      }
     },
     {
       "key": "mock/mock-small",
@@ -184,7 +272,7 @@
       "contextWindow": 32000,
       "maxOutputTokens": 4096,
       "pricing": { "inputPerMTok": "0.10", "outputPerMTok": "0.20" },
-      "capabilities": { "tools": true }
+      "capabilities": { "tools": true, "documents": true, "audioInput": true }
     },
     {
       "key": "mock/mock-large",
@@ -193,7 +281,7 @@
       "contextWindow": 200000,
       "maxOutputTokens": 8192,
       "pricing": { "inputPerMTok": "1.00", "outputPerMTok": "2.00" },
-      "capabilities": { "tools": true }
+      "capabilities": { "tools": true, "documents": true, "audioInput": true }
     }
   ]
 }

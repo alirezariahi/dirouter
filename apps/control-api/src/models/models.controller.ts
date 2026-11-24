@@ -42,6 +42,9 @@ const Capabilities = z.object({
   images: z.boolean().optional(),
   speech: z.boolean().optional(),
   transcription: z.boolean().optional(),
+  /** PDF and other document input in chat, and audio input (card 27.2). */
+  documents: z.boolean().optional(),
+  audioInput: z.boolean().optional(),
 });
 const Multiplier = z.string().regex(/^\d{1,6}(\.\d{1,8})?$/, 'a non-negative decimal');
 /** Sale price (card 19.4); only meaningful on the platform organization's public models. */

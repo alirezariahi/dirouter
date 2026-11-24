@@ -28,6 +28,7 @@ import {
 } from '@dirouter/model-catalog';
 import {
   type ClassifiedError,
+  acceptsMedia,
   adapterForProvider,
   classified,
   classifyNetworkError,
@@ -70,8 +71,10 @@ import {
   canonicalToOpenAIResponse,
   canonicalToResponsesResponse,
   geminiRequestToCanonical,
+  mediaNeeds,
   openAIRequestToCanonical,
   responsesRequestToCanonical,
+  UnsupportedContentError,
 } from '@dirouter/translator';
 import { GeminiGenerateContentRequest, ResponsesRequest } from '@dirouter/contracts';
 import type { FastifyReply, FastifyRequest } from 'fastify';
@@ -700,6 +703,34 @@ export async function handleProxy(
     return;
   }
 
+  // Documents and audio (card 27.2) only go to targets that can take them; when none can, the
+  // client gets a 400 that says so instead of an answer to a request with its files removed.
+  const needs = mediaNeeds(canonical);
+  if (needs.documents || needs.audio) {
+    const fits = route.candidates.filter((c) =>
+      acceptsMedia(c.provider.type, c.model.capabilities, needs),
+    );
+    if (fits.length === 0) {
+      const what = [needs.documents && 'document (PDF or file)', needs.audio && 'audio']
+        .filter(Boolean)
+        .join(' and ');
+      sendError(
+        reply,
+        api,
+        new DiRouterError('invalid_request', {
+          message: `Model '${canonical.model}' cannot take ${what} input: no provider behind it supports it`,
+          param: 'messages',
+          status: 400,
+        }),
+        requestId,
+      );
+      finishSpan('error', { 'gateway.error': 'unsupported_content' });
+      observeEarly(reply.statusCode);
+      return;
+    }
+    route.candidates.splice(0, route.candidates.length, ...fits);
+  }
+
   // Client disconnect → abort all attempts and upstream.
   const clientGone = new AbortController();
   reply.raw.on('close', () => {
@@ -1164,6 +1195,12 @@ async function runRoute(
         },
       });
     } catch (error) {
+      // Content this provider cannot carry (card 27.2): a clear 400, never a silent drop.
+      if (error instanceof UnsupportedContentError)
+        return {
+          ok: false,
+          error: classified('bad_request', { status: 400, message: error.message }),
+        };
       // A request the adapter cannot build (a failing plugin, say) is a fault of this target, not
       // of the client: it counts as a server error, so the request falls back to the next target.
       deps.logger.warn(
