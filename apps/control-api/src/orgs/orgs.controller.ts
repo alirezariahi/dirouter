@@ -14,6 +14,7 @@ import {
 import { ApiBearerAuth, ApiNoContentResponse, ApiTags } from '@nestjs/swagger';
 import { z } from 'zod';
 
+import { SessionSchema } from '../auth/auth.controller.js';
 import { AccessGuard } from '../auth/auth.guard.js';
 import { ApiZodBody, ApiZodOk, ZodPipe } from '../common/zod.js';
 import { Org, OrgGuard, type OrgContext, RequirePermission } from '../rbac/org.guard.js';
@@ -137,6 +138,21 @@ export class OrgsController {
   @ApiNoContentResponse()
   async removeMember(@Org() org: OrgContext, @Param('userId') userId: string) {
     await this.orgs.removeMember(org, userId);
+  }
+
+  @Get('members/:userId/sessions')
+  @RequirePermission('members:write')
+  @ApiZodOk(z.array(SessionSchema), 'نشست‌های فعال یک عضو')
+  memberSessions(@Org() org: OrgContext, @Param('userId') userId: string) {
+    return this.orgs.memberSessions(org, userId);
+  }
+
+  @Post('members/:userId/sessions/revoke')
+  @HttpCode(200)
+  @RequirePermission('members:write')
+  @ApiZodOk(z.object({ revoked: z.int() }), 'عضو از همهٔ دستگاه‌ها خارج شد')
+  revokeMemberSessions(@Org() org: OrgContext, @Param('userId') userId: string) {
+    return this.orgs.revokeMemberSessions(org, userId);
   }
 
   @Get('invitations')

@@ -98,12 +98,15 @@ export default function OrganizationPage() {
     onError: setError,
   });
 
-  async function perform(action: () => Promise<unknown>, message = t('organization.saved')) {
+  async function perform(
+    action: () => Promise<unknown>,
+    message: string | (() => string) = t('organization.saved'),
+  ) {
     setError(undefined);
     setNotice(undefined);
     try {
       await mutation.mutateAsync(action);
-      setNotice(message);
+      setNotice(typeof message === 'function' ? message() : message);
     } catch {
       // The mutation exposes the translated API error in the shared alert.
     }
@@ -266,6 +269,35 @@ export default function OrganizationPage() {
                     }}
                   >
                     {t('organization.remove')}
+                  </Button>
+                ) : null}
+                {editable && member.userId !== user?.id ? (
+                  <Button
+                    variant="outline"
+                    disabled={mutation.isPending}
+                    data-testid={`member-signout-${member.userId}`}
+                    onClick={() => {
+                      if (
+                        !window.confirm(
+                          t('s4.sessions.memberSignOutConfirm', { name: member.name }),
+                        )
+                      )
+                        return;
+                      let count = 0;
+                      void perform(
+                        async () => {
+                          count = (
+                            await api<{ revoked: number }>(
+                              `${base}/members/${member.userId}/sessions/revoke`,
+                              { method: 'POST' },
+                            )
+                          ).revoked;
+                        },
+                        () => t('s4.sessions.memberSignedOut', { name: member.name, count }),
+                      );
+                    }}
+                  >
+                    {t('s4.sessions.memberSignOut')}
                   </Button>
                 ) : null}
               </li>

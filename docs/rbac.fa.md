@@ -50,6 +50,7 @@
 | ------------------------------------------------------------------------------------ | --------------------------------- |
 | `GET /orgs/:orgId`، `PATCH /orgs/:orgId`                                             | `org:read`، `org:write`           |
 | `GET /members`، `PATCH /members/:userId` (`{role}`)، `DELETE /members/:userId`       | `members:read`، `members:write`   |
+| `GET /members/:userId/sessions`، `POST /members/:userId/sessions/revoke` (کارت ۲۳.۵) | `members:write`                   |
 | `GET /invitations`، `POST /invitations` (`{email, role}`)، `DELETE /invitations/:id` | `members:read`، `invites:write`   |
 | `GET/POST /teams`، `PATCH/DELETE /teams/:id`                                         | `teams:read`، `teams:write`       |
 | `GET/POST /projects`، `PATCH/DELETE /projects/:id`                                   | `projects:read`، `projects:write` |

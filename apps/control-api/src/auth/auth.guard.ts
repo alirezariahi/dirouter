@@ -11,12 +11,16 @@ import type { FastifyRequest } from 'fastify';
 
 import type { AccessClaims } from './crypto.js';
 import { AuthService } from './auth.service.js';
+import { SessionsService } from './sessions.service.js';
 
 type AuthedRequest = FastifyRequest & { user?: AccessClaims };
 
 @Injectable()
 export class AccessGuard implements CanActivate {
-  constructor(@Inject(AuthService) private readonly auth: AuthService) {}
+  constructor(
+    @Inject(AuthService) private readonly auth: AuthService,
+    @Inject(SessionsService) private readonly sessions: SessionsService,
+  ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const req = context.switchToHttp().getRequest<AuthedRequest>();
@@ -24,6 +28,10 @@ export class AccessGuard implements CanActivate {
     const token = typeof header === 'string' ? /^Bearer\s+(.+)$/i.exec(header)?.[1] : undefined;
     const claims = token ? await this.auth.tokens.verifyAccess(token) : undefined;
     if (!claims) throw new AuthenticationError('unauthenticated');
+    // A revoked session (sign-out elsewhere, an administrator, a password change or a reused
+    // refresh token) also ends its access tokens at once (card 23.5).
+    if (claims.sid && !(await this.sessions.isActive(claims.sid)))
+      throw new AuthenticationError('unauthenticated', { message: 'The session was signed out' });
     req.user = claims;
     return true;
   }

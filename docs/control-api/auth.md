@@ -6,15 +6,18 @@ Code: `apps/control-api/src/auth` · tests: `auth.unit.test.ts` and `auth.integr
 
 ## Endpoints (`/api/v1/auth`)
 
-| route            | description                                                                                                                                                                                |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `GET /setup`     | `{"required": true}` as long as there are no users                                                                                                                                         |
-| `POST /setup`    | `{organizationName, name, email, password}`: creates the organization, the user and the OWNER membership, and signs in. After the first user, it always returns **409 `setup_completed`**. |
-| `POST /login`    | `{email, password}`: the response is an access token, and the refresh token is set in a cookie                                                                                             |
-| `POST /refresh`  | with the cookie: rotates the token and returns a fresh access token                                                                                                                        |
-| `POST /logout`   | revokes the session family and clears the cookie (204)                                                                                                                                     |
-| `POST /password` | with Bearer: `{currentPassword, newPassword}`; all of the user's refresh tokens are revoked (204)                                                                                          |
-| `GET /me`        | with Bearer: the user and their organizations with roles                                                                                                                                   |
+| route                       | description                                                                                                                                                                                |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `GET /setup`                | `{"required": true}` as long as there are no users                                                                                                                                         |
+| `POST /setup`               | `{organizationName, name, email, password}`: creates the organization, the user and the OWNER membership, and signs in. After the first user, it always returns **409 `setup_completed`**. |
+| `POST /login`               | `{email, password}`: the response is an access token, and the refresh token is set in a cookie                                                                                             |
+| `POST /refresh`             | with the cookie: rotates the token and returns a fresh access token                                                                                                                        |
+| `POST /logout`              | revokes the session family and clears the cookie (204)                                                                                                                                     |
+| `POST /password`            | with Bearer: `{currentPassword, newPassword}`; all of the user's refresh tokens are revoked (204)                                                                                          |
+| `GET /me`                   | with Bearer: the user and their organizations with roles                                                                                                                                   |
+| `GET /sessions`             | with Bearer: the user's active sessions (see [Sessions](#sessions))                                                                                                                        |
+| `DELETE /sessions/{id}`     | with Bearer: ends one of the user's sessions (204; 404 when it is not theirs or already over)                                                                                              |
+| `POST /sessions/revoke-all` | with Bearer: `{includeCurrent?: false}`; signs out every other session, or every session including this one                                                                                |
 
 All of these are in Swagger (`/api/docs`) with the full schema from zod. Errors are returned in `application/problem+json` format with stable codes.
 
@@ -42,7 +45,48 @@ Each login creates a **family** (`family_id`). Each `refresh`:
 2. `UPDATE … SET used_at = now() WHERE id = ? AND used_at IS NULL`. The condition is inside the UPDATE, so of two simultaneous refreshes with one token, only one wins and the other is treated as reuse.
 3. A new token is issued in the same family.
 
-Changing the password revokes all refresh tokens of the user. Access tokens that were already issued remain valid for at most 15 minutes.
+Changing the password revokes all refresh tokens of the user.
+
+Every access token carries its session (the refresh-token family) in the `sid` claim. AccessGuard
+refuses an access token whose session has no unrevoked refresh token left, so logout, a password
+change, a reused refresh token or a revoked session also end the access tokens of that session on
+their next request (401 `unauthenticated`), instead of leaving them valid for up to 15 minutes. The
+check is one indexed lookup on `refresh_tokens.family_id`. Tokens issued before this change have no
+`sid` and simply expire.
+
+## Sessions
+
+Card 23.5 · tests: `sessions.integration.test.ts`, `sessions.unit.test.ts` and the dashboard's
+`sessions-card.test.tsx`.
+
+A session is one refresh-token family: it starts at sign-in (password, passkey, SSO, setup or an
+accepted invitation) and keeps its id through every rotation.
+
+| field          | meaning                                                                                                 |
+| -------------- | ------------------------------------------------------------------------------------------------------- |
+| `id`           | the family id; pass it to `DELETE /auth/sessions/{id}`                                                  |
+| `device`       | a label parsed from the user agent, such as `Firefox on Linux`; the raw `userAgent` is returned as well |
+| `ip`           | the address of the latest sign-in or refresh                                                            |
+| `createdAt`    | when the user signed in                                                                                 |
+| `lastActiveAt` | the latest refresh; the dashboard refreshes while it is open, so this is the session's last activity    |
+| `method`       | `pwd`, `passkey` or `sso`                                                                               |
+| `current`      | true for the session that made the request                                                              |
+
+- Ending a session revokes every refresh token of the family at once: the next `POST /auth/refresh`
+  with its cookie gets 401, and its access tokens get 401 on their next request.
+- `POST /auth/sessions/revoke-all` keeps the calling session unless `includeCurrent: true`; then the
+  cookie is cleared as well.
+- Administrators: `GET /orgs/{orgId}/members/{userId}/sessions` and
+  `POST /orgs/{orgId}/members/{userId}/sessions/revoke` (permission `members:write`) list and end all
+  sessions of a member. The rule for role changes applies: nobody can sign out a member with more
+  access than their own (an ADMIN cannot sign out an OWNER). The sessions end everywhere, not only
+  in that organization, because a session is not bound to one organization.
+- Audit log: `session.revoked` and `session.revoked_all` (with the number of sessions) are recorded
+  in every organization of the user; an administrator's action is recorded as
+  `member.sessions_revoked` in the organization where it was taken, with the administrator as actor.
+- Dashboard: the account page lists the sessions with "Sign out this device", "Sign out all other
+  devices" and "Sign out everywhere"; the organization page has a "Sign out everywhere" button per
+  member for those who can manage members.
 
 ## Login attempt limit
 

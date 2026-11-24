@@ -501,6 +501,162 @@
         ]
       }
     },
+    "/api/v1/auth/sessions": {
+      "get": {
+        "operationId": "AuthController_listSessions",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "نشست‌های فعال کاربر؛ نشست همین درخواست current است",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "device": {
+                        "type": "string"
+                      },
+                      "userAgent": {
+                        "nullable": true,
+                        "type": "string"
+                      },
+                      "ip": {
+                        "nullable": true,
+                        "type": "string"
+                      },
+                      "createdAt": {
+                        "type": "string"
+                      },
+                      "lastActiveAt": {
+                        "type": "string"
+                      },
+                      "expiresAt": {
+                        "type": "string"
+                      },
+                      "method": {
+                        "type": "string",
+                        "enum": [
+                          "pwd",
+                          "passkey",
+                          "sso"
+                        ]
+                      },
+                      "current": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "device",
+                      "userAgent",
+                      "ip",
+                      "createdAt",
+                      "lastActiveAt",
+                      "expiresAt",
+                      "method",
+                      "current"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/sessions/{id}": {
+      "delete": {
+        "operationId": "AuthController_revokeSession",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "نشست باطل شد؛ refresh token آن دیگر کار نمی‌کند"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/sessions/revoke-all": {
+      "post": {
+        "operationId": "AuthController_revokeAllSessions",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "includeCurrent": {
+                    "default": false,
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "خروج از همهٔ دستگاه‌ها (به‌جز همین، مگر includeCurrent)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "revoked": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "revoked"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "auth"
+        ]
+      }
+    },
     "/api/v1/auth/mfa": {
       "get": {
         "operationId": "MfaController_status",
@@ -1283,6 +1439,152 @@
         "responses": {
           "204": {
             "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "organizations"
+        ]
+      }
+    },
+    "/api/v1/orgs/{orgId}/members/{userId}/sessions": {
+      "get": {
+        "operationId": "OrgsController_memberSessions",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "نشست‌های فعال یک عضو",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "device": {
+                        "type": "string"
+                      },
+                      "userAgent": {
+                        "nullable": true,
+                        "type": "string"
+                      },
+                      "ip": {
+                        "nullable": true,
+                        "type": "string"
+                      },
+                      "createdAt": {
+                        "type": "string"
+                      },
+                      "lastActiveAt": {
+                        "type": "string"
+                      },
+                      "expiresAt": {
+                        "type": "string"
+                      },
+                      "method": {
+                        "type": "string",
+                        "enum": [
+                          "pwd",
+                          "passkey",
+                          "sso"
+                        ]
+                      },
+                      "current": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "device",
+                      "userAgent",
+                      "ip",
+                      "createdAt",
+                      "lastActiveAt",
+                      "expiresAt",
+                      "method",
+                      "current"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "organizations"
+        ]
+      }
+    },
+    "/api/v1/orgs/{orgId}/members/{userId}/sessions/revoke": {
+      "post": {
+        "operationId": "OrgsController_revokeMemberSessions",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "عضو از همهٔ دستگاه‌ها خارج شد",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "revoked": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "revoked"
+                  ]
+                }
+              }
+            }
           }
         },
         "security": [

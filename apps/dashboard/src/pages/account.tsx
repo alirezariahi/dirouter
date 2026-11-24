@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 import { MfaCard } from '../components/account/mfa-card';
 import { PasskeysCard } from '../components/account/passkeys-card';
+import { SessionsCard } from '../components/account/sessions-card';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
 import { Field, FormError } from '../components/ui/field';
@@ -63,6 +64,7 @@ export default function AccountPage() {
       </Card>
       <MfaCard />
       <PasskeysCard />
+      <SessionsCard />
     </section>
   );
 }

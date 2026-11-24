@@ -1,4 +1,16 @@
-import { Body, Controller, Get, HttpCode, Inject, Post, Req, Res, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  Inject,
+  Param,
+  Post,
+  Req,
+  Res,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiCookieAuth, ApiNoContentResponse, ApiTags } from '@nestjs/swagger';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { ValidationError } from '@dirouter/shared';
@@ -10,6 +22,7 @@ import { ApiZodBody, ApiZodOk, ZodPipe } from '../common/zod.js';
 import { AccessGuard, CurrentUser } from './auth.guard.js';
 import { type ClientInfo, AuthService, type Session } from './auth.service.js';
 import { type AccessClaims, REFRESH_TTL_SECONDS } from './crypto.js';
+import { SessionsService } from './sessions.service.js';
 
 export const REFRESH_COOKIE = 'dr_refresh';
 
@@ -61,6 +74,22 @@ const MeResponse = z.object({
   ),
 });
 
+export const SessionSchema = z.object({
+  id: z.string(),
+  device: z.string(),
+  userAgent: z.string().nullable(),
+  ip: z.string().nullable(),
+  createdAt: z.string(),
+  lastActiveAt: z.string(),
+  expiresAt: z.string(),
+  method: z.enum(['pwd', 'passkey', 'sso']),
+  current: z.boolean(),
+});
+export const RevokeAllBody = z.object({
+  /** false (the default) keeps the session making the request signed in. */
+  includeCurrent: z.boolean().default(false),
+});
+
 const client = (req: FastifyRequest): ClientInfo => ({
   ip: req.ip,
   userAgent: typeof req.headers['user-agent'] === 'string' ? req.headers['user-agent'] : undefined,
@@ -72,6 +101,7 @@ export class AuthController {
   constructor(
     @Inject(AuthService) private readonly auth: AuthService,
     @Inject(ENV) private readonly env: Env,
+    @Inject(SessionsService) private readonly sessions: SessionsService,
   ) {}
 
   /** Refresh token only in an httpOnly cookie, only for /auth paths, and same-site only. */
@@ -186,5 +216,51 @@ export class AuthController {
   @ApiZodOk(MeResponse)
   me(@CurrentUser() user: AccessClaims) {
     return this.auth.me(user.sub, user.amr === 'sso' ? (user.org ?? '') : undefined);
+  }
+
+  @Get('sessions')
+  @UseGuards(AccessGuard)
+  @ApiBearerAuth()
+  @ApiZodOk(z.array(SessionSchema), 'نشست‌های فعال کاربر؛ نشست همین درخواست current است')
+  listSessions(@CurrentUser() user: AccessClaims) {
+    return this.sessions.list(user.sub, user.sid);
+  }
+
+  @Delete('sessions/:id')
+  @HttpCode(204)
+  @UseGuards(AccessGuard)
+  @ApiBearerAuth()
+  @ApiNoContentResponse({ description: 'نشست باطل شد؛ refresh token آن دیگر کار نمی‌کند' })
+  async revokeSession(
+    @CurrentUser() user: AccessClaims,
+    @Param('id') id: string,
+    @Req() req: FastifyRequest,
+    @Res({ passthrough: true }) reply: FastifyReply,
+  ) {
+    await this.sessions.revoke(user.sub, id, req.ip);
+    if (id === user.sid) this.#clearRefresh(reply);
+  }
+
+  @Post('sessions/revoke-all')
+  @HttpCode(200)
+  @UseGuards(AccessGuard)
+  @ApiBearerAuth()
+  @ApiZodBody(RevokeAllBody)
+  @ApiZodOk(
+    z.object({ revoked: z.int() }),
+    'خروج از همهٔ دستگاه‌ها (به‌جز همین، مگر includeCurrent)',
+  )
+  async revokeAllSessions(
+    @CurrentUser() user: AccessClaims,
+    @Body(new ZodPipe(RevokeAllBody)) body: z.infer<typeof RevokeAllBody>,
+    @Req() req: FastifyRequest,
+    @Res({ passthrough: true }) reply: FastifyReply,
+  ) {
+    const result = await this.sessions.revokeAll(user.sub, {
+      keepSid: body.includeCurrent ? undefined : user.sid,
+      ip: req.ip,
+    });
+    if (body.includeCurrent) this.#clearRefresh(reply);
+    return result;
   }
 }

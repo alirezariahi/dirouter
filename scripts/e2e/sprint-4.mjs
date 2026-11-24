@@ -876,6 +876,97 @@ try {
       if (rows) console.log(`     request_log cache_read_tokens=${rows}`);
     },
   );
+
+  // ───────────── Epic 23: sessions and management tokens ─────────────
+
+  /** Signs in through Traefik with a given user agent; returns the access token and refresh cookie. */
+  async function signIn(email, password, userAgent) {
+    const res = await request(
+      `${urls.admin}/api/v1/auth/login`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'user-agent': userAgent },
+        body: JSON.stringify({ email, password }),
+      },
+      200,
+    );
+    const cookie = (res.response.headers.getSetCookie?.() ?? [])
+      .map((line) => line.split(';')[0])
+      .find((pair) => pair.startsWith('dr_refresh='));
+    assert.ok(cookie, 'login sets the refresh cookie');
+    return { token: res.body.accessToken, cookie };
+  }
+  const refreshWith = (cookie) =>
+    request(`${urls.admin}/api/v1/auth/refresh`, { method: 'POST', headers: { cookie } });
+  const meWith = (token) => api('GET', 'auth/me', undefined, null, token);
+
+  await scenario(
+    '23.5 sessions: listed with device and address, revoking one ends its refresh and access token, admin signs a member out',
+    async () => {
+      const phoneUa =
+        'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1';
+      const phone = await signIn(
+        seedAdmin.SEED_ADMIN_EMAIL,
+        seedAdmin.SEED_ADMIN_PASSWORD,
+        phoneUa,
+      );
+      const listed = (await api('GET', 'auth/sessions')).body;
+      const target = listed.find((s) => s.userAgent === phoneUa);
+      assert.ok(target, JSON.stringify(listed));
+      assert.equal(target.device, 'Safari on iOS');
+      assert.equal(target.current, false);
+      assert.ok(target.ip, 'the session shows an address');
+      assert.equal(listed.filter((s) => s.current).length, 1, 'exactly one current session');
+      assert.equal((await meWith(phone.token)).response.status, 200);
+
+      await api('DELETE', `auth/sessions/${encodeURIComponent(target.id)}`, undefined, 204);
+      assert.equal((await refreshWith(phone.cookie)).response.status, 401, 'refresh token revoked');
+      assert.equal((await meWith(phone.token)).response.status, 401, 'access token revoked');
+      assert.equal((await api('GET', 'auth/me')).response.status, 200, 'own session untouched');
+      assert.equal(
+        (await sql(
+          `SELECT count(*) FROM audit_logs WHERE action = 'session.revoked' AND target_id = '${target.id}'`,
+        ).then(Number)) > 0,
+        true,
+        'audited',
+      );
+
+      // An administrator signs a member out everywhere.
+      const email = `s4-sessions-${randomUUID().slice(0, 8)}@e2e.test`;
+      const password = `Pw-${randomUUID()}`;
+      const invite = (await org('POST', 'invitations', { email, role: 'VIEWER' }, 201)).body;
+      const member = (
+        await api(
+          'POST',
+          'auth/invitations/accept',
+          { token: invite.token, name: 'E2E sessions', password },
+          200,
+          '',
+        )
+      ).body;
+      cleanups.push(() => org('DELETE', `members/${member.user.id}`, undefined, null));
+      const memberLaptop = await signIn(
+        email,
+        password,
+        'Mozilla/5.0 (X11; Linux x86_64) Firefox/140.0',
+      );
+      const memberSessions = (await org('GET', `members/${member.user.id}/sessions`)).body;
+      assert.ok(
+        memberSessions.some((s) => s.device === 'Firefox on Linux'),
+        JSON.stringify(memberSessions),
+      );
+      const ended = (await org('POST', `members/${member.user.id}/sessions/revoke`)).body;
+      assert.ok(ended.revoked >= 2, JSON.stringify(ended));
+      assert.equal((await meWith(member.accessToken)).response.status, 401);
+      assert.equal((await meWith(memberLaptop.token)).response.status, 401);
+      assert.equal((await refreshWith(memberLaptop.cookie)).response.status, 401);
+      const audit = (await org('GET', 'audit?action=member.sessions_revoked&limit=5')).body;
+      assert.ok(
+        JSON.stringify(audit).includes(member.user.id),
+        `member.sessions_revoked in the audit log: ${JSON.stringify(audit).slice(0, 300)}`,
+      );
+    },
+  );
 } catch (error) {
   crashed = true;
   console.error(error);

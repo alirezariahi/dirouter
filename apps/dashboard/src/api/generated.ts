@@ -195,6 +195,41 @@ export type AuthControllerMe200 = {
   organizations: AuthControllerMe200OrganizationsItem[];
 };
 
+export type AuthControllerListSessions200ItemMethod = typeof AuthControllerListSessions200ItemMethod[keyof typeof AuthControllerListSessions200ItemMethod];
+
+
+export const AuthControllerListSessions200ItemMethod = {
+  pwd: 'pwd',
+  passkey: 'passkey',
+  sso: 'sso',
+} as const;
+
+export type AuthControllerListSessions200Item = {
+  id: string;
+  device: string;
+  /** @nullable */
+  userAgent: string | null;
+  /** @nullable */
+  ip: string | null;
+  createdAt: string;
+  lastActiveAt: string;
+  expiresAt: string;
+  method: AuthControllerListSessions200ItemMethod;
+  current: boolean;
+};
+
+export type AuthControllerRevokeAllSessionsBody = {
+  includeCurrent?: boolean;
+};
+
+export type AuthControllerRevokeAllSessions200 = {
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     */
+  revoked: number;
+};
+
 export type MfaControllerStatus200 = {
   enabled: boolean;
   pending: boolean;
@@ -372,6 +407,37 @@ export type OrgsControllerRole200 = {
   role: OrgsControllerRole200Role;
   /** @nullable */
   customRoleId: string | null;
+};
+
+export type OrgsControllerMemberSessions200ItemMethod = typeof OrgsControllerMemberSessions200ItemMethod[keyof typeof OrgsControllerMemberSessions200ItemMethod];
+
+
+export const OrgsControllerMemberSessions200ItemMethod = {
+  pwd: 'pwd',
+  passkey: 'passkey',
+  sso: 'sso',
+} as const;
+
+export type OrgsControllerMemberSessions200Item = {
+  id: string;
+  device: string;
+  /** @nullable */
+  userAgent: string | null;
+  /** @nullable */
+  ip: string | null;
+  createdAt: string;
+  lastActiveAt: string;
+  expiresAt: string;
+  method: OrgsControllerMemberSessions200ItemMethod;
+  current: boolean;
+};
+
+export type OrgsControllerRevokeMemberSessions200 = {
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     */
+  revoked: number;
 };
 
 export type OrgsControllerInvitations200ItemRole = typeof OrgsControllerInvitations200ItemRole[keyof typeof OrgsControllerInvitations200ItemRole];
@@ -6126,6 +6192,314 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       return useMutation(getAuthControllerMeMutationOptions(options), queryClient);
     }
 
+export type authControllerListSessionsResponse200 = {
+  data: AuthControllerListSessions200Item[]
+  status: 200
+}
+
+export type authControllerListSessionsResponseSuccess = (authControllerListSessionsResponse200) & {
+  headers: Headers;
+};
+;
+
+export type authControllerListSessionsResponse = (authControllerListSessionsResponseSuccess)
+
+export const getAuthControllerListSessionsUrl = () => {
+
+
+
+
+  return `/api/v1/auth/sessions`
+}
+
+export const authControllerListSessions = async ( options?: Parameters<typeof orvalFetch>[1]): Promise<authControllerListSessionsResponse> => {
+
+  return orvalFetch<authControllerListSessionsResponse>(getAuthControllerListSessionsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getAuthControllerListSessionsMutationKey = () => ['authControllerListSessions'] as const;
+
+export const getAuthControllerListSessionsMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof authControllerListSessions>>, TError,void, TContext>, request?: SecondParameter<typeof orvalFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof authControllerListSessions>>, TError,void, TContext> => {
+
+const mutationKey = getAuthControllerListSessionsMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof authControllerListSessions>>, void> = () => {
+
+
+          return  authControllerListSessions(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AuthControllerListSessionsMutationResult = NonNullable<Awaited<ReturnType<typeof authControllerListSessions>>>
+
+    export type AuthControllerListSessionsMutationError = unknown
+
+
+    export const useAuthControllerListSessions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof authControllerListSessions>>, TError,void, TContext>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof authControllerListSessions>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getAuthControllerListSessionsMutationOptions(options), queryClient);
+    }
+
+export type authControllerRevokeSessionResponse204 = {
+  data: void
+  status: 204
+}
+
+export type authControllerRevokeSessionResponseSuccess = (authControllerRevokeSessionResponse204) & {
+  headers: Headers;
+};
+;
+
+export type authControllerRevokeSessionResponse = (authControllerRevokeSessionResponseSuccess)
+
+export const getAuthControllerRevokeSessionUrl = (id: string,) => {
+
+
+
+
+  return `/api/v1/auth/sessions/${id}`
+}
+
+export const authControllerRevokeSession = async (id: string, options?: Parameters<typeof orvalFetch>[1]): Promise<authControllerRevokeSessionResponse> => {
+
+  return orvalFetch<authControllerRevokeSessionResponse>(getAuthControllerRevokeSessionUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getAuthControllerRevokeSessionQueryKey = (id: string,) => {
+    return [
+    'DELETE', `/api/v1/auth/sessions/${id}`
+    ] as const;
+    }
+
+
+export const getAuthControllerRevokeSessionQueryOptions = <TData = Awaited<ReturnType<typeof authControllerRevokeSession>>, TError = unknown>(id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof authControllerRevokeSession>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getAuthControllerRevokeSessionQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof authControllerRevokeSession>>> = ({ signal }) => authControllerRevokeSession(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof authControllerRevokeSession>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type AuthControllerRevokeSessionQueryResult = NonNullable<Awaited<ReturnType<typeof authControllerRevokeSession>>>
+export type AuthControllerRevokeSessionQueryError = unknown
+
+
+export function useAuthControllerRevokeSession<TData = Awaited<ReturnType<typeof authControllerRevokeSession>>, TError = unknown>(
+ id: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof authControllerRevokeSession>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof authControllerRevokeSession>>,
+          TError,
+          Awaited<ReturnType<typeof authControllerRevokeSession>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useAuthControllerRevokeSession<TData = Awaited<ReturnType<typeof authControllerRevokeSession>>, TError = unknown>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof authControllerRevokeSession>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof authControllerRevokeSession>>,
+          TError,
+          Awaited<ReturnType<typeof authControllerRevokeSession>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useAuthControllerRevokeSession<TData = Awaited<ReturnType<typeof authControllerRevokeSession>>, TError = unknown>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof authControllerRevokeSession>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useAuthControllerRevokeSession<TData = Awaited<ReturnType<typeof authControllerRevokeSession>>, TError = unknown>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof authControllerRevokeSession>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getAuthControllerRevokeSessionQueryOptions(id,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export type authControllerRevokeAllSessionsResponse200 = {
+  data: AuthControllerRevokeAllSessions200
+  status: 200
+}
+
+export type authControllerRevokeAllSessionsResponseSuccess = (authControllerRevokeAllSessionsResponse200) & {
+  headers: Headers;
+};
+;
+
+export type authControllerRevokeAllSessionsResponse = (authControllerRevokeAllSessionsResponseSuccess)
+
+export const getAuthControllerRevokeAllSessionsUrl = () => {
+
+
+
+
+  return `/api/v1/auth/sessions/revoke-all`
+}
+
+export const authControllerRevokeAllSessions = async (authControllerRevokeAllSessionsBody: AuthControllerRevokeAllSessionsBody, options?: Parameters<typeof orvalFetch>[1]): Promise<authControllerRevokeAllSessionsResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return orvalFetch<authControllerRevokeAllSessionsResponse>(getAuthControllerRevokeAllSessionsUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(authControllerRevokeAllSessionsBody)
+  }
+);}
+
+
+
+
+
+export const getAuthControllerRevokeAllSessionsQueryKey = (authControllerRevokeAllSessionsBody?: AuthControllerRevokeAllSessionsBody,) => {
+    return [
+    'POST', `/api/v1/auth/sessions/revoke-all`, authControllerRevokeAllSessionsBody
+    ] as const;
+    }
+
+
+export const getAuthControllerRevokeAllSessionsQueryOptions = <TData = Awaited<ReturnType<typeof authControllerRevokeAllSessions>>, TError = unknown>(authControllerRevokeAllSessionsBody: AuthControllerRevokeAllSessionsBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof authControllerRevokeAllSessions>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getAuthControllerRevokeAllSessionsQueryKey(authControllerRevokeAllSessionsBody);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof authControllerRevokeAllSessions>>> = ({ signal }) => authControllerRevokeAllSessions(authControllerRevokeAllSessionsBody, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof authControllerRevokeAllSessions>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type AuthControllerRevokeAllSessionsQueryResult = NonNullable<Awaited<ReturnType<typeof authControllerRevokeAllSessions>>>
+export type AuthControllerRevokeAllSessionsQueryError = unknown
+
+
+export function useAuthControllerRevokeAllSessions<TData = Awaited<ReturnType<typeof authControllerRevokeAllSessions>>, TError = unknown>(
+ authControllerRevokeAllSessionsBody: AuthControllerRevokeAllSessionsBody, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof authControllerRevokeAllSessions>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof authControllerRevokeAllSessions>>,
+          TError,
+          Awaited<ReturnType<typeof authControllerRevokeAllSessions>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useAuthControllerRevokeAllSessions<TData = Awaited<ReturnType<typeof authControllerRevokeAllSessions>>, TError = unknown>(
+ authControllerRevokeAllSessionsBody: AuthControllerRevokeAllSessionsBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof authControllerRevokeAllSessions>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof authControllerRevokeAllSessions>>,
+          TError,
+          Awaited<ReturnType<typeof authControllerRevokeAllSessions>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useAuthControllerRevokeAllSessions<TData = Awaited<ReturnType<typeof authControllerRevokeAllSessions>>, TError = unknown>(
+ authControllerRevokeAllSessionsBody: AuthControllerRevokeAllSessionsBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof authControllerRevokeAllSessions>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useAuthControllerRevokeAllSessions<TData = Awaited<ReturnType<typeof authControllerRevokeAllSessions>>, TError = unknown>(
+ authControllerRevokeAllSessionsBody: AuthControllerRevokeAllSessionsBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof authControllerRevokeAllSessions>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getAuthControllerRevokeAllSessionsQueryOptions(authControllerRevokeAllSessionsBody,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
 export type mfaControllerStatusResponse200 = {
   data: MfaControllerStatus200
   status: 200
@@ -7753,6 +8127,203 @@ export function useOrgsControllerRemoveMember<TData = Awaited<ReturnType<typeof 
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getOrgsControllerRemoveMemberQueryOptions(orgId,userId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export type orgsControllerMemberSessionsResponse200 = {
+  data: OrgsControllerMemberSessions200Item[]
+  status: 200
+}
+
+export type orgsControllerMemberSessionsResponseSuccess = (orgsControllerMemberSessionsResponse200) & {
+  headers: Headers;
+};
+;
+
+export type orgsControllerMemberSessionsResponse = (orgsControllerMemberSessionsResponseSuccess)
+
+export const getOrgsControllerMemberSessionsUrl = (orgId: string,
+    userId: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/members/${userId}/sessions`
+}
+
+export const orgsControllerMemberSessions = async (orgId: string,
+    userId: string, options?: Parameters<typeof orvalFetch>[1]): Promise<orgsControllerMemberSessionsResponse> => {
+
+  return orvalFetch<orgsControllerMemberSessionsResponse>(getOrgsControllerMemberSessionsUrl(orgId,userId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getOrgsControllerMemberSessionsMutationKey = () => ['orgsControllerMemberSessions'] as const;
+
+export const getOrgsControllerMemberSessionsMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof orgsControllerMemberSessions>>, TError,OrgsControllerMemberSessionsMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof orgsControllerMemberSessions>>, TError,OrgsControllerMemberSessionsMutationVariables, TContext> => {
+
+const mutationKey = getOrgsControllerMemberSessionsMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof orgsControllerMemberSessions>>, OrgsControllerMemberSessionsMutationVariables> = (props) => {
+          const {orgId,userId} = props ?? {};
+
+          return  orgsControllerMemberSessions(orgId,userId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type OrgsControllerMemberSessionsMutationResult = NonNullable<Awaited<ReturnType<typeof orgsControllerMemberSessions>>>
+
+    export type OrgsControllerMemberSessionsMutationError = unknown
+    export type OrgsControllerMemberSessionsMutationVariables = {orgId: string;userId: string}
+
+    export const useOrgsControllerMemberSessions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof orgsControllerMemberSessions>>, TError,OrgsControllerMemberSessionsMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof orgsControllerMemberSessions>>,
+        TError,
+        OrgsControllerMemberSessionsMutationVariables,
+        TContext
+      > => {
+      return useMutation(getOrgsControllerMemberSessionsMutationOptions(options), queryClient);
+    }
+
+export type orgsControllerRevokeMemberSessionsResponse200 = {
+  data: OrgsControllerRevokeMemberSessions200
+  status: 200
+}
+
+export type orgsControllerRevokeMemberSessionsResponseSuccess = (orgsControllerRevokeMemberSessionsResponse200) & {
+  headers: Headers;
+};
+;
+
+export type orgsControllerRevokeMemberSessionsResponse = (orgsControllerRevokeMemberSessionsResponseSuccess)
+
+export const getOrgsControllerRevokeMemberSessionsUrl = (orgId: string,
+    userId: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/members/${userId}/sessions/revoke`
+}
+
+export const orgsControllerRevokeMemberSessions = async (orgId: string,
+    userId: string, options?: Parameters<typeof orvalFetch>[1]): Promise<orgsControllerRevokeMemberSessionsResponse> => {
+
+  return orvalFetch<orgsControllerRevokeMemberSessionsResponse>(getOrgsControllerRevokeMemberSessionsUrl(orgId,userId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getOrgsControllerRevokeMemberSessionsQueryKey = (orgId: string,
+    userId: string,) => {
+    return [
+    'POST', `/api/v1/orgs/${orgId}/members/${userId}/sessions/revoke`
+    ] as const;
+    }
+
+
+export const getOrgsControllerRevokeMemberSessionsQueryOptions = <TData = Awaited<ReturnType<typeof orgsControllerRevokeMemberSessions>>, TError = unknown>(orgId: string,
+    userId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof orgsControllerRevokeMemberSessions>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getOrgsControllerRevokeMemberSessionsQueryKey(orgId,userId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof orgsControllerRevokeMemberSessions>>> = ({ signal }) => orgsControllerRevokeMemberSessions(orgId,userId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: orgId !== null && orgId !== undefined && userId !== null && userId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof orgsControllerRevokeMemberSessions>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type OrgsControllerRevokeMemberSessionsQueryResult = NonNullable<Awaited<ReturnType<typeof orgsControllerRevokeMemberSessions>>>
+export type OrgsControllerRevokeMemberSessionsQueryError = unknown
+
+
+export function useOrgsControllerRevokeMemberSessions<TData = Awaited<ReturnType<typeof orgsControllerRevokeMemberSessions>>, TError = unknown>(
+ orgId: string,
+    userId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof orgsControllerRevokeMemberSessions>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof orgsControllerRevokeMemberSessions>>,
+          TError,
+          Awaited<ReturnType<typeof orgsControllerRevokeMemberSessions>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useOrgsControllerRevokeMemberSessions<TData = Awaited<ReturnType<typeof orgsControllerRevokeMemberSessions>>, TError = unknown>(
+ orgId: string,
+    userId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof orgsControllerRevokeMemberSessions>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof orgsControllerRevokeMemberSessions>>,
+          TError,
+          Awaited<ReturnType<typeof orgsControllerRevokeMemberSessions>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useOrgsControllerRevokeMemberSessions<TData = Awaited<ReturnType<typeof orgsControllerRevokeMemberSessions>>, TError = unknown>(
+ orgId: string,
+    userId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof orgsControllerRevokeMemberSessions>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useOrgsControllerRevokeMemberSessions<TData = Awaited<ReturnType<typeof orgsControllerRevokeMemberSessions>>, TError = unknown>(
+ orgId: string,
+    userId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof orgsControllerRevokeMemberSessions>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getOrgsControllerRevokeMemberSessionsQueryOptions(orgId,userId,options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 

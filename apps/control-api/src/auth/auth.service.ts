@@ -399,6 +399,7 @@ export class AuthService {
         email: user.email,
         amr: origin.amr,
         ...(origin.org ? { org: origin.org } : {}),
+        sid: familyId,
       }),
       expiresIn: ACCESS_TTL_SECONDS,
       refreshToken: refresh.token,

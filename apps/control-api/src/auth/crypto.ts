@@ -51,6 +51,8 @@ export interface AccessClaims {
   amr?: AuthMethod | undefined;
   /** SSO sessions only: the organization whose identity provider vouched for the user. */
   org?: string | undefined;
+  /** The session (refresh-token family) the token belongs to (card 23.5); absent on older tokens. */
+  sid?: string | undefined;
 }
 
 /** How a session (a refresh-token family) was opened. */
@@ -89,6 +91,7 @@ export class TokenService {
       typ: 'access',
       amr: claims.amr ?? 'pwd',
       ...(claims.org ? { org: claims.org } : {}),
+      ...(claims.sid ? { sid: claims.sid } : {}),
     })
       .setProtectedHeader({ alg: 'HS256' })
       .setSubject(claims.sub)
@@ -116,6 +119,7 @@ export class TokenService {
             ? (payload.amr as AuthMethod)
             : 'pwd',
         ...(typeof payload.org === 'string' ? { org: payload.org } : {}),
+        ...(typeof payload.sid === 'string' ? { sid: payload.sid } : {}),
       };
     } catch {
       return undefined;

@@ -7,6 +7,7 @@ import { randomBytes } from 'node:crypto';
 import { DiRouterError, ForbiddenError, prefixedId } from '@dirouter/shared';
 import { Inject, Injectable } from '@nestjs/common';
 
+import { SessionsService } from '../auth/sessions.service.js';
 import { hashInvite, slugify } from '../common/ids.js';
 import { ENV, type Env } from '../env.js';
 import { PrismaService } from '../infra/prisma.service.js';
@@ -28,6 +29,7 @@ export class OrgsService {
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(ENV) private readonly env: Env,
+    @Inject(SessionsService) private readonly sessions: SessionsService,
   ) {}
 
   get db() {
@@ -164,6 +166,45 @@ export class OrgsService {
     const target = await this.#checkMemberChange(ctx, userId);
     await this.db.membership.delete({ where: { id: target.id } });
     await this.#audit(ctx, 'member.removed', 'user', userId);
+  }
+
+  /**
+   * Sessions of a member (card 23.5). Seeing where somebody is signed in, and signing them out, is
+   * managing that member: the same "not above your own access" rule as role changes applies.
+   */
+  async #manageableMember(ctx: OrgContext, userId: string) {
+    const target = await this.db.membership.findUnique({
+      where: { userId_organizationId: { userId, organizationId: ctx.organizationId } },
+      include: { customRole: { select: { permissions: true } } },
+    });
+    if (!target) throw notFound();
+    if (
+      userId !== ctx.userId &&
+      !canManageMember(
+        { role: ctx.role, customPermissions: ctx.customPermissions },
+        { role: target.role, customPermissions: target.customRole?.permissions },
+      )
+    )
+      throw new ForbiddenError('forbidden', {
+        message: 'Cannot manage a member with more access than your own',
+      });
+    return target;
+  }
+
+  async memberSessions(ctx: OrgContext, userId: string) {
+    await this.#manageableMember(ctx, userId);
+    // The administrator's own current session is not marked: `current` is about the caller.
+    return this.sessions.list(userId);
+  }
+
+  /** Signs the member out everywhere: every refresh token and access token stops working. */
+  async revokeMemberSessions(ctx: OrgContext, userId: string) {
+    await this.#manageableMember(ctx, userId);
+    const result = await this.sessions.revokeAll(userId, { audit: false });
+    await this.#audit(ctx, 'member.sessions_revoked', 'user', userId, {
+      sessions: result.revoked,
+    });
+    return result;
   }
 
   // ───── Invitations ─────
