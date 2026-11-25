@@ -107,7 +107,13 @@ import {
   StreamAssembler,
 } from './cache.js';
 import { compressRequest } from './compress.js';
-import { repairAnswer, repairKindsFor, repairRequest } from './shaping.js';
+import {
+  aliasPolicyFor,
+  repairAnswer,
+  repairKindsFor,
+  repairRequest,
+  shapeForCandidate,
+} from './shaping.js';
 import { externalVerdicts } from './classifiers.js';
 import { type BodyCapture, type RecordBody, startBodyCapture } from './body-capture.js';
 import {
@@ -1365,6 +1371,7 @@ async function runRoute(
 
   const settings = config.snapshot.settings;
   const repairKinds = repairKindsFor(req.headers, key);
+  const aliasPolicy = aliasPolicyFor(config.snapshot, key, route.requested);
   const retry = route.combo?.retry ?? settings.defaultRetry;
   const baseTimeouts = mergeTimeouts(settings.defaultTimeouts, route.combo?.timeouts);
   const includeUsage =
@@ -1496,7 +1503,7 @@ async function runRoute(
         provider: candidate.provider,
         model: candidate.model,
         apiKey,
-        request: canonical,
+        request: shapeForCandidate(canonical, candidate, aliasPolicy, deps, requestId),
         credentialHeaders: candidate.credential.headers,
         clientHeaders: {
           'anthropic-beta':

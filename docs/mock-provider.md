@@ -76,6 +76,8 @@ Structured output (card 27.1): when an Anthropic request carries `output_config.
 
 Tool-call pairing (card 31.1): like the real providers, `/v1/messages` answers 400 to a `tool_use` without a `tool_result` in the next message, a `tool_result` without a `tool_use` in the previous one, or a repeated `tool_use` id; `/v1/chat/completions` answers 400 to an assistant `tool_calls` message not followed by a tool message per call, or a stray tool message. The messages use the providers' wording.
 
+Prompt caching on the Anthropic route (card 31.3), with Anthropic's rules: a block with `cache_control` (or the last block, for a top-level `cache_control`) is a breakpoint; a request reads the longest prefix an earlier one wrote (`cache_read_input_tokens`) and writes the rest up to its last breakpoint (`cache_creation_input_tokens`). No breakpoint, no caching.
+
 Prompt caching on the Bedrock route (card 27.3): the prompt up to the last `cachePoint` is the cached prefix; the first request with a prefix reports `cacheWriteInputTokens`, later ones `cacheReadInputTokens`. `POST /__mock/reset` empties the cache.
 
 Examples:

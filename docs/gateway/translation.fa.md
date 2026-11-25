@@ -118,6 +118,23 @@
 - OpenAI و Gemini خودشان prompt را کش می‌کنند؛ این نشانه‌ها برایشان فرستاده نمی‌شود.
 - usage: `inputTokens` در Converse، مثل `input_tokens` در Anthropic، فقط ورودی کش‌نشده را می‌شمارد؛ پس `inputTokens` در canonical برابر `inputTokens + cacheReadInputTokens + cacheWriteInputTokens` است. کلاینت Anthropic یک مدل Bedrock، `cache_read_input_tokens` و `cache_creation_input_tokens` را می‌گیرد، در stream هم.
 
+### breakpoint خودکار
+
+> کارت ۳۱.۳. کلاینت‌هایی که `cache_control` نمی‌فرستند (همهٔ کلاینت‌های OpenAI-format و بیشتر کدهای SDK) از کش prompt در Anthropic و Bedrock بی‌بهره‌اند، چون این دو فقط چیزی را کش می‌کنند که breakpoint دارد. با روشن‌کردن `autoCache` در request policy یک مدل یا alias، گیت‌وی خودش پیشوند پایدار این درخواست‌ها را علامت می‌زند. کد: `packages/translator/src/auto-cache.ts`.
+
+```json
+PATCH /api/v1/orgs/{org}/models/{id}     { "requestPolicy": { "autoCache": true, "autoCacheTtl": "1h" } }
+PATCH /api/v1/orgs/{org}/aliases/{id}    { "requestPolicy": { "autoCache": true } }
+```
+
+- فقط برای providerهای `anthropic` و `bedrock`؛ OpenAI و Gemini خودشان کش می‌کنند و چیزی دریافت نمی‌کنند.
+- breakpointها، حداکثر چهار تا: آخرین تعریف ابزار، آخرین بلوک system، آخرین بلوک قابل‌کش پیام آخر، و آخرین بلوک نوبت پیش از آخرین پاسخ (جایی که درخواست قبلی تمام شد) تا نوبت بعد هرچه نوبت قبل نوشته را بخواند. بلوک reasoning و صوت هرگز breakpoint نمی‌گیرند.
+- درخواستی که خودش breakpoint دارد (روی یک بلوک، درون tool result، یا `cache_control` سطح بالای Anthropic) دقیقاً همان‌طور که آمده فرستاده می‌شود.
+- policy یک alias روی policy مدلش اعمال می‌شود (`autoCacheTtl` هم)؛ `null` policy را پاک می‌کند. TTL خالی یعنی پیش‌فرض provider (۵ دقیقه).
+- صرفه‌جویی: صفحهٔ هزینه کش prompt خود provider را کنار کش DiRouter نشان می‌دهد: توکن‌های خوانده و نوشته‌شده، صرفه‌جویی خواندن‌ها نسبت به قیمت عادی ورودی، هزینهٔ اضافهٔ نوشتن‌ها و صرفه‌جویی خالص (`GET stats/cache` → `promptCache`).
+
+تست‌ها: `packages/translator/src/auto-cache.test.ts` (درخواست‌های golden، و دست‌نخوردن درخواستی که خودش marker دارد) و `apps/gateway/src/shaping.test.ts` (یک گفتگوی OpenAI-format به Claude در نوبت دوم `cached_tokens` بزرگ‌تر از صفر گزارش می‌کند، هم با policy مدل و هم با policy یک alias؛ mock مثل Anthropic کش می‌کند).
+
 ## ترمیم پاسخ JSON و tool call
 
 > کارت ۳۱.۱. مدل‌های ضعیف‌تر JSON را خراب می‌کنند و کلاینت‌های ایجنت تاریخچه‌ای می‌فرستند که provider رد می‌کند؛ گیت‌وی می‌تواند هر دو را ترمیم کند. کد: `packages/translator/src/repair.ts` و اتصال در `apps/gateway/src/shaping.ts`.

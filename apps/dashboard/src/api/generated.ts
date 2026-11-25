@@ -2883,6 +2883,22 @@ export type ModelsControllerList200ItemPricing = {
   serviceTiers?: ModelsControllerList200ItemPricingServiceTiers;
 };
 
+export type ModelsControllerList200ItemRequestPolicyAutoCacheTtl = typeof ModelsControllerList200ItemRequestPolicyAutoCacheTtl[keyof typeof ModelsControllerList200ItemRequestPolicyAutoCacheTtl];
+
+
+export const ModelsControllerList200ItemRequestPolicyAutoCacheTtl = {
+  '5m': '5m',
+  '1h': '1h',
+} as const;
+
+/**
+ * @nullable
+ */
+export type ModelsControllerList200ItemRequestPolicy = {
+  autoCache?: boolean;
+  autoCacheTtl?: ModelsControllerList200ItemRequestPolicyAutoCacheTtl;
+} | null;
+
 export type ModelsControllerList200ItemSale = {
   multiplier: string;
   /** @nullable */
@@ -2918,6 +2934,8 @@ export type ModelsControllerList200Item = {
   /** @nullable */
   deprecationDate: string | null;
   isPublic: boolean;
+  /** @nullable */
+  requestPolicy: ModelsControllerList200ItemRequestPolicy;
   sale: ModelsControllerList200ItemSale;
 };
 
@@ -3008,6 +3026,22 @@ export type ModelsControllerCreateBodySale = {
   cacheMultiplier?: string;
 };
 
+export type ModelsControllerCreateBodyRequestPolicyAutoCacheTtl = typeof ModelsControllerCreateBodyRequestPolicyAutoCacheTtl[keyof typeof ModelsControllerCreateBodyRequestPolicyAutoCacheTtl];
+
+
+export const ModelsControllerCreateBodyRequestPolicyAutoCacheTtl = {
+  '5m': '5m',
+  '1h': '1h',
+} as const;
+
+/**
+ * @nullable
+ */
+export type ModelsControllerCreateBodyRequestPolicy = {
+  autoCache?: boolean;
+  autoCacheTtl?: ModelsControllerCreateBodyRequestPolicyAutoCacheTtl;
+} | null;
+
 export type ModelsControllerCreateBody = {
   providerId: string;
   /**
@@ -3044,6 +3078,8 @@ export type ModelsControllerCreateBody = {
   catalogKey?: string | null;
   isPublic?: boolean;
   sale?: ModelsControllerCreateBodySale;
+  /** @nullable */
+  requestPolicy?: ModelsControllerCreateBodyRequestPolicy;
 };
 
 export type ModelsControllerCreate200PricingTiersItem = {
@@ -3103,6 +3139,22 @@ export type ModelsControllerCreate200Pricing = {
   serviceTiers?: ModelsControllerCreate200PricingServiceTiers;
 };
 
+export type ModelsControllerCreate200RequestPolicyAutoCacheTtl = typeof ModelsControllerCreate200RequestPolicyAutoCacheTtl[keyof typeof ModelsControllerCreate200RequestPolicyAutoCacheTtl];
+
+
+export const ModelsControllerCreate200RequestPolicyAutoCacheTtl = {
+  '5m': '5m',
+  '1h': '1h',
+} as const;
+
+/**
+ * @nullable
+ */
+export type ModelsControllerCreate200RequestPolicy = {
+  autoCache?: boolean;
+  autoCacheTtl?: ModelsControllerCreate200RequestPolicyAutoCacheTtl;
+} | null;
+
 export type ModelsControllerCreate200Sale = {
   multiplier: string;
   /** @nullable */
@@ -3138,6 +3190,8 @@ export type ModelsControllerCreate200 = {
   /** @nullable */
   deprecationDate: string | null;
   isPublic: boolean;
+  /** @nullable */
+  requestPolicy: ModelsControllerCreate200RequestPolicy;
   sale: ModelsControllerCreate200Sale;
 };
 
@@ -3207,6 +3261,22 @@ export type ModelsControllerGet200Pricing = {
   serviceTiers?: ModelsControllerGet200PricingServiceTiers;
 };
 
+export type ModelsControllerGet200RequestPolicyAutoCacheTtl = typeof ModelsControllerGet200RequestPolicyAutoCacheTtl[keyof typeof ModelsControllerGet200RequestPolicyAutoCacheTtl];
+
+
+export const ModelsControllerGet200RequestPolicyAutoCacheTtl = {
+  '5m': '5m',
+  '1h': '1h',
+} as const;
+
+/**
+ * @nullable
+ */
+export type ModelsControllerGet200RequestPolicy = {
+  autoCache?: boolean;
+  autoCacheTtl?: ModelsControllerGet200RequestPolicyAutoCacheTtl;
+} | null;
+
 export type ModelsControllerGet200Sale = {
   multiplier: string;
   /** @nullable */
@@ -3242,6 +3312,8 @@ export type ModelsControllerGet200 = {
   /** @nullable */
   deprecationDate: string | null;
   isPublic: boolean;
+  /** @nullable */
+  requestPolicy: ModelsControllerGet200RequestPolicy;
   sale: ModelsControllerGet200Sale;
 };
 
@@ -3332,6 +3404,22 @@ export type ModelsControllerUpdateBodySale = {
   cacheMultiplier?: string;
 };
 
+export type ModelsControllerUpdateBodyRequestPolicyAutoCacheTtl = typeof ModelsControllerUpdateBodyRequestPolicyAutoCacheTtl[keyof typeof ModelsControllerUpdateBodyRequestPolicyAutoCacheTtl];
+
+
+export const ModelsControllerUpdateBodyRequestPolicyAutoCacheTtl = {
+  '5m': '5m',
+  '1h': '1h',
+} as const;
+
+/**
+ * @nullable
+ */
+export type ModelsControllerUpdateBodyRequestPolicy = {
+  autoCache?: boolean;
+  autoCacheTtl?: ModelsControllerUpdateBodyRequestPolicyAutoCacheTtl;
+} | null;
+
 export type ModelsControllerUpdateBody = {
   /** @pattern ^[a-z0-9][a-z0-9._/-]{0,127}$ */
   slug?: string;
@@ -3362,6 +3450,8 @@ export type ModelsControllerUpdateBody = {
   catalogKey?: string | null;
   isPublic?: boolean;
   sale?: ModelsControllerUpdateBodySale;
+  /** @nullable */
+  requestPolicy?: ModelsControllerUpdateBodyRequestPolicy;
   followCatalog?: boolean;
 };
 
@@ -3422,6 +3512,22 @@ export type ModelsControllerUpdate200Pricing = {
   serviceTiers?: ModelsControllerUpdate200PricingServiceTiers;
 };
 
+export type ModelsControllerUpdate200RequestPolicyAutoCacheTtl = typeof ModelsControllerUpdate200RequestPolicyAutoCacheTtl[keyof typeof ModelsControllerUpdate200RequestPolicyAutoCacheTtl];
+
+
+export const ModelsControllerUpdate200RequestPolicyAutoCacheTtl = {
+  '5m': '5m',
+  '1h': '1h',
+} as const;
+
+/**
+ * @nullable
+ */
+export type ModelsControllerUpdate200RequestPolicy = {
+  autoCache?: boolean;
+  autoCacheTtl?: ModelsControllerUpdate200RequestPolicyAutoCacheTtl;
+} | null;
+
 export type ModelsControllerUpdate200Sale = {
   multiplier: string;
   /** @nullable */
@@ -3457,6 +3563,8 @@ export type ModelsControllerUpdate200 = {
   /** @nullable */
   deprecationDate: string | null;
   isPublic: boolean;
+  /** @nullable */
+  requestPolicy: ModelsControllerUpdate200RequestPolicy;
   sale: ModelsControllerUpdate200Sale;
 };
 
@@ -3468,17 +3576,53 @@ export type ModelsControllerAliases200ItemTarget = {
   comboId: string;
 };
 
+export type ModelsControllerAliases200ItemRequestPolicyAutoCacheTtl = typeof ModelsControllerAliases200ItemRequestPolicyAutoCacheTtl[keyof typeof ModelsControllerAliases200ItemRequestPolicyAutoCacheTtl];
+
+
+export const ModelsControllerAliases200ItemRequestPolicyAutoCacheTtl = {
+  '5m': '5m',
+  '1h': '1h',
+} as const;
+
+/**
+ * @nullable
+ */
+export type ModelsControllerAliases200ItemRequestPolicy = {
+  autoCache?: boolean;
+  autoCacheTtl?: ModelsControllerAliases200ItemRequestPolicyAutoCacheTtl;
+} | null;
+
 export type ModelsControllerAliases200Item = {
   id: string;
   slug: string;
   target: ModelsControllerAliases200ItemTarget;
+  /** @nullable */
+  requestPolicy: ModelsControllerAliases200ItemRequestPolicy;
 };
+
+export type ModelsControllerCreateAliasBodyRequestPolicyAutoCacheTtl = typeof ModelsControllerCreateAliasBodyRequestPolicyAutoCacheTtl[keyof typeof ModelsControllerCreateAliasBodyRequestPolicyAutoCacheTtl];
+
+
+export const ModelsControllerCreateAliasBodyRequestPolicyAutoCacheTtl = {
+  '5m': '5m',
+  '1h': '1h',
+} as const;
+
+/**
+ * @nullable
+ */
+export type ModelsControllerCreateAliasBodyRequestPolicy = {
+  autoCache?: boolean;
+  autoCacheTtl?: ModelsControllerCreateAliasBodyRequestPolicyAutoCacheTtl;
+} | null;
 
 export type ModelsControllerCreateAliasBody = {
   /** @pattern ^[a-z0-9][a-z0-9._/-]{0,127}$ */
   slug: string;
   modelId?: string;
   comboId?: string;
+  /** @nullable */
+  requestPolicy?: ModelsControllerCreateAliasBodyRequestPolicy;
 };
 
 export type ModelsControllerCreateAlias200Target = {
@@ -3489,17 +3633,53 @@ export type ModelsControllerCreateAlias200Target = {
   comboId: string;
 };
 
+export type ModelsControllerCreateAlias200RequestPolicyAutoCacheTtl = typeof ModelsControllerCreateAlias200RequestPolicyAutoCacheTtl[keyof typeof ModelsControllerCreateAlias200RequestPolicyAutoCacheTtl];
+
+
+export const ModelsControllerCreateAlias200RequestPolicyAutoCacheTtl = {
+  '5m': '5m',
+  '1h': '1h',
+} as const;
+
+/**
+ * @nullable
+ */
+export type ModelsControllerCreateAlias200RequestPolicy = {
+  autoCache?: boolean;
+  autoCacheTtl?: ModelsControllerCreateAlias200RequestPolicyAutoCacheTtl;
+} | null;
+
 export type ModelsControllerCreateAlias200 = {
   id: string;
   slug: string;
   target: ModelsControllerCreateAlias200Target;
+  /** @nullable */
+  requestPolicy: ModelsControllerCreateAlias200RequestPolicy;
 };
+
+export type ModelsControllerUpdateAliasBodyRequestPolicyAutoCacheTtl = typeof ModelsControllerUpdateAliasBodyRequestPolicyAutoCacheTtl[keyof typeof ModelsControllerUpdateAliasBodyRequestPolicyAutoCacheTtl];
+
+
+export const ModelsControllerUpdateAliasBodyRequestPolicyAutoCacheTtl = {
+  '5m': '5m',
+  '1h': '1h',
+} as const;
+
+/**
+ * @nullable
+ */
+export type ModelsControllerUpdateAliasBodyRequestPolicy = {
+  autoCache?: boolean;
+  autoCacheTtl?: ModelsControllerUpdateAliasBodyRequestPolicyAutoCacheTtl;
+} | null;
 
 export type ModelsControllerUpdateAliasBody = {
   /** @pattern ^[a-z0-9][a-z0-9._/-]{0,127}$ */
   slug?: string;
   modelId?: string;
   comboId?: string;
+  /** @nullable */
+  requestPolicy?: ModelsControllerUpdateAliasBodyRequestPolicy;
 };
 
 export type ModelsControllerUpdateAlias200Target = {
@@ -3510,10 +3690,28 @@ export type ModelsControllerUpdateAlias200Target = {
   comboId: string;
 };
 
+export type ModelsControllerUpdateAlias200RequestPolicyAutoCacheTtl = typeof ModelsControllerUpdateAlias200RequestPolicyAutoCacheTtl[keyof typeof ModelsControllerUpdateAlias200RequestPolicyAutoCacheTtl];
+
+
+export const ModelsControllerUpdateAlias200RequestPolicyAutoCacheTtl = {
+  '5m': '5m',
+  '1h': '1h',
+} as const;
+
+/**
+ * @nullable
+ */
+export type ModelsControllerUpdateAlias200RequestPolicy = {
+  autoCache?: boolean;
+  autoCacheTtl?: ModelsControllerUpdateAlias200RequestPolicyAutoCacheTtl;
+} | null;
+
 export type ModelsControllerUpdateAlias200 = {
   id: string;
   slug: string;
   target: ModelsControllerUpdateAlias200Target;
+  /** @nullable */
+  requestPolicy: ModelsControllerUpdateAlias200RequestPolicy;
 };
 
 export type ModelsControllerCombos200ItemStrategy = typeof ModelsControllerCombos200ItemStrategy[keyof typeof ModelsControllerCombos200ItemStrategy];

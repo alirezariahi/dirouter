@@ -6861,6 +6861,22 @@
                       "isPublic": {
                         "type": "boolean"
                       },
+                      "requestPolicy": {
+                        "nullable": true,
+                        "type": "object",
+                        "properties": {
+                          "autoCache": {
+                            "type": "boolean"
+                          },
+                          "autoCacheTtl": {
+                            "type": "string",
+                            "enum": [
+                              "5m",
+                              "1h"
+                            ]
+                          }
+                        }
+                      },
                       "sale": {
                         "type": "object",
                         "properties": {
@@ -6897,6 +6913,7 @@
                       "priceOverride",
                       "deprecationDate",
                       "isPublic",
+                      "requestPolicy",
                       "sale"
                     ]
                   }
@@ -7159,6 +7176,23 @@
                         "pattern": "^\\d{1,6}(\\.\\d{1,8})?$"
                       }
                     }
+                  },
+                  "requestPolicy": {
+                    "nullable": true,
+                    "type": "object",
+                    "properties": {
+                      "autoCache": {
+                        "type": "boolean"
+                      },
+                      "autoCacheTtl": {
+                        "type": "string",
+                        "enum": [
+                          "5m",
+                          "1h"
+                        ]
+                      }
+                    },
+                    "additionalProperties": false
                   }
                 },
                 "required": [
@@ -7344,6 +7378,22 @@
                     "isPublic": {
                       "type": "boolean"
                     },
+                    "requestPolicy": {
+                      "nullable": true,
+                      "type": "object",
+                      "properties": {
+                        "autoCache": {
+                          "type": "boolean"
+                        },
+                        "autoCacheTtl": {
+                          "type": "string",
+                          "enum": [
+                            "5m",
+                            "1h"
+                          ]
+                        }
+                      }
+                    },
                     "sale": {
                       "type": "object",
                       "properties": {
@@ -7380,6 +7430,7 @@
                     "priceOverride",
                     "deprecationDate",
                     "isPublic",
+                    "requestPolicy",
                     "sale"
                   ]
                 }
@@ -7642,6 +7693,22 @@
                     "isPublic": {
                       "type": "boolean"
                     },
+                    "requestPolicy": {
+                      "nullable": true,
+                      "type": "object",
+                      "properties": {
+                        "autoCache": {
+                          "type": "boolean"
+                        },
+                        "autoCacheTtl": {
+                          "type": "string",
+                          "enum": [
+                            "5m",
+                            "1h"
+                          ]
+                        }
+                      }
+                    },
                     "sale": {
                       "type": "object",
                       "properties": {
@@ -7678,6 +7745,7 @@
                     "priceOverride",
                     "deprecationDate",
                     "isPublic",
+                    "requestPolicy",
                     "sale"
                   ]
                 }
@@ -7940,6 +8008,23 @@
                       }
                     }
                   },
+                  "requestPolicy": {
+                    "nullable": true,
+                    "type": "object",
+                    "properties": {
+                      "autoCache": {
+                        "type": "boolean"
+                      },
+                      "autoCacheTtl": {
+                        "type": "string",
+                        "enum": [
+                          "5m",
+                          "1h"
+                        ]
+                      }
+                    },
+                    "additionalProperties": false
+                  },
                   "followCatalog": {
                     "type": "boolean"
                   }
@@ -8123,6 +8208,22 @@
                     "isPublic": {
                       "type": "boolean"
                     },
+                    "requestPolicy": {
+                      "nullable": true,
+                      "type": "object",
+                      "properties": {
+                        "autoCache": {
+                          "type": "boolean"
+                        },
+                        "autoCacheTtl": {
+                          "type": "string",
+                          "enum": [
+                            "5m",
+                            "1h"
+                          ]
+                        }
+                      }
+                    },
                     "sale": {
                       "type": "object",
                       "properties": {
@@ -8159,6 +8260,7 @@
                     "priceOverride",
                     "deprecationDate",
                     "isPublic",
+                    "requestPolicy",
                     "sale"
                   ]
                 }
@@ -8278,12 +8380,29 @@
                             ]
                           }
                         ]
+                      },
+                      "requestPolicy": {
+                        "nullable": true,
+                        "type": "object",
+                        "properties": {
+                          "autoCache": {
+                            "type": "boolean"
+                          },
+                          "autoCacheTtl": {
+                            "type": "string",
+                            "enum": [
+                              "5m",
+                              "1h"
+                            ]
+                          }
+                        }
                       }
                     },
                     "required": [
                       "id",
                       "slug",
-                      "target"
+                      "target",
+                      "requestPolicy"
                     ]
                   }
                 }
@@ -8328,6 +8447,23 @@
                   },
                   "comboId": {
                     "type": "string"
+                  },
+                  "requestPolicy": {
+                    "nullable": true,
+                    "type": "object",
+                    "properties": {
+                      "autoCache": {
+                        "type": "boolean"
+                      },
+                      "autoCacheTtl": {
+                        "type": "string",
+                        "enum": [
+                          "5m",
+                          "1h"
+                        ]
+                      }
+                    },
+                    "additionalProperties": false
                   }
                 },
                 "required": [
@@ -8390,12 +8526,29 @@
                           ]
                         }
                       ]
+                    },
+                    "requestPolicy": {
+                      "nullable": true,
+                      "type": "object",
+                      "properties": {
+                        "autoCache": {
+                          "type": "boolean"
+                        },
+                        "autoCacheTtl": {
+                          "type": "string",
+                          "enum": [
+                            "5m",
+                            "1h"
+                          ]
+                        }
+                      }
                     }
                   },
                   "required": [
                     "id",
                     "slug",
-                    "target"
+                    "target",
+                    "requestPolicy"
                   ]
                 }
               }
@@ -8449,6 +8602,23 @@
                   },
                   "comboId": {
                     "type": "string"
+                  },
+                  "requestPolicy": {
+                    "nullable": true,
+                    "type": "object",
+                    "properties": {
+                      "autoCache": {
+                        "type": "boolean"
+                      },
+                      "autoCacheTtl": {
+                        "type": "string",
+                        "enum": [
+                          "5m",
+                          "1h"
+                        ]
+                      }
+                    },
+                    "additionalProperties": false
                   }
                 }
               }
@@ -8508,12 +8678,29 @@
                           ]
                         }
                       ]
+                    },
+                    "requestPolicy": {
+                      "nullable": true,
+                      "type": "object",
+                      "properties": {
+                        "autoCache": {
+                          "type": "boolean"
+                        },
+                        "autoCacheTtl": {
+                          "type": "string",
+                          "enum": [
+                            "5m",
+                            "1h"
+                          ]
+                        }
+                      }
                     }
                   },
                   "required": [
                     "id",
                     "slug",
-                    "target"
+                    "target",
+                    "requestPolicy"
                   ]
                 }
               }

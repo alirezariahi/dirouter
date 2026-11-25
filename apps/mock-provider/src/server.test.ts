@@ -504,6 +504,34 @@ describe('tool-call pairing (card 31.1)', () => {
   });
 });
 
+describe('Anthropic prompt caching (card 31.3)', () => {
+  const usageOf = async (body: unknown) =>
+    ((await (await post('/v1/messages', body)).json()) as { usage: Record<string, number> }).usage;
+  const system = [
+    { type: 'text', text: 'Long rules. '.repeat(50), cache_control: { type: 'ephemeral' } },
+  ];
+
+  it('writes the marked prefix once, then reads it; nothing without a breakpoint', async () => {
+    await post('/__mock/reset', {});
+    const first = await usageOf({ ...an, system });
+    expect(first.cache_creation_input_tokens).toBeGreaterThan(0);
+    expect(first.cache_read_input_tokens).toBe(0);
+    const second = await usageOf({
+      ...an,
+      system,
+      messages: [
+        ...an.messages,
+        { role: 'assistant', content: 'hello' },
+        { role: 'user', content: 'more' },
+      ],
+    });
+    expect(second.cache_read_input_tokens).toBe(first.cache_creation_input_tokens);
+    const unmarked = await usageOf({ ...an, system: 'Long rules. '.repeat(50) });
+    expect(unmarked.cache_read_input_tokens).toBe(0);
+    expect(unmarked.cache_creation_input_tokens).toBe(0);
+  });
+});
+
 describe('legacy completions (card 30.7)', () => {
   it('answers /v1/completions with usage, for pass-through tests', async () => {
     const res = await post('/v1/completions', { model: 'gpt-3.5-turbo-instruct', prompt: 'hi' });

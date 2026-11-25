@@ -9,6 +9,8 @@ import { api } from '../lib/api';
 import { formatNumber } from '../lib/date';
 import type { SubmitEvent } from '../lib/form';
 import { can, currentOrg, useSession } from '../lib/session';
+import { RequestPolicyFields } from '../components/request-policy';
+import { policyBody, type RequestPolicy } from '../lib/request-policy';
 import { CatalogSync } from '../components/catalog-sync';
 
 /**
@@ -73,6 +75,8 @@ interface Model {
   catalogKey: string | null;
   /** Priced by hand: catalog price changes leave it alone (card 27.5). */
   priceOverride?: boolean;
+  /** Request shaping (epic 31). */
+  requestPolicy?: RequestPolicy | null;
 }
 interface Provider {
   id: string;
@@ -84,6 +88,7 @@ interface Alias {
   id: string;
   slug: string;
   target: { kind: 'model'; modelId: string } | { kind: 'combo'; comboId: string };
+  requestPolicy?: RequestPolicy | null;
 }
 interface Target {
   modelId: string;
@@ -971,6 +976,7 @@ function ModelEditor({
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
   const [followCatalog, setFollowCatalog] = useState(false);
+  const [policy, setPolicy] = useState<RequestPolicy>(initial?.requestPolicy ?? {});
   const update = (patch: Partial<ModelDraft>) => {
     setDraft((old) => ({ ...old, ...patch }));
   };
@@ -1062,6 +1068,7 @@ function ModelEditor({
       ...(draft.catalogKey && catalogChanged ? { catalogKey: draft.catalogKey } : {}),
       ...(follow && initial ? { followCatalog: true } : {}),
       capabilities: draft.capabilities,
+      requestPolicy: policyBody(policy),
     };
     setBusy(true);
     setError(undefined);
@@ -1182,6 +1189,7 @@ function ModelEditor({
             />
           ))}
         </div>
+        <RequestPolicyFields value={policy} onChange={setPolicy} />
         <Check
           label={t('models.enabled')}
           checked={draft.enabled}
@@ -1232,6 +1240,7 @@ function AliasEditor({
   }));
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
+  const [policy, setPolicy] = useState<RequestPolicy>(initial?.requestPolicy ?? {});
   async function submit(event: SubmitEvent) {
     event.preventDefault();
     const validation = validateAlias(
@@ -1251,6 +1260,7 @@ function AliasEditor({
         body: {
           slug: draft.slug,
           ...(kind === 'model' ? { modelId: id.join(':') } : { comboId: id.join(':') }),
+          requestPolicy: policyBody(policy),
         },
       });
       await onSaved();
@@ -1310,6 +1320,7 @@ function AliasEditor({
             </optgroup>
           </Select>
         </div>
+        <RequestPolicyFields value={policy} onChange={setPolicy} />
         <div className="flex gap-2">
           <button
             type="submit"

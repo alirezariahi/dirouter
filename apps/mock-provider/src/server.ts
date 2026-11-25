@@ -15,6 +15,7 @@ import {
   type Scenario,
 } from './scenario.js';
 import { registerA2a } from './a2a.js';
+import { anthropicPromptCache } from './anthropic-cache.js';
 import { promptCache, registerBedrock } from './bedrock.js';
 import {
   STRUCTURED_OUTPUT_TOOL,
@@ -564,7 +565,12 @@ export function buildServer(options: MockServerOptions = {}) {
       stream?: boolean;
     };
     const model = body.model ?? 'mock';
-    const inputTokens = tokens([body.system, body.messages]);
+    // Prompt caching (card 31.3): only what a breakpoint marks is cached, as in Anthropic.
+    const cache = anthropicPromptCache.lookup((req.body ?? {}) as Record<string, unknown>);
+    const inputTokens = Math.max(
+      1,
+      tokens([body.system, body.messages]) - cache.read - cache.write,
+    );
     const id = `msg_mock${Date.now().toString(36)}`;
     // Structured output (card 27.1): native JSON text, or a call to the gateway's fallback tool.
     const raw = (req.body ?? {}) as Record<string, unknown>;
@@ -579,8 +585,8 @@ export function buildServer(options: MockServerOptions = {}) {
     const usage = {
       input_tokens: inputTokens,
       output_tokens: outputTokens,
-      cache_creation_input_tokens: 0,
-      cache_read_input_tokens: 0,
+      cache_creation_input_tokens: cache.write,
+      cache_read_input_tokens: cache.read,
     };
 
     if (!body.stream) {
@@ -850,6 +856,7 @@ export function buildServer(options: MockServerOptions = {}) {
   app.post('/__mock/reset', () => {
     stats = newStats();
     promptCache.clear();
+    anthropicPromptCache.clear();
     defaults = parseScenario(options.defaultDirectives, DEFAULT_SCENARIO);
     return { ok: true };
   });

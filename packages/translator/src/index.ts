@@ -8,3 +8,4 @@ export * from './gemini-inbound.js';
 export * from './responses.js';
 export * from './structured.js';
 export * from './repair.js';
+export * from './auto-cache.js';

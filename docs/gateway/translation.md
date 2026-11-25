@@ -110,6 +110,23 @@ Canonical parts: `document` (source `base64`, `url`, `text` or `file`: a provide
 - OpenAI and Gemini cache prompts on their own; the markers are not sent to them.
 - Usage: Converse `inputTokens`, like Anthropic's `input_tokens`, counts only uncached input, so canonical `inputTokens` = `inputTokens + cacheReadInputTokens + cacheWriteInputTokens`. An Anthropic client of a Bedrock model receives `cache_read_input_tokens` and `cache_creation_input_tokens`, in streams too.
 
+### Automatic breakpoints
+
+> Card 31.3. Clients that send no `cache_control` (every OpenAI-format client, most SDK code) get no prompt cache on Anthropic and Bedrock, which only cache what a breakpoint marks. Turn on `autoCache` in the request policy of a model or an alias and the gateway marks the stable prefix of such requests itself. Code: `packages/translator/src/auto-cache.ts`.
+
+```json
+PATCH /api/v1/orgs/{org}/models/{id}     { "requestPolicy": { "autoCache": true, "autoCacheTtl": "1h" } }
+PATCH /api/v1/orgs/{org}/aliases/{id}    { "requestPolicy": { "autoCache": true } }
+```
+
+- Applies only to `anthropic` and `bedrock` providers; OpenAI and Gemini cache on their own and get nothing.
+- Breakpoints, at most four: the last tool definition, the last system block, the last cacheable block of the last message, and the last block of the turn before the last answer (where the previous request ended), so the next turn reads everything the previous one wrote. Reasoning and audio blocks never carry one.
+- A request that sets any breakpoint itself (on a block, inside a tool result, or Anthropic's top-level `cache_control`) is sent exactly as it came.
+- An alias's policy is applied over its model's (`autoCacheTtl` too); `null` clears a policy. Unset TTL means the provider default (5 minutes).
+- Savings: the Cost page shows the provider's prompt cache next to DiRouter's own cache: tokens read and written, what the reads saved against the normal input price, what the writes cost on top, and the net saving (`GET stats/cache` → `promptCache`).
+
+Tests: `packages/translator/src/auto-cache.test.ts` (golden requests, and requests with their own markers left alone) and `apps/gateway/src/shaping.test.ts` (an OpenAI-format conversation to Claude reports `cached_tokens` greater than zero on its second turn, through a model policy and through an alias policy; the mock caches like Anthropic does).
+
 ## Repair of JSON answers and tool calls
 
 > Card 31.1. Weaker models break JSON and agent clients replay histories providers reject; the gateway can repair both. Code: `packages/translator/src/repair.ts`, wiring in `apps/gateway/src/shaping.ts`.

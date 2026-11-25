@@ -16,6 +16,7 @@ import {
   GatewaySettings,
   type ModelPricing,
   type RepairKind,
+  RequestPolicy,
   ProviderDataPolicy,
   RoutingPolicy,
 } from '@dirouter/contracts';
@@ -93,6 +94,17 @@ function stable(value: unknown): unknown {
         .map(([k, v]) => [k, stable(v)]),
     );
   return value;
+}
+
+/**
+ * A stored request policy (epic 31) as it goes into the snapshot; an empty or unreadable one is
+ * left out, so a bad row never blocks publishing.
+ */
+function policyOf(value: unknown): { requestPolicy?: RequestPolicy } {
+  const parsed = RequestPolicy.safeParse(value);
+  return parsed.success && Object.keys(parsed.data).length > 0
+    ? { requestPolicy: parsed.data }
+    : {};
 }
 
 @Injectable()
@@ -309,6 +321,7 @@ export class SnapshotService implements OnModuleInit, OnModuleDestroy {
         ...(m.deprecationDate
           ? { deprecationDate: m.deprecationDate.toISOString().slice(0, 10) }
           : {}),
+        ...policyOf(m.requestPolicy),
       })),
       combos: combos
         .filter((c) => c.targets.some((t) => modelIds.has(t.modelId)))
@@ -338,6 +351,7 @@ export class SnapshotService implements OnModuleInit, OnModuleDestroy {
           target: a.comboId
             ? { kind: 'combo' as const, comboId: a.comboId }
             : { kind: 'model' as const, modelId: a.modelId ?? '' },
+          ...policyOf(a.requestPolicy),
         })),
       virtualKeys: keys.map((k) => {
         const walletId = walletOf.get(k.organizationId);

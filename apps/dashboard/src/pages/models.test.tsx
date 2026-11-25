@@ -417,6 +417,9 @@ describe('model management UI', () => {
     fireEvent.click(screen.getByRole('button', { name: 'New alias' }));
     fireEvent.change(screen.getByLabelText('Slug'), { target: { value: 'production' } });
     fireEvent.change(screen.getByLabelText('Target'), { target: { value: 'model:mdl_1' } });
+    // Card 31.3: automatic prompt-cache breakpoints for this alias, with a one-hour lifetime.
+    fireEvent.click(screen.getByLabelText(/Automatic prompt-cache breakpoints/));
+    fireEvent.change(screen.getByLabelText('Cache lifetime'), { target: { value: '1h' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => {
       expect(
@@ -426,7 +429,11 @@ describe('model management UI', () => {
     const call = calls.find(
       (item) => item.path === '/orgs/org_1/aliases' && item.init.method === 'POST',
     );
-    expect(JSON.parse(call?.init.body as string)).toEqual({ slug: 'production', modelId: 'mdl_1' });
+    expect(JSON.parse(call?.init.body as string)).toEqual({
+      slug: 'production',
+      modelId: 'mdl_1',
+      requestPolicy: { autoCache: true, autoCacheTtl: '1h' },
+    });
   });
 
   it('reorders combo targets with native drag and drop and saves normalized order', async () => {

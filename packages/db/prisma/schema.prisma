@@ -427,6 +427,8 @@ model Model {
   deprecationDate  DateTime? @map("deprecation_date") @db.Date
   /// The organization set this catalog model's price by hand: catalog syncs leave it alone.
   priceOverride    Boolean   @default(false) @map("price_override")
+  /// Request shaping (epic 31), `RequestPolicy` in @dirouter/contracts: { autoCache, … }.
+  requestPolicy    Json?     @map("request_policy")
   createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
   deletedAt        DateTime? @map("deleted_at") @db.Timestamptz(3)
@@ -447,6 +449,8 @@ model ModelAlias {
   slug           String
   modelId        String?  @map("model_id")
   comboId        String?  @map("combo_id")
+  /// Request shaping for this alias over its model's own (epic 31), `RequestPolicy`.
+  requestPolicy  Json?    @map("request_policy")
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 

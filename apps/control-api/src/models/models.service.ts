@@ -9,6 +9,7 @@ import {
   DEFAULT_FALLBACK_ON,
   type ModelCapabilities,
   type ModelPricing,
+  RequestPolicy,
 } from '@dirouter/contracts';
 import { modelPriceColumns, Prisma } from '@dirouter/db';
 import { catalog } from '@dirouter/model-catalog/catalog';
@@ -18,6 +19,23 @@ import { Inject, Injectable } from '@nestjs/common';
 import { PrismaService } from '../infra/prisma.service.js';
 import type { OrgContext } from '../rbac/org.guard.js';
 import { CatalogService } from './catalog.service.js';
+
+/** A request policy for a Json column: `null` clears it, an empty policy is stored as none. */
+function policyData(policy: RequestPolicy | null | undefined) {
+  if (policy === undefined) return {};
+  return {
+    requestPolicy:
+      policy === null || Object.keys(policy).length === 0
+        ? Prisma.DbNull
+        : (policy as Prisma.InputJsonValue),
+  };
+}
+
+/** The stored request policy as the API returns it (`null` when none or unreadable). */
+function policyView(value: unknown): RequestPolicy | null {
+  const parsed = RequestPolicy.safeParse(value);
+  return parsed.success && Object.keys(parsed.data).length > 0 ? parsed.data : null;
+}
 
 export interface ModelInput {
   providerId: string;
@@ -33,6 +51,8 @@ export interface ModelInput {
   /** Drop a manual price and follow the catalog entry again (card 27.5). */
   followCatalog?: boolean | undefined;
   isPublic?: boolean | undefined;
+  /** Request shaping (epic 31); `null` clears it. */
+  requestPolicy?: RequestPolicy | null | undefined;
   sale?:
     | {
         multiplier?: string | undefined;
@@ -149,6 +169,7 @@ export class ModelsService {
       priceOverride: m.priceOverride,
       deprecationDate: m.deprecationDate ? m.deprecationDate.toISOString().slice(0, 10) : null,
       isPublic: m.isPublic,
+      requestPolicy: policyView(m.requestPolicy),
       sale: {
         multiplier: dec(m.saleMultiplier) ?? '1',
         perRequestUsd: dec(m.salePerRequestUsd) ?? null,
@@ -267,6 +288,7 @@ export class ModelsService {
         catalogKey: input.catalogKey ?? null,
         isPublic: input.isPublic ?? false,
         ...saleData(input.sale),
+        ...policyData(input.requestPolicy),
       },
     });
     await this.#audit(ctx, 'model.created', 'model', id, { slug });
@@ -336,6 +358,7 @@ export class ModelsService {
           : {}),
         ...(input.isPublic !== undefined ? { isPublic: input.isPublic } : {}),
         ...saleData(input.sale),
+        ...policyData(input.requestPolicy),
         ...(input.catalogKey !== undefined ? { catalogKey: input.catalogKey } : {}),
         // A manual price no longer follows the catalog (card 27.5): the model keeps its catalog key
         // (deprecation dates and the follow-catalog switch still work), but syncs and approved
@@ -422,6 +445,7 @@ export class ModelsService {
       target: a.comboId
         ? { kind: 'combo' as const, comboId: a.comboId }
         : { kind: 'model' as const, modelId: a.modelId ?? '' },
+      requestPolicy: policyView(a.requestPolicy),
     }));
   }
 
@@ -437,7 +461,12 @@ export class ModelsService {
 
   async createAlias(
     ctx: OrgContext,
-    input: { slug: string; modelId?: string | undefined; comboId?: string | undefined },
+    input: {
+      slug: string;
+      modelId?: string | undefined;
+      comboId?: string | undefined;
+      requestPolicy?: RequestPolicy | null | undefined;
+    },
   ) {
     await this.#checkTarget(ctx, input);
     await this.#nameFree(ctx, input.slug);
@@ -449,6 +478,7 @@ export class ModelsService {
         slug: input.slug,
         modelId: input.modelId ?? null,
         comboId: input.comboId ?? null,
+        ...policyData(input.requestPolicy),
       },
     });
     await this.#audit(ctx, 'alias.created', 'alias', id, input);
@@ -462,6 +492,7 @@ export class ModelsService {
       slug?: string | undefined;
       modelId?: string | undefined;
       comboId?: string | undefined;
+      requestPolicy?: RequestPolicy | null | undefined;
     },
   ) {
     const a = await this.db.modelAlias.findFirst({
@@ -479,6 +510,7 @@ export class ModelsService {
         ...(input.modelId !== undefined || input.comboId !== undefined
           ? { modelId: input.modelId ?? null, comboId: input.comboId ?? null }
           : {}),
+        ...policyData(input.requestPolicy),
       },
     });
     await this.#audit(ctx, 'alias.updated', 'alias', id, input);

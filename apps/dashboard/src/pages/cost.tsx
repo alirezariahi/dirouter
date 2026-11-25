@@ -58,6 +58,15 @@ interface CacheData {
   hits: number;
   hitRate: number;
   compressedInputTokens: number;
+  /** The provider's own prompt cache (card 31.3). */
+  promptCache?: {
+    requestsWithReads: number;
+    readTokens: number;
+    writeTokens: number;
+    savedUsd: string;
+    writeCostUsd: string;
+    netSavedUsd: string;
+  };
   kinds: { kind: 'exact' | 'semantic'; hits: number; hitRate: number; savedUsd: string }[];
 }
 
@@ -232,6 +241,28 @@ export default function CostPage() {
                   </span>
                 </p>
               ))}
+              {cache.data.promptCache ? (
+                <div
+                  data-testid="prompt-cache"
+                  className="flex flex-col gap-0.5 border-t border-border pt-1.5"
+                >
+                  <p className="flex justify-between">
+                    <span>{t('shaping.promptCache.title')}</span>
+                    <span className="text-muted">
+                      {t('s2.cost.saved')}: {usd(cache.data.promptCache.netSavedUsd)}
+                    </span>
+                  </p>
+                  <p className="text-xs text-muted">
+                    {t('shaping.promptCache.detail', {
+                      read: n(cache.data.promptCache.readTokens),
+                      write: n(cache.data.promptCache.writeTokens),
+                      requests: n(cache.data.promptCache.requestsWithReads),
+                      saved: usd(cache.data.promptCache.savedUsd),
+                      writeCost: usd(cache.data.promptCache.writeCostUsd),
+                    })}
+                  </p>
+                </div>
+              ) : null}
               <p className="flex justify-between border-t border-border pt-1.5">
                 <span>{t('s2.cost.compressed')}</span>
                 <span className="text-muted">{n(cache.data.compressedInputTokens)}</span>

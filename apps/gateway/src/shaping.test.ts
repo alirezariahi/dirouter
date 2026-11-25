@@ -84,9 +84,17 @@ beforeAll(async () => {
       model('claude', 'an', 'claude-sonnet-4-5'),
       model('gpt', 'oa', 'mock-small'),
       model('gpt-broken', 'ob', 'mock-small'),
+      model('claude-cached', 'an', 'claude-sonnet-4-5', { requestPolicy: { autoCache: true } }),
     ],
     combos: [],
-    aliases: [],
+    aliases: [
+      {
+        organizationId: 'org',
+        slug: 'claude-cached-alias',
+        target: { kind: 'model', modelId: 'claude' },
+        requestPolicy: { autoCache: true, autoCacheTtl: '1h' },
+      },
+    ],
     virtualKeys: [
       virtualKey('vk', KEY),
       virtualKey('vk-repair', REPAIR_KEY, { repair: ['json', 'tools'] }),
@@ -246,5 +254,86 @@ describe('card 31.1: JSON and tool-call repair', () => {
       REPAIR_KEY,
     );
     expect(await stream.text()).toContain('```json');
+  });
+});
+
+describe('card 31.3: automatic prompt-cache breakpoints', () => {
+  const system = 'You are a meticulous assistant. '.repeat(40);
+  const turn1 = [
+    { role: 'system', content: system },
+    { role: 'user', content: 'What is 2+2?' },
+  ];
+  const turn2 = [
+    ...turn1,
+    { role: 'assistant', content: '4' },
+    { role: 'user', content: 'And 3+3?' },
+  ];
+  const cached = async (model: string, messages: unknown[]) => {
+    const res = await post('/v1/chat/completions', { model, messages });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      usage: { prompt_tokens: number; prompt_tokens_details: { cached_tokens: number } };
+    };
+    return body.usage.prompt_tokens_details.cached_tokens;
+  };
+
+  it.each(['claude-cached', 'claude-cached-alias'])(
+    'an OpenAI-format request to Claude (%s) reports a non-zero cache read on the second turn',
+    async (model) => {
+      expect(await cached(model, turn1)).toBe(0);
+      const sent = (await lastUpstream()) as { system: unknown[] };
+      expect(sent.system).toEqual([
+        {
+          type: 'text',
+          text: system,
+          cache_control:
+            model === 'claude-cached' ? { type: 'ephemeral' } : { type: 'ephemeral', ttl: '1h' },
+        },
+      ]);
+      expect(await cached(model, turn2)).toBeGreaterThan(0);
+    },
+  );
+
+  it('without the policy nothing is marked and nothing is read from the cache', async () => {
+    expect(await cached('claude', turn1)).toBe(0);
+    expect(await cached('claude', turn2)).toBe(0);
+    expect((await lastUpstream()).system).toBe(system);
+  });
+
+  it('a request with its own cache_control reaches the provider unchanged', async () => {
+    const body = {
+      model: 'claude-cached',
+      max_tokens: 100,
+      system: [{ type: 'text', text: system, cache_control: { type: 'ephemeral', ttl: '1h' } }],
+      messages: [{ role: 'user', content: [{ type: 'text', text: 'What is 2+2?' }] }],
+    };
+    const res = await post('/v1/messages', body);
+    expect(res.status).toBe(200);
+    const sent = await lastUpstream();
+    expect(sent.system).toEqual(body.system);
+    expect(sent.messages).toEqual(body.messages);
+    expect(sent.tools).toBeUndefined();
+  });
+
+  it('an OpenAI provider gets no markers, whatever the policy', async () => {
+    const { shapeForCandidate } = await import('./shaping.js');
+    const request = {
+      inboundApi: 'openai.chat' as const,
+      model: 'm',
+      system: [{ type: 'text' as const, text: 's' }],
+      messages: [{ role: 'user' as const, content: [{ type: 'text' as const, text: 'hi' }] }],
+      stream: false,
+    };
+    const shaped = shapeForCandidate(
+      request,
+      {
+        model: { requestPolicy: { autoCache: true } } as never,
+        provider: { type: 'openai' } as never,
+      },
+      undefined,
+      { logger: createLogger({ service: 'test', level: 'silent' }) },
+      'r',
+    );
+    expect(shaped).toBe(request);
   });
 });

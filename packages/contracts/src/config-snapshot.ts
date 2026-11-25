@@ -229,6 +229,21 @@ export const SalePrice = z.object({
 });
 export type SalePrice = z.infer<typeof SalePrice>;
 
+/**
+ * How the gateway shapes requests for a model or alias (sprint 5, epic 31). An alias's policy is
+ * applied on top of its model's.
+ */
+export const RequestPolicy = z.object({
+  /**
+   * Card 31.3: on providers with explicit prompt caching (Anthropic, Bedrock), a request without
+   * any breakpoint gets them on the tools, the system prompt and the last stable messages.
+   */
+  autoCache: z.boolean().optional(),
+  /** Lifetime of the injected breakpoints; unset means the provider default (5 minutes). */
+  autoCacheTtl: z.enum(['5m', '1h']).optional(),
+});
+export type RequestPolicy = z.infer<typeof RequestPolicy>;
+
 export const ModelConfig = z.object({
   id: z.string(),
   organizationId: z.string(),
@@ -247,6 +262,8 @@ export const ModelConfig = z.object({
   sale: SalePrice.optional(),
   /** Provider's announced retirement date, `YYYY-MM-DD` (card 27.5). */
   deprecationDate: z.iso.date().optional(),
+  /** Request shaping for this model (epic 31). */
+  requestPolicy: RequestPolicy.optional(),
 });
 export type ModelConfig = z.infer<typeof ModelConfig>;
 
@@ -325,6 +342,8 @@ export const AliasConfig = z.object({
     z.object({ kind: z.literal('model'), modelId: z.string() }),
     z.object({ kind: z.literal('combo'), comboId: z.string() }),
   ]),
+  /** Request shaping for requests made with this alias, over the model's own (epic 31). */
+  requestPolicy: RequestPolicy.optional(),
 });
 export type AliasConfig = z.infer<typeof AliasConfig>;
 

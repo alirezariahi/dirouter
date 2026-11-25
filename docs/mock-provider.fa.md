@@ -78,6 +78,8 @@ Structured output (کارت ۲۷.۱): اگر درخواست Anthropic فیلد `
 
 جفت‌شدن tool call (کارت ۳۱.۱): مثل providerهای واقعی، `/v1/messages` به `tool_use` بدون `tool_result` در پیام بعدی، `tool_result` بدون `tool_use` در پیام قبلی، یا id تکراری `tool_use` پاسخ 400 می‌دهد؛ `/v1/chat/completions` به پیام assistant با `tool_calls` که برای هر فراخوانی یک پیام tool پشتش نیست، یا پیام tool سرگردان، 400 می‌دهد. متن پیام‌ها همان متن providerهاست.
 
+prompt caching در مسیر Anthropic (کارت ۳۱.۳) با همان قواعد Anthropic: بلوکی که `cache_control` دارد (یا بلوک آخر، برای `cache_control` سطح بالا) breakpoint است؛ درخواست طولانی‌ترین پیشوندی را که درخواستی قبلاً نوشته می‌خواند (`cache_read_input_tokens`) و بقیه را تا آخرین breakpoint خود می‌نویسد (`cache_creation_input_tokens`). بدون breakpoint کشی در کار نیست.
+
 prompt caching در مسیر Bedrock (کارت ۲۷.۳): prompt تا آخرین `cachePoint` پیشوند کش‌شده است؛ اولین درخواست با یک پیشوند `cacheWriteInputTokens` و درخواست‌های بعدی `cacheReadInputTokens` گزارش می‌کنند. `POST /__mock/reset` کش را خالی می‌کند.
 
 نمونه‌ها:

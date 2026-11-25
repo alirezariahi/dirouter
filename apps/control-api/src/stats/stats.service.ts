@@ -477,6 +477,10 @@ export class StatsService {
    * Cache effectiveness (cards 13.1-13.3): hit rate per cache kind, the provider cost the hits
    * avoided (tokens of the cached answer at the model's current price) and tokens removed by
    * context compression. Read from request_log, so the range is limited by its retention.
+   *
+   * `promptCache` (card 31.3) is the provider's own prompt cache on answered requests: tokens read
+   * from and written to it, what the reads saved against the normal input price, what the writes
+   * cost on top of it, and the net saving.
    */
   async cacheStats(ctx: OrgContext, range: Range, projectId?: string) {
     const project = projectId ? Prisma.sql`AND l."project_id" = ${projectId}` : Prisma.empty;
@@ -500,6 +504,25 @@ export class StatsService {
       WHERE l."organization_id" = ${ctx.organizationId} AND l."cache_hit"
         AND l."created_at" >= ${range.from} AND l."created_at" < ${range.to} ${project}
       GROUP BY 1 ORDER BY 1`;
+    const [prompt] = await this.db.$queryRaw<Record<string, unknown>[]>`
+      SELECT count(*) FILTER (WHERE l."cache_read_tokens" > 0)::int AS requests_with_reads,
+             coalesce(sum(l."cache_read_tokens"), 0)::bigint AS read_tokens,
+             coalesce(sum(l."cache_write_tokens"), 0)::bigint AS write_tokens,
+             coalesce(sum(l."cache_read_tokens"::numeric
+               * (coalesce(m."input_price", 0) - coalesce(m."cache_read_price", m."input_price", 0))
+               / 1000000), 0)::text AS saved_usd,
+             coalesce(sum(l."cache_write_tokens"::numeric
+               * (coalesce(m."cache_write_price", m."input_price", 0) - coalesce(m."input_price", 0))
+               / 1000000), 0)::text AS write_cost_usd,
+             coalesce(sum((l."cache_read_tokens"::numeric
+               * (coalesce(m."input_price", 0) - coalesce(m."cache_read_price", m."input_price", 0))
+               - l."cache_write_tokens"::numeric
+               * (coalesce(m."cache_write_price", m."input_price", 0) - coalesce(m."input_price", 0)))
+               / 1000000), 0)::text AS net_usd
+      FROM "request_log" l
+      LEFT JOIN "models" m ON m."id" = l."model_id"
+      WHERE l."organization_id" = ${ctx.organizationId} AND NOT l."cache_hit"
+        AND l."created_at" >= ${range.from} AND l."created_at" < ${range.to} ${project}`;
     const requests = Number(totals?.requests ?? 0);
     const hits = Number(totals?.hits ?? 0);
     return {
@@ -509,6 +532,14 @@ export class StatsService {
       hits,
       hitRate: requests ? hits / requests : 0,
       compressedInputTokens: Number(totals?.compressed_tokens ?? 0),
+      promptCache: {
+        requestsWithReads: Number(prompt?.requests_with_reads ?? 0),
+        readTokens: Number(prompt?.read_tokens ?? 0),
+        writeTokens: Number(prompt?.write_tokens ?? 0),
+        savedUsd: usd(prompt?.saved_usd),
+        writeCostUsd: usd(prompt?.write_cost_usd),
+        netSavedUsd: usd(prompt?.net_usd),
+      },
       kinds: kinds.map((row) => ({
         kind: String(row.kind),
         hits: Number(row.hits),

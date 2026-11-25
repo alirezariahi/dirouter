@@ -1,6 +1,7 @@
 import {
   DiscountFraction,
   PricedServiceTier,
+  RequestPolicy,
   PricingTier,
   ServiceTierPrice,
   UpstreamErrorClass,
@@ -93,6 +94,8 @@ export const ModelBody = z.object({
   /** Offered to customer organizations when this is the platform organization (card 19.4). */
   isPublic: z.boolean().optional(),
   sale: Sale.optional(),
+  /** Request shaping (epic 31): automatic cache breakpoints, …; `null` clears it. */
+  requestPolicy: RequestPolicy.strict().nullable().optional(),
 });
 export const ModelPatch = ModelBody.omit({ providerId: true, upstreamModel: true })
   .partial()
@@ -104,6 +107,8 @@ export const AliasBody = z.object({
   slug: Name,
   modelId: z.string().optional(),
   comboId: z.string().optional(),
+  /** Request shaping for this alias over its model's own (epic 31); `null` clears it. */
+  requestPolicy: RequestPolicy.strict().nullable().optional(),
 });
 export const AliasPatch = AliasBody.partial();
 export const ComboBody = z.object({
@@ -161,6 +166,7 @@ const ModelView = z.object({
   priceOverride: z.boolean(),
   deprecationDate: z.string().nullable(),
   isPublic: z.boolean(),
+  requestPolicy: RequestPolicy.nullable(),
   sale: z.object({
     multiplier: z.string(),
     perRequestUsd: z.string().nullable(),
@@ -174,6 +180,7 @@ const AliasView = z.object({
     z.object({ kind: z.literal('model'), modelId: z.string() }),
     z.object({ kind: z.literal('combo'), comboId: z.string() }),
   ]),
+  requestPolicy: RequestPolicy.nullable(),
 });
 const ComboView = z.object({
   id: z.string(),
