@@ -7,11 +7,14 @@ PROD := docker compose -f compose.yaml -f compose.prod.yaml
 # .env variables for host commands (prisma, scripts)
 ENV  := set -a && . ./.env && set +a &&
 
-.PHONY: help bootstrap up down restart logs ps migrate seed dev-snapshot test e2e chaos lint build push \
+.PHONY: help quickstart bootstrap up down restart logs ps migrate seed dev-snapshot test e2e chaos lint build push \
         prod-up prod-down prod-logs scale clean
 
 help: ## نمایش همین فهرست
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z0-9_-]+:.*## / {printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+
+quickstart: ## One command: .env, the full stack against the mock provider, seed data, first request
+	./scripts/quickstart.sh
 
 bootstrap: ## ساخت .env با رازهای تصادفی (DOMAIN=example.com make bootstrap)
 	./scripts/bootstrap.sh $(if $(DOMAIN),--domain $(DOMAIN)) $(if $(PROD_ENV),--prod)
