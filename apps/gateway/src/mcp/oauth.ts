@@ -27,6 +27,7 @@ import {
   OAuthError,
   requestToken,
   resourceMetadataFromChallenge,
+  sameOriginHint,
   type TokenResponse,
 } from '@dirouter/shared';
 import type { Redis } from 'ioredis';
@@ -59,6 +60,8 @@ export interface McpOAuthOptions {
 
 export class McpOAuthSession {
   #discovered: Promise<DiscoveredOAuth> | undefined;
+  /** The authorization server in use; never replaced for the life of this session. */
+  #pinned: DiscoveredOAuth | undefined;
   #hint: string | undefined;
   #cached: CachedToken | undefined;
   #inflight: Promise<string> | undefined;
@@ -88,23 +91,31 @@ export class McpOAuthSession {
     this.#rejected.add(token);
     if (this.#rejected.size > 20) this.#rejected.delete(this.#rejected.values().next().value ?? '');
     if (this.#cached?.token === token) this.#cached = undefined;
+    // The challenge's metadata hint only guides the first discovery, and only on the server's own
+    // origin. Once an authorization server has been discovered it stays pinned: a later 401 renews
+    // the token there, so a challenge can never move the client secret or the refresh token to
+    // another token endpoint.
+    if (this.#pinned) return;
     const hint = resourceMetadataFromChallenge(challenge);
-    if (hint && hint !== this.#hint) {
-      this.#hint = hint;
-      // A challenge pointing elsewhere than what was discovered: discover again from it.
-      if (!this.options.config.tokenEndpoint) this.#discovered = undefined;
-    }
+    if (hint && sameOriginHint(hint, this.options.url)) this.#hint = hint;
   }
 
   #discover(): Promise<DiscoveredOAuth> {
+    if (this.#pinned) return Promise.resolve(this.#pinned);
     this.#discovered ??= discoverOAuth(this.options.url, this.options.config, {
       fetchImpl: this.options.fetchImpl,
       timeoutMs: this.options.timeoutMs,
       hint: this.#hint,
-    }).catch((error: unknown) => {
-      this.#discovered = undefined;
-      throw error;
-    });
+    }).then(
+      (discovered) => {
+        this.#pinned = discovered;
+        return discovered;
+      },
+      (error: unknown) => {
+        this.#discovered = undefined;
+        throw error;
+      },
+    );
     return this.#discovered;
   }
 

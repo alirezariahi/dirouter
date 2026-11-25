@@ -13,6 +13,7 @@ import { configureUpstreamGuard } from './upstream.js';
 
 const logger = createLogger({ service: 'test', level: 'silent' });
 const pepper = 'p'.repeat(32);
+const INTERNAL = 'i'.repeat(32);
 
 describe('SSRF guard', () => {
   const mock = buildMock();
@@ -66,6 +67,20 @@ describe('SSRF guard', () => {
       expiresAt: null,
       allowedModels: [],
     });
+    const mcp = (
+      id: string,
+      organizationId: string,
+      slug: string,
+      transport: 'streamable-http' | 'a2a',
+      path: string,
+    ) => ({
+      id,
+      organizationId,
+      slug,
+      transport,
+      url: `http://127.0.0.1:${String(port)}${path}`,
+      enabled: true,
+    });
     const snapshot: ConfigSnapshotInput = {
       schemaVersion: 1,
       version: 1,
@@ -84,6 +99,13 @@ describe('SSRF guard', () => {
       combos: [],
       aliases: [],
       virtualKeys: [key('dr-customer-00001', 'customer'), key('dr-platform-00001', 'platform')],
+      // Tenant-supplied MCP servers and A2A agents on a private address (the mock on 127.0.0.1).
+      mcpServers: [
+        mcp('cust-mcp', 'customer', 'cmcp', 'streamable-http', '/mcp/demo'),
+        mcp('cust-agent', 'customer', 'cagent', 'a2a', '/a2a-agent'),
+        mcp('plat-mcp', 'platform', 'pmcp', 'streamable-http', '/mcp/demo'),
+        mcp('plat-agent', 'platform', 'pagent', 'a2a', '/a2a-agent'),
+      ],
       settings: {},
     };
     const dataDir = await mkdtemp(join(tmpdir(), 'dirouter-ssrf-'));
@@ -95,6 +117,7 @@ describe('SSRF guard', () => {
       dataDir,
       emitUsage: () => undefined,
       blockPrivateUpstreams: true,
+      internalToken: INTERNAL,
     });
     await gw.start();
     await gw.app.listen({ port: 0, host: '127.0.0.1' });
@@ -134,5 +157,83 @@ describe('SSRF guard', () => {
     const res = await ask('dr-platform-00001', 'own');
     expect(res.status).toBe(200);
     await res.text();
+  });
+
+  const mcpTools = async (key: string) => {
+    const res = await fetch(`${base}/mcp`, {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${key}`,
+        'content-type': 'application/json',
+        accept: 'application/json, text/event-stream',
+      },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' }),
+    });
+    const body = (await res.json()) as { result?: { tools?: { name: string }[] } };
+    return (body.result?.tools ?? []).map((t) => t.name);
+  };
+
+  it("a customer's MCP server on a private address is never reached; the platform's is", async () => {
+    expect((await mcpTools('dr-customer-00001')).some((n) => n.startsWith('cmcp__'))).toBe(false);
+    expect(await mcpTools('dr-platform-00001')).toContain('pmcp__echo');
+  });
+
+  it("a customer's A2A agent on a private address is refused for card and messages", async () => {
+    const auth = (key: string) => ({ authorization: `Bearer ${key}` });
+    const card = await fetch(`${base}/a2a/agents/cagent/.well-known/agent-card.json`, {
+      headers: auth('dr-customer-00001'),
+    });
+    expect(card.status).toBe(502);
+    await card.text();
+    const sent = await fetch(`${base}/a2a/agents/cagent`, {
+      method: 'POST',
+      headers: { ...auth('dr-customer-00001'), 'content-type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'GetTask', params: { id: 'x' } }),
+    });
+    expect(sent.status).toBe(502);
+    await sent.text();
+    const own = await fetch(`${base}/a2a/agents/pagent/.well-known/agent-card.json`, {
+      headers: auth('dr-platform-00001'),
+    });
+    expect(own.status).toBe(200);
+    await own.text();
+  });
+
+  it('the connection test of a customer MCP server or agent obeys the guard too', async () => {
+    const probe = async (server: Record<string, unknown>) => {
+      const res = await fetch(`${base}/internal/mcp/probe`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', authorization: `Bearer ${INTERNAL}` },
+        body: JSON.stringify({ server: { enabled: true, ...server } }),
+      });
+      return (await res.json()) as { ok: boolean; error?: string };
+    };
+    const url = (path: string) => `http://127.0.0.1:${String(port)}${path}`;
+    const blocked = await probe({
+      id: 'p1',
+      organizationId: 'customer',
+      slug: 'p1',
+      transport: 'streamable-http',
+      url: url('/mcp/demo'),
+    });
+    expect(blocked.ok).toBe(false);
+    expect(blocked.error).toMatch(/public address/);
+    const blockedAgent = await probe({
+      id: 'p2',
+      organizationId: 'customer',
+      slug: 'p2',
+      transport: 'a2a',
+      url: url('/a2a-agent'),
+    });
+    expect(blockedAgent).toMatchObject({ ok: false });
+    expect(blockedAgent.error).toMatch(/public address/);
+    const own = await probe({
+      id: 'p3',
+      organizationId: 'platform',
+      slug: 'p3',
+      transport: 'a2a',
+      url: url('/a2a-agent'),
+    });
+    expect(own.ok).toBe(true);
   });
 });

@@ -244,6 +244,7 @@ export class McpGateway {
         headers,
         timeoutMs: server.timeoutMs,
         auth: oauth,
+        fetch: tenantFetch(server.organizationId),
       },
       this.options.logger,
     );

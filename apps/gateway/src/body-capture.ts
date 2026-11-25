@@ -29,6 +29,8 @@ import { connectValkey, type Logger } from '@dirouter/shared';
 import { Queue } from 'bullmq';
 import { Redis } from 'ioredis';
 
+import { usageJobId } from './usage-sink.js';
+
 export type RecordBody = (record: RequestBodyRecord) => void;
 
 /** Top-level request fields that carry content rather than parameters. */
@@ -296,7 +298,8 @@ export class BodySink {
     this.#inFlight++;
     void this.#queue
       .add('body', record, {
-        jobId: record.requestId,
+        // Client x-request-id values may hold ':' or be purely numeric; BullMQ refuses both.
+        jobId: usageJobId(record.requestId),
         attempts: 3,
         backoff: { type: 'exponential', delay: 2_000 },
         removeOnComplete: { count: 100 },

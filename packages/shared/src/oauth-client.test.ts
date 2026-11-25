@@ -82,6 +82,87 @@ describe('OAuth client helpers (card 28.1)', () => {
     ]);
   });
 
+  it('uses protected resource metadata only when it names this resource (RFC 9728 §3.3)', async () => {
+    const as = {
+      'https://as.example/.well-known/oauth-authorization-server': {
+        issuer: 'https://as.example',
+        token_endpoint: 'https://as.example/token',
+      },
+    };
+    // Metadata for another resource is ignored wherever it is found.
+    await expect(
+      discoverOAuth(
+        'https://mcp.example/v1',
+        {},
+        {
+          hint: '/meta',
+          fetchImpl: fakeFetch({
+            ...as,
+            'https://mcp.example/meta': {
+              resource: 'https://other.example/v1',
+              authorization_servers: ['https://as.example'],
+            },
+            'https://mcp.example/.well-known/oauth-protected-resource/v1': {
+              resource: 'https://mcp.example/v2',
+              authorization_servers: ['https://as.example'],
+            },
+            'https://mcp.example/.well-known/oauth-protected-resource': {
+              authorization_servers: ['https://as.example'],
+            },
+          }),
+        },
+      ),
+    ).rejects.toBeInstanceOf(OAuthError);
+    // The root well-known URI describes the origin, so there the resource is the origin.
+    expect(
+      (
+        await discoverOAuth(
+          'https://mcp.example/v1',
+          {},
+          {
+            fetchImpl: fakeFetch({
+              ...as,
+              'https://mcp.example/.well-known/oauth-protected-resource': {
+                resource: 'https://mcp.example/',
+                authorization_servers: ['https://as.example'],
+              },
+            }),
+          },
+        )
+      ).resource,
+    ).toBe('https://mcp.example/');
+  });
+
+  it('follows a resource_metadata hint only on the server origin', async () => {
+    const seen: string[] = [];
+    const found = await discoverOAuth(
+      'https://mcp.example/v1',
+      {},
+      {
+        hint: 'https://evil.example/meta',
+        fetchImpl: fakeFetch(
+          {
+            'https://evil.example/meta': {
+              resource: 'https://mcp.example/v1',
+              authorization_servers: ['https://evil.example'],
+            },
+            'https://mcp.example/.well-known/oauth-protected-resource/v1': {
+              resource: 'https://mcp.example/v1',
+              authorization_servers: ['https://as.example'],
+            },
+            'https://as.example/.well-known/oauth-authorization-server': {
+              issuer: 'https://as.example',
+              token_endpoint: 'https://as.example/token',
+            },
+          },
+          seen,
+        ),
+      },
+    );
+    expect(found.server.token_endpoint).toBe('https://as.example/token');
+    expect(seen.some((url) => url.startsWith('https://evil.example'))).toBe(false);
+  });
+
   it('refuses metadata naming another issuer, and skips discovery for a given endpoint', async () => {
     await expect(
       discoverOAuth(

@@ -45,6 +45,7 @@ import { handleModerations } from './classifiers.js';
 import { handleEmbeddings, handleGeminiEmbeddings } from './embeddings.js';
 import { registerMediaRoutes } from './media.js';
 import { configureUpstreamGuard } from './upstream.js';
+import { credentialTokens } from './credential-tokens.js';
 import { Tracer } from './tracing.js';
 import type { RecordBody } from './body-capture.js';
 import { type OtlpLogBuffer, OtlpExporter } from './otlp-export.js';
@@ -93,6 +94,9 @@ export interface GatewayOptions {
 export function buildGateway(opts: GatewayOptions) {
   const health = new HealthRegistry({
     onChange: (change) => {
+      // A credential the upstream rejected (401/403) loses its cached OAuth token (card 27.4):
+      // a revoked token is not reused until its refresh window.
+      if (change.kind === 'credential_disabled') credentialTokens.invalidate(change.credentialId);
       opts.onHealthChange?.(change);
     },
   });

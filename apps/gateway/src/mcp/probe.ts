@@ -10,6 +10,7 @@ import { McpServerConfig } from '@dirouter/contracts';
 import { decrypt, type Keyring, type Logger, ValidationError } from '@dirouter/shared';
 import { z } from 'zod';
 
+import { tenantFetch } from '../upstream.js';
 import { McpUpstream } from './upstream.js';
 
 export const McpProbeRequest = z.object({ server: McpServerConfig });
@@ -50,19 +51,27 @@ function describe(item: unknown): McpProbeTool | undefined {
   };
 }
 
-async function agentCard(url: string, headers: Record<string, string>, timeoutMs: number) {
+type Fetch = (url: string, init?: RequestInit) => Promise<Response>;
+
+async function agentCard(
+  url: string,
+  headers: Record<string, string>,
+  timeoutMs: number,
+  fetchImpl: Fetch,
+) {
   // Same lookup as the A2A proxy: under the agent's path first, then at the origin root.
   let lastError = 'agent card unavailable';
   for (const candidate of [
     `${url.replace(/\/+$/, '')}/.well-known/agent-card.json`,
     new URL('/.well-known/agent-card.json', url).toString(),
   ]) {
-    const res = await fetch(candidate, { headers, signal: AbortSignal.timeout(timeoutMs) }).catch(
-      (error: unknown) => {
-        lastError = error instanceof Error ? error.message : String(error);
-        return undefined;
-      },
-    );
+    const res = await fetchImpl(candidate, {
+      headers,
+      signal: AbortSignal.timeout(timeoutMs),
+    }).catch((error: unknown) => {
+      lastError = error instanceof Error ? error.message : String(error);
+      return undefined;
+    });
     if (res?.ok) return (await res.json()) as Record<string, unknown>;
     if (res) lastError = `agent card returned HTTP ${String(res.status)}`;
   }
@@ -85,9 +94,11 @@ export async function probeMcpServer(
     : {};
   const timeoutMs = Math.min(server.timeoutMs, PROBE_TIMEOUT_MS);
   const started = Date.now();
+  // The address is tenant-supplied: SSRF guard and no redirects, as for live traffic (card 22.3).
+  const fetchImpl = tenantFetch(server.organizationId);
   if (server.transport === 'a2a') {
     try {
-      const card = await agentCard(server.url, headers, timeoutMs);
+      const card = await agentCard(server.url, headers, timeoutMs, fetchImpl);
       const skills = Array.isArray(card.skills) ? card.skills : [];
       return {
         ok: true,
@@ -105,7 +116,7 @@ export async function probeMcpServer(
     }
   }
   const client = new McpUpstream(
-    { url: server.url, transport: server.transport, headers, timeoutMs },
+    { url: server.url, transport: server.transport, headers, timeoutMs, fetch: fetchImpl },
     logger,
   );
   try {

@@ -44,6 +44,11 @@ export interface UpstreamTarget {
   headers: Record<string, string>;
   timeoutMs: number;
   auth?: UpstreamAuth | undefined;
+  /**
+   * The server's address is tenant-supplied, so every call goes through `tenantFetch` of its
+   * organization (SSRF guard, no redirects, card 22.3); never the global fetch.
+   */
+  fetch: (url: string, init?: RequestInit) => Promise<Response>;
 }
 
 /** Reads `data:` payloads of an SSE body one event at a time. */
@@ -170,7 +175,7 @@ export class McpUpstream {
       const auth = await this.#auth();
       let res: Response;
       try {
-        res = await fetch(url, {
+        res = await this.target.fetch(url, {
           method: 'POST',
           headers: this.#headers({ ...extraHeaders, ...auth.header }),
           body,
@@ -240,7 +245,7 @@ export class McpUpstream {
     let res: Response | undefined;
     for (let attempt = 0; attempt < 2; attempt++) {
       const auth = await this.#auth();
-      res = await fetch(this.target.url, {
+      res = await this.target.fetch(this.target.url, {
         headers: { accept: 'text/event-stream', ...this.target.headers, ...auth.header },
         signal: controller.signal,
       });

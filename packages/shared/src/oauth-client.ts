@@ -96,19 +96,59 @@ export function wellKnownUrl(base: string, suffix: string): string {
   return `${url.origin}/.well-known/${suffix}${path}`;
 }
 
-/** Protected resource metadata of `resourceUrl` (RFC 9728), trying the challenge hint first. */
+/** Resource identifiers compared as RFC 9728 requires ("identical"), ignoring a trailing slash. */
+function sameResource(a: string, b: string): boolean {
+  try {
+    const strip = (value: string) => {
+      const url = new URL(value);
+      url.hash = '';
+      return url.toString().replace(/\/+$/, '');
+    };
+    return strip(a) === strip(b);
+  } catch {
+    return false;
+  }
+}
+
+/** Whether `hint` (a `resource_metadata` URL, possibly relative) is on the origin of `resourceUrl`. */
+export function sameOriginHint(hint: string, resourceUrl: string): boolean {
+  try {
+    return new URL(hint, resourceUrl).origin === new URL(resourceUrl).origin;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Protected resource metadata of `resourceUrl` (RFC 9728), trying the challenge hint first.
+ *
+ * - A hint is followed only on the origin of `resourceUrl`: a challenge cannot send the client to
+ *   metadata (and so to an authorization server) somewhere else.
+ * - The metadata's `resource` must be identical to the resource identifier it was retrieved for
+ *   (section 3.3): `resourceUrl` for the hint and the path-inserted well-known URI, the origin for
+ *   the well-known URI at the root. Metadata naming another resource is not used.
+ */
 export async function discoverProtectedResource(
   resourceUrl: string,
   options: OAuthHttpOptions & { hint?: string | undefined } = {},
 ): Promise<ProtectedResourceMetadata | undefined> {
-  const candidates = [
-    ...(options.hint ? [new URL(options.hint, resourceUrl).toString()] : []),
-    wellKnownUrl(resourceUrl, 'oauth-protected-resource'),
-    `${new URL(resourceUrl).origin}/.well-known/oauth-protected-resource`,
+  const origin = new URL(resourceUrl).origin;
+  const candidates: { url: string; resource: string }[] = [
+    ...(options.hint && sameOriginHint(options.hint, resourceUrl)
+      ? [{ url: new URL(options.hint, resourceUrl).toString(), resource: resourceUrl }]
+      : []),
+    { url: wellKnownUrl(resourceUrl, 'oauth-protected-resource'), resource: resourceUrl },
+    { url: `${origin}/.well-known/oauth-protected-resource`, resource: origin },
   ];
-  for (const candidate of [...new Set(candidates)]) {
-    const meta = await getJson<ProtectedResourceMetadata>(candidate, options);
-    if (meta && Array.isArray(meta.authorization_servers)) return meta;
+  const tried = new Set<string>();
+  for (const candidate of candidates) {
+    if (tried.has(candidate.url)) continue;
+    tried.add(candidate.url);
+    const meta = await getJson<ProtectedResourceMetadata>(candidate.url, options);
+    if (!meta || !Array.isArray(meta.authorization_servers)) continue;
+    if (typeof meta.resource !== 'string' || !sameResource(meta.resource, candidate.resource))
+      continue;
+    return meta;
   }
   return undefined;
 }
@@ -175,8 +215,9 @@ export async function discoverOAuth(
   if (!issuer) {
     const prm = await discoverProtectedResource(resourceUrl, options);
     issuer = prm?.authorization_servers?.[0];
-    if (!issuer) throw new OAuthError(`no protected resource metadata found for ${resourceUrl}`);
-    if (prm?.resource) resource = prm.resource;
+    if (!issuer || !prm?.resource)
+      throw new OAuthError(`no protected resource metadata found for ${resourceUrl}`);
+    resource = prm.resource;
   }
   const server = await discoverAuthorizationServer(issuer, options);
   return {

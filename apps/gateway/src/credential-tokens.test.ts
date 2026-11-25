@@ -5,16 +5,19 @@
  * The RSA key is generated at test time; no key material is committed.
  */
 import { generateKeyPairSync } from 'node:crypto';
+import { createServer } from 'node:http';
 import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import type { ConfigSnapshotInput } from '@dirouter/contracts';
+import { type ConfigSnapshotInput, ProviderConfig } from '@dirouter/contracts';
 import { buildServer as buildMock } from '@dirouter/mock-provider/server';
 import { createLogger, encrypt, generateKey, hashApiKey, parseKeyring } from '@dirouter/shared';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { credentialTokens } from './credential-tokens.js';
+import { oauthTokenPlan, TokenCache } from '@dirouter/providers';
+
+import { credentialTokens, resolveCredentialKey, tokenFailure } from './credential-tokens.js';
 import { probeProvider } from './probe.js';
 import { buildGateway } from './server.js';
 
@@ -209,5 +212,75 @@ describe('Azure OpenAI with Entra ID (card 27.4)', () => {
     expect(result.error?.class).toBe('auth');
     expect(result.error?.message).toMatch(/token endpoint returned 401 invalid_client/);
     expect(result.error?.message).not.toContain('test-client-secret');
+  });
+});
+
+describe('shared token exchange', () => {
+  it('a caller that aborts does not fail the exchange for the others or blame the credential', async () => {
+    let release: () => void = () => undefined;
+    let exchanges = 0;
+    const slow = createServer((_req, res) => {
+      exchanges++;
+      release = () => {
+        res.writeHead(200, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ access_token: 'shared-token', expires_in: 3600 }));
+      };
+    });
+    await new Promise<void>((r) => slow.listen(0, '127.0.0.1', r));
+    const addr = slow.address();
+    const tokenUrl = `http://127.0.0.1:${typeof addr === 'object' && addr ? addr.port : 0}/token`;
+    try {
+      const provider = ProviderConfig.parse({
+        ...azureProvider(),
+        options: { authMode: 'entra', tokenUrl },
+        credentials: [],
+      });
+      const cache = new TokenCache();
+      const gone = new AbortController();
+      const first = resolveCredentialKey(provider, { id: 'az-x' }, entra('x'), {
+        signal: gone.signal,
+        cache,
+      });
+      const second = resolveCredentialKey(provider, { id: 'az-x' }, entra('x'), {
+        signal: new AbortController().signal,
+        cache,
+      });
+      while (exchanges === 0) await new Promise((r) => setTimeout(r, 5));
+      gone.abort(new Error('client disconnected'));
+      const firstError = await first.catch((error: unknown) => error);
+      release();
+      expect(await second).toBe('shared-token');
+      expect(exchanges).toBe(1);
+      const failure = tokenFailure(firstError);
+      expect(failure.credentialAction).toBeUndefined();
+      expect(failure.class).not.toBe('auth');
+    } finally {
+      await new Promise((r) => slow.close(r));
+    }
+  });
+
+  it('drops the cached token once the upstream rejects it with 401', async () => {
+    const plan = oauthTokenPlan(
+      { type: 'vertex', options: { project: 'demo', location: 'us-central1' } },
+      'vx-sa',
+      serviceAccount,
+    );
+    expect((await chat('vertex-m')).status).toBe(200);
+    expect(credentialTokens.peek(plan!.cacheKey)).toBeDefined();
+    await fetch(`${mockUrl}/__mock/config`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ directives: 'status=401' }),
+    });
+    try {
+      expect((await chat('vertex-m')).status).not.toBe(200);
+      expect(credentialTokens.peek(plan!.cacheKey)).toBeUndefined();
+    } finally {
+      await fetch(`${mockUrl}/__mock/config`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ directives: '' }),
+      });
+    }
   });
 });

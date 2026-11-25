@@ -13,6 +13,7 @@ import {
   GOOGLE_CLOUD_SCOPE,
   GOOGLE_TOKEN_URL,
   TokenCache,
+  TokenWaitAborted,
   TokenExchangeError,
   buildServiceAccountJwt,
   oauthKind,
@@ -268,6 +269,41 @@ describe('TokenCache', () => {
     resolve(token('t', Date.now()));
     expect(await Promise.all([a, b])).toEqual(['t', 't']);
     expect(fetchToken).toHaveBeenCalledTimes(1);
+  });
+
+  it('lets one caller stop waiting without failing the shared refresh for the others', async () => {
+    const cache = new TokenCache();
+    let resolve: (v: { token: string; expiresAt: number }) => void = () => undefined;
+    const fetchToken = vi.fn(
+      () =>
+        new Promise<{ token: string; expiresAt: number }>((r) => {
+          resolve = r;
+        }),
+    );
+    const gone = new AbortController();
+    const a = cache.get('k', fetchToken, gone.signal);
+    const b = cache.get('k', fetchToken, new AbortController().signal);
+    gone.abort(new Error('client went away'));
+    await expect(a).rejects.toBeInstanceOf(TokenWaitAborted);
+    resolve(token('t', Date.now()));
+    expect(await b).toBe('t');
+    expect(fetchToken).toHaveBeenCalledTimes(1);
+    expect(cache.peek('k')?.token).toBe('t');
+  });
+
+  it('drops every cached token of a credential on invalidate', async () => {
+    const cache = new TokenCache();
+    await cache.get('cred_1:aaaa', () => Promise.resolve(token('t1', Date.now())));
+    await cache.get('cred_10:bbbb', () => Promise.resolve(token('t2', Date.now())));
+    cache.invalidate('cred_1');
+    expect(cache.peek('cred_1:aaaa')).toBeUndefined();
+    expect(cache.peek('cred_10:bbbb')?.token).toBe('t2');
+    let n = 0;
+    expect(
+      await cache.get('cred_1:aaaa', () =>
+        Promise.resolve(token(`fresh${String(++n)}`, Date.now())),
+      ),
+    ).toBe('fresh1');
   });
 
   it('keeps a still-valid token when a refresh fails, and throws once none is valid', async () => {

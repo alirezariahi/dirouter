@@ -26,7 +26,7 @@ import {
   parseKeyring,
 } from '@dirouter/shared';
 import { Redis } from 'ioredis';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { buildGateway } from '../server.js';
 
@@ -398,6 +398,53 @@ describe('A2A streaming and push notifications', { timeout: 30_000 }, () => {
       final: true,
       status: { state: 'completed' },
     });
+  });
+
+  it('a failure while running a streamed task ends the stream with a failed status', async () => {
+    await mockSays('text=never seen,chunks=2');
+    // The task store fails once the task is marked working (the local store is a Map).
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    const set = Map.prototype.set;
+    const spy = vi.spyOn(Map.prototype, 'set').mockImplementation(function (
+      this: Map<unknown, unknown>,
+      key: unknown,
+      value: unknown,
+    ) {
+      if (
+        typeof key === 'string' &&
+        key.startsWith('a2a:task:') &&
+        typeof (value as { value?: unknown } | undefined)?.value === 'string' &&
+        (value as { value: string }).value.includes('"state":"working"')
+      )
+        throw new Error('task store down');
+      return set.call(this, key, value);
+    });
+    try {
+      const res = await fetch(`${base}/a2a`, {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${KEY}`,
+          'content-type': 'application/json',
+          'a2a-version': '1.0',
+        },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: 's',
+          method: 'SendStreamingMessage',
+          params: message('break the store'),
+        }),
+        signal: AbortSignal.timeout(3_000),
+      });
+      // Without the fix the stream never ends and reading it times out.
+      const events = (await res.text())
+        .split('\n\n')
+        .filter((f) => f.startsWith('data:'))
+        .map((f) => (JSON.parse(f.slice(5)) as Json).result as Json);
+      expect(events[0]?.task.status.state).toBe('TASK_STATE_SUBMITTED');
+      expect(events.at(-1)?.statusUpdate.status.state).toBe('TASK_STATE_FAILED');
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   it('SubscribeToTask streams a running task; a finished one is refused', async () => {

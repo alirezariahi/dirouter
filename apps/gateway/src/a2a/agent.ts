@@ -758,18 +758,39 @@ export class A2aAgent {
     // The client going away ends the stream, not the task.
     req.raw.on('close', close);
 
-    const first = prepared?.task ?? (await this.#peek(taskId));
-    if (!first) {
+    // The reply is hijacked: nothing below may throw past here, or the stream would stay open.
+    let last: StoredTask | undefined = prepared?.task;
+    try {
+      const first = prepared?.task ?? (await this.#peek(taskId));
+      if (!first) close();
+      else {
+        last = first;
+        write({ type: 'task', task: structuredClone(first) });
+        const pending = queue;
+        queue = undefined;
+        for (const event of pending) write(event);
+        if (prepared) {
+          if (!prepared.model) await this.#reject(prepared.task);
+          else await this.#execute(prepared.task, prepared.model, this.#caller(req), true);
+        }
+      }
+    } catch (error) {
+      this.options.logger.warn({ err: error, taskId }, 'A2A stream failed');
+      // Tell the client the task failed (on this stream only: the store may be what broke).
+      if (last)
+        write({
+          type: 'status',
+          task: {
+            ...structuredClone(last),
+            state: 'failed',
+            statusText: 'Internal error while running the task',
+            timestamp: new Date().toISOString(),
+          },
+        });
       close();
-      return reply;
-    }
-    write({ type: 'task', task: structuredClone(first) });
-    const pending = queue;
-    queue = undefined;
-    for (const event of pending) write(event);
-    if (prepared) {
-      if (!prepared.model) await this.#reject(prepared.task);
-      else await this.#execute(prepared.task, prepared.model, this.#caller(req), true);
+    } finally {
+      // A streamed task has finished once execution returns; a subscription stays open.
+      if (prepared) close();
     }
     return reply;
   }
@@ -1065,7 +1086,8 @@ export class A2aAgent {
       `${agent.url.replace(/\/+$/, '')}/.well-known/agent-card.json`,
       new URL('/.well-known/agent-card.json', agent.url).toString(),
     ]) {
-      res = await fetch(candidate, {
+      // The agent's address is tenant-supplied: SSRF guard, no redirects (card 22.3).
+      res = await tenantFetch(agent.organizationId)(candidate, {
         headers: this.#headers(auth.config, agent, auth.key, req),
         signal: AbortSignal.timeout(agent.timeoutMs),
       }).catch(() => undefined);
@@ -1123,7 +1145,7 @@ export class A2aAgent {
       return reply.status(404).send(rpcError(message.id ?? null, -32601, 'Agent not found'));
     }
     this.stats.proxied++;
-    const res = await fetch(agent.url, {
+    const res = await tenantFetch(agent.organizationId)(agent.url, {
       method: 'POST',
       headers: this.#headers(auth.config, agent, auth.key, req),
       body: JSON.stringify(message),

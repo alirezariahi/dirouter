@@ -38,6 +38,17 @@ export interface EntraClientCredentials {
   clientSecret: string;
 }
 
+/**
+ * Thrown to one caller of `TokenCache.get` whose own signal aborted while it waited for a shared
+ * refresh. It says nothing about the credential: the refresh keeps running for the other waiters.
+ */
+export class TokenWaitAborted extends Error {
+  override readonly name = 'TokenWaitAborted';
+  constructor(readonly reason?: unknown) {
+    super('aborted while waiting for the credential token');
+  }
+}
+
 /** Thrown for a malformed credential or a failed token exchange. */
 export class TokenExchangeError extends Error {
   override readonly name = 'TokenExchangeError';
@@ -288,7 +299,16 @@ export class TokenCache {
     this.#retryMs = options.retryAfterFailureMs ?? 10_000;
   }
 
-  async get(key: string, fetchToken: () => Promise<AccessToken>): Promise<string> {
+  /**
+   * `fetchToken` runs once for all concurrent callers, so it must not depend on any one caller's
+   * signal. `signal` only stops this caller from waiting: it then gets a TokenWaitAborted while
+   * the shared refresh carries on for the others.
+   */
+  async get(
+    key: string,
+    fetchToken: () => Promise<AccessToken>,
+    signal?: AbortSignal,
+  ): Promise<string> {
     const now = this.#clock();
     let entry = this.#entries.get(key);
     if (!entry) this.#entries.set(key, (entry = {}));
@@ -300,12 +320,21 @@ export class TokenCache {
       if (now < refreshAt || pausing) return current.token;
       // In the refresh window: refresh, but fall back to the still-valid token on failure.
       try {
-        return (await this.#refresh(entry, fetchToken)).token;
+        return (await waitFor(this.#refresh(entry, fetchToken), signal)).token;
       } catch {
         return current.token;
       }
     }
-    return (await this.#refresh(entry, fetchToken)).token;
+    return (await waitFor(this.#refresh(entry, fetchToken), signal)).token;
+  }
+
+  /**
+   * Forget the token of a credential (every secret version of it), e.g. after the upstream
+   * rejected it with 401/403: a revoked token must not be reused until its refresh window.
+   */
+  invalidate(credentialId: string): void {
+    for (const key of [...this.#entries.keys()])
+      if (key === credentialId || key.startsWith(`${credentialId}:`)) this.#entries.delete(key);
   }
 
   /** Cached token state (tests, diagnostics); never logged. */
@@ -333,6 +362,30 @@ export class TokenCache {
         delete entry.inflight;
       }
     })();
+    // Every caller may have stopped waiting; a failure nobody awaits must not go unhandled.
+    entry.inflight.catch(() => undefined);
     return entry.inflight;
   }
+}
+
+/** The shared promise, or a TokenWaitAborted as soon as this caller's signal aborts. */
+function waitFor<T>(promise: Promise<T>, signal: AbortSignal | undefined): Promise<T> {
+  if (!signal) return promise;
+  if (signal.aborted) return Promise.reject(new TokenWaitAborted(signal.reason));
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = () => {
+      reject(new TokenWaitAborted(signal.reason));
+    };
+    signal.addEventListener('abort', onAbort, { once: true });
+    promise.then(
+      (value) => {
+        signal.removeEventListener('abort', onAbort);
+        resolve(value);
+      },
+      (error: unknown) => {
+        signal.removeEventListener('abort', onAbort);
+        reject(error instanceof Error ? error : new Error(String(error)));
+      },
+    );
+  });
 }
