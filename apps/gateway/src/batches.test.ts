@@ -23,7 +23,7 @@ import {
 } from '@dirouter/shared';
 import { Redis } from 'ioredis';
 import OpenAI, { toFile } from 'openai';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, onTestFinished } from 'vitest';
 
 import {
   batchAmounts,
@@ -458,6 +458,12 @@ describe('files and batches', () => {
   });
 
   it('a worker whose lock ran out neither bills nor saves the batch', async () => {
+    // The background poller (one tick a minute) would take the lock of this due batch first on a
+    // slow runner; this test drives every step itself.
+    await gw.poller.stop();
+    onTestFinished(() => {
+      gw.poller.start();
+    });
     const file = await uploadBatch([chatLine('l', 'gpt-batch', 'lock me')]);
     const created = await client.batches.create({
       input_file_id: file.id,
