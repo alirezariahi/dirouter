@@ -4901,6 +4901,778 @@
         ]
       }
     },
+    "/api/v1/orgs/{orgId}/providers/{id}/spend": {
+      "get": {
+        "operationId": "ProviderSpendController_get",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Budgets, quota windows and the credential strategy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "providerId": {
+                      "type": "string"
+                    },
+                    "credentialStrategy": {
+                      "type": "string",
+                      "enum": [
+                        "weighted",
+                        "fill-first",
+                        "reset-aware"
+                      ]
+                    },
+                    "budgets": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "period": {
+                            "type": "string",
+                            "enum": [
+                              "daily",
+                              "weekly",
+                              "monthly",
+                              "yearly"
+                            ]
+                          },
+                          "limitUsd": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "limitTokens": {
+                            "nullable": true,
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "alertThresholds": {
+                            "type": "array",
+                            "items": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            }
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "period",
+                          "limitUsd",
+                          "limitTokens",
+                          "alertThresholds"
+                        ]
+                      }
+                    },
+                    "credentials": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "budgets": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "period": {
+                                  "type": "string",
+                                  "enum": [
+                                    "daily",
+                                    "weekly",
+                                    "monthly",
+                                    "yearly"
+                                  ]
+                                },
+                                "limitUsd": {
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "limitTokens": {
+                                  "nullable": true,
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "alertThresholds": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  }
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "period",
+                                "limitUsd",
+                                "limitTokens",
+                                "alertThresholds"
+                              ]
+                            }
+                          },
+                          "quotaWindows": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "hours": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "limitRequests": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "limitTokens": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "limitUsd": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "hours"
+                              ]
+                            }
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "name",
+                          "budgets",
+                          "quotaWindows"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "providerId",
+                    "credentialStrategy",
+                    "budgets",
+                    "credentials"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "providers"
+        ]
+      },
+      "put": {
+        "operationId": "ProviderSpendController_setProvider",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "credentialStrategy": {
+                    "description": "weighted (random by weight), fill-first, or reset-aware",
+                    "type": "string",
+                    "enum": [
+                      "weighted",
+                      "fill-first",
+                      "reset-aware"
+                    ]
+                  },
+                  "budgets": {
+                    "maxItems": 4,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "period": {
+                          "type": "string",
+                          "enum": [
+                            "daily",
+                            "weekly",
+                            "monthly",
+                            "yearly"
+                          ]
+                        },
+                        "limitUsd": {
+                          "type": "string",
+                          "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
+                        },
+                        "limitTokens": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "exclusiveMinimum": true,
+                          "maximum": 9007199254740991
+                        },
+                        "alertThresholds": {
+                          "maxItems": 10,
+                          "type": "array",
+                          "items": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 100
+                          }
+                        }
+                      },
+                      "required": [
+                        "period"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "202 with the change request when a budget change waits for approval",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "providerId": {
+                      "type": "string"
+                    },
+                    "credentialStrategy": {
+                      "type": "string",
+                      "enum": [
+                        "weighted",
+                        "fill-first",
+                        "reset-aware"
+                      ]
+                    },
+                    "budgets": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "period": {
+                            "type": "string",
+                            "enum": [
+                              "daily",
+                              "weekly",
+                              "monthly",
+                              "yearly"
+                            ]
+                          },
+                          "limitUsd": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "limitTokens": {
+                            "nullable": true,
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "alertThresholds": {
+                            "type": "array",
+                            "items": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            }
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "period",
+                          "limitUsd",
+                          "limitTokens",
+                          "alertThresholds"
+                        ]
+                      }
+                    },
+                    "credentials": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "budgets": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "period": {
+                                  "type": "string",
+                                  "enum": [
+                                    "daily",
+                                    "weekly",
+                                    "monthly",
+                                    "yearly"
+                                  ]
+                                },
+                                "limitUsd": {
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "limitTokens": {
+                                  "nullable": true,
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "alertThresholds": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  }
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "period",
+                                "limitUsd",
+                                "limitTokens",
+                                "alertThresholds"
+                              ]
+                            }
+                          },
+                          "quotaWindows": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "hours": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "limitRequests": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "limitTokens": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "limitUsd": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "hours"
+                              ]
+                            }
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "name",
+                          "budgets",
+                          "quotaWindows"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "providerId",
+                    "credentialStrategy",
+                    "budgets",
+                    "credentials"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "providers"
+        ]
+      }
+    },
+    "/api/v1/orgs/{orgId}/providers/{id}/credentials/{credentialId}/spend": {
+      "put": {
+        "operationId": "ProviderSpendController_setCredential",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "credentialId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "budgets": {
+                    "maxItems": 4,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "period": {
+                          "type": "string",
+                          "enum": [
+                            "daily",
+                            "weekly",
+                            "monthly",
+                            "yearly"
+                          ]
+                        },
+                        "limitUsd": {
+                          "type": "string",
+                          "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
+                        },
+                        "limitTokens": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "exclusiveMinimum": true,
+                          "maximum": 9007199254740991
+                        },
+                        "alertThresholds": {
+                          "maxItems": 10,
+                          "type": "array",
+                          "items": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 100
+                          }
+                        }
+                      },
+                      "required": [
+                        "period"
+                      ]
+                    }
+                  },
+                  "quotaWindows": {
+                    "maxItems": 5,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "pattern": "^[a-z0-9][a-z0-9-]{0,31}$"
+                        },
+                        "hours": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 744
+                        },
+                        "limitRequests": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "exclusiveMinimum": true,
+                          "maximum": 9007199254740991
+                        },
+                        "limitTokens": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "exclusiveMinimum": true,
+                          "maximum": 9007199254740991
+                        },
+                        "limitUsd": {
+                          "type": "string",
+                          "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "hours"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "202 with the change request when a budget change waits for approval",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "providerId": {
+                      "type": "string"
+                    },
+                    "credentialStrategy": {
+                      "type": "string",
+                      "enum": [
+                        "weighted",
+                        "fill-first",
+                        "reset-aware"
+                      ]
+                    },
+                    "budgets": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "period": {
+                            "type": "string",
+                            "enum": [
+                              "daily",
+                              "weekly",
+                              "monthly",
+                              "yearly"
+                            ]
+                          },
+                          "limitUsd": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "limitTokens": {
+                            "nullable": true,
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "alertThresholds": {
+                            "type": "array",
+                            "items": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            }
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "period",
+                          "limitUsd",
+                          "limitTokens",
+                          "alertThresholds"
+                        ]
+                      }
+                    },
+                    "credentials": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "budgets": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "period": {
+                                  "type": "string",
+                                  "enum": [
+                                    "daily",
+                                    "weekly",
+                                    "monthly",
+                                    "yearly"
+                                  ]
+                                },
+                                "limitUsd": {
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "limitTokens": {
+                                  "nullable": true,
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "alertThresholds": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  }
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "period",
+                                "limitUsd",
+                                "limitTokens",
+                                "alertThresholds"
+                              ]
+                            }
+                          },
+                          "quotaWindows": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "hours": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "limitRequests": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "limitTokens": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "limitUsd": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "hours"
+                              ]
+                            }
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "name",
+                          "budgets",
+                          "quotaWindows"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "providerId",
+                    "credentialStrategy",
+                    "budgets",
+                    "credentials"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "providers"
+        ]
+      }
+    },
     "/api/v1/orgs/{orgId}/keys": {
       "get": {
         "operationId": "KeysController_list",
@@ -12763,6 +13535,79 @@
                                       "until"
                                     ]
                                   }
+                                },
+                                "quotas": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "id": {
+                                        "type": "string"
+                                      },
+                                      "hours": {
+                                        "type": "integer",
+                                        "minimum": -9007199254740991,
+                                        "maximum": 9007199254740991
+                                      },
+                                      "limitRequests": {
+                                        "nullable": true,
+                                        "type": "integer",
+                                        "minimum": -9007199254740991,
+                                        "maximum": 9007199254740991
+                                      },
+                                      "limitTokens": {
+                                        "nullable": true,
+                                        "type": "integer",
+                                        "minimum": -9007199254740991,
+                                        "maximum": 9007199254740991
+                                      },
+                                      "limitUsd": {
+                                        "nullable": true,
+                                        "type": "string"
+                                      },
+                                      "used": {
+                                        "type": "object",
+                                        "properties": {
+                                          "requests": {
+                                            "type": "integer",
+                                            "minimum": -9007199254740991,
+                                            "maximum": 9007199254740991
+                                          },
+                                          "tokens": {
+                                            "type": "integer",
+                                            "minimum": -9007199254740991,
+                                            "maximum": 9007199254740991
+                                          },
+                                          "usd": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "requests",
+                                          "tokens",
+                                          "usd"
+                                        ]
+                                      },
+                                      "resetAt": {
+                                        "nullable": true,
+                                        "description": "null until the window has a request",
+                                        "type": "string"
+                                      },
+                                      "exhausted": {
+                                        "type": "boolean"
+                                      }
+                                    },
+                                    "required": [
+                                      "id",
+                                      "hours",
+                                      "limitRequests",
+                                      "limitTokens",
+                                      "limitUsd",
+                                      "used",
+                                      "resetAt",
+                                      "exhausted"
+                                    ]
+                                  }
                                 }
                               },
                               "required": [
@@ -12772,7 +13617,8 @@
                                 "cooldownUntil",
                                 "disabledUntil",
                                 "disabledReason",
-                                "lockouts"
+                                "lockouts",
+                                "quotas"
                               ]
                             }
                           }

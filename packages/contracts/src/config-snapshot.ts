@@ -91,6 +91,47 @@ export type TimeoutConfig = z.infer<typeof TimeoutConfig>;
 /** A secret encrypted with AES-256-GCM and key versioning (`@dirouter/shared` format). */
 export const EncryptedSecret = z.string().regex(/^v\d+\.[A-Za-z0-9_-]+$/, 'invalid ciphertext');
 
+/** UTC periods; weeks start on Monday (card 33.1 adds `weekly` and `yearly`). */
+export const BudgetPeriod = z.enum(['daily', 'weekly', 'monthly', 'yearly']);
+export type BudgetPeriod = z.infer<typeof BudgetPeriod>;
+
+export const BudgetConfig = z
+  .object({
+    id: z.string(),
+    period: BudgetPeriod,
+    limitUsd: UsdAmount.optional(),
+    limitTokens: z.int().positive().optional(),
+    /** Percentages whose crossing creates an alert event. */
+    alertThresholds: z.array(z.int().min(1).max(100)).default([50, 80, 100]),
+  })
+  .refine((b) => b.limitUsd !== undefined || b.limitTokens !== undefined, {
+    message: 'budget needs limitUsd or limitTokens',
+  });
+export type BudgetConfig = z.infer<typeof BudgetConfig>;
+
+/**
+ * A quota window of a credential (card 32.6), for coding plans used with an API key: at most this
+ * many requests, tokens or dollars in `hours`, counted from the first request after the previous
+ * window ended (the way such plans count). An exhausted window takes the credential out of
+ * rotation until it resets.
+ */
+export const QuotaWindowConfig = z
+  .object({
+    id: z.string().regex(/^[a-z0-9][a-z0-9-]{0,31}$/),
+    hours: z
+      .int()
+      .min(1)
+      .max(24 * 31),
+    limitRequests: z.int().positive().optional(),
+    limitTokens: z.int().positive().optional(),
+    limitUsd: UsdAmount.optional(),
+  })
+  .refine(
+    (w) => w.limitRequests !== undefined || w.limitTokens !== undefined || w.limitUsd !== undefined,
+    { message: 'quota window needs limitRequests, limitTokens or limitUsd' },
+  );
+export type QuotaWindowConfig = z.infer<typeof QuotaWindowConfig>;
+
 export const CredentialConfig = z.object({
   id: z.string(),
   name: z.string(),
@@ -101,6 +142,9 @@ export const CredentialConfig = z.object({
   headers: z.record(z.string(), z.string()).default({}),
   /** Outbound proxy for this credential; precedence: credential, then provider, then global (card 4.10). */
   proxy: ProxyConfig.optional(),
+  /** Spend caps of this upstream account (card 32.6); used up, the credential leaves rotation. */
+  budgets: z.array(BudgetConfig).optional(),
+  quotaWindows: z.array(QuotaWindowConfig).optional(),
 });
 export type CredentialConfig = z.infer<typeof CredentialConfig>;
 
@@ -119,6 +163,17 @@ export const ProviderConfig = z.object({
   /** Concurrent request limit (bulkhead). */
   maxConcurrency: z.int().positive().optional(),
   credentials: z.array(CredentialConfig),
+  /**
+   * Spend caps of the whole upstream provider (card 32.6), over every organization it serves;
+   * used up, its targets leave the route.
+   */
+  budgets: z.array(BudgetConfig).optional(),
+  /**
+   * Order of its credentials (card 32.6): `weighted` random (default), `fill-first` (by weight,
+   * then as listed: one credential until it is capped, then the next) or `reset-aware`
+   * (fill-first, but the credential whose quota window resets soonest goes first).
+   */
+  credentialStrategy: z.enum(['weighted', 'fill-first', 'reset-aware']).optional(),
   /** Region, country, retention and training use (card 32.5). */
   dataPolicy: ProviderDataPolicy.optional(),
 });
@@ -378,24 +433,6 @@ export const RateLimitConfig = z.object({
   maxConcurrency: z.int().positive().optional(),
 });
 export type RateLimitConfig = z.infer<typeof RateLimitConfig>;
-
-/** UTC periods; weeks start on Monday (card 33.1 adds `weekly` and `yearly`). */
-export const BudgetPeriod = z.enum(['daily', 'weekly', 'monthly', 'yearly']);
-export type BudgetPeriod = z.infer<typeof BudgetPeriod>;
-
-export const BudgetConfig = z
-  .object({
-    id: z.string(),
-    period: BudgetPeriod,
-    limitUsd: UsdAmount.optional(),
-    limitTokens: z.int().positive().optional(),
-    /** Percentages whose crossing creates an alert event. */
-    alertThresholds: z.array(z.int().min(1).max(100)).default([50, 80, 100]),
-  })
-  .refine((b) => b.limitUsd !== undefined || b.limitTokens !== undefined, {
-    message: 'budget needs limitUsd or limitTokens',
-  });
-export type BudgetConfig = z.infer<typeof BudgetConfig>;
 
 /** What the gateway may repair for a key (card 31.1). */
 export const RepairKind = z.enum(['json', 'tools']);

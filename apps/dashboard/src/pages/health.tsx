@@ -7,6 +7,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { QuotaCountdown, type QuotaWindowState } from '../components/quota-countdown';
 import { PageHeader, Section, Stat } from '../components/s2/common';
 import { Button } from '../components/ui/button';
 import { ErrorState, Loading } from '../components/ui/states';
@@ -37,6 +38,8 @@ interface RuntimeHealth {
       disabledUntil: string | null;
       disabledReason: string | null;
       lockouts: { modelId: string; until: string | null }[];
+      /** Quota windows (card 32.6); older control-api versions do not send them. */
+      quotas?: QuotaWindowState[];
     }[];
   }[];
   models: { id: string; slug: string; breaker: Breaker | null }[];
@@ -269,6 +272,7 @@ export default function HealthPage() {
                       <span className="ms-auto">
                         {problems.length ? resetButton('credential', c.id) : null}
                       </span>
+                      <QuotaCountdown quotas={c.quotas ?? []} lang={settings.lang} />
                     </li>
                   );
                 })}

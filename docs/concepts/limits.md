@@ -371,3 +371,63 @@ periods are kept).
   the snapshot, budget ids kept on edit, duplicate entries refused, rotation.
 - `apps/worker/src/budgets.integration.test.ts`: reconcile of a key's model budget.
 - `apps/dashboard/src/pages/model-limits.test.tsx`: the form rows.
+
+# Budgets of upstream providers and credentials; quota windows (card 32.6)
+
+These caps protect the platform's own upstream accounts rather than a customer. They count every
+organization's requests the account serves, and a used-up cap never fails a request on its own: it
+takes the matching candidates out of the route, so traffic moves to the next credential (or the next
+target of a combo) without an error. Only when no candidate is left does the gateway answer `429
+budget_exceeded` with `retry-after`.
+
+- **Provider budget**: daily, weekly, monthly or yearly dollars or tokens of the whole provider
+  (`PUT /orgs/{org}/providers/{id}/spend`, `budgets`). A `budgets` row with scope
+  `provider_account`; the message is `Monthly provider account budget exceeded for every target of
+'<model>'`.
+- **Credential budget**: the same per credential
+  (`PUT /orgs/{org}/providers/{id}/credentials/{credentialId}/spend`, `budgets`), scope
+  `credential`. The ledger now keeps the credential that served each request (`credential_id`), and
+  the worker reconciles both scopes from it over every organization.
+- **Quota windows** (`quotaWindows`, at most five per credential): for coding plans used with an
+  API key, at most `limitRequests`, `limitTokens` or `limitUsd` in `hours` (1 to 744). A window
+  starts with the first request after the previous one ended and lasts its length, the way such
+  plans count; the counter is a Valkey hash `dirouter:quota:<credential>:<window>` whose TTL is set
+  by that first request. An exhausted window takes the credential out of rotation until it resets;
+  when every credential is out, the answer is `Quota window used up on every credential for
+'<model>'` with `retry-after` at the soonest reset.
+
+Budget changes need four-eyes approval like other budgets (change request `provider.budgets`);
+quota windows and the strategy apply at once. `GET .../spend` returns all of it.
+
+## Credential order
+
+`credentialStrategy` on the provider:
+
+- `weighted` (default): random by weight, as before.
+- `fill-first`: a fixed order, heaviest weight first and then as listed; one credential takes all
+  the traffic until its budget or quota window is used up, then the next.
+- `reset-aware`: like fill-first, but the credential whose running quota window resets soonest goes
+  first, so quota that would expire unused is spent before quota that keeps.
+
+Only API-key credentials are supported. Consumer subscriptions signed in with OAuth (a chat
+product's login) are deliberately not supported.
+
+## Dashboard
+
+The Providers page has **Budgets, quotas and credential order** on each provider: the strategy, a
+monthly budget of the provider, a daily budget per credential and its quota windows (one per line:
+`id, hours, request cap, token cap, USD cap`). The Health page lists every quota window of a
+credential with its use and a live countdown to its reset, taken from the window counter's TTL;
+a window without a request yet shows that the first request starts it.
+
+## Verification
+
+- `apps/gateway/src/provider-budgets.test.ts`: a credential at its budget hands the traffic to the
+  next one with no error; fill-first uses one credential up to its quota window, then the next, and
+  the window lasts its length from the first request; reset-aware picks the window that resets
+  soonest; a used-up provider budget, or every quota used up, refuses with the reset time.
+- `packages/routing/src/routing.test.ts`: the fixed fill-first order.
+- `apps/control-api/src/providers/provider-spend.integration.test.ts`: the API, the snapshot, and
+  the countdown on the health report.
+- `apps/dashboard/src/lib/provider-spend.test.ts`: the form and the countdown.
+- `scripts/e2e/sprint-5/32.6.mjs`: the same through Traefik on the dev stack.

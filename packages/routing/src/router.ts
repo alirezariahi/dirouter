@@ -327,8 +327,14 @@ export class Router {
         }
         return true;
       });
-      for (const credential of weightedOrder(creds, (c) => c.weight, random))
-        candidates.push({ model, provider, credential });
+      // Card 32.6: fill-first and reset-aware use a fixed order (weight, then as listed), so one
+      // credential takes the traffic until its budget or quota window is used up.
+      const ordered =
+        provider.credentialStrategy === 'fill-first' ||
+        provider.credentialStrategy === 'reset-aware'
+          ? [...creds].sort((a, b) => b.weight - a.weight)
+          : weightedOrder(creds, (c) => c.weight, random);
+      for (const credential of ordered) candidates.push({ model, provider, credential });
     }
 
     // Sticky sessions (card 12.4): when the combo asks for affinity, a session keeps its target

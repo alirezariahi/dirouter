@@ -214,6 +214,19 @@ const Health = z.object({
           disabledUntil: z.string().nullable(),
           disabledReason: z.string().nullable(),
           lockouts: z.array(z.object({ modelId: z.string(), until: z.string().nullable() })),
+          /** Quota windows and when each resets (card 32.6). */
+          quotas: z.array(
+            z.object({
+              id: z.string(),
+              hours: z.int(),
+              limitRequests: z.int().nullable(),
+              limitTokens: z.int().nullable(),
+              limitUsd: z.string().nullable(),
+              used: z.object({ requests: z.int(), tokens: z.int(), usd: z.string() }),
+              resetAt: z.string().nullable().describe('null until the window has a request'),
+              exhausted: z.boolean(),
+            }),
+          ),
         }),
       ),
     }),

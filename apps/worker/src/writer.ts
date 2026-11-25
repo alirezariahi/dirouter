@@ -93,6 +93,7 @@ export function toLedgerRow(e: UsageEvent) {
     requestedModel: e.requestedModel,
     tags: e.tags ?? [],
     costCenter: e.costCenter ?? null,
+    credentialId: e.credentialId,
     costUsd: e.costUsd,
     tokens: e.usage.inputTokens + e.usage.outputTokens,
     occurredAt: new Date(e.occurredAt),

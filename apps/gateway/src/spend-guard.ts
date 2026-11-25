@@ -12,6 +12,9 @@
  * - limits of the key on one model (card 33.3): an entry naming a candidate's model behaves like
  *   a model scope of that key; an entry naming the alias or combo the client asked for covers the
  *   whole request;
+ * - the upstream accounts themselves (card 32.6): a provider's and a credential's own budgets,
+ *   over every organization they serve, and a credential's quota windows; used up, they take
+ *   their candidates out of the route, so traffic moves to the next credential without an error;
  * - models and providers of the organization (card 33.1): their budgets only take the matching
  *   candidates out of the route, so a combo falls back to its other targets, and only a route with
  *   no candidate left is rejected. Their rate limits count the target the request goes to first.
@@ -38,7 +41,14 @@ import type { Candidate } from '@dirouter/routing';
 import { DiRouterError, RateLimitError } from '@dirouter/shared';
 
 import type { Attribution } from './attribution.js';
-import type { BudgetCheck, BudgetGuard, BudgetTarget, ScopedBudget } from './budget-guard.js';
+import type {
+  BudgetCheck,
+  BudgetGuard,
+  BudgetTarget,
+  QuotaRef,
+  QuotaState,
+  ScopedBudget,
+} from './budget-guard.js';
 import { matchesTarget } from './budget-guard.js';
 import type { LimitScope, RateLimiter } from './rate-limiter.js';
 
@@ -183,6 +193,84 @@ function candidateScopes(
   if (model) out.push({ limit: model, target: { modelId: c.model.id } });
   const provider = lookup(snapshot, org, 'provider', c.provider.id);
   if (provider) out.push({ limit: provider, target: { providerId: c.provider.id } });
+  // The upstream account's own budgets (card 32.6), owned by the provider's organization.
+  if (c.provider.budgets?.length)
+    out.push({
+      limit: {
+        organizationId: c.provider.organizationId,
+        scope: 'provider_account',
+        scopeId: c.provider.id,
+        budgets: c.provider.budgets,
+      },
+      target: { providerId: c.provider.id },
+    });
+  if (c.credential.budgets?.length)
+    out.push({
+      limit: {
+        organizationId: c.provider.organizationId,
+        scope: 'credential',
+        scopeId: c.credential.id,
+        budgets: c.credential.budgets,
+      },
+      target: { credentialId: c.credential.id },
+    });
+  return out;
+}
+
+/** The quota windows of every candidate credential (card 32.6). */
+export function quotaRefs(candidates: readonly Candidate[]): QuotaRef[] {
+  const seen = new Set<string>();
+  const out: QuotaRef[] = [];
+  for (const c of candidates) {
+    if (seen.has(c.credential.id)) continue;
+    seen.add(c.credential.id);
+    for (const window of c.credential.quotaWindows ?? [])
+      out.push({ credentialId: c.credential.id, window });
+  }
+  return out;
+}
+
+/**
+ * Reset-aware order (card 32.6): within each run of candidates of one model and provider whose
+ * strategy is `reset-aware`, the credential whose quota window resets soonest goes first, so quota
+ * that would expire unused is spent before quota that keeps. Credentials without a running window
+ * keep their place after them.
+ */
+export function resetAwareOrder(
+  candidates: Candidate[],
+  quotas: readonly QuotaState[],
+): Candidate[] {
+  const resetOf = new Map<string, number>();
+  for (const q of quotas)
+    if (q.resetAt)
+      resetOf.set(
+        q.ref.credentialId,
+        Math.min(resetOf.get(q.ref.credentialId) ?? Infinity, q.resetAt.getTime()),
+      );
+  const out: Candidate[] = [];
+  let i = 0;
+  while (i < candidates.length) {
+    const first = candidates[i];
+    if (!first) break;
+    let j = i;
+    while (
+      j < candidates.length &&
+      candidates[j]?.model.id === first.model.id &&
+      candidates[j]?.provider.id === first.provider.id
+    )
+      j++;
+    const run = candidates.slice(i, j);
+    out.push(
+      ...(first.provider.credentialStrategy === 'reset-aware'
+        ? [...run].sort(
+            (a, b) =>
+              (resetOf.get(a.credential.id) ?? Infinity) -
+              (resetOf.get(b.credential.id) ?? Infinity),
+          )
+        : run),
+    );
+    i = j;
+  }
   return out;
 }
 
@@ -313,7 +401,10 @@ export async function admitRequest(
       metric: { guard: 'end_user', reason: 'blocked' },
     };
   const budgets = budgetScopes(config, key, input.candidates, attribution, input.requested);
-  const check: BudgetCheck = deps.budgets ? await deps.budgets.check(budgets) : { ok: true };
+  const quotas = quotaRefs(input.candidates);
+  const check: BudgetCheck = deps.budgets
+    ? await deps.budgets.check(budgets, quotas)
+    : { ok: true };
   if (!check.ok) {
     const what = check.kind === 'usd' ? `USD ${check.limit}` : `${check.limit} tokens`;
     return {
@@ -354,6 +445,26 @@ export async function admitRequest(
         metric: { guard: 'budget', reason: 'target' },
       };
     }
+  }
+  if (check.quotas) {
+    const states = check.quotas;
+    const full = states.filter((q) => q.exhausted);
+    const left = candidates.filter(
+      (c) => !full.some((q) => q.ref.credentialId === c.credential.id),
+    );
+    if (left.length === 0) {
+      const resets = full.flatMap((q) => (q.resetAt ? [q.resetAt.getTime()] : []));
+      return {
+        ok: false,
+        headers:
+          resets.length > 0 ? { 'retry-after': retryAfter(new Date(Math.min(...resets))) } : {},
+        error: new DiRouterError('budget_exceeded', {
+          message: `Quota window used up on every credential for '${input.requested}'`,
+        }),
+        metric: { guard: 'budget', reason: 'quota' },
+      };
+    }
+    candidates = resetAwareOrder(left, states);
   }
 
   const limiter = deps.limiter
@@ -404,6 +515,7 @@ export async function admitRequest(
               credentialId: served.credential.id,
             }
           : undefined,
+        quotas,
       );
     },
     cancel: () => {

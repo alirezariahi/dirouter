@@ -8,6 +8,7 @@ import { s3En } from './s3';
 import { s4En } from './s4';
 import { endUsersEn } from './end-users';
 import { attributionEn } from './attribution';
+import { quotaEn } from './quota';
 import { routingRequestsEn } from './routing-requests';
 import { billingEn } from './billing';
 import { mcpPageEn } from './mcp-page';
@@ -266,6 +267,7 @@ export const en: Widen<Messages> = {
   s4: s4En,
   endUsers: endUsersEn,
   attribution: attributionEn,
+  quota: quotaEn,
   routingRequests: routingRequestsEn,
   billing: billingEn,
   mcpPage: mcpPageEn,

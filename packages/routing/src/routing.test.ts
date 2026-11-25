@@ -856,3 +856,70 @@ describe('executor: admission (bulkhead)', () => {
     expect(releases).toBe(1);
   });
 });
+
+describe('credential strategies (card 32.6)', () => {
+  it('fill-first keeps one fixed credential order: weight first, then as listed', async () => {
+    const { ConfigSnapshot } = await import('@dirouter/contracts');
+    const { HealthRegistry } = await import('./health.js');
+    const snapshot = ConfigSnapshot.parse({
+      schemaVersion: 1,
+      version: 1,
+      generatedAt: new Date().toISOString(),
+      providers: [
+        {
+          id: 'p',
+          organizationId: 'o',
+          slug: 'p',
+          type: 'openai',
+          name: 'p',
+          baseUrl: 'https://x.test/v1',
+          enabled: true,
+          credentialStrategy: 'fill-first',
+          credentials: ['a', 'b', 'c'].map((id) => ({
+            id,
+            name: id,
+            secret: 'v1.x',
+            enabled: true,
+            weight: id === 'c' ? 5 : 1,
+          })),
+        },
+      ],
+      models: [
+        {
+          id: 'm',
+          organizationId: 'o',
+          slug: 'm',
+          providerId: 'p',
+          upstreamModel: 'm',
+          enabled: true,
+          pricing: { inputPerMTok: '1', outputPerMTok: '1' },
+          capabilities: {},
+        },
+      ],
+      combos: [],
+      aliases: [],
+      virtualKeys: [],
+      settings: {},
+    });
+    const router = new Router(new RouteIndex(snapshot), new HealthRegistry());
+    const key = {
+      id: 'k',
+      hash: '0'.repeat(64),
+      prefix: 'k',
+      organizationId: 'o',
+      teamId: null,
+      projectId: 'p',
+      enabled: true,
+      expiresAt: null,
+      allowedModels: [],
+      ipAllowlist: [],
+      budgets: [],
+      mcpTools: [],
+    };
+    for (const r of [0.01, 0.5, 0.99]) {
+      const route = router.resolve(key, 'm', { random: () => r });
+      if (isRouteError(route)) throw new Error(route.error);
+      expect(route.candidates.map((c) => c.credential.id)).toEqual(['c', 'a', 'b']);
+    }
+  });
+});

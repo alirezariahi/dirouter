@@ -7,6 +7,7 @@ import { useState, type ReactNode, type SyntheticEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { PluginPicker } from '../components/plugin-picker';
+import { ProviderSpendCard } from '../components/provider-spend';
 import {
   CredentialBalance,
   type CredentialBalanceView,
@@ -846,6 +847,7 @@ export default function ProvidersPage() {
                     {provider.maxConcurrency ?? t('providers.unlimited')}
                   </span>
                 </div>
+                {canWrite ? <ProviderSpendCard orgId={org} providerId={provider.id} /> : null}
 
                 <div className="flex flex-col gap-2">
                   <div className="flex items-center gap-2">

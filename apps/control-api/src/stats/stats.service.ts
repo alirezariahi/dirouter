@@ -12,6 +12,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { ENV, type Env } from '../env.js';
 import { PrismaService } from '../infra/prisma.service.js';
 import { ValkeyService } from '../infra/valkey.service.js';
+import { quotaState } from '../providers/provider-spend.service.js';
 import type { OrgContext } from '../rbac/org.guard.js';
 
 /** Upper bounds of the latency_hist buckets (ms); the last bucket means over 60s (usage_rollups migration). */
@@ -755,7 +756,7 @@ export class StatsService {
           id: true,
           slug: true,
           name: true,
-          credentials: { select: { id: true, name: true, status: true } },
+          credentials: { select: { id: true, name: true, status: true, quotaWindows: true } },
         },
       }),
       this.db.model.findMany({
@@ -796,6 +797,11 @@ export class StatsService {
         })
       : undefined;
     const iso = (ms?: number) => (ms ? new Date(ms).toISOString() : null);
+    // Quota windows with their countdown (card 32.6), straight from the gateway's counters.
+    const quotas = await quotaState(
+      this.valkey.client,
+      providers.flatMap((p) => p.credentials),
+    );
     const breaker = (
       list: typeof report extends undefined ? never : NonNullable<typeof report>['providers'],
       id: string,
@@ -823,6 +829,7 @@ export class StatsService {
             disabledUntil: iso(h?.disabledUntil),
             disabledReason: h?.disabledReason ?? null,
             lockouts: (h?.lockouts ?? []).map((l) => ({ modelId: l.modelId, until: iso(l.until) })),
+            quotas: quotas.get(c.id) ?? [],
           };
         }),
       })),

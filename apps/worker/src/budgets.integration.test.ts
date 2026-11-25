@@ -347,3 +347,92 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)(
     });
   },
 );
+
+describe.skipIf(!DATABASE_URL || !VALKEY_URL)(
+  'reconcile of upstream provider and credential budgets (card 32.6)',
+  () => {
+    const db = createPrismaClient({ databaseUrl: DATABASE_URL ?? '', maxConnections: 2 });
+    const redis = new Redis(VALKEY_URL ?? '', { maxRetriesPerRequest: null });
+    const OWNER = `org_up_owner_${RUN}`;
+    const TENANT = `org_up_tenant_${RUN}`;
+    const now = new Date();
+    const ids = { provider: `bdg_up_prv_${RUN}`, credential: `bdg_up_cred_${RUN}` };
+
+    beforeAll(async () => {
+      for (const org of [OWNER, TENANT])
+        await db.organization.create({
+          data: { id: org, name: org, slug: org.replace(/_/g, '-') },
+        });
+      await db.provider.create({
+        data: {
+          id: `prv_up_${RUN}`,
+          organizationId: OWNER,
+          slug: 'p',
+          name: 'p',
+          type: 'OPENAI',
+          baseUrl: 'https://x.test/v1',
+        },
+      });
+      await db.budget.createMany({
+        data: [
+          {
+            id: ids.provider,
+            organizationId: OWNER,
+            scope: 'PROVIDER_ACCOUNT',
+            scopeId: `prv_up_${RUN}`,
+            period: 'MONTHLY',
+            limitUsd: '100',
+          },
+          {
+            id: ids.credential,
+            organizationId: OWNER,
+            scope: 'CREDENTIAL',
+            scopeId: `cred_up_a_${RUN}`,
+            period: 'DAILY',
+            limitUsd: '100',
+          },
+        ],
+      });
+      const row = (n: string, organizationId: string, credentialId: string | null) => ({
+        id: `led_up_${n}_${RUN}`,
+        requestId: `req_up_${n}_${RUN}`,
+        organizationId,
+        projectId: 'prj',
+        apiKeyId: 'key',
+        providerId: `prv_up_${RUN}`,
+        credentialId,
+        costUsd: '1',
+        tokens: 1,
+        occurredAt: now,
+      });
+      await db.usageLedger.createMany({
+        data: [
+          // the owner's own request on credential a
+          row('a', OWNER, `cred_up_a_${RUN}`),
+          // a customer's request on the same credential counts too
+          row('b', TENANT, `cred_up_a_${RUN}`),
+          // another credential of the provider
+          row('c', TENANT, `cred_up_b_${RUN}`),
+        ],
+      });
+    });
+
+    afterAll(async () => {
+      await db.usageLedger.deleteMany({ where: { organizationId: { in: [OWNER, TENANT] } } });
+      await db.budget.deleteMany({ where: { organizationId: OWNER } });
+      await db.provider.deleteMany({ where: { organizationId: OWNER } });
+      await db.organization.deleteMany({ where: { id: { in: [OWNER, TENANT] } } });
+      await db.$disconnect();
+      redis.disconnect();
+    });
+
+    it('counts every organization the account served', async () => {
+      await reconcileBudgets(db as unknown as BudgetDb, redis, logger, { now });
+      const usd = async (id: string, period: 'daily' | 'monthly') =>
+        Number(await redis.hget(budgetCounterKey(id, budgetPeriodKey(period, now)), 'usd')) /
+        100_000_000;
+      expect(await usd(ids.provider, 'monthly')).toBe(3);
+      expect(await usd(ids.credential, 'daily')).toBe(2);
+    });
+  },
+);

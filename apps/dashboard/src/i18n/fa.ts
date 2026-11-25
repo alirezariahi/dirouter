@@ -7,6 +7,7 @@ import { s3Fa } from './s3';
 import { s4Fa } from './s4';
 import { endUsersFa } from './end-users';
 import { attributionFa } from './attribution';
+import { quotaFa } from './quota';
 import { routingRequestsFa } from './routing-requests';
 import { billingFa } from './billing';
 import { mcpPageFa } from './mcp-page';
@@ -263,6 +264,7 @@ export const fa = {
   s4: s4Fa,
   endUsers: endUsersFa,
   attribution: attributionFa,
+  quota: quotaFa,
   routingRequests: routingRequestsFa,
   billing: billingFa,
   mcpPage: mcpPageFa,

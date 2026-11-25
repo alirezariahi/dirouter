@@ -31,6 +31,7 @@ import { LOGGER } from '../infra/tokens.js';
 
 import { keyModelScopeId, storedModelLimits } from '../keys/keys.service.js';
 import { fromDbPeriod } from '../limits/periods.js';
+import { storedQuotaWindows } from '../providers/provider-spend.service.js';
 import { CONFIG_CHANNEL, REBUILD_CHANNEL } from './channels.js';
 
 /** Database scope → snapshot scope of shared limits (cards 25.5 and 33.1). */
@@ -327,6 +328,13 @@ export class SnapshotService implements OnModuleInit, OnModuleDestroy {
         ...(p.proxyUrl ? { proxy: { url: p.proxyUrl } } : {}),
         ...(p.timeouts ? { timeouts: p.timeouts as Record<string, number> } : {}),
         ...(p.maxConcurrency ? { maxConcurrency: p.maxConcurrency } : {}),
+        // Spend caps of the upstream account and the credential order (card 32.6).
+        ...(p.credentialStrategy !== 'weighted'
+          ? { credentialStrategy: p.credentialStrategy as 'fill-first' | 'reset-aware' }
+          : {}),
+        ...(budgetsFor('PROVIDER_ACCOUNT', p.id, p.organizationId).length > 0
+          ? { budgets: budgetsFor('PROVIDER_ACCOUNT', p.id, p.organizationId) }
+          : {}),
         // Region, retention and training use (card 32.5); an invalid stored value is left out.
         ...(ProviderDataPolicy.safeParse(p.dataPolicy).success && p.dataPolicy
           ? { dataPolicy: p.dataPolicy as ProviderDataPolicy }
@@ -341,6 +349,12 @@ export class SnapshotService implements OnModuleInit, OnModuleDestroy {
             weight: c.weight,
             headers: c.headers as Record<string, string>,
             ...(c.proxyUrl ? { proxy: { url: c.proxyUrl } } : {}),
+            ...(budgetsFor('CREDENTIAL', c.id, p.organizationId).length > 0
+              ? { budgets: budgetsFor('CREDENTIAL', c.id, p.organizationId) }
+              : {}),
+            ...(storedQuotaWindows(c.quotaWindows).length > 0
+              ? { quotaWindows: storedQuotaWindows(c.quotaWindows) }
+              : {}),
           })),
       })),
       models: models.map((m) => ({

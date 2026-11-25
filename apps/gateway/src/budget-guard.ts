@@ -20,6 +20,8 @@ import {
   type BudgetAlertEvent,
   type BudgetConfig,
   type BudgetScope,
+  type QuotaWindowConfig,
+  quotaWindowKey,
   budgetCounterKey,
   budgetPeriodKey,
   budgetPeriodRange,
@@ -59,6 +61,19 @@ export function matchesTarget(target: BudgetTarget, served: BudgetTarget): boole
   );
 }
 
+/** One quota window of one credential (card 32.6). */
+export interface QuotaRef {
+  credentialId: string;
+  window: QuotaWindowConfig;
+}
+
+/** A quota window's state: used up or not, and when it resets (undefined before first use). */
+export interface QuotaState {
+  ref: QuotaRef;
+  exhausted: boolean;
+  resetAt?: Date;
+}
+
 const counterKey = (b: ScopedBudget, now: Date) =>
   budgetCounterKey(b.counterId ?? b.budget.id, budgetPeriodKey(b.budget.period, now));
 
@@ -67,6 +82,8 @@ export type BudgetCheck =
       ok: true;
       /** Targeted budgets that are used up, with the start of their next period. */
       exhausted?: { budget: ScopedBudget; resetAt: Date }[];
+      /** The quota windows asked about (card 32.6). */
+      quotas?: QuotaState[];
     }
   | {
       ok: false;
@@ -102,19 +119,46 @@ end
 return out
 `;
 
-/** KEYS: counter keys; output: usd and tokens of each key, `0` when missing. */
+/**
+ * KEYS: budget counter keys, then quota window keys; ARGV: the number of budget keys.
+ * Output: usd and tokens of each counter, then requests, tokens, usd and PTTL of each window.
+ */
 const READ = `
 local out = {}
+local budgets = tonumber(ARGV[1] or #KEYS)
 for i = 1, #KEYS do
-  local v = redis.call('HMGET', KEYS[i], 'usd', 'tokens')
-  out[#out+1] = v[1] or '0'
-  out[#out+1] = v[2] or '0'
+  if i <= budgets then
+    local v = redis.call('HMGET', KEYS[i], 'usd', 'tokens')
+    out[#out+1] = v[1] or '0'
+    out[#out+1] = v[2] or '0'
+  else
+    local v = redis.call('HMGET', KEYS[i], 'requests', 'tokens', 'usd')
+    out[#out+1] = v[1] or '0'
+    out[#out+1] = v[2] or '0'
+    out[#out+1] = v[3] or '0'
+    out[#out+1] = redis.call('PTTL', KEYS[i])
+  end
 end
 return out
 `;
 
+/**
+ * KEYS: quota window keys; ARGV: usdDelta, tokenDelta, then the window length of each key (ms).
+ * A window starts with its first request and lasts its length (the TTL is set only then).
+ */
+const QUOTA_RECORD = `
+for i = 1, #KEYS do
+  redis.call('HINCRBY', KEYS[i], 'requests', 1)
+  redis.call('HINCRBY', KEYS[i], 'tokens', ARGV[2])
+  redis.call('HINCRBY', KEYS[i], 'usd', ARGV[1])
+  if redis.call('PTTL', KEYS[i]) < 0 then redis.call('PEXPIRE', KEYS[i], ARGV[2 + i]) end
+end
+return 1
+`;
+
 type RedisWithBudget = Redis & {
-  budgetRead(numKeys: number, ...keys: string[]): Promise<string[]>;
+  budgetRead(numKeys: number, ...args: (string | number)[]): Promise<(string | number)[]>;
+  quotaRecord(numKeys: number, ...args: (string | number)[]): Promise<number>;
   budgetRecord(numKeys: number, ...args: (string | number)[]): Promise<number[]>;
 };
 
@@ -141,6 +185,7 @@ export class BudgetGuard {
       const redis = options.redis as RedisWithBudget;
       redis.defineCommand('budgetRecord', { lua: RECORD });
       redis.defineCommand('budgetRead', { lua: READ });
+      redis.defineCommand('quotaRecord', { lua: QUOTA_RECORD });
       this.#redis = redis;
     }
   }
@@ -149,8 +194,8 @@ export class BudgetGuard {
     return this.options.clock?.() ?? new Date();
   }
 
-  async check(budgets: ScopedBudget[]): Promise<BudgetCheck> {
-    if (budgets.length === 0) return { ok: true };
+  async check(budgets: ScopedBudget[], quotas: QuotaRef[] = []): Promise<BudgetCheck> {
+    if (budgets.length === 0 && quotas.length === 0) return { ok: true };
     const redis = this.#redis;
     // Without Valkey (single node, no queue) the budget cannot be counted.
     if (!redis) return { ok: true };
@@ -158,7 +203,25 @@ export class BudgetGuard {
     const now = this.#now();
     try {
       const keys = budgets.map((b) => counterKey(b, now));
-      const values = await withTimeout(redis.budgetRead(keys.length, ...keys), this.#timeoutMs);
+      const quotaKeys = quotas.map((q) => quotaWindowKey(q.credentialId, q.window.id));
+      const values = await withTimeout(
+        redis.budgetRead(keys.length + quotaKeys.length, ...keys, ...quotaKeys, keys.length),
+        this.#timeoutMs,
+      );
+      const states: QuotaState[] = quotas.map((ref, j) => {
+        const at = keys.length * 2 + j * 4;
+        const [requests, tokens, usd, pttl] = [0, 1, 2, 3].map((k) => Number(values[at + k] ?? 0));
+        const w = ref.window;
+        const exhausted =
+          (w.limitRequests !== undefined && (requests ?? 0) >= w.limitRequests) ||
+          (w.limitTokens !== undefined && (tokens ?? 0) >= w.limitTokens) ||
+          (w.limitUsd !== undefined && (usd ?? 0) >= usdToUnits(w.limitUsd));
+        return {
+          ref,
+          exhausted,
+          ...(pttl !== undefined && pttl > 0 ? { resetAt: new Date(now.getTime() + pttl) } : {}),
+        };
+      });
       const exhausted: { budget: ScopedBudget; resetAt: Date }[] = [];
       for (const [i, b] of budgets.entries()) {
         const usd = Number(values[i * 2] ?? 0);
@@ -194,7 +257,11 @@ export class BudgetGuard {
           };
         }
       }
-      return exhausted.length > 0 ? { ok: true, exhausted } : { ok: true };
+      return {
+        ok: true,
+        ...(exhausted.length > 0 ? { exhausted } : {}),
+        ...(states.length > 0 ? { quotas: states } : {}),
+      };
     } catch (error) {
       this.stats.errors++;
       this.options.logger.warn({ err: error }, 'budget check failed (Valkey)');
@@ -276,8 +343,28 @@ export class BudgetGuard {
    * Increments the counters after the response; never awaited and never throws. Targeted budgets
    * only count when `served` (the candidate that answered) matches them.
    */
-  record(scoped: ScopedBudget[], costUsd: string, tokens: number, served?: BudgetTarget): void {
+  record(
+    scoped: ScopedBudget[],
+    costUsd: string,
+    tokens: number,
+    served?: BudgetTarget,
+    quotas: QuotaRef[] = [],
+  ): void {
     const redis = this.#redis;
+    // Quota windows of the credential that answered count every request it served (card 32.6).
+    const windows = served ? quotas.filter((q) => q.credentialId === served.credentialId) : [];
+    if (redis && windows.length > 0)
+      void redis
+        .quotaRecord(
+          windows.length,
+          ...windows.map((q) => quotaWindowKey(q.credentialId, q.window.id)),
+          Math.max(0, usdToUnits(costUsd)),
+          Math.max(0, Math.round(tokens)),
+          ...windows.map((q) => q.window.hours * 3_600_000),
+        )
+        .catch(() => {
+          this.stats.errors++;
+        });
     const budgets = scoped.filter(
       (b) => !b.target || (served !== undefined && matchesTarget(b.target, served)),
     );

@@ -44,6 +44,10 @@ const SCOPE_FILTER: Record<string, string> = {
   provider: 'provider_id = $1',
   // Card 33.2: one end user; the `*` defaults are counted per end user below.
   end_user: 'end_user = $1',
+  // Card 32.6: an upstream provider or credential of the organization, whichever organization's
+  // request it served (the platform's providers serve its customers too).
+  provider_account: 'provider_id = $1',
+  credential: 'credential_id = $1',
   // Card 33.4: requests carrying the tag, and requests of the cost center.
   tag: '$1 = ANY(tags)',
   cost_center: 'cost_center = $1',
@@ -80,6 +84,9 @@ return {usd, tokens, nUsd, nTok}
 type RedisWithReconcile = Redis & {
   budgetReconcile(numKeys: number, ...args: (string | number)[]): Promise<number[]>;
 };
+
+/** Scopes on the organization's own upstream accounts, which count every tenant's requests. */
+const ACROSS_TENANTS = new Set(['provider_account', 'credential']);
 
 export interface ReconcileResult {
   budgets: number;
@@ -182,7 +189,8 @@ export async function reconcileBudgets(
     const [sum] = await db.$queryRawUnsafe<{ usd: string; tokens: string }[]>(
       `SELECT COALESCE(SUM(cost_usd), 0)::text AS usd, COALESCE(SUM(tokens), 0)::bigint::text AS tokens
          FROM usage_ledger
-        WHERE ${filter} AND organization_id = $4 AND occurred_at >= $2 AND occurred_at < $3`,
+        WHERE ${filter} AND ${ACROSS_TENANTS.has(b.scope) ? '$4::text IS NOT NULL' : 'organization_id = $4'}
+          AND occurred_at >= $2 AND occurred_at < $3`,
       b.scope_id,
       start,
       end,

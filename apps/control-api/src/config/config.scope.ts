@@ -225,6 +225,13 @@ export function prepareImport(
   virtualKeys.forEach((key, index) => {
     checkBudgets(key, `virtualKeys.${String(index)}`);
   });
+  // Upstream account budgets (card 32.6).
+  providers.forEach((provider, p) => {
+    checkBudgets(provider, `providers.${String(p)}`);
+    credentialsOf(provider).forEach((credential, c) => {
+      checkBudgets(credential, `providers.${String(p)}.credentials.${String(c)}`);
+    });
+  });
   const publicModelIds = new Set(
     items(current, 'models')
       .filter((model) => model.public === true)

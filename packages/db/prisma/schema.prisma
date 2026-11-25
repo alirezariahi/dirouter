@@ -331,6 +331,8 @@ model Provider {
   /// Settings specific to the type (e.g. apiVersion in Azure).
   options        Json         @default("{}")
   maxConcurrency Int?         @map("max_concurrency")
+  /// weighted | fill-first | reset-aware (card 32.6)
+  credentialStrategy String   @default("weighted") @map("credential_strategy")
   /// Region, country, zero data retention and training use (card 32.5): { region, country, zdr, trainsOnData }
   dataPolicy     Json?        @map("data_policy")
   createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
@@ -365,6 +367,8 @@ model Credential {
   headers       Json             @default("{}")
   /// Outbound proxy for this credential (takes precedence over the provider's proxy_url; card 4.10).
   proxyUrl      String?          @map("proxy_url")
+  /// Quota windows (card 32.6): [{ id, hours, limitRequests?, limitTokens?, limitUsd? }]
+  quotaWindows  Json             @default("[]") @map("quota_windows")
   createdAt     DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt     DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
 
@@ -551,6 +555,9 @@ enum LimitScope {
   /// Card 33.4: requests carrying a tag, and requests of a cost center.
   TAG          @map("tag")
   COST_CENTER  @map("cost_center")
+  /// Card 32.6: an upstream provider over every organization it serves, and one credential.
+  PROVIDER_ACCOUNT @map("provider_account")
+  CREDENTIAL   @map("credential")
 }
 
 enum BudgetPeriod {
@@ -682,6 +689,8 @@ model UsageLedger {
   /// Tags and cost center of the request (card 33.4), for tag and cost-center budgets.
   tags           String[] @default([])
   costCenter     String?  @map("cost_center")
+  /// Credential that served the request (card 32.6), for credential budgets.
+  credentialId   String?  @map("credential_id")
   costUsd        Decimal  @map("cost_usd") @db.Decimal(18, 8)
   tokens         Int
   occurredAt     DateTime @map("occurred_at") @db.Timestamptz(3)

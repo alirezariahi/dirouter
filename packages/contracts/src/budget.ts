@@ -64,6 +64,10 @@ export const budgetPeriodLabel = (period: BudgetPeriod): string =>
 export const budgetCounterKey = (budgetId: string, periodKey: string): string =>
   `dirouter:budget:${budgetId}:${periodKey}`;
 
+/** Valkey HASH of one quota window of a credential (card 32.6): requests, tokens and usd. */
+export const quotaWindowKey = (credentialId: string, windowId: string): string =>
+  `dirouter:quota:${credentialId}:${windowId}`;
+
 /** Counter id of a default end-user budget for one end user (card 33.2). */
 export const endUserCounterId = (budgetId: string, endUser: string): string =>
   `${budgetId}:eu:${endUser}`;
@@ -97,7 +101,10 @@ export type BudgetScope =
   | 'key_model'
   /** Card 33.4. */
   | 'tag'
-  | 'cost_center';
+  | 'cost_center'
+  /** Card 32.6: an upstream provider over every organization it serves, one credential. */
+  | 'provider_account'
+  | 'credential';
 
 /** Scope id of the limits every end user of an organization gets by default (card 33.2). */
 export const END_USER_DEFAULT = '*';

@@ -62,6 +62,21 @@ const HEALTH = {
     },
   ],
 };
+const SPEND = {
+  providerId: 'prv_1',
+  credentialStrategy: 'weighted',
+  budgets: [
+    { id: 'bud_w', period: 'weekly', limitUsd: null, limitTokens: 9000, alertThresholds: [80] },
+  ],
+  credentials: [
+    {
+      id: 'cred_1',
+      name: 'primary',
+      budgets: [],
+      quotaWindows: [{ id: 'week', hours: 168, limitUsd: '100' }],
+    },
+  ],
+};
 type Result = { status: number; body?: unknown };
 type Handler = (path: string, init: RequestInit) => Result | undefined;
 let calls: { path: string; init: RequestInit }[];
@@ -82,7 +97,9 @@ function mockApi(handler: Handler = () => undefined) {
               ? { status: 200, body: [PROVIDER] }
               : path === '/orgs/org_1/health/runtime'
                 ? { status: 200, body: HEALTH }
-                : { status: 200, body: PROVIDER });
+                : path.endsWith('/spend')
+                  ? { status: 200, body: SPEND }
+                  : { status: 200, body: PROVIDER });
       return Promise.resolve(
         new Response(result.body === undefined ? null : JSON.stringify(result.body), {
           status: result.status,
@@ -343,6 +360,45 @@ describe('providers and credentials', () => {
     expect(
       calls.some((c) => c.path === '/orgs/org_1/providers/prv_1' && c.init.method === 'DELETE'),
     ).toBe(true);
+  });
+
+  it('sets the credential order, budgets and quota windows of a provider (card 32.6)', async () => {
+    mockApi();
+    await renderPage();
+    const card = await screen.findByTestId('provider-spend');
+    await waitFor(() => {
+      expect(within(card).getByLabelText('Credential order')).toBeTruthy();
+    });
+    fireEvent.change(within(card).getByLabelText('Credential order'), {
+      target: { value: 'fill-first' },
+    });
+    fireEvent.change(within(card).getByLabelText('Monthly budget of the whole provider (USD)'), {
+      target: { value: '500' },
+    });
+    fireEvent.change(within(card).getByLabelText('Daily budget of “primary” (USD)'), {
+      target: { value: '20' },
+    });
+    const windows = within(card).getByLabelText(/Quota windows of “primary”/);
+    expect((windows as HTMLTextAreaElement).value).toBe('week, 168, , , 100');
+    fireEvent.change(windows, { target: { value: 'week, 168, , , 100\n5h, 5, 200' } });
+    await click(within(card).getByRole('button', { name: 'Save budgets and quotas' }));
+    await waitFor(() => {
+      expect(within(card).getByText('Saved.')).toBeTruthy();
+    });
+    expect(body('/orgs/org_1/providers/prv_1/spend', 'PUT')).toEqual({
+      credentialStrategy: 'fill-first',
+      budgets: [
+        { period: 'weekly', limitTokens: 9000, alertThresholds: [80] },
+        { period: 'monthly', limitUsd: '500' },
+      ],
+    });
+    expect(body('/orgs/org_1/providers/prv_1/credentials/cred_1/spend', 'PUT')).toEqual({
+      budgets: [{ period: 'daily', limitUsd: '20' }],
+      quotaWindows: [
+        { id: 'week', hours: 168, limitUsd: '100' },
+        { id: '5h', hours: 5, limitRequests: 200 },
+      ],
+    });
   });
 
   it('edits the pass-through allow-list inside the provider options (card 30.7)', async () => {
