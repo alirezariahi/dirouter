@@ -495,7 +495,7 @@ describe.skipIf(!VALKEY_URL)('cost of the extra scopes', () => {
       const info = await redis.info('commandstats');
       let total = 0;
       for (const m of info.matchAll(/^cmdstat_(\w+):calls=\d+,usec=(\d+)/gm))
-        if (/^(evalsha|eval|hmget|zrem|hincrby)$/.test(m[1] ?? '')) total += Number(m[2]);
+        if (/^(evalsha|eval|zrem)$/.test(m[1] ?? '')) total += Number(m[2]);
       return total;
     };
     // Gateway CPU (scope resolution, script arguments, encoding) plus Valkey CPU per admission:

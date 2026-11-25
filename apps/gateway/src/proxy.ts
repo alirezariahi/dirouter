@@ -1067,7 +1067,7 @@ async function proxyRequest(
 
   // Budgets and rate limits (cards 6.1, 6.3, 25.5 and 33.x; spend-guard.ts). A used-up model or
   // provider budget takes its candidates out of the route. TPM reservation = input + output cap.
-  const attribution = requestAttribution(req.headers, canonical.user);
+  const attribution = requestAttribution(req.headers, canonical.user, key);
   const admission = await admitRequest(deps, {
     attribution,
     config,

@@ -214,6 +214,37 @@ describe('end users page (card 33.2)', () => {
   });
 });
 
+describe('usage by tag on the analytics page (card 33.4)', () => {
+  it('switches to tags, filters one tag by model and exports it', async () => {
+    const calls = mockApi();
+    await renderWith(
+      <AttributionUsage
+        orgId="org_1"
+        from="2026-11-17T00:00:00.000Z"
+        to="2026-11-24T00:00:00.000Z"
+        dimensions={['end_user', 'tag', 'cost_center']}
+      />,
+    );
+    await screen.findByTestId('attribution-end_user');
+    fireEvent.change(screen.getByLabelText('Dimension'), { target: { value: 'tag' } });
+    await waitFor(() => {
+      expect(calls.at(-1)?.query).toContain('dimension=tag');
+    });
+    fireEvent.change(screen.getByLabelText('Only this value'), { target: { value: 'team:ads' } });
+    await waitFor(() => {
+      expect(screen.getByTestId('attribution-tag').textContent).toContain('gpt-5');
+    });
+    expect(calls.at(-1)?.query).toContain('value=team%3Aads');
+    fireEvent.click(screen.getByRole('button', { name: 'Export CSV' }));
+    expect(csv.downloadCsv.mock.calls.at(-1)?.[0]).toBe(
+      'dirouter-tag-team:ads-2026-11-17_2026-11-24.csv',
+    );
+    expect((csv.downloadCsv.mock.calls.at(-1) as unknown[] | undefined)?.[1]).toEqual(
+      expect.arrayContaining(['model']),
+    );
+  });
+});
+
 describe('usage by end user on the analytics page (card 33.2)', () => {
   it('ranks end users by cost, drills into one by model and exports CSV', async () => {
     const calls = mockApi();

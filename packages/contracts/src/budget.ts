@@ -94,13 +94,39 @@ export type BudgetScope =
   | 'provider'
   | 'end_user'
   /** One model of one key (card 33.3). */
-  | 'key_model';
+  | 'key_model'
+  /** Card 33.4. */
+  | 'tag'
+  | 'cost_center';
 
 /** Scope id of the limits every end user of an organization gets by default (card 33.2). */
 export const END_USER_DEFAULT = '*';
 
 /** Request header naming the end user, next to the `user` field of the body (card 33.2). */
 export const END_USER_HEADER = 'x-dirouter-end-user';
+
+/** Request headers of tags (comma separated) and the cost center (card 33.4). */
+export const TAGS_HEADER = 'x-dirouter-tags';
+export const COST_CENTER_HEADER = 'x-dirouter-cost-center';
+
+/** At most this many tags per request (key defaults first); the rest are dropped. */
+export const MAX_TAGS = 10;
+
+/** A tag or cost center: 1 to 64 letters, digits and `._:/-`, starting with a letter or digit. */
+export const TAG_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,63}$/;
+
+/** Valid, distinct tags in order, at most {@link MAX_TAGS}; anything else is dropped. */
+export function normalizeTags(values: readonly unknown[]): string[] {
+  const out: string[] = [];
+  for (const value of values) {
+    if (typeof value !== 'string') continue;
+    const tag = value.trim();
+    if (!TAG_PATTERN.test(tag) || out.includes(tag)) continue;
+    out.push(tag);
+    if (out.length === MAX_TAGS) break;
+  }
+  return out;
+}
 
 /** Longest end-user id that is attributed; longer ids are not tracked. */
 export const END_USER_MAX_LENGTH = 256;

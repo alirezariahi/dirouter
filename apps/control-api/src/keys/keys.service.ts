@@ -65,6 +65,9 @@ export interface KeyInput {
   budgets?: BudgetInput[] | undefined;
   /** Limits on one model each (card 33.3); replaces every entry, absent keeps them. */
   modelLimits?: ModelLimitInput[] | undefined;
+  /** Tags of every request of the key, and its cost center (card 33.4). */
+  tags?: string[] | undefined;
+  costCenter?: string | null | undefined;
 }
 
 export interface ModelLimitInput {
@@ -174,6 +177,8 @@ export class KeysService {
       inputTpm: k.inputTpm,
       outputTpm: k.outputTpm,
       maxConcurrency: k.maxConcurrency,
+      tags: k.tags,
+      costCenter: k.costCenter,
       modelLimits: storedModelLimits(k.modelLimits).map((m) => ({
         model: m.model,
         rpm: m.rpm ?? null,
@@ -304,6 +309,8 @@ export class KeysService {
           inputTpm: input.inputTpm ?? null,
           outputTpm: input.outputTpm ?? null,
           maxConcurrency: input.maxConcurrency ?? null,
+          tags: input.tags ?? [],
+          costCenter: input.costCenter ?? null,
           expiresAt: input.expiresAt ? new Date(input.expiresAt) : null,
           createdById: ctx.userId,
         },
@@ -340,6 +347,8 @@ export class KeysService {
           ...(input.tpm !== undefined ? { tpm: input.tpm } : {}),
           ...(input.inputTpm !== undefined ? { inputTpm: input.inputTpm } : {}),
           ...(input.outputTpm !== undefined ? { outputTpm: input.outputTpm } : {}),
+          ...(input.tags !== undefined ? { tags: input.tags } : {}),
+          ...(input.costCenter !== undefined ? { costCenter: input.costCenter } : {}),
           ...(input.maxConcurrency !== undefined ? { maxConcurrency: input.maxConcurrency } : {}),
           ...(input.expiresAt !== undefined
             ? { expiresAt: input.expiresAt ? new Date(input.expiresAt) : null }
@@ -404,6 +413,8 @@ export class KeysService {
           inputTpm: old.inputTpm,
           outputTpm: old.outputTpm,
           maxConcurrency: old.maxConcurrency,
+          tags: old.tags,
+          costCenter: old.costCenter,
           expiresAt: old.expiresAt,
           createdById: ctx.userId,
         },

@@ -10,7 +10,8 @@
  * - Budgets with a `target` (a model, provider or credential) do not reject: when exhausted they are
  *   reported back so the caller takes the matching candidates out of the route, and they only count
  *   requests that the matching candidate served.
- * - Every budget of a request is read in one pipelined round trip and written by one Lua script.
+ * - Every budget of a request is read by one Lua script and written by another: one command
+ *   each, however many scopes cover the request (card 33.1).
  * - Valkey outage: failMode=open means pass through (the shortfall is corrected by reconciling from the ledger), and
  *   failMode=closed means 429.
  */
@@ -101,7 +102,19 @@ end
 return out
 `;
 
+/** KEYS: counter keys; output: usd and tokens of each key, `0` when missing. */
+const READ = `
+local out = {}
+for i = 1, #KEYS do
+  local v = redis.call('HMGET', KEYS[i], 'usd', 'tokens')
+  out[#out+1] = v[1] or '0'
+  out[#out+1] = v[2] or '0'
+end
+return out
+`;
+
 type RedisWithBudget = Redis & {
+  budgetRead(numKeys: number, ...keys: string[]): Promise<string[]>;
   budgetRecord(numKeys: number, ...args: (string | number)[]): Promise<number[]>;
 };
 
@@ -127,6 +140,7 @@ export class BudgetGuard {
     if (options.redis) {
       const redis = options.redis as RedisWithBudget;
       redis.defineCommand('budgetRecord', { lua: RECORD });
+      redis.defineCommand('budgetRead', { lua: READ });
       this.#redis = redis;
     }
   }
@@ -143,16 +157,12 @@ export class BudgetGuard {
     this.stats.checks++;
     const now = this.#now();
     try {
-      const pipeline = redis.pipeline();
-      for (const b of budgets) pipeline.hmget(counterKey(b, now), 'usd', 'tokens');
-      const results = await withTimeout(pipeline.exec(), this.#timeoutMs);
+      const keys = budgets.map((b) => counterKey(b, now));
+      const values = await withTimeout(redis.budgetRead(keys.length, ...keys), this.#timeoutMs);
       const exhausted: { budget: ScopedBudget; resetAt: Date }[] = [];
       for (const [i, b] of budgets.entries()) {
-        const [error, values] = results?.[i] ?? [null, null];
-        if (error) throw error;
-        const [usdRaw, tokensRaw] = (values as (string | null)[] | null) ?? [null, null];
-        const usd = Number(usdRaw ?? 0);
-        const tokens = Number(tokensRaw ?? 0);
+        const usd = Number(values[i * 2] ?? 0);
+        const tokens = Number(values[i * 2 + 1] ?? 0);
         const { end } = budgetPeriodRange(b.budget.period, now);
         if (b.target) {
           const over =

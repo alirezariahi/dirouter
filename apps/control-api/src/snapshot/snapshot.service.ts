@@ -42,6 +42,8 @@ const SHARED_SCOPE: Record<string, LimitScopeKind | undefined> = {
   MODEL: 'model',
   PROVIDER: 'provider',
   END_USER: 'end_user',
+  TAG: 'tag',
+  COST_CENTER: 'cost_center',
 };
 
 export { CONFIG_CHANNEL, REBUILD_CHANNEL };
@@ -431,6 +433,9 @@ export class SnapshotService implements OnModuleInit, OnModuleDestroy {
           ...(strictParams.has(k.organizationId) ? { dropParams: false } : {}),
           ...rateLimit(k),
           budgets: budgetsFor('API_KEY', k.id),
+          // Tags and cost center of every request of the key (card 33.4).
+          ...(k.tags.length > 0 ? { tags: k.tags } : {}),
+          ...(k.costCenter ? { costCenter: k.costCenter } : {}),
           // Limits of the key on single models (card 33.3).
           ...(storedModelLimits(k.modelLimits).length > 0
             ? {

@@ -31,6 +31,9 @@ export interface Target {
   name: string;
 }
 
+/** Tags and cost centers, as the API accepts them (card 33.4). */
+const TAG = /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,63}$/;
+
 const FIELDS: { key: keyof LimitDraft; label: string; dir?: 'ltr'; inputMode?: 'decimal' }[] = [
   { key: 'rpm', label: 'scopeLimits.rpm' },
   { key: 'tpm', label: 'scopeLimits.tpm' },
@@ -100,6 +103,9 @@ export function ScopeLimitsCard({
     enabled: canManage && !only,
   });
   const [extra, setExtra] = useState<Target>();
+  // A tag or cost center to limit (card 33.4); any valid name, it need not be in use yet.
+  const [named, setNamed] = useState('');
+  const [namedScope, setNamedScope] = useState<'tag' | 'cost_center'>('tag');
   const done = () => qc.invalidateQueries({ queryKey: ['scope-limits', orgId] });
   const save = useMutation({
     mutationFn: async ({ target, remove }: { target: Target; remove: boolean }) => {
@@ -144,7 +150,13 @@ export function ScopeLimitsCard({
     })),
     ...members.map((m) => ({ scope: 'user' as const, id: m.userId, name: m.name || m.email })),
     ...limited
-      .filter((l) => l.scope === 'model' || l.scope === 'provider')
+      .filter(
+        (l) =>
+          l.scope === 'model' ||
+          l.scope === 'provider' ||
+          l.scope === 'tag' ||
+          l.scope === 'cost_center',
+      )
       .map((l) => ({ scope: l.scope, id: l.scopeId, name: l.name })),
     ...(extra && !limited.some((l) => l.scope === extra.scope && l.scopeId === extra.id)
       ? [extra]
@@ -229,6 +241,49 @@ export function ScopeLimitsCard({
             ))}
           </select>
         </label>
+      ) : null}
+      {canManage && !only ? (
+        <form
+          className="mb-3 flex flex-wrap items-center gap-2 text-sm"
+          aria-label={t('scopeLimits.addName')}
+          onSubmit={(event) => {
+            event.preventDefault();
+            const name = named.trim();
+            if (!TAG.test(name)) {
+              setInvalid(t('scopeLimits.invalid.name'));
+              return;
+            }
+            const target: Target = { scope: namedScope, id: name, name };
+            setNamed('');
+            setExtra(target);
+            openEditor(target);
+          }}
+        >
+          <span>{t('scopeLimits.addName')}</span>
+          <select
+            className="h-8 rounded-lg border border-border bg-surface px-2 text-sm"
+            aria-label={t('scopeLimits.addNameKind')}
+            value={namedScope}
+            onChange={(event) => {
+              setNamedScope(event.target.value as 'tag' | 'cost_center');
+            }}
+          >
+            <option value="tag">{t('scopeLimits.scope.tag')}</option>
+            <option value="cost_center">{t('scopeLimits.scope.cost_center')}</option>
+          </select>
+          <input
+            className="h-8 rounded-lg border border-border bg-surface px-2 text-sm"
+            dir="ltr"
+            aria-label={t('scopeLimits.addNameValue')}
+            value={named}
+            onChange={(event) => {
+              setNamed(event.target.value);
+            }}
+          />
+          <Button type="submit" variant="outline" className="h-8 px-2 text-xs">
+            {t('scopeLimits.edit')}
+          </Button>
+        </form>
       ) : null}
       {targets.length === 0 ? (
         <p className="text-sm text-muted">{t('scopeLimits.empty')}</p>

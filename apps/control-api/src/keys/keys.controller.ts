@@ -23,6 +23,7 @@ import { ChangeRequestsService } from '../change-requests/change-requests.servic
 import { sendGated } from '../change-requests/gated.js';
 import type { FastifyReply } from 'fastify';
 import { BUDGET_PERIODS } from '../limits/periods.js';
+import { MAX_TAGS, TAG_PATTERN } from '@dirouter/contracts';
 
 const Budget = z.object({
   period: z.enum(BUDGET_PERIODS),
@@ -63,6 +64,18 @@ export const KeyBody = z.object({
   maxConcurrency: z.int().positive().nullable().optional(),
   expiresAt: z.iso.datetime().nullable().optional(),
   budgets: z.array(Budget).max(4).optional(),
+  /** Tags every request of the key carries, next to its own `x-dirouter-tags` (card 33.4). */
+  tags: z
+    .array(z.string().regex(TAG_PATTERN, 'letters, digits and ._:/-, at most 64'))
+    .max(MAX_TAGS)
+    .refine((t) => new Set(t).size === t.length, 'tags must be distinct')
+    .optional(),
+  /** Cost center of the key's requests unless one names its own (x-dirouter-cost-center). */
+  costCenter: z
+    .string()
+    .regex(TAG_PATTERN, 'letters, digits and ._:/-, at most 64')
+    .nullable()
+    .optional(),
   /**
    * Limits of this key on single models (card 33.3), by the name clients use (model, alias or
    * combo slug). Replaces every entry; absent keeps them.
@@ -113,6 +126,8 @@ const KeyView = z.object({
   inputTpm: z.int().nullable(),
   outputTpm: z.int().nullable(),
   maxConcurrency: z.int().nullable(),
+  tags: z.array(z.string()),
+  costCenter: z.string().nullable(),
   modelLimits: z.array(
     z.object({
       model: z.string(),

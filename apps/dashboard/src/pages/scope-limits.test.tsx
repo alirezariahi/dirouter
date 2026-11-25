@@ -360,6 +360,29 @@ describe('team and project limits on the organization page (card 25.5)', () => {
     });
   });
 
+  it('limits a tag by name (card 33.4)', async () => {
+    const calls = mockApi('OWNER');
+    const card = await renderOrganization();
+    const add = within(card).getByRole('form', { name: 'Limit a tag or cost center' });
+    fireEvent.change(within(add).getByLabelText('Tag or cost center name'), {
+      target: { value: 'bad tag' },
+    });
+    fireEvent.click(within(add).getByRole('button', { name: 'Edit limits' }));
+    expect(calls.some((c) => c.method === 'PUT')).toBe(false);
+    fireEvent.change(within(add).getByLabelText('Tag or cost center name'), {
+      target: { value: 'team:ads' },
+    });
+    fireEvent.click(within(add).getByRole('button', { name: 'Edit limits' }));
+    const form = within(card).getByRole('form', { name: 'Edit limits team:ads' });
+    fireEvent.change(within(form).getByLabelText('Monthly budget (USD)'), {
+      target: { value: '300' },
+    });
+    fireEvent.click(within(form).getByRole('button', { name: 'Save' }));
+    await waitFor(() => {
+      expect(calls.find((c) => c.method === 'PUT')?.path).toBe('/orgs/org_1/limits/tag/team%3Aads');
+    });
+  });
+
   it('is read-only for members', async () => {
     mockApi('MEMBER');
     const card = await renderOrganization();

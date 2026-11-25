@@ -8,6 +8,7 @@
  * - the end user the request names (card 33.2): its own limits and budgets, or else the
  *   organization's defaults for every end user (scope id `*`) on counters of its own; a blocked
  *   end user is refused with 403 before anything is counted;
+ * - every tag the request carries and its cost center (card 33.4), within the organization;
  * - limits of the key on one model (card 33.3): an entry naming a candidate's model behaves like
  *   a model scope of that key; an entry naming the alias or combo the client asked for covers the
  *   whole request;
@@ -15,8 +16,8 @@
  *   candidates out of the route, so a combo falls back to its other targets, and only a route with
  *   no candidate left is rejected. Their rate limits count the target the request goes to first.
  *
- * Valkey round trips do not grow with the number of scopes: every budget is read in one pipeline
- * (BudgetGuard.check) and every rate limit is checked and applied by one atomic Lua script
+ * Valkey round trips do not grow with the number of scopes: every budget is read by one Lua
+ * script (BudgetGuard.check) and every rate limit is checked and applied by one atomic Lua script
  * (RateLimiter.acquire). Every scope name carries the organization, so two tenants never share a
  * counter. Outage behaviour is the guards' own: fail-open lets requests through, fail-closed
  * answers 429.
@@ -154,6 +155,8 @@ function requestScopes(
     lookup(snapshot, org, 'project', key.projectId),
     lookup(snapshot, org, 'user', key.userId),
     endUserScope(snapshot, org, ctx.attribution.endUser),
+    ...(ctx.attribution.tags ?? []).map((tag) => lookup(snapshot, org, 'tag', tag)),
+    lookup(snapshot, org, 'cost_center', ctx.attribution.costCenter),
     ...(key.modelLimits ?? [])
       .filter(
         (entry) =>
@@ -242,6 +245,7 @@ export function limitScopes(
 const SCOPE_LABEL: Record<string, string> = {
   org: 'organization',
   end_user: 'end user',
+  cost_center: 'cost center',
   kmodel: 'this key on this model',
 };
 

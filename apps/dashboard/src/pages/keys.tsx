@@ -119,6 +119,19 @@ function KeyFields({ initial, error }: { initial?: VirtualKey; error?: unknown }
         dir="ltr"
       />
       <TextListField
+        label={t('keys.tags')}
+        name="tags"
+        defaultValue={initial?.tags.join(', ')}
+        placeholder="team:search, prod"
+      />
+      <Field
+        label={t('keys.costCenter')}
+        name="costCenter"
+        maxLength={64}
+        defaultValue={initial?.costCenter ?? ''}
+        dir="ltr"
+      />
+      <TextListField
         label={t('keys.ipAllowlist')}
         name="ipAllowlist"
         defaultValue={initial?.ipAllowlist.join(', ')}
@@ -215,6 +228,8 @@ function bodyFrom(form: FormData, initial?: VirtualKey): KeyBody {
     outputTpm: optionalInteger(text(form, 'outputTpm')),
     maxConcurrency: optionalInteger(text(form, 'maxConcurrency')),
     modelLimits: modelLimitsFrom(form),
+    tags: list(text(form, 'tags')),
+    costCenter: text(form, 'costCenter').trim() || null,
     expiresAt: expiresAt ? new Date(expiresAt).toISOString() : null,
     budgets,
   };

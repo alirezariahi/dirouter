@@ -434,6 +434,10 @@ export const VirtualKeyConfig = z.object({
       }),
     )
     .optional(),
+  /** Tags every request of the key carries, next to the request's own (card 33.4). */
+  tags: z.array(z.string()).optional(),
+  /** Cost center of the key's requests unless a request names its own (card 33.4). */
+  costCenter: z.string().optional(),
   /** Prepaid organizations: the wallet the gateway reserves credit from (card 19.1). */
   walletId: z.string().optional(),
   /** Customer group multiplier applied to sale prices (card 19.4); absent means 1. */
@@ -477,6 +481,9 @@ export const LimitScopeKind = z.enum([
   'model',
   'provider',
   'end_user',
+  /** Card 33.4: every request carrying a tag, or attributed to a cost center. */
+  'tag',
+  'cost_center',
 ]);
 export type LimitScopeKind = z.infer<typeof LimitScopeKind>;
 

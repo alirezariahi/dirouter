@@ -9,7 +9,12 @@
  * gateway keeps counting the current period on the same Valkey counter instead of starting from
  * zero until the worker reconciles it with the ledger.
  */
-import { budgetPeriodRange, END_USER_DEFAULT, normalizeEndUser } from '@dirouter/contracts';
+import {
+  budgetPeriodRange,
+  END_USER_DEFAULT,
+  normalizeEndUser,
+  TAG_PATTERN,
+} from '@dirouter/contracts';
 import { Prisma } from '@dirouter/db';
 import { DiRouterError, prefixedId } from '@dirouter/shared';
 import { Inject, Injectable } from '@nestjs/common';
@@ -26,6 +31,8 @@ export const LIMIT_SCOPES = [
   'model',
   'provider',
   'end_user',
+  'tag',
+  'cost_center',
 ] as const;
 export type LimitScope = (typeof LIMIT_SCOPES)[number];
 const DB_SCOPE = {
@@ -36,6 +43,8 @@ const DB_SCOPE = {
   model: 'MODEL',
   provider: 'PROVIDER',
   end_user: 'END_USER',
+  tag: 'TAG',
+  cost_center: 'COST_CENTER',
 } as const satisfies Record<LimitScope, string>;
 
 /** Display name of the end-user defaults (scope id `*`, card 33.2). */
@@ -165,6 +174,11 @@ export class LimitsService {
               ? { name: scopeId }
               : null;
         break;
+      case 'tag':
+      case 'cost_center':
+        // Tags and cost centers are the organization's own names (card 33.4).
+        row = TAG_PATTERN.test(scopeId) ? { name: scopeId } : null;
+        break;
     }
     if (!row) throw new DiRouterError('not_found', { message: `${scope} not found` });
     return row;
@@ -198,6 +212,8 @@ export class LimitsService {
       }),
     ]);
     return new Map<string, string>([
+      ...of('TAG').map((id) => [`TAG|${id}`, id] as const),
+      ...of('COST_CENTER').map((id) => [`COST_CENTER|${id}`, id] as const),
       ...of('END_USER').map(
         (id) => [`END_USER|${id}`, id === END_USER_DEFAULT ? END_USER_DEFAULT_NAME : id] as const,
       ),
@@ -413,6 +429,9 @@ export class LimitsService {
       model: Prisma.sql`l."model_id"`,
       provider: Prisma.sql`l."provider_id"`,
       end_user: Prisma.sql`l."end_user"`,
+      // A request with several tags counts for each of them.
+      tag: Prisma.sql`t.tag`,
+      cost_center: Prisma.sql`l."cost_center"`,
     };
     const sums = (scope: LimitScope) => Prisma.sql`
       SELECT ${column[scope]} AS scope_id,
@@ -425,6 +444,7 @@ export class LimitsService {
              coalesce(sum(l."cost_usd") FILTER (WHERE l."occurred_at" >= ${starts.yearly}), 0)::text AS y_usd,
              coalesce(sum(l."tokens") FILTER (WHERE l."occurred_at" >= ${starts.yearly}), 0)::bigint::text AS y_tokens
       FROM "usage_ledger" l
+      ${scope === 'tag' ? Prisma.sql`CROSS JOIN LATERAL unnest(l."tags") AS t(tag)` : Prisma.empty}
       WHERE l."organization_id" = ${ctx.organizationId} AND l."occurred_at" >= ${from}
       GROUP BY 1`;
     const wanted = new Set<LimitScope>(['organization', 'team', 'project']);
@@ -508,6 +528,8 @@ export class LimitsService {
               l.scope === 'user' ||
               l.scope === 'model' ||
               l.scope === 'provider' ||
+              l.scope === 'tag' ||
+              l.scope === 'cost_center' ||
               (l.scope === 'end_user' && l.scopeId !== END_USER_DEFAULT),
           )
           .map((l) => entry(l.scope, { id: l.scopeId, name: l.name })),

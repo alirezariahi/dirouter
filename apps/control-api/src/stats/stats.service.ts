@@ -21,8 +21,8 @@ export interface Range {
   from: Date;
   to: Date;
 }
-/** Attribution dimensions with rollups (card 33.2: end users). */
-export const DIMENSIONS = ['end_user'] as const;
+/** Attribution dimensions with rollups (card 33.2: end users; card 33.4: tags, cost centers). */
+export const DIMENSIONS = ['end_user', 'tag', 'cost_center'] as const;
 export type Dimension = (typeof DIMENSIONS)[number];
 
 export interface Filters {
@@ -393,6 +393,9 @@ export class StatsService {
       }),
       inboundApi: row.inboundApi,
       endUser: row.endUser,
+      // Card 33.4.
+      tags: row.tags,
+      costCenter: row.costCenter,
       credentialId: row.credentialId,
       cacheReadTokens: row.cacheReadTokens,
       cacheWriteTokens: row.cacheWriteTokens,
@@ -464,6 +467,8 @@ export class StatsService {
                 WHEN 'model' THEN l."model_id" = b."scope_id"
                 WHEN 'provider' THEN l."provider_id" = b."scope_id"
                 WHEN 'end_user' THEN l."end_user" = b."scope_id"
+                WHEN 'tag' THEN b."scope_id" = ANY(l."tags")
+                WHEN 'cost_center' THEN l."cost_center" = b."scope_id"
                 WHEN 'api_key_model' THEN l."api_key_id" = split_part(b."scope_id", '|', 1)
                   AND (l."requested_model" = split_part(b."scope_id", '|', 2)
                        OR l."model_id" IN (SELECT m."id" FROM "models" m

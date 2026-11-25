@@ -272,6 +272,9 @@ model ApiKey {
   /// Limits on one model (card 33.3): [{ model, rpm?, tpm?, inputTpm?, outputTpm?, maxConcurrency? }];
   /// their budgets are `budgets` rows with scope API_KEY_MODEL and scope id `<key id>|<model>`.
   modelLimits    Json         @default("[]") @map("model_limits")
+  /// Tags and cost center of every request of the key (card 33.4).
+  tags           String[]     @default([])
+  costCenter     String?      @map("cost_center")
   expiresAt      DateTime?    @map("expires_at") @db.Timestamptz(3)
   revokedAt      DateTime?    @map("revoked_at") @db.Timestamptz(3)
   /// The key that replaced this key during rotation.
@@ -545,6 +548,9 @@ enum LimitScope {
   END_USER     @map("end_user")
   /// Card 33.3: one model of one key; scope id `<key id>|<model>`.
   API_KEY_MODEL @map("api_key_model")
+  /// Card 33.4: requests carrying a tag, and requests of a cost center.
+  TAG          @map("tag")
+  COST_CENTER  @map("cost_center")
 }
 
 enum BudgetPeriod {
@@ -636,6 +642,9 @@ model RequestLog {
   cacheKind        String?  @map("cache_kind")
   savedInputTokens Int      @default(0) @map("saved_input_tokens")
   hedgeAttempts    Int      @default(0) @map("hedge_attempts")
+  /// Tags and cost center of the request (card 33.4).
+  tags             String[] @default([])
+  costCenter       String?  @map("cost_center")
   /// How an `auto*` alias was resolved (card 20.4): target, task type, source and reasons.
   routing          Json?
   /// Images, characters or audio seconds of a media request (card 21.1).
@@ -670,6 +679,9 @@ model UsageLedger {
   endUser        String?  @map("end_user")
   /// The name the client asked for (card 33.3), for a key's budgets on an alias or combo.
   requestedModel String?  @map("requested_model")
+  /// Tags and cost center of the request (card 33.4), for tag and cost-center budgets.
+  tags           String[] @default([])
+  costCenter     String?  @map("cost_center")
   costUsd        Decimal  @map("cost_usd") @db.Decimal(18, 8)
   tokens         Int
   occurredAt     DateTime @map("occurred_at") @db.Timestamptz(3)

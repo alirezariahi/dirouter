@@ -179,6 +179,7 @@ export async function runMetered<T>(
   const attribution = requestAttribution(
     req.headers,
     (req.body as { user?: unknown } | undefined)?.user,
+    key,
   );
   const admission = await admitRequest(deps, {
     attribution,

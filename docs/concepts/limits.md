@@ -255,7 +255,7 @@ start of the next period: `Weekly organization budget exceeded (USD 1500)`.
 (embeddings, images, audio):
 
 1. **Budgets** of the key, its project and team, the organization, the key's member, and of every
-   model and provider among the route's candidates are read in **one pipelined round trip**. An
+   model and provider among the route's candidates are read by **one Lua script** (one round trip). An
    exhausted key, project, team, organization or member budget rejects the request. An exhausted
    model or provider budget removes the matching candidates; only when none is left is the request
    rejected (`… budget exceeded for every target of '<model>'`).
@@ -292,8 +292,9 @@ upgrade.
   - a weekly budget is exhausted until Monday 00:00 UTC and starts from zero then, and a yearly
     budget until 1 January, on a fake clock;
   - overhead: the gateway and Valkey CPU of one admission, with and without the four extra scopes,
-    differs by well under 0.3 ms (about 0.2 ms on a loaded development machine; the number of round
-    trips is the same).
+    differs by well under 0.3 ms (about 0.1 ms on a loaded development machine; the number of round
+    trips is the same). Reading every budget with one script instead of one command per budget
+    keeps the gateway's share of that cost flat.
 - `apps/control-api/src/limits/limits.integration.test.ts`: the four scopes over HTTP, ids outside
   the organization refused, the snapshot, keys carrying their member, and usage per period.
 - `apps/worker/src/budgets.integration.test.ts`: each new scope rebuilt from its own ledger rows,

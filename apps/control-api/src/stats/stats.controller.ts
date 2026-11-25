@@ -34,7 +34,7 @@ export const TopQuery = Base.extend({
   limit: z.coerce.number().int().min(1).max(100).default(10),
 });
 export const DimensionQuery = Base.extend({
-  dimension: z.enum(DIMENSIONS).describe('end_user'),
+  dimension: z.enum(DIMENSIONS).describe('end_user, tag or cost_center'),
   value: z.string().min(1).max(256).optional().describe('only this value of the dimension'),
   groupBy: z
     .enum(['value', 'model', 'key', 'project', 'provider'])
@@ -161,6 +161,8 @@ const Logs = z.object({ items: z.array(LogItem), nextCursor: z.string().nullable
 const LogDetail = LogItem.extend({
   inboundApi: z.string(),
   endUser: z.string().nullable(),
+  tags: z.array(z.string()).describe('tags of the request (card 33.4)'),
+  costCenter: z.string().nullable(),
   credentialId: z.string().nullable(),
   cacheReadTokens: z.int(),
   cacheWriteTokens: z.int(),
@@ -346,17 +348,41 @@ export class StatsController {
   ) {
     const r = range(q, 7 * 86_400_000);
     const f = filters(q);
-    const [overview, series, byModel, byKey, byProject, byProvider, byEndUser] = await Promise.all([
+    const top = (dimension: 'end_user' | 'tag' | 'cost_center') =>
+      this.stats.dimensions(org, r, f, { dimension, groupBy: 'value', limit: 10 });
+    const [
+      overview,
+      series,
+      byModel,
+      byKey,
+      byProject,
+      byProvider,
+      byEndUser,
+      byTag,
+      byCostCenter,
+    ] = await Promise.all([
       this.stats.overview(org, r, f),
       this.stats.timeseries(org, r, f, q.granularity),
       this.stats.top(org, r, f, 'model', 'requests', 10),
       this.stats.top(org, r, f, 'key', 'cost', 10),
       this.stats.top(org, r, f, 'project', 'cost', 10),
       this.stats.top(org, r, f, 'provider', 'cost', 10),
-      // Card 33.2: the end users who cost most.
-      this.stats.dimensions(org, r, f, { dimension: 'end_user', groupBy: 'value', limit: 10 }),
+      // Cards 33.2 and 33.4: the end users, tags and cost centers that cost most.
+      top('end_user'),
+      top('tag'),
+      top('cost_center'),
     ]);
-    return { overview, series, byModel, byKey, byProject, byProvider, byEndUser };
+    return {
+      overview,
+      series,
+      byModel,
+      byKey,
+      byProject,
+      byProvider,
+      byEndUser,
+      byTag,
+      byCostCenter,
+    };
   }
 
   /** Usage per end user (card 33.2), tag and cost center (card 33.4). */

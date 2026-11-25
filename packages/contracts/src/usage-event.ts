@@ -103,6 +103,9 @@ export const UsageEvent = z.object({
   projectId: z.string(),
   virtualKeyId: z.string(),
   endUser: z.string().optional(),
+  /** Tags (key defaults and the request's own) and cost center of the request (card 33.4). */
+  tags: z.array(z.string()).max(10).optional(),
+  costCenter: z.string().optional(),
 
   inboundApi: UsageInboundApi,
   requestedModel: z.string(),

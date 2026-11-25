@@ -187,7 +187,7 @@ export default function AnalyticsPage() {
           orgId={org.id}
           from={bounds.from}
           to={bounds.to}
-          dimensions={['end_user']}
+          dimensions={['end_user', 'tag', 'cost_center']}
         />
       ) : null}
 

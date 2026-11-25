@@ -18,6 +18,8 @@ export const keyMessagesEn = {
   listHint: 'Comma-separated; empty allows all models.',
   rpm: 'Requests per minute',
   tpm: 'Tokens per minute',
+  tags: 'Tags (every request of the key carries them)',
+  costCenter: 'Cost center (optional)',
   inputTpm: 'Input tokens per minute',
   outputTpm: 'Output tokens per minute',
   modelLimits: {
@@ -98,6 +100,8 @@ export const keyMessagesFa: typeof keyMessagesEn = {
   listHint: 'با کاما جدا کنید؛ اگر خالی بماند همهٔ مدل‌ها مجازند.',
   rpm: 'درخواست در دقیقه',
   tpm: 'توکن در دقیقه',
+  tags: 'برچسب‌ها (روی همهٔ درخواست‌های کلید)',
+  costCenter: 'مرکز هزینه (اختیاری)',
   inputTpm: 'توکن ورودی در دقیقه',
   outputTpm: 'توکن خروجی در دقیقه',
   modelLimits: {
