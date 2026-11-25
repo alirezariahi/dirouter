@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { api, apiStream } from '../lib/api';
+import { api, apiEventStream } from '../lib/api';
 import { mergeLive, sseParser, type LiveRow } from '../lib/live-stream';
 import LivePage from './live';
 
@@ -16,7 +16,7 @@ vi.mock('../lib/session', () => ({ currentOrg: () => ({ id: 'org_1' }) }));
 vi.mock(import('../lib/api'), async (importOriginal) => ({
   ...(await importOriginal()),
   api: vi.fn(),
-  apiStream: vi.fn(),
+  apiEventStream: vi.fn(),
 }));
 
 const row = (id: string, model: string, ageMs = 0): LiveRow => ({
@@ -73,7 +73,7 @@ let polls = 0;
 beforeEach(() => {
   polls = 0;
   vi.mocked(api).mockReset();
-  vi.mocked(apiStream).mockReset();
+  vi.mocked(apiEventStream).mockReset();
   vi.mocked(api).mockImplementation(() => {
     polls += 1;
     return Promise.resolve({
@@ -111,7 +111,7 @@ describe('live stream helpers', () => {
 describe('Live page', () => {
   it('shows a pushed request at once and polls only slowly while the stream is up', async () => {
     const sse = sseResponse();
-    vi.mocked(apiStream).mockResolvedValue(sse.response);
+    vi.mocked(apiEventStream).mockResolvedValue(sse.response);
     mount();
     await screen.findByText('polled-model');
     sse.push('event: ready\ndata: {}\n\n');
@@ -125,12 +125,12 @@ describe('Live page', () => {
     const before = polls;
     await new Promise((resolve) => setTimeout(resolve, 1_500));
     expect(polls).toBe(before);
-    expect(vi.mocked(apiStream).mock.calls[0]?.[0]).toBe('/orgs/org_1/stats/live/stream');
+    expect(vi.mocked(apiEventStream).mock.calls[0]?.[0]).toBe('/orgs/org_1/stats/live/stream');
   });
 
   it('falls back to polling every second when the stream drops', async () => {
     const sse = sseResponse();
-    vi.mocked(apiStream)
+    vi.mocked(apiEventStream)
       .mockResolvedValueOnce(sse.response)
       .mockReturnValue(new Promise<Response>(() => undefined));
     mount();
@@ -152,12 +152,12 @@ describe('Live page', () => {
     );
     // It tries to reconnect meanwhile.
     await waitFor(() => {
-      expect(vi.mocked(apiStream).mock.calls.length).toBeGreaterThanOrEqual(2);
+      expect(vi.mocked(apiEventStream).mock.calls.length).toBeGreaterThanOrEqual(2);
     });
   });
 
   it('polls when the stream cannot be opened at all', async () => {
-    vi.mocked(apiStream).mockRejectedValue(new Error('503'));
+    vi.mocked(apiEventStream).mockRejectedValue(new Error('503'));
     mount();
     await waitFor(() => {
       expect(screen.getByTestId('live-mode').dataset.mode).toBe('polling');

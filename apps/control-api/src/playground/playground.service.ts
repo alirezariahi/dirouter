@@ -5,6 +5,12 @@
  * with a virtual key that the signed-in user created, so the normal pipeline applies: routing,
  * limits, budgets, guardrails, and the usage is billed to that key like any other request.
  * The key is used for the outbound calls only: it is never stored, logged or echoed back.
+ *
+ * Streaming (card 25.6): `stream` runs one model as a real client would (stream, tools, image,
+ * max_tokens, top_p, reasoning effort, response_format) and re-emits the gateway's answer as
+ * server-sent events: `meta` (status and x-dirouter-* headers), `ttft` (first token), `chunk`
+ * (each OpenAI chunk as is), `error` and `end` (latency, tokens, estimated cost). The dashboard
+ * opens one stream per compared model.
  */
 import { DiRouterError, hashApiKey } from '@dirouter/shared';
 import { Inject, Injectable } from '@nestjs/common';
@@ -12,7 +18,20 @@ import { Inject, Injectable } from '@nestjs/common';
 import { ENV, type Env } from '../env.js';
 import { PrismaService } from '../infra/prisma.service.js';
 import type { OrgContext } from '../rbac/org.guard.js';
-import { estimateCostUsd } from './playground.schema.js';
+import {
+  estimateCostUsd,
+  type PlaygroundStreamInput,
+  routingHeaders,
+  sseEvent,
+  streamRequest,
+} from './playground.schema.js';
+
+type Price = { inputPerMTok: number; outputPerMTok: number };
+
+interface StreamChunk {
+  choices?: { delta?: { content?: unknown; tool_calls?: unknown; reasoning_content?: unknown } }[];
+  usage?: { prompt_tokens?: number; completion_tokens?: number };
+}
 
 export interface PlaygroundInput {
   apiKey: string;
@@ -95,6 +114,129 @@ export class PlaygroundService {
       input.models.map((model) => this.#call(model, input, priceOf)),
     );
     return { apiKeyId, results };
+  }
+
+  /**
+   * Checks the key and loads the price before anything is streamed, so a refused key is still an
+   * ordinary JSON error; returns the generator of the events.
+   */
+  async prepareStream(org: OrgContext, input: PlaygroundStreamInput, signal: AbortSignal) {
+    const apiKeyId = await this.#ownKey(org, input.apiKey);
+    const row = await this.prisma.client.model.findFirst({
+      where: { organizationId: org.organizationId, slug: input.model, deletedAt: null },
+      select: { inputPrice: true, outputPrice: true },
+    });
+    const price = row
+      ? { inputPerMTok: Number(row.inputPrice), outputPerMTok: Number(row.outputPrice) }
+      : undefined;
+    return { apiKeyId, events: this.stream(input, price, signal) };
+  }
+
+  async *stream(
+    input: PlaygroundStreamInput,
+    price: Price | undefined,
+    signal: AbortSignal,
+  ): AsyncGenerator<string> {
+    const started = Date.now();
+    let res: Response;
+    try {
+      res = await fetch(
+        `${this.env.GATEWAY_INTERNAL_URL.replace(/\/+$/, '')}/v1/chat/completions`,
+        {
+          method: 'POST',
+          headers: {
+            authorization: `Bearer ${input.apiKey}`,
+            'content-type': 'application/json',
+            accept: 'text/event-stream',
+            'x-dirouter-client': 'playground',
+          },
+          body: JSON.stringify(streamRequest(input)),
+          signal: AbortSignal.any([signal, AbortSignal.timeout(300_000)]),
+        },
+      );
+    } catch {
+      yield sseEvent('error', { status: 0, message: 'the gateway is not reachable' });
+      yield sseEvent('end', { latencyMs: Date.now() - started });
+      return;
+    }
+    yield sseEvent('meta', { status: res.status, headers: routingHeaders(res.headers) });
+    if (!res.ok || !res.body) {
+      const body = (await res.json().catch(() => ({}))) as {
+        error?: { code?: string; message?: string };
+      };
+      yield sseEvent('error', {
+        status: res.status,
+        ...(body.error?.code ? { code: body.error.code } : {}),
+        message: body.error?.message ?? `gateway answered ${String(res.status)}`,
+      });
+      yield sseEvent('end', { latencyMs: Date.now() - started });
+      return;
+    }
+    let ttftMs: number | undefined;
+    let usage: StreamChunk['usage'];
+    const cached = res.headers.get('x-dirouter-cache') !== null;
+    const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
+    let buffer = '';
+    try {
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += value.replace(/\r\n/g, '\n');
+        let end: number;
+        while ((end = buffer.indexOf('\n\n')) >= 0) {
+          const frame = buffer.slice(0, end);
+          buffer = buffer.slice(end + 2);
+          const data = frame
+            .split('\n')
+            .filter((line) => line.startsWith('data:'))
+            .map((line) => line.slice(5).trimStart())
+            .join('\n');
+          if (!data || data === '[DONE]') continue;
+          let chunk: StreamChunk & { error?: { code?: string; message?: string } };
+          try {
+            chunk = JSON.parse(data) as typeof chunk;
+          } catch {
+            continue;
+          }
+          if (chunk.error) {
+            yield sseEvent('error', {
+              status: res.status,
+              ...(chunk.error.code ? { code: chunk.error.code } : {}),
+              message: chunk.error.message ?? 'stream error',
+            });
+            continue;
+          }
+          const delta = chunk.choices?.[0]?.delta;
+          if (
+            ttftMs === undefined &&
+            delta &&
+            ((typeof delta.content === 'string' && delta.content !== '') ||
+              delta.tool_calls !== undefined ||
+              delta.reasoning_content !== undefined)
+          ) {
+            ttftMs = Date.now() - started;
+            yield sseEvent('ttft', { ms: ttftMs });
+          }
+          if (chunk.usage) usage = chunk.usage;
+          yield sseEvent('chunk', chunk);
+        }
+      }
+    } catch {
+      if (!signal.aborted) yield sseEvent('error', { status: 0, message: 'the stream broke off' });
+    }
+    const inputTokens = usage?.prompt_tokens ?? 0;
+    const outputTokens = usage?.completion_tokens ?? 0;
+    yield sseEvent('end', {
+      latencyMs: Date.now() - started,
+      ...(ttftMs !== undefined ? { ttftMs } : {}),
+      inputTokens,
+      outputTokens,
+      ...(cached
+        ? { estimatedCostUsd: '0.00000000' }
+        : price
+          ? { estimatedCostUsd: estimateCostUsd(inputTokens, outputTokens, price) }
+          : {}),
+    });
   }
 
   async #call(

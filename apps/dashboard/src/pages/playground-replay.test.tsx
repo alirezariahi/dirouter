@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { api } from '../lib/api';
+import { api, apiStream } from '../lib/api';
 import { storeReplay, takeReplay } from '../lib/replay';
 import PlaygroundPage from './playground';
 
@@ -18,6 +18,7 @@ vi.mock('../lib/s2-format', () => ({
 vi.mock(import('../lib/api'), async (importOriginal) => ({
   ...(await importOriginal()),
   api: vi.fn(),
+  apiStream: vi.fn(),
 }));
 
 function mount() {
@@ -32,6 +33,14 @@ function mount() {
 beforeEach(() => {
   sessionStorage.clear();
   vi.mocked(api).mockReset();
+  vi.mocked(apiStream).mockReset();
+  vi.mocked(apiStream).mockImplementation(() =>
+    Promise.resolve(
+      new Response('event: end\ndata: {"latencyMs":1}\n\n', {
+        headers: { 'content-type': 'text/event-stream' },
+      }),
+    ),
+  );
   vi.mocked(api).mockImplementation((path) =>
     Promise.resolve(
       path.endsWith('/models')
@@ -79,13 +88,13 @@ describe('playground replay', () => {
     });
     fireEvent.click(screen.getByText('s2.playground.run'));
     await waitFor(() => {
-      expect(vi.mocked(api).mock.calls.some(([path]) => path.endsWith('/playground/compare'))).toBe(
-        true,
-      );
+      expect(vi.mocked(apiStream).mock.calls.length).toBe(1);
     });
-    const call = vi.mocked(api).mock.calls.find(([path]) => path.endsWith('/playground/compare'));
+    // The playground streams each model (card 25.6); the replayed turns go along.
+    const call = vi.mocked(apiStream).mock.calls[0];
+    expect(call?.[0]).toBe('/orgs/org_1/playground/stream');
     expect(call?.[1]?.body).toMatchObject({
-      models: ['model-b'],
+      model: 'model-b',
       system: 'be brief',
       prompt: 'second',
       maxTokens: 4096,

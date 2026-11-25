@@ -5703,6 +5703,124 @@ export type PlaygroundControllerCompare200 = {
   results: PlaygroundControllerCompare200ResultsItem[];
 };
 
+export type PlaygroundControllerStreamBodyHistoryItemRole = typeof PlaygroundControllerStreamBodyHistoryItemRole[keyof typeof PlaygroundControllerStreamBodyHistoryItemRole];
+
+
+export const PlaygroundControllerStreamBodyHistoryItemRole = {
+  user: 'user',
+  assistant: 'assistant',
+} as const;
+
+export type PlaygroundControllerStreamBodyHistoryItem = {
+  role: PlaygroundControllerStreamBodyHistoryItemRole;
+  /**
+     * @minLength 1
+     * @maxLength 50000
+     */
+  content: string;
+};
+
+export type PlaygroundControllerStreamBodyToolsItemType = typeof PlaygroundControllerStreamBodyToolsItemType[keyof typeof PlaygroundControllerStreamBodyToolsItemType];
+
+
+export const PlaygroundControllerStreamBodyToolsItemType = {
+  function: 'function',
+} as const;
+
+export type PlaygroundControllerStreamBodyToolsItemFunctionParameters = {[key: string]: unknown};
+
+export type PlaygroundControllerStreamBodyToolsItemFunction = {
+  /** @pattern ^[A-Za-z0-9_-]{1,64}$ */
+  name: string;
+  /** @maxLength 2000 */
+  description?: string;
+  parameters?: PlaygroundControllerStreamBodyToolsItemFunctionParameters;
+};
+
+export type PlaygroundControllerStreamBodyToolsItem = {
+  type: PlaygroundControllerStreamBodyToolsItemType;
+  function: PlaygroundControllerStreamBodyToolsItemFunction;
+};
+
+export type PlaygroundControllerStreamBodyToolChoice = typeof PlaygroundControllerStreamBodyToolChoice[keyof typeof PlaygroundControllerStreamBodyToolChoice];
+
+
+export const PlaygroundControllerStreamBodyToolChoice = {
+  auto: 'auto',
+  none: 'none',
+  required: 'required',
+} as const;
+
+export type PlaygroundControllerStreamBodyReasoningEffort = typeof PlaygroundControllerStreamBodyReasoningEffort[keyof typeof PlaygroundControllerStreamBodyReasoningEffort];
+
+
+export const PlaygroundControllerStreamBodyReasoningEffort = {
+  minimal: 'minimal',
+  low: 'low',
+  medium: 'medium',
+  high: 'high',
+} as const;
+
+export type PlaygroundControllerStreamBodyResponseFormat = {
+  type: 'text' | 'json_object';
+} | {
+  type: 'json_schema';
+  json_schema: {
+  /** @pattern ^[A-Za-z0-9_-]{1,64}$ */
+  name: string;
+  schema: {[key: string]: unknown};
+  strict?: boolean;
+};
+};
+
+export type PlaygroundControllerStreamBody = {
+  /**
+     * a virtual key created by the caller; never stored
+     * @minLength 10
+     * @maxLength 200
+     */
+  apiKey: string;
+  /**
+     * @minLength 1
+     * @maxLength 200
+     */
+  model: string;
+  /** @maxLength 20000 */
+  system?: string;
+  /** @maxItems 100 */
+  history?: PlaygroundControllerStreamBodyHistoryItem[];
+  /**
+     * @minLength 1
+     * @maxLength 50000
+     */
+  prompt: string;
+  /**
+     * @maxLength 900000
+     * @pattern ^data:image\/(png|jpeg|webp|gif);base64,[A-Za-z0-9+/]+=*$
+     */
+  image?: string;
+  /** @maxItems 32 */
+  tools?: PlaygroundControllerStreamBodyToolsItem[];
+  toolChoice?: PlaygroundControllerStreamBodyToolChoice;
+  /**
+     * @minimum 1
+     * @maximum 32768
+     */
+  maxTokens?: number;
+  /**
+     * @minimum 0
+     * @maximum 2
+     */
+  temperature?: number;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  topP?: number;
+  reasoningEffort?: PlaygroundControllerStreamBodyReasoningEffort;
+  responseFormat?: PlaygroundControllerStreamBodyResponseFormat;
+};
+
 export type BodiesControllerLevels200RulesItem = {
   scope: string;
   scopeId: string;
@@ -28428,6 +28546,134 @@ export function usePlaygroundControllerCompare<TData = Awaited<ReturnType<typeof
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getPlaygroundControllerCompareQueryOptions(orgId,playgroundControllerCompareBody,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export type playgroundControllerStreamResponse200 = {
+  data: string
+  status: 200
+}
+
+export type playgroundControllerStreamResponseSuccess = (playgroundControllerStreamResponse200) & {
+  headers: Headers;
+};
+;
+
+export type playgroundControllerStreamResponse = (playgroundControllerStreamResponseSuccess)
+
+export const getPlaygroundControllerStreamUrl = (orgId: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/playground/stream`
+}
+
+export const playgroundControllerStream = async (orgId: string,
+    playgroundControllerStreamBody: PlaygroundControllerStreamBody, options?: Parameters<typeof orvalFetch>[1]): Promise<playgroundControllerStreamResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return orvalFetch<playgroundControllerStreamResponse>(getPlaygroundControllerStreamUrl(orgId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(playgroundControllerStreamBody)
+  }
+);}
+
+
+
+
+
+export const getPlaygroundControllerStreamQueryKey = (orgId: string,
+    playgroundControllerStreamBody?: PlaygroundControllerStreamBody,) => {
+    return [
+    'POST', `/api/v1/orgs/${orgId}/playground/stream`, playgroundControllerStreamBody
+    ] as const;
+    }
+
+
+export const getPlaygroundControllerStreamQueryOptions = <TData = Awaited<ReturnType<typeof playgroundControllerStream>>, TError = unknown>(orgId: string,
+    playgroundControllerStreamBody: PlaygroundControllerStreamBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof playgroundControllerStream>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getPlaygroundControllerStreamQueryKey(orgId,playgroundControllerStreamBody);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof playgroundControllerStream>>> = ({ signal }) => playgroundControllerStream(orgId,playgroundControllerStreamBody, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: orgId !== null && orgId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof playgroundControllerStream>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type PlaygroundControllerStreamQueryResult = NonNullable<Awaited<ReturnType<typeof playgroundControllerStream>>>
+export type PlaygroundControllerStreamQueryError = unknown
+
+
+export function usePlaygroundControllerStream<TData = Awaited<ReturnType<typeof playgroundControllerStream>>, TError = unknown>(
+ orgId: string,
+    playgroundControllerStreamBody: PlaygroundControllerStreamBody, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof playgroundControllerStream>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof playgroundControllerStream>>,
+          TError,
+          Awaited<ReturnType<typeof playgroundControllerStream>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function usePlaygroundControllerStream<TData = Awaited<ReturnType<typeof playgroundControllerStream>>, TError = unknown>(
+ orgId: string,
+    playgroundControllerStreamBody: PlaygroundControllerStreamBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof playgroundControllerStream>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof playgroundControllerStream>>,
+          TError,
+          Awaited<ReturnType<typeof playgroundControllerStream>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function usePlaygroundControllerStream<TData = Awaited<ReturnType<typeof playgroundControllerStream>>, TError = unknown>(
+ orgId: string,
+    playgroundControllerStreamBody: PlaygroundControllerStreamBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof playgroundControllerStream>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function usePlaygroundControllerStream<TData = Awaited<ReturnType<typeof playgroundControllerStream>>, TError = unknown>(
+ orgId: string,
+    playgroundControllerStreamBody: PlaygroundControllerStreamBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof playgroundControllerStream>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getPlaygroundControllerStreamQueryOptions(orgId,playgroundControllerStreamBody,options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 

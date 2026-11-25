@@ -71,6 +71,8 @@ export interface RequestOptions {
   fetchImpl?: typeof fetch;
   /** `blob` keeps a binary answer (an invoice PDF) intact instead of reading it as text. */
   responseType?: 'blob';
+  /** Return a successful response unread, for streamed bodies (see `apiStream`). */
+  stream?: boolean;
 }
 
 /**
@@ -143,7 +145,7 @@ async function request(
     (await refresh(fetchImpl))
   )
     res = await send();
-  if (res.status === 204) return { data: undefined, res };
+  if (res.status === 204 || (opts.stream && res.ok)) return { data: undefined, res };
   const isJson = (res.headers.get('content-type') ?? '').includes('json');
   const data: unknown = isJson
     ? await res.json()
@@ -170,6 +172,17 @@ export async function api<T>(path: string, opts: RequestOptions = {}): Promise<T
 }
 
 /**
+ * Same authentication, refresh and errors as `api`, but a successful response is returned with
+ * its body unread so the caller can consume a stream (playground, card 25.6).
+ */
+export async function apiStream(
+  path: string,
+  opts: Omit<RequestOptions, 'stream'> = {},
+): Promise<Response> {
+  return (await request(path, { ...opts, stream: true })).res;
+}
+
+/**
  * orval-generated client mutator (fetch signature): document paths have the /api/v1 prefix and API_URL
  * already includes it. The output is `{data, status, headers}`, which the generated hooks expect.
  */
@@ -186,7 +199,7 @@ export async function orvalFetch<T>(url: string, init: RequestInit = {}): Promis
  * A streaming GET (Server-Sent Events, card 24.4) with the same bearer token and one refresh on
  * 401 as `api`. Returns the open response; a failed one is thrown as ApiError.
  */
-export async function apiStream(
+export async function apiEventStream(
   path: string,
   signal: AbortSignal,
   fetchImpl: typeof fetch = fetch,

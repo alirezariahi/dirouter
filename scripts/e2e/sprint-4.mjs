@@ -689,6 +689,85 @@ try {
     },
   );
 
+  await scenario(
+    '25.6 playground streams four models with TTFT and x-dirouter headers; a request with tools and one with an image run',
+    async () => {
+      const key = await createKey('playground');
+      const events = (text) =>
+        text
+          .split('\n\n')
+          .filter(Boolean)
+          .map((frame) => ({
+            event: /^event: (\S+)/m.exec(frame)?.[1] ?? '',
+            data: JSON.parse(/^data: (.*)$/m.exec(frame)?.[1] ?? '{}'),
+          }));
+      const play = async (body) => {
+        const { response, text } = await org(
+          'POST',
+          'playground/stream',
+          { apiKey: key.key, prompt: 'hello', maxTokens: 64, ...body },
+          200,
+        );
+        assert.match(response.headers.get('content-type') ?? '', /text\/event-stream/);
+        return events(text);
+      };
+      const chunks = (list) => list.filter((e) => e.event === 'chunk').map((e) => e.data);
+
+      // Four models at once, as the dashboard does: one stream per column.
+      const models = ['mock/small', 'mock/long', 'mock/claude', 'mock/gemini'];
+      const columns = await Promise.all(
+        models.map((model) => play({ model, topP: 0.9, reasoningEffort: 'low' })),
+      );
+      for (const [i, column] of columns.entries()) {
+        const meta = column.find((e) => e.event === 'meta');
+        assert.equal(meta?.data.status, 200, `${models[i]}: ${JSON.stringify(column.slice(0, 3))}`);
+        assert.ok(meta.data.headers['x-dirouter-model'], 'routing headers per column');
+        assert.ok(meta.data.headers['x-request-id']);
+        assert.ok(
+          column.some((e) => e.event === 'ttft'),
+          `${models[i]} has a TTFT`,
+        );
+        const text = chunks(column)
+          .map((c) => c.choices?.[0]?.delta?.content ?? '')
+          .join('');
+        assert.ok(text.length > 0, `${models[i]} streamed text`);
+        const end = column.at(-1);
+        assert.equal(end.event, 'end');
+        assert.equal(typeof end.data.ttftMs, 'number');
+        assert.ok(end.data.outputTokens > 0);
+      }
+
+      // A request with tools: mock/tool answers with a tool call, streamed in pieces.
+      const tools = await play({
+        model: 'mock/tool',
+        tools: [
+          {
+            type: 'function',
+            function: {
+              name: 'get_weather',
+              parameters: { type: 'object', properties: { city: { type: 'string' } } },
+            },
+          },
+        ],
+        toolChoice: 'auto',
+      });
+      const calls = chunks(tools).flatMap((c) => c.choices?.[0]?.delta?.tool_calls ?? []);
+      assert.equal(calls[0]?.function?.name, 'get_weather', JSON.stringify(tools.slice(0, 4)));
+      assert.equal(calls.map((c) => c.function?.arguments ?? '').join(''), '{"city":"Tehran"}');
+
+      // A request with an image (a 1x1 PNG) goes through the gateway as image_url content.
+      const image = await play({
+        model: 'mock/small',
+        prompt: 'what is in the picture?',
+        image:
+          'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+      });
+      assert.equal(image.find((e) => e.event === 'meta')?.data.status, 200, JSON.stringify(image));
+      assert.equal(image.at(-1).event, 'end');
+      assert.ok(!image.some((e) => e.event === 'error'), JSON.stringify(image));
+    },
+  );
+
   // ───────────── Epic 24: observability ─────────────
 
   await scenario(

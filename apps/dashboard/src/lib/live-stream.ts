@@ -3,7 +3,7 @@
  * cannot send the bearer token) and reports when the stream is up or has dropped, so the page can
  * fall back to polling.
  */
-import { apiStream } from './api';
+import { apiEventStream } from './api';
 
 export interface LiveRow {
   id: string;
@@ -57,7 +57,7 @@ export async function connectLive(
   fetchImpl?: typeof fetch,
 ): Promise<void> {
   try {
-    const res = await apiStream(`/orgs/${orgId}/stats/live/stream`, signal, fetchImpl);
+    const res = await apiEventStream(`/orgs/${orgId}/stats/live/stream`, signal, fetchImpl);
     if (!res.body) throw new Error('no stream body');
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
