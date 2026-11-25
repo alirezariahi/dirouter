@@ -393,13 +393,23 @@ describe('traces, metrics and logs through the gateway', () => {
     expect(server?.name).toBe('gateway.request');
     expect(attr(server?.attributes, 'gen_ai.request.model')).toEqual({ stringValue: 'gpt-x' });
 
-    const metricNames = (
-      received.metrics as {
-        resourceMetrics: { scopeMetrics: { metrics: { name: string }[] }[] }[];
-      }[]
-    ).flatMap((b) =>
-      b.resourceMetrics.flatMap((r) => r.scopeMetrics.flatMap((s) => s.metrics.map((m) => m.name))),
-    );
+    const exportedMetrics = () =>
+      (
+        received.metrics as {
+          resourceMetrics: { scopeMetrics: { metrics: { name: string }[] }[] }[];
+        }[]
+      ).flatMap((b) =>
+        b.resourceMetrics.flatMap((r) =>
+          r.scopeMetrics.flatMap((s) => s.metrics.map((m) => m.name)),
+        ),
+      );
+    // Usage is recorded when the request completes on the gateway, which can be just after the
+    // client has its answer; export again until it is in (a slow CI runner hit this).
+    for (let i = 0; i < 50 && !exportedMetrics().includes('gen_ai.client.token.usage'); i++) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      await gw.flushTraces();
+    }
+    const metricNames = exportedMetrics();
     expect(metricNames).toContain('gen_ai.client.token.usage');
     expect(metricNames).toContain('gen_ai.client.operation.duration');
     expect(metricNames).toContain('dirouter_gateway_requests_total');
