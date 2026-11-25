@@ -15,6 +15,7 @@ import {
   guardrailText,
   type GuardrailPolicy,
   type InboundApi,
+  type RouteDecision,
   OpenAIChatCompletionRequest,
   USAGE_EVENT_SCHEMA_VERSION,
   type UsageEvent,
@@ -47,6 +48,7 @@ import {
   planRoute,
   type ResolvedRoute,
   type RetryBudget,
+  type RoutePlan,
   type TaskType,
 } from '@dirouter/routing';
 import {
@@ -763,6 +765,7 @@ async function proxyRequest(
     model: routing?.target ?? canonical.model,
     fallbackModels: requestRouting.fallbackModels,
     preferences: requestRouting.preferences,
+    dataPolicy: requestRouting.dataPolicy,
     resolve: {
       estimatedInputTokens,
       ...(canonical.maxOutputTokens !== undefined
@@ -775,7 +778,12 @@ async function proxyRequest(
   });
   if (isPlanError(route)) {
     const error = planErrorToClient(route, canonical.model);
-    deps.logger.debug({ requestId, skipped: route.skipped }, 'route failed');
+    if (route.error === 'no_provider_matches_data_policy')
+      deps.logger.info(
+        { requestId, dataPolicy: requestRouting.dataPolicy, skipped: route.skipped },
+        'no provider satisfies the data policy',
+      );
+    else deps.logger.debug({ requestId, skipped: route.skipped }, 'route failed');
     sendError(reply, api, error, requestId);
     finishSpan('error', { 'gateway.error': route.error });
     observeEarly(reply.statusCode);
@@ -1106,6 +1114,7 @@ async function proxyRequest(
           ? { savedInputTokens: Math.round(savedCompressedChars / 4) }
           : {}),
         ...(routing ? { routing } : {}),
+        ...(routeDecisionOf(route) ? { routeDecision: routeDecisionOf(route) } : {}),
         finishSpan,
         ...(span ? { span } : {}),
         ...(capture ? { capture } : {}),
@@ -1123,6 +1132,18 @@ async function proxyRequest(
     deps.budgets?.record(budgets, spent.costUsd, spent.tokens);
     settleWallet(spent.chargeUsd);
   }
+}
+
+/**
+ * What the request log keeps of a route plan (card 32.5): the data policy and every target removed
+ * while planning. Undefined when there is nothing to tell.
+ */
+function routeDecisionOf(route: RoutePlan): RouteDecision | undefined {
+  if (!route.dataPolicy && route.skipped.length === 0) return undefined;
+  return {
+    ...(route.dataPolicy ? { dataPolicy: route.dataPolicy } : {}),
+    ...(route.skipped.length > 0 ? { skipped: route.skipped.slice(0, 100) } : {}),
+  };
 }
 
 /**
@@ -1205,6 +1226,8 @@ async function runRoute(
     cacheBypass?: boolean;
     /** How an `auto*` alias was resolved (card 20.4). */
     routing?: UsageEvent['routing'];
+    /** How the route was planned (card 32.5), for the request log. */
+    routeDecision?: RouteDecision | undefined;
     finishSpan: (status: 'ok' | 'error', extra?: Attributes) => void;
     /** Request span; every upstream attempt becomes a child of it. */
     span?: TraceSpan;
@@ -1730,6 +1753,7 @@ async function runRoute(
     metricModel: resolvedModel?.slug ?? candidate?.model.slug,
     savedInputTokens: ctx.savedInputTokens ?? 0,
     ...(ctx.routing ? { routing: ctx.routing } : {}),
+    ...(ctx.routeDecision ? { routeDecision: ctx.routeDecision } : {}),
     hedgeAttempts: result.ok ? ((result as { hedgeAttempts?: number }).hedgeAttempts ?? 0) : 0,
   });
   return { tokens: usage ? usage.inputTokens + usage.outputTokens : 0, costUsd, chargeUsd };
@@ -2073,6 +2097,7 @@ function emitUsageEvent(
     savedInputTokens?: number;
     hedgeAttempts?: number;
     routing?: UsageEvent['routing'];
+    routeDecision?: RouteDecision;
   },
 ): { costUsd: string; chargeUsd: string } {
   try {
@@ -2130,6 +2155,7 @@ function emitUsageEvent(
         : {}),
       ...(e.hedgeAttempts && e.hedgeAttempts > 0 ? { hedgeAttempts: e.hedgeAttempts } : {}),
       ...(e.routing ? { routing: e.routing } : {}),
+      ...(e.routeDecision ? { routeDecision: e.routeDecision } : {}),
       latencyMs: Date.now() - e.started,
       ...(e.ttftMs !== undefined ? { ttftMs: e.ttftMs } : {}),
       attempts: e.attempts

@@ -240,6 +240,16 @@ export const ERROR_CODES = {
     anthropic: 'invalid_request_error',
     title: 'No provider matches the provider preferences',
   },
+  /**
+   * Every provider was removed by the data policy (card 32.5): region, country, zero data
+   * retention or training use, set by the organization, project, key or the request.
+   */
+  no_provider_matches_data_policy: {
+    status: 400,
+    openai: 'invalid_request_error',
+    anthropic: 'invalid_request_error',
+    title: 'No provider satisfies the data policy',
+  },
   // Internal
   service_unavailable: {
     status: 503,

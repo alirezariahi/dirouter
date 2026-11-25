@@ -5,6 +5,9 @@
  */
 import {
   type CanonicalRequest,
+  type DataPolicy,
+  dataPolicyFromRequest,
+  mergeDataPolicies,
   preferencesFromRequest,
   type ProviderPreferences,
   ProviderRequestObject,
@@ -14,6 +17,7 @@ import {
 import {
   type EffectivePolicy,
   effectivePolicy,
+  isDataPolicyEmpty,
   MAX_FALLBACK_MODELS,
   mergePreferences,
   type PlanError,
@@ -29,6 +33,11 @@ export interface RequestRouting {
   /** The key's policy is locked and the client's preferences were dropped. */
   clientIgnored: boolean;
   policy: EffectivePolicy;
+  /**
+   * Data policy of the organization, project, key and request, combined to the strictest (card
+   * 32.5). Applied even when the preferences are locked: the request can only add restrictions.
+   */
+  dataPolicy?: DataPolicy;
 }
 
 /** Reads the routing fields of a request body; throws a 400 when they are malformed. */
@@ -39,6 +48,7 @@ export function routingFromRequest(
 ): RequestRouting {
   const raw = (body && typeof body === 'object' ? body : {}) as Record<string, unknown>;
   let client: ProviderPreferences | undefined;
+  let requested: DataPolicy | undefined;
   if (raw.provider !== undefined && raw.provider !== null) {
     const parsed = ProviderRequestObject.safeParse(raw.provider);
     if (!parsed.success)
@@ -50,6 +60,7 @@ export function routingFromRequest(
         param: 'provider',
       });
     client = preferencesFromRequest(parsed.data);
+    requested = dataPolicyFromRequest(parsed.data);
   }
   let fallbackModels: string[] | undefined;
   if (raw.models !== undefined && raw.models !== null) {
@@ -67,7 +78,9 @@ export function routingFromRequest(
   const policy = effectivePolicy(rules, key);
   const merged = mergePreferences(policy, client);
   const clientIgnored = merged.clientIgnored || (policy.lockProvider && !!fallbackModels?.length);
+  const dataPolicy = mergeDataPolicies(policy.dataPolicy, requested);
   return {
+    ...(isDataPolicyEmpty(dataPolicy) ? {} : { dataPolicy }),
     ...(merged.preferences ? { preferences: merged.preferences } : {}),
     // A locked key cannot add models of its own choosing either.
     ...(fallbackModels && !policy.lockProvider ? { fallbackModels } : {}),
@@ -99,6 +112,11 @@ export function planErrorToClient(error: PlanError, model: string): DiRouterErro
     case 'context_length_exceeded':
       return new DiRouterError('context_length_exceeded', {
         message: `Request needs about ${String(error.neededTokens ?? 0)} tokens (input estimate + max output), more than any model for '${model}' supports`,
+      });
+    case 'no_provider_matches_data_policy':
+      return new DiRouterError('no_provider_matches_data_policy', {
+        message: `No provider for '${model}' satisfies the data policy (${summarize(error.skipped)})`,
+        param: 'provider',
       });
     case 'no_provider_matches_preferences':
       return new DiRouterError('no_provider_matches_preferences', {

@@ -13,7 +13,12 @@ import {
   classifyNetworkError,
   type UpstreamRequest,
 } from '@dirouter/providers';
-import { type Candidate, executeWithFallback, isRouteError } from '@dirouter/routing';
+import {
+  applyDataPolicy,
+  type Candidate,
+  executeWithFallback,
+  isRouteError,
+} from '@dirouter/routing';
 import {
   DiRouterError,
   ForbiddenError,
@@ -28,6 +33,7 @@ import { authenticate, extractApiKey } from './auth.js';
 import { resolveCredentialKey, tokenFailure } from './credential-tokens.js';
 import { chargeUnits, chargeUsd } from './pricing.js';
 import { budgetScopes, limitScopes, type ProxyDeps, toClientError } from './proxy.js';
+import { planErrorToClient, routingFromRequest } from './route-request.js';
 import { callUpstream, mergeTimeouts, readErrorBody, UpstreamTimeout } from './upstream.js';
 
 type UpstreamResponse = Awaited<ReturnType<typeof callUpstream>>['response'];
@@ -133,10 +139,22 @@ export async function runMetered<T>(
     };
   }
 
-  const route = config.router.resolve(key, input.model, {
+  // The data policy (card 32.5) holds for every call that carries the caller's data: embeddings,
+  // media, moderation and classifier calls are filtered like chat requests.
+  let dataPolicy;
+  try {
+    dataPolicy = routingFromRequest(config.snapshot.routingPolicies, key, req.body).dataPolicy;
+  } catch (error) {
+    return { ok: false, error: error as DiRouterError };
+  }
+  const resolved = config.router.resolve(key, input.model, {
     estimatedInputTokens: input.estimatedInputTokens,
   });
-  if (isRouteError(route))
+  const route =
+    dataPolicy && !isRouteError(resolved) ? applyDataPolicy(resolved, dataPolicy) : resolved;
+  if ('error' in route && route.error === 'no_provider_matches_data_policy')
+    return { ok: false, error: planErrorToClient(route, input.model) };
+  if ('error' in route)
     return {
       ok: false,
       error:

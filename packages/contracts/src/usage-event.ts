@@ -6,6 +6,7 @@ import { z } from 'zod';
 
 import { CanonicalUsage, InboundApi, MediaUsage } from './canonical.js';
 import { IsoDateTime, NonNegativeInt, Ulid, UsdAmount } from './common.js';
+import { DataPolicy } from './routing-policy.js';
 
 export const USAGE_EVENT_SCHEMA_VERSION = 1 as const;
 
@@ -44,6 +45,24 @@ export const UsageAttempt = z.object({
   startedAt: IsoDateTime,
 });
 export type UsageAttempt = z.infer<typeof UsageAttempt>;
+
+/** Routing decision of one request, as stored with its log entry (cards 32.5 and 32.7). */
+export const RouteDecision = z.object({
+  /** The effective data policy the candidates had to meet (card 32.5). */
+  dataPolicy: DataPolicy.optional(),
+  /** Targets removed while planning, with the reason. */
+  skipped: z
+    .array(
+      z.object({
+        modelId: z.string(),
+        credentialId: z.string().optional(),
+        reason: z.string(),
+      }),
+    )
+    .max(100)
+    .optional(),
+});
+export type RouteDecision = z.infer<typeof RouteDecision>;
 
 export const UsageEvent = z.object({
   schemaVersion: z.literal(USAGE_EVENT_SCHEMA_VERSION),
@@ -99,6 +118,8 @@ export const UsageEvent = z.object({
       classifierMicros: NonNegativeInt.optional(),
     })
     .optional(),
+  /** How the route was planned (cards 32.5 and 32.7), shown in the request log details. */
+  routeDecision: RouteDecision.optional(),
   /** Images, characters or audio seconds of a media request (card 21.1). */
   media: MediaUsage.optional(),
   /** Additional upstream attempts started by request hedging (card 12.2). */

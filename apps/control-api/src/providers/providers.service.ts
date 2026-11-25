@@ -4,6 +4,7 @@
  * shows only `••••last4`. The connection test and model discovery go through the gateway (`/internal/providers/probe`)
  * so the same adapter, proxy, and timeout used for real traffic apply.
  */
+import type { ProviderDataPolicy } from '@dirouter/contracts';
 import { type ProviderConfig, UpstreamBalanceSample } from '@dirouter/contracts';
 import { balanceKind, enabledPlugins, readPlugins } from '@dirouter/providers';
 import { DiRouterError, encrypt, keyVersionOf, prefixedId } from '@dirouter/shared';
@@ -95,6 +96,8 @@ export interface ProviderInput {
   timeouts?: TimeoutsInput | null | undefined;
   options?: Record<string, unknown> | undefined;
   maxConcurrency?: number | null | undefined;
+  /** Region, country, retention and training use (card 32.5). */
+  dataPolicy?: ProviderDataPolicy | null | undefined;
   credentials?: CredentialInput[] | undefined;
   /** Plugins with a terms warning (card 21.2): the operator's explicit acceptance. */
   acceptTerms?: boolean | undefined;
@@ -141,6 +144,7 @@ export class ProvidersService {
       timeouts: p.timeouts ?? null,
       options: p.options,
       maxConcurrency: p.maxConcurrency,
+      dataPolicy: (p.dataPolicy as ProviderDataPolicy | null) ?? null,
       // Upstream balance API of the provider (card 32.9), null when it has none.
       balanceKind:
         balanceKind({
@@ -304,6 +308,7 @@ export class ProvidersService {
           ...(input.timeouts ? { timeouts: input.timeouts as Prisma.InputJsonObject } : {}),
           options: options as Prisma.InputJsonObject,
           maxConcurrency: input.maxConcurrency ?? null,
+          ...(input.dataPolicy ? { dataPolicy: input.dataPolicy } : {}),
         },
       });
       for (const c of input.credentials ?? []) {
@@ -375,6 +380,14 @@ export class ProvidersService {
           : {}),
         ...(options !== undefined ? { options: options as Prisma.InputJsonObject } : {}),
         ...(input.maxConcurrency !== undefined ? { maxConcurrency: input.maxConcurrency } : {}),
+        ...(input.dataPolicy !== undefined
+          ? {
+              dataPolicy:
+                input.dataPolicy === null
+                  ? Prisma.DbNull
+                  : (input.dataPolicy as Prisma.InputJsonObject),
+            }
+          : {}),
       },
     });
     await this.#audit(this.db, ctx, 'provider.updated', 'provider', id, redactInput(input));
@@ -473,6 +486,7 @@ export class ProvidersService {
       ...(p.proxyUrl ? { proxy: { url: p.proxyUrl } } : {}),
       ...(p.timeouts ? { timeouts: p.timeouts as TimeoutsInput } : {}),
       ...(p.maxConcurrency ? { maxConcurrency: p.maxConcurrency } : {}),
+      ...(p.dataPolicy ? { dataPolicy: p.dataPolicy as ProviderDataPolicy } : {}),
       credentials: p.credentials.map((c) => ({
         id: c.id,
         name: c.name,

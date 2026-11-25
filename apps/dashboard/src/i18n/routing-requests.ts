@@ -28,10 +28,24 @@ export const routingRequestsFa = {
     fallback_model_not_allowed: 'این کلید به مدل جایگزین دسترسی ندارد',
     fallback_no_available_provider: 'مدل جایگزین ارائه‌دهندهٔ در دسترس ندارد',
     fallback_context_length_exceeded: 'درخواست در پنجرهٔ زمینهٔ مدل جایگزین جا نمی‌شود',
+    not_zdr: 'ارائه‌دهنده نگهداری صفر داده (ZDR) ندارد',
+    may_train_on_data: 'ممکن است ارائه‌دهنده با داده‌ها مدل آموزش دهد',
+    region_not_allowed: 'منطقهٔ ارائه‌دهنده مجاز نیست',
+    country_not_allowed: 'کشور ارائه‌دهنده مجاز نیست',
   },
   error: {
     no_provider_matches_preferences: 'هیچ ارائه‌دهنده‌ای با ترجیح‌های این درخواست جور نیست.',
+    no_provider_matches_data_policy: 'هیچ ارائه‌دهنده‌ای سیاست داده را برآورده نمی‌کند.',
   },
+  dataPolicy: 'سیاست داده',
+  policy: {
+    requireZdr: 'فقط ZDR',
+    denyTraining: 'بدون آموزش با داده',
+    allowedRegions: 'مناطق مجاز',
+    allowedCountries: 'کشورهای مجاز',
+  },
+  decision: 'تصمیم مسیریابی',
+  removed: 'کنار گذاشته‌شده‌ها',
 } as const;
 
 export const routingRequestsEn: Widen<typeof routingRequestsFa> = {
@@ -58,8 +72,22 @@ export const routingRequestsEn: Widen<typeof routingRequestsFa> = {
     fallback_model_not_allowed: 'This key may not use the fallback model',
     fallback_no_available_provider: 'Fallback model has no available provider',
     fallback_context_length_exceeded: 'Request does not fit the fallback model context window',
+    not_zdr: 'Provider has no zero data retention (ZDR)',
+    may_train_on_data: 'Provider may train on request data',
+    region_not_allowed: "Provider's region is not allowed",
+    country_not_allowed: "Provider's country is not allowed",
   },
   error: {
     no_provider_matches_preferences: "No provider matches this request's preferences.",
+    no_provider_matches_data_policy: 'No provider satisfies the data policy.',
   },
+  dataPolicy: 'Data policy',
+  policy: {
+    requireZdr: 'ZDR only',
+    denyTraining: 'No training on data',
+    allowedRegions: 'Allowed regions',
+    allowedCountries: 'Allowed countries',
+  },
+  decision: 'Routing decision',
+  removed: 'Removed targets',
 };

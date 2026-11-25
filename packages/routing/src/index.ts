@@ -9,3 +9,4 @@ export * from './auto.js';
 export * from './preferences.js';
 export * from './policy.js';
 export * from './plan.js';
+export * from './data-policy.js';

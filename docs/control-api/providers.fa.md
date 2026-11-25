@@ -8,16 +8,16 @@
 
 ## endpointها (`/api/v1/orgs/:orgId/providers`)
 
-| مسیر                           | مجوز              | توضیح                                                                                                                                          |
-| ------------------------------ | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GET /`، `GET /:id`            | `providers:read`  | فهرست و جزئیات؛ credentialها **ماسک‌شده**                                                                                                      |
-| `POST /`                       | `providers:write` | `{name, type, baseUrl?, slug?, proxyUrl?, timeouts?, options?, maxConcurrency?, credentials?: [{name, secret, weight?, headers?, proxyUrl?}]}` |
-| `PATCH /:id`، `DELETE /:id`    | `providers:write` | ویرایش؛ حذف soft است و provider را غیرفعال می‌کند                                                                                              |
-| `POST /:id/credentials`        | `providers:write` | افزودن کلید                                                                                                                                    |
-| `PATCH /:id/credentials/:cid`  | `providers:write` | تغییر نام، وزن، هدر یا پروکسی، `status: ACTIVE/DISABLED`، یا **چرخش** با `secret` تازه                                                         |
-| `DELETE /:id/credentials/:cid` | `providers:write` | حذف کلید                                                                                                                                       |
-| `POST /:id/test`               | `providers:write` | `{credentialId?}` → `{ok, status, latencyMs, error?, modelCount}`                                                                              |
-| `POST /:id/discover`           | `providers:write` | مدل‌های upstream با `inCatalog` و `suggested`، به‌علاوهٔ قیمت و context از کاتالوگ اگر شناخته‌شده باشد                                         |
+| مسیر                           | مجوز              | توضیح                                                                                                                                                                                                        |
+| ------------------------------ | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `GET /`، `GET /:id`            | `providers:read`  | فهرست و جزئیات؛ credentialها **ماسک‌شده**                                                                                                                                                                    |
+| `POST /`                       | `providers:write` | `{name, type, baseUrl?, slug?, proxyUrl?, timeouts?, options?, maxConcurrency?, dataPolicy? ([کارت ۳۲.۵](../concepts/request-routing.fa.md)), credentials?: [{name, secret, weight?, headers?, proxyUrl?}]}` |
+| `PATCH /:id`، `DELETE /:id`    | `providers:write` | ویرایش؛ حذف soft است و provider را غیرفعال می‌کند                                                                                                                                                            |
+| `POST /:id/credentials`        | `providers:write` | افزودن کلید                                                                                                                                                                                                  |
+| `PATCH /:id/credentials/:cid`  | `providers:write` | تغییر نام، وزن، هدر یا پروکسی، `status: ACTIVE/DISABLED`، یا **چرخش** با `secret` تازه                                                                                                                       |
+| `DELETE /:id/credentials/:cid` | `providers:write` | حذف کلید                                                                                                                                                                                                     |
+| `POST /:id/test`               | `providers:write` | `{credentialId?}` → `{ok, status, latencyMs, error?, modelCount}`                                                                                                                                            |
+| `POST /:id/discover`           | `providers:write` | مدل‌های upstream با `inCatalog` و `suggested`، به‌علاوهٔ قیمت و context از کاتالوگ اگر شناخته‌شده باشد                                                                                                       |
 
 نوع‌ها: `openai`، `anthropic`، `gemini`، `azure-openai` و `openai-compatible` (با `options.preset` مثل groq یا openrouter؛ [providers/](../providers/README.fa.md)). baseUrl برای openai، anthropic و gemini پیش‌فرض دارد. برای Azure و سازگارها لازم است.
 

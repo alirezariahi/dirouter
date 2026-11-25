@@ -648,6 +648,7 @@ export function buildGateway(opts: GatewayOptions) {
       model: requested,
       fallbackModels: requestRouting.fallbackModels,
       preferences: requestRouting.preferences,
+      dataPolicy: requestRouting.dataPolicy,
       resolve: {
         ...(number(body.estimatedInputTokens) !== undefined
           ? { estimatedInputTokens: number(body.estimatedInputTokens) }
@@ -670,6 +671,8 @@ export function buildGateway(opts: GatewayOptions) {
         sources: requestRouting.policy.sources,
       },
       ...(requestRouting.clientIgnored ? { clientPreferencesIgnored: true } : {}),
+      // The effective data policy (card 32.5): organization, project, key and request combined.
+      ...(requestRouting.dataPolicy ? { dataPolicy: requestRouting.dataPolicy } : {}),
     };
     if (isPlanError(result)) {
       return reply.status(planErrorStatus(result.error)).send({

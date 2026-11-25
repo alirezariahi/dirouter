@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 
 import { BodyCaptureSettings } from '../components/body-capture-settings';
 import { RequestPayload } from '../components/request-body';
+import { RouteDecisionView } from '../components/route-decision-view';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
 import { Empty, ErrorState, Loading } from '../components/ui/states';
@@ -43,6 +44,8 @@ interface LogDetail extends LogItem {
   reasoningTokens: number;
   attempts: unknown;
   headers?: unknown;
+  /** How the route was planned (cards 32.5 and 32.7). */
+  routeDecision?: unknown;
 }
 type Draft = Record<(typeof FILTERS)[number] | 'from' | 'to', string>;
 const draftOf = (search: LogSearch): Draft =>
@@ -262,6 +265,7 @@ function Detail({
               ) : (
                 <Empty title={m.noAttempts} />
               )}
+              <RouteDecisionView decision={d.routeDecision} />
               <h3 className="mt-4 font-semibold">{m.headers}</h3>
               {headers.length ? (
                 <dl>

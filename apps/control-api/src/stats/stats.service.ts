@@ -398,6 +398,8 @@ export class StatsService {
       attempts: row.attempts,
       // The auto-routing decision (card 20.4), when the client named an `auto*` alias.
       routing: row.routing ?? null,
+      // How the route was planned (cards 32.5 and 32.7): data policy, removed targets and more.
+      routeDecision: row.routeDecision ?? null,
       chargeUsd: row.chargeUsd.toString(),
     };
   }

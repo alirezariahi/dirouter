@@ -4,7 +4,6 @@
  */
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
-import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '../components/ui/button';
@@ -14,6 +13,7 @@ import { api } from '../lib/api';
 import { formatNumber } from '../lib/date';
 import type { SubmitEvent } from '../lib/form';
 import { errorMessage } from '../lib/errors';
+import { type DataPolicyView, dataPolicyText, reasonText } from '../lib/route-decision';
 import { currentOrg } from '../lib/session';
 
 interface Skipped {
@@ -77,14 +77,10 @@ interface Simulation {
   preferences?: Record<string, unknown>;
   policy?: { lockProvider: boolean; sources: { scope: string; scopeId: string }[] };
   clientPreferencesIgnored?: boolean;
+  /** Effective data policy (card 32.5). */
+  dataPolicy?: DataPolicyView;
 }
 
-/** A skip reason or route error, from the sprint 2 messages or the request-routing ones. */
-function reasonText(t: TFunction, reason: string): string {
-  return t(`s2.simulator.reason.${reason}`, {
-    defaultValue: t(`routingRequests.reason.${reason}`, { defaultValue: reason }),
-  });
-}
 interface KeyRow {
   id: string;
   name: string;
@@ -288,6 +284,11 @@ export default function SimulatorPage() {
 
       {result ? (
         <>
+          {result.dataPolicy ? (
+            <p className="text-sm text-muted" data-testid="simulator-data-policy">
+              {t('routingRequests.dataPolicy')}: {dataPolicyText(t, result.dataPolicy)}
+            </p>
+          ) : null}
           {routeError ? (
             <FormError
               message={`${t(`s2.simulator.error.${routeError}`, {

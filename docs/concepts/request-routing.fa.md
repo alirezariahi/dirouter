@@ -11,7 +11,8 @@
 مرحله‌های برنامه‌ریزی به ترتیب:
 
 ۱. resolve مدل درخواستی و سپس هر مدل آرایهٔ فال‌بک `models` ([resolver](routing.fa.md) تغییری نکرده است).
-۲. ترجیح ارائه‌دهنده (شیء `provider`): `only` و `ignore`، `max_price`، `sort` و در پایان `order` و `allow_fallbacks`.
+۲. سیاست داده: منطقه، کشور، نگهداری صفر داده و استفاده برای آموزش (کارت ۳۲.۵).
+۳. ترجیح ارائه‌دهنده (شیء `provider`): `only` و `ignore`، `max_price`، `sort` و در پایان `order` و `allow_fallbacks`.
 
 هر کاندیدایی که در این مسیر کنار برود با دلیلش در `skipped` می‌آید.
 
@@ -79,5 +80,55 @@ curl -X PUT "$ADMIN/orgs/$ORG/routing-policies" -H "authorization: Bearer $TOKEN
 ### شبیه‌ساز
 
 `POST /orgs/:orgId/routes/simulate` فیلدهای `provider` (به همان شکل درخواست) و `models` را می‌پذیرد. پاسخ این‌ها را هم دارد: `models` (نام مدل‌هایی که کاندیداها از آن‌ها آمده‌اند)، `preferences` (آنچه اعمال شد)، `policy` (`lockProvider` و حوزه‌هایی که اعمال شدند) و `clientPreferencesIgnored`. شبیه‌ساز داشبورد برای هر دو فیلد دارد.
+
+## سیاست داده و منطقه (کارت ۳۲.۵)
+
+هر ارائه‌دهنده می‌تواند بگوید کجا اجرا می‌شود و با دادهٔ درخواست چه می‌کند (فیلد `dataPolicy` در `POST`/`PATCH /orgs/:orgId/providers/:id`؛ `null` آن را پاک می‌کند):
+
+<div dir="ltr">
+
+```json
+{ "dataPolicy": { "region": "eu", "country": "DE", "zdr": true, "trainsOnData": false } }
+```
+
+</div>
+
+`region` کدی دلخواه با حروف کوچک است (`eu`، `us` و …)، `country` کد دوحرفی ISO 3166-1، `zdr` یعنی نگهداری صفر داده و `trainsOnData` یعنی ارائه‌دهنده ممکن است با داده‌ها مدل آموزش دهد. ارائه‌دهندهٔ بدون metadata هر شرطی را که اثبات نکرده رد می‌کند: ZDR ندارد، ممکن است آموزش دهد و در هیچ منطقه‌ای نیست.
+
+شرط‌ها در سیاست مسیریابی سازمان، پروژه یا کلید تعریف می‌شوند (`PUT /orgs/:orgId/routing-policies`، بالاتر را ببینید):
+
+<div dir="ltr">
+
+```json
+{
+  "scope": "organization",
+  "scopeId": "org_…",
+  "policy": {
+    "dataPolicy": {
+      "requireZdr": true,
+      "denyTraining": true,
+      "allowedRegions": ["eu"],
+      "allowedCountries": ["DE", "FR"]
+    }
+  }
+}
+```
+
+</div>
+
+سه حوزه و خود درخواست با هم به **سخت‌گیرانه‌ترین** سیاست تبدیل می‌شوند: فهرست مناطق و کشورها اشتراک گرفته می‌شود و `requireZdr` و `denyTraining` روی هم جمع می‌شوند. درخواست می‌تواند در شیء `provider` محدودیت اضافه کند ولی هرگز نمی‌تواند محدودیتی را بردارد، حتی وقتی ترجیح‌ها قفل نیستند:
+
+| فیلد درخواست              | شرط                                                  |
+| ------------------------- | ---------------------------------------------------- |
+| `zdr: true`               | `requireZdr` (مقدار `false` چیزی را عوض نمی‌کند)     |
+| `data_collection: "deny"` | `denyTraining` (مقدار `"allow"` چیزی را عوض نمی‌کند) |
+| `regions: ["eu"]`         | `allowedRegions` (افزودهٔ DiRouter)                  |
+| `countries: ["DE"]`       | `allowedCountries` (افزودهٔ DiRouter)                |
+
+سیاست داده بلافاصله پس از resolve و پیش از ترجیح‌ها، فال‌بک و hedging اعمال می‌شود: ارائه‌دهندهٔ حذف‌شده اصلاً کاندیدا نیست، پس هیچ retry، مدل فال‌بک یا تلاش hedge به آن نمی‌رسد. این سیاست برای هر فراخوانی‌ای که دادهٔ مشتری را می‌برد برقرار است: chat، `/v1/messages`، `/v1/responses`، Gemini، embeddings، تصویر، صوت و فراخوانی‌های moderation و classifier در guardrailها.
+
+کاندیدای حذف‌شده یکی از این دلیل‌ها را دارد: `not_zdr`، `may_train_on_data`، `region_not_allowed` یا `country_not_allowed`. اگر کاندیدایی نماند درخواست با **400 `no_provider_matches_data_policy`** رد می‌شود و گیت‌وی سیاست و هدف‌های حذف‌شده را در سطح `info` لاگ می‌کند.
+
+پاسخ شبیه‌ساز `dataPolicy` مؤثر را دارد و هر ردیف لاگ درخواست یک `routeDecision` شامل سیاست داده و هدف‌های حذف‌شده نگه می‌دارد (ستون `request_log.route_decision`) که در جزئیات درخواست در Log Explorer نمایش داده می‌شود.
 
 </div>

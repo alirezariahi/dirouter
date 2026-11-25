@@ -9,7 +9,8 @@ A request can steer routing itself, in the same format OpenRouter uses, and an a
 Planning stages, in order:
 
 1. Resolve the requested model, then each model of the `models` fallback array (the [resolver](routing.md#1-model-name-resolution) is unchanged).
-2. Provider preferences (`provider` object): `only` and `ignore`, `max_price`, `sort`, then `order` and `allow_fallbacks`.
+2. Data policy: region, country, zero data retention and training use (card 32.5).
+3. Provider preferences (`provider` object): `only` and `ignore`, `max_price`, `sort`, then `order` and `allow_fallbacks`.
 
 Every candidate removed on the way is listed in `skipped` with its reason.
 
@@ -69,3 +70,45 @@ The policies reach the gateway in the config snapshot (`routingPolicies`) and ev
 ### Simulator
 
 `POST /orgs/:orgId/routes/simulate` accepts `provider` (the request form) and `models`. The response adds `models` (the model names the candidates came from), `preferences` (what was applied), `policy` (`lockProvider` and the scopes that applied) and `clientPreferencesIgnored`. The dashboard simulator has fields for both.
+
+## Data policy and region (card 32.5)
+
+Each provider can describe where it runs and what it does with request data (`dataPolicy` on `POST`/`PATCH /orgs/:orgId/providers/:id`; `null` clears it):
+
+```json
+{ "dataPolicy": { "region": "eu", "country": "DE", "zdr": true, "trainsOnData": false } }
+```
+
+`region` is a lowercase code of your choice (`eu`, `us`, …), `country` an ISO 3166-1 alpha-2 code, `zdr` means zero data retention, `trainsOnData` whether the provider may train on request data. A provider without metadata fails every requirement it does not prove: it is not ZDR, it may train, and it is in no region.
+
+The requirements live in the routing policy of the organization, a project or a key (`PUT /orgs/:orgId/routing-policies`, see above):
+
+```json
+{
+  "scope": "organization",
+  "scopeId": "org_…",
+  "policy": {
+    "dataPolicy": {
+      "requireZdr": true,
+      "denyTraining": true,
+      "allowedRegions": ["eu"],
+      "allowedCountries": ["DE", "FR"]
+    }
+  }
+}
+```
+
+The three scopes and the request are combined to the **strictest** policy: region and country lists intersect, `requireZdr` and `denyTraining` add up. A request can add restrictions in its `provider` object, never remove one, and this holds even when the preferences are not locked:
+
+| Request field             | Requirement                                |
+| ------------------------- | ------------------------------------------ |
+| `zdr: true`               | `requireZdr` (`false` changes nothing)     |
+| `data_collection: "deny"` | `denyTraining` (`"allow"` changes nothing) |
+| `regions: ["eu"]`         | `allowedRegions` (DiRouter extension)      |
+| `countries: ["DE"]`       | `allowedCountries` (DiRouter extension)    |
+
+The data policy is applied right after resolution, before preferences, fallback and hedging: a removed provider is not a candidate at all, so no retry, fallback model or hedged attempt can reach it. It applies to every call that carries the caller's data: chat, `/v1/messages`, `/v1/responses`, Gemini, embeddings, images, audio, and the moderation and classifier calls of guardrails.
+
+Removed candidates carry the reason `not_zdr`, `may_train_on_data`, `region_not_allowed` or `country_not_allowed`. When none is left the request fails with **400 `no_provider_matches_data_policy`** and the gateway logs the policy and the removed targets at `info`.
+
+The simulator response has the effective `dataPolicy`, and every request log entry keeps a `routeDecision` with the data policy and the removed targets (column `request_log.route_decision`), shown in the request details of the Log Explorer.

@@ -13,7 +13,7 @@ import { z } from 'zod';
 import { IsoDateTime, Slug, UsdAmount } from './common.js';
 import { GuardrailPolicy } from './guardrails.js';
 import { BodyCaptureRule, BodyCaptureSettings } from './request-body.js';
-import { RoutingPolicyRule } from './routing-policy.js';
+import { ProviderDataPolicy, RoutingPolicyRule } from './routing-policy.js';
 
 export const CONFIG_SNAPSHOT_SCHEMA_VERSION = 1 as const;
 
@@ -113,6 +113,8 @@ export const ProviderConfig = z.object({
   /** Concurrent request limit (bulkhead). */
   maxConcurrency: z.int().positive().optional(),
   credentials: z.array(CredentialConfig),
+  /** Region, country, retention and training use (card 32.5). */
+  dataPolicy: ProviderDataPolicy.optional(),
 });
 export type ProviderConfig = z.infer<typeof ProviderConfig>;
 

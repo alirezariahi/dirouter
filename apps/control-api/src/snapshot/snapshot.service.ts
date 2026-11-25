@@ -15,6 +15,7 @@ import {
   type ConfigSnapshotInput,
   GatewaySettings,
   type ModelPricing,
+  ProviderDataPolicy,
   RoutingPolicy,
 } from '@dirouter/contracts';
 import type { Prisma } from '@dirouter/db';
@@ -253,6 +254,10 @@ export class SnapshotService implements OnModuleInit, OnModuleDestroy {
         ...(p.proxyUrl ? { proxy: { url: p.proxyUrl } } : {}),
         ...(p.timeouts ? { timeouts: p.timeouts as Record<string, number> } : {}),
         ...(p.maxConcurrency ? { maxConcurrency: p.maxConcurrency } : {}),
+        // Region, retention and training use (card 32.5); an invalid stored value is left out.
+        ...(ProviderDataPolicy.safeParse(p.dataPolicy).success && p.dataPolicy
+          ? { dataPolicy: p.dataPolicy as ProviderDataPolicy }
+          : {}),
         credentials: p.credentials
           .sort((a, b) => a.id.localeCompare(b.id))
           .map((c) => ({

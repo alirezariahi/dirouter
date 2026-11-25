@@ -38,6 +38,61 @@ export const ProviderPreferences = z.object({
 });
 export type ProviderPreferences = z.infer<typeof ProviderPreferences>;
 
+/** A region code (`eu`, `us`, `asia`, …), lowercase. */
+const Region = z
+  .string()
+  .regex(/^[a-z][a-z0-9-]{1,30}$/)
+  .describe('region code, e.g. eu or us');
+/** ISO 3166-1 alpha-2 country code, uppercase. */
+const Country = z
+  .string()
+  .regex(/^[A-Z]{2}$/)
+  .describe('ISO 3166-1 alpha-2 country code');
+
+/**
+ * Where a provider runs and what it does with request data (card 32.5). Unknown values are treated
+ * as the unsafe answer by every policy (no ZDR, may train, no region).
+ */
+export const ProviderDataPolicy = z.object({
+  region: Region.optional(),
+  country: Country.optional(),
+  /** Zero data retention: the provider keeps no prompts or answers. */
+  zdr: z.boolean().optional(),
+  /** The provider may use request data to train models. */
+  trainsOnData: z.boolean().optional(),
+});
+export type ProviderDataPolicy = z.infer<typeof ProviderDataPolicy>;
+
+/** Requirements on providers (card 32.5); several are combined to the strictest. */
+export const DataPolicy = z.object({
+  /** Only providers in these regions. */
+  allowedRegions: z.array(Region).max(50).optional(),
+  /** Only providers in these countries. */
+  allowedCountries: z.array(Country).max(250).optional(),
+  /** Only providers with zero data retention. */
+  requireZdr: z.boolean().optional(),
+  /** Only providers known not to train on request data. */
+  denyTraining: z.boolean().optional(),
+});
+export type DataPolicy = z.infer<typeof DataPolicy>;
+
+/** The strictest combination: lists intersect, requirements add up. */
+export function mergeDataPolicies(...policies: (DataPolicy | undefined)[]): DataPolicy {
+  const out: DataPolicy = {};
+  const intersect = (a: string[] | undefined, b: string[] | undefined) =>
+    a === undefined ? b : b === undefined ? a : a.filter((x) => b.includes(x));
+  for (const p of policies) {
+    if (!p) continue;
+    const regions = intersect(out.allowedRegions, p.allowedRegions);
+    if (regions) out.allowedRegions = regions;
+    const countries = intersect(out.allowedCountries, p.allowedCountries);
+    if (countries) out.allowedCountries = countries;
+    if (p.requireZdr) out.requireZdr = true;
+    if (p.denyTraining) out.denyTraining = true;
+  }
+  return out;
+}
+
 /** Accepts numbers and numeric strings (OpenRouter clients send both). */
 const Price = z.union([z.number(), z.string().regex(/^\d+(\.\d+)?$/)]).transform(Number);
 
@@ -56,8 +111,25 @@ export const ProviderRequestObject = z.looseObject({
       image: Price.nullish(),
     })
     .nullish(),
+  /** `true`: zero-data-retention providers only (card 32.5). `false` cannot relax a policy. */
+  zdr: z.boolean().nullish(),
+  /** `deny`: only providers that do not train on request data (card 32.5). */
+  data_collection: z.enum(['allow', 'deny']).nullish(),
+  /** DiRouter extension (card 32.5): only providers in these regions or countries. */
+  regions: z.array(Region).max(50).nullish(),
+  countries: z.array(Country).max(250).nullish(),
 });
 export type ProviderRequestObject = z.infer<typeof ProviderRequestObject>;
+
+/** The data requirements of the request form (card 32.5); they can only add restrictions. */
+export function dataPolicyFromRequest(raw: ProviderRequestObject): DataPolicy {
+  return {
+    ...(raw.zdr === true ? { requireZdr: true } : {}),
+    ...(raw.data_collection === 'deny' ? { denyTraining: true } : {}),
+    ...(raw.regions ? { allowedRegions: raw.regions } : {}),
+    ...(raw.countries ? { allowedCountries: raw.countries } : {}),
+  };
+}
 
 /** The request form → `ProviderPreferences` (only the fields that were set). */
 export function preferencesFromRequest(raw: ProviderRequestObject): ProviderPreferences {
@@ -89,6 +161,11 @@ export const RoutingPolicy = z.object({
    * suffixes are ignored, so a key cannot route around the administrator's choice.
    */
   lockProvider: z.boolean().optional(),
+  /**
+   * Data policy (card 32.5): combined with the other scopes and the request to the strictest; a
+   * client can make it stricter, never weaker, whether or not the preferences are locked.
+   */
+  dataPolicy: DataPolicy.optional(),
 });
 export type RoutingPolicy = z.infer<typeof RoutingPolicy>;
 

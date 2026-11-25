@@ -4,12 +4,14 @@
  *
  * Stages, in order:
  *   1. resolve the requested model and each `models` fallback (card 5.1 resolver, unchanged)
- *   2. provider preferences: only/ignore, max price, sort, order, allow fallbacks (card 32.1)
+ *   2. data policy: region, country, zero data retention, training use (card 32.5)
+ *   3. provider preferences: only/ignore, max price, sort, order, allow fallbacks (card 32.1)
  *
  * A rules stage (conditional routing) runs before this and hands over the model it chose.
  */
-import type { ProviderPreferences, VirtualKeyConfig } from '@dirouter/contracts';
+import type { DataPolicy, ProviderPreferences, VirtualKeyConfig } from '@dirouter/contracts';
 
+import { applyDataPolicy, type DataPolicyError, isDataPolicyEmpty } from './data-policy.js';
 import { applyPreferences, type PreferenceError } from './preferences.js';
 import {
   isRouteError,
@@ -27,6 +29,8 @@ export interface PlanInput {
   fallbackModels?: readonly string[] | undefined;
   /** Effective provider preferences (administrator's and client's, merged). */
   preferences?: ProviderPreferences | undefined;
+  /** Effective data policy (organization, project, key and request, strictest). */
+  dataPolicy?: DataPolicy | undefined;
   resolve?: ResolveOptions;
 }
 
@@ -34,9 +38,10 @@ export interface RoutePlan extends ResolvedRoute {
   /** The model names the candidates came from, in order. */
   models: string[];
   preferences?: ProviderPreferences;
+  dataPolicy?: DataPolicy;
 }
 
-export type PlanError = RouteError | PreferenceError;
+export type PlanError = RouteError | PreferenceError | DataPolicyError;
 
 export function isPlanError(r: RoutePlan | PlanError): r is PlanError {
   return 'error' in r;
@@ -76,6 +81,12 @@ export function planRoute(router: Router, input: PlanInput): RoutePlan | PlanErr
   }
   if (!primary) return firstError ?? { error: 'model_not_found', skipped };
   let route: ResolvedRoute = { ...primary, requested: input.model, candidates, skipped };
+  const dataPolicy = isDataPolicyEmpty(input.dataPolicy) ? undefined : input.dataPolicy;
+  if (dataPolicy) {
+    const allowed = applyDataPolicy(route, dataPolicy);
+    if ('error' in allowed) return allowed;
+    route = allowed;
+  }
   if (input.preferences && Object.keys(input.preferences).length > 0) {
     const applied = applyPreferences(route, input.preferences, {
       stats: router.stats,
@@ -92,5 +103,6 @@ export function planRoute(router: Router, input: PlanInput): RoutePlan | PlanErr
     ...(input.preferences && Object.keys(input.preferences).length > 0
       ? { preferences: input.preferences }
       : {}),
+    ...(dataPolicy ? { dataPolicy } : {}),
   };
 }

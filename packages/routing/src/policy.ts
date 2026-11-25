@@ -2,13 +2,23 @@
  * Effective routing policy of a key (cards 32.1, 32.5 and 32.7): the rules an administrator set on
  * the key's organization, project and the key itself, combined.
  */
-import type { ProviderPreferences, RoutingPolicyRule, VirtualKeyConfig } from '@dirouter/contracts';
+import {
+  type DataPolicy,
+  mergeDataPolicies,
+  type ProviderPreferences,
+  type RoutingPolicyRule,
+  type VirtualKeyConfig,
+} from '@dirouter/contracts';
+
+import { isDataPolicyEmpty } from './data-policy.js';
 
 export interface EffectivePolicy {
   /** Administrator's provider preferences; a more specific scope overrides a field. */
   provider?: ProviderPreferences;
   /** Some scope locked the preferences against the client. */
   lockProvider: boolean;
+  /** Data policy of the three scopes, combined to the strictest (card 32.5). */
+  dataPolicy?: DataPolicy;
   /** The rules that applied, broadest first (for the simulator). */
   sources: { scope: RoutingPolicyRule['scope']; scopeId: string }[];
 }
@@ -36,7 +46,9 @@ export function effectivePolicy(
   const applied = rulesFor(rules, key);
   let provider: ProviderPreferences | undefined;
   for (const rule of applied) if (rule.provider) provider = { ...provider, ...rule.provider };
+  const dataPolicy = mergeDataPolicies(...applied.map((r) => r.dataPolicy));
   return {
+    ...(isDataPolicyEmpty(dataPolicy) ? {} : { dataPolicy }),
     ...(provider && Object.keys(provider).length > 0 ? { provider } : {}),
     lockProvider: applied.some((r) => r.lockProvider === true),
     sources: applied.map((r) => ({ scope: r.scope, scopeId: r.scopeId })),

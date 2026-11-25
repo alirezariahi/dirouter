@@ -6,16 +6,16 @@ Code: `apps/control-api/src/providers` and `apps/gateway/src/probe.ts` · card 3
 
 ## Endpoints (`/api/v1/orgs/:orgId/providers`)
 
-| route                          | permission        | description                                                                                                                                    |
-| ------------------------------ | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GET /`, `GET /:id`            | `providers:read`  | list and details; credentials are **masked**                                                                                                   |
-| `POST /`                       | `providers:write` | `{name, type, baseUrl?, slug?, proxyUrl?, timeouts?, options?, maxConcurrency?, credentials?: [{name, secret, weight?, headers?, proxyUrl?}]}` |
-| `PATCH /:id`, `DELETE /:id`    | `providers:write` | edit; delete is soft and disables the provider                                                                                                 |
-| `POST /:id/credentials`        | `providers:write` | add a key                                                                                                                                      |
-| `PATCH /:id/credentials/:cid`  | `providers:write` | change name, weight, headers or proxy, `status: ACTIVE/DISABLED`, or **rotation** with a new `secret`                                          |
-| `DELETE /:id/credentials/:cid` | `providers:write` | delete a key                                                                                                                                   |
-| `POST /:id/test`               | `providers:write` | `{credentialId?}` → `{ok, status, latencyMs, error?, modelCount}`                                                                              |
-| `POST /:id/discover`           | `providers:write` | upstream models with `inCatalog` and `suggested`, plus price and context from the catalog if they are known                                    |
+| route                          | permission        | description                                                                                                                                                                                                                               |
+| ------------------------------ | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /`, `GET /:id`            | `providers:read`  | list and details; credentials are **masked**                                                                                                                                                                                              |
+| `POST /`                       | `providers:write` | `{name, type, baseUrl?, slug?, proxyUrl?, timeouts?, options?, maxConcurrency?, dataPolicy? ([card 32.5](../concepts/request-routing.md#data-policy-and-region-card-325)), credentials?: [{name, secret, weight?, headers?, proxyUrl?}]}` |
+| `PATCH /:id`, `DELETE /:id`    | `providers:write` | edit; delete is soft and disables the provider                                                                                                                                                                                            |
+| `POST /:id/credentials`        | `providers:write` | add a key                                                                                                                                                                                                                                 |
+| `PATCH /:id/credentials/:cid`  | `providers:write` | change name, weight, headers or proxy, `status: ACTIVE/DISABLED`, or **rotation** with a new `secret`                                                                                                                                     |
+| `DELETE /:id/credentials/:cid` | `providers:write` | delete a key                                                                                                                                                                                                                              |
+| `POST /:id/test`               | `providers:write` | `{credentialId?}` → `{ok, status, latencyMs, error?, modelCount}`                                                                                                                                                                         |
+| `POST /:id/discover`           | `providers:write` | upstream models with `inCatalog` and `suggested`, plus price and context from the catalog if they are known                                                                                                                               |
 
 Types: `openai`, `anthropic`, `gemini`, `azure-openai` and `openai-compatible` (with `options.preset`, such as groq or openrouter; [providers/](../providers/README.md)). baseUrl has a default for openai, anthropic and gemini. It is required for Azure and compatible services.
 

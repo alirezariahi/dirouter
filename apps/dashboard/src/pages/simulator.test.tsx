@@ -202,3 +202,23 @@ describe('routing simulator provider preferences (card 32.1)', () => {
     expect(calls.some((call) => call.path.endsWith('/routes/simulate'))).toBe(false);
   });
 });
+
+describe('routing simulator data policy (card 32.5)', () => {
+  it('shows the effective data policy and the reasons it removed targets', async () => {
+    mockApi({
+      ok: false,
+      status: 400,
+      error: { code: 'no_provider_matches_data_policy', message: 'x' },
+      dataPolicy: { requireZdr: true, denyTraining: true },
+      skipped: [{ modelId: 'b', credentialId: 'k', reason: 'may_train_on_data' }],
+    });
+    await renderPage();
+    fireEvent.change(screen.getByLabelText(/Model, alias or combo/), { target: { value: 'chat' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Simulate' }));
+    expect((await screen.findByTestId('simulator-data-policy')).textContent).toBe(
+      'Data policy: ZDR only · No training on data',
+    );
+    expect(screen.getByText('No provider satisfies the data policy.')).toBeTruthy();
+    expect(screen.getByText('Provider may train on request data')).toBeTruthy();
+  });
+});

@@ -11,6 +11,7 @@ import {
   Res,
   UseGuards,
 } from '@nestjs/common';
+import { ProviderDataPolicy } from '@dirouter/contracts';
 import { ApiBearerAuth, ApiNoContentResponse, ApiTags } from '@nestjs/swagger';
 import { z } from 'zod';
 
@@ -72,6 +73,8 @@ export const ProviderBody = z.object({
   timeouts: Timeouts.nullable().optional(),
   options: ProviderOptions.optional(),
   maxConcurrency: z.int().positive().max(10_000).nullable().optional(),
+  /** Region, country, retention and training use (card 32.5); `null` clears it. */
+  dataPolicy: ProviderDataPolicy.nullable().optional(),
   credentials: z.array(CredentialBody).max(50).optional(),
   /** Required when the provider uses a plugin with a terms warning (card 21.2). */
   acceptTerms: z.boolean().optional(),
@@ -120,6 +123,7 @@ const ProviderView = z.object({
   timeouts: Timeouts.nullable(),
   options: z.record(z.string(), z.unknown()),
   maxConcurrency: z.int().nullable(),
+  dataPolicy: ProviderDataPolicy.nullable(),
   /** openrouter | deepseek | moonshot | siliconflow when the provider has a balance API. */
   balanceKind: z.string().nullable(),
   credentials: z.array(CredentialView),

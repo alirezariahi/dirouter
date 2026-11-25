@@ -147,6 +147,9 @@ const LogDetail = LogItem.extend({
   routing: z
     .unknown()
     .describe('Auto-routing decision (card 20.4): alias, target, task type, source and reasons'),
+  routeDecision: z
+    .unknown()
+    .describe('Routing decision (cards 32.5 and 32.7): data policy and removed targets'),
   chargeUsd: z.string(),
 });
 const Breaker = z

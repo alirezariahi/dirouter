@@ -109,6 +109,15 @@ describe('usage batch writer', () => {
     expect(toRequestLogRow(event(3))).not.toHaveProperty('media');
   });
 
+  it('keeps the routing decision with the log entry (card 32.5)', () => {
+    const routeDecision = {
+      dataPolicy: { requireZdr: true },
+      skipped: [{ modelId: 'm', credentialId: 'k', reason: 'not_zdr' }],
+    };
+    expect(toRequestLogRow(event(4, { routeDecision }))).toMatchObject({ routeDecision });
+    expect(toRequestLogRow(event(5))).not.toHaveProperty('routeDecision');
+  });
+
   it('writes concurrent events in one transaction and reports the touched hours', async () => {
     const f = fakeDb();
     const marked: string[] = [];
