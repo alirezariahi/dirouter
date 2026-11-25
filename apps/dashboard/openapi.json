@@ -23394,6 +23394,565 @@
           "routing policies"
         ]
       }
+    },
+    "/api/v1/orgs/{orgId}/routing/auto": {
+      "get": {
+        "operationId": "AutoRoutingPoliciesController_get",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "organization": {
+                      "nullable": true,
+                      "type": "object",
+                      "properties": {
+                        "scope": {
+                          "type": "string",
+                          "enum": [
+                            "organization",
+                            "key"
+                          ]
+                        },
+                        "scopeId": {
+                          "type": "string"
+                        },
+                        "costTier": {
+                          "nullable": true,
+                          "type": "string",
+                          "enum": [
+                            "low",
+                            "medium",
+                            "high"
+                          ]
+                        },
+                        "allowedModels": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "deniedModels": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "locked": {
+                          "type": "boolean"
+                        },
+                        "reasoningEffort": {
+                          "type": "string",
+                          "enum": [
+                            "auto",
+                            "off"
+                          ]
+                        },
+                        "updatedAt": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "scope",
+                        "scopeId",
+                        "costTier",
+                        "allowedModels",
+                        "deniedModels",
+                        "locked",
+                        "reasoningEffort",
+                        "updatedAt"
+                      ]
+                    },
+                    "keys": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "scope": {
+                            "type": "string",
+                            "enum": [
+                              "organization",
+                              "key"
+                            ]
+                          },
+                          "scopeId": {
+                            "type": "string"
+                          },
+                          "costTier": {
+                            "nullable": true,
+                            "type": "string",
+                            "enum": [
+                              "low",
+                              "medium",
+                              "high"
+                            ]
+                          },
+                          "allowedModels": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "deniedModels": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "locked": {
+                            "type": "boolean"
+                          },
+                          "reasoningEffort": {
+                            "type": "string",
+                            "enum": [
+                              "auto",
+                              "off"
+                            ]
+                          },
+                          "updatedAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "scope",
+                          "scopeId",
+                          "costTier",
+                          "allowedModels",
+                          "deniedModels",
+                          "locked",
+                          "reasoningEffort",
+                          "updatedAt"
+                        ]
+                      }
+                    },
+                    "tiers": {
+                      "type": "object",
+                      "properties": {
+                        "lowMaxPerMTok": {
+                          "type": "string"
+                        },
+                        "mediumMaxPerMTok": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "lowMaxPerMTok",
+                        "mediumMaxPerMTok"
+                      ]
+                    },
+                    "models": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "slug": {
+                            "type": "string"
+                          },
+                          "blendedPerMTok": {
+                            "type": "number"
+                          },
+                          "tier": {
+                            "type": "string",
+                            "enum": [
+                              "low",
+                              "medium",
+                              "high"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "slug",
+                          "blendedPerMTok",
+                          "tier"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "organization",
+                    "keys",
+                    "tiers",
+                    "models"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "routing policies"
+        ]
+      },
+      "put": {
+        "operationId": "AutoRoutingPoliciesController_put",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "costTier": {
+                    "description": "null or absent: no price ceiling",
+                    "nullable": true,
+                    "type": "string",
+                    "enum": [
+                      "low",
+                      "medium",
+                      "high"
+                    ]
+                  },
+                  "allowedModels": {
+                    "description": "model slugs or globs such as openai/*; empty: all",
+                    "maxItems": 200,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200
+                    }
+                  },
+                  "deniedModels": {
+                    "maxItems": 200,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200
+                    }
+                  },
+                  "locked": {
+                    "description": "organization only: keys can narrow, never widen",
+                    "type": "boolean"
+                  },
+                  "reasoningEffort": {
+                    "type": "string",
+                    "enum": [
+                      "auto",
+                      "off"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "scope": {
+                      "type": "string",
+                      "enum": [
+                        "organization",
+                        "key"
+                      ]
+                    },
+                    "scopeId": {
+                      "type": "string"
+                    },
+                    "costTier": {
+                      "nullable": true,
+                      "type": "string",
+                      "enum": [
+                        "low",
+                        "medium",
+                        "high"
+                      ]
+                    },
+                    "allowedModels": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "deniedModels": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "locked": {
+                      "type": "boolean"
+                    },
+                    "reasoningEffort": {
+                      "type": "string",
+                      "enum": [
+                        "auto",
+                        "off"
+                      ]
+                    },
+                    "updatedAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "scope",
+                    "scopeId",
+                    "costTier",
+                    "allowedModels",
+                    "deniedModels",
+                    "locked",
+                    "reasoningEffort",
+                    "updatedAt"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "routing policies"
+        ]
+      },
+      "delete": {
+        "operationId": "AutoRoutingPoliciesController_remove",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "routing policies"
+        ]
+      }
+    },
+    "/api/v1/orgs/{orgId}/routing/auto/keys/{keyId}": {
+      "put": {
+        "operationId": "AutoRoutingPoliciesController_putKey",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "keyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "costTier": {
+                    "description": "null or absent: no price ceiling",
+                    "nullable": true,
+                    "type": "string",
+                    "enum": [
+                      "low",
+                      "medium",
+                      "high"
+                    ]
+                  },
+                  "allowedModels": {
+                    "description": "model slugs or globs such as openai/*; empty: all",
+                    "maxItems": 200,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200
+                    }
+                  },
+                  "deniedModels": {
+                    "maxItems": 200,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200
+                    }
+                  },
+                  "locked": {
+                    "description": "organization only: keys can narrow, never widen",
+                    "type": "boolean"
+                  },
+                  "reasoningEffort": {
+                    "type": "string",
+                    "enum": [
+                      "auto",
+                      "off"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "scope": {
+                      "type": "string",
+                      "enum": [
+                        "organization",
+                        "key"
+                      ]
+                    },
+                    "scopeId": {
+                      "type": "string"
+                    },
+                    "costTier": {
+                      "nullable": true,
+                      "type": "string",
+                      "enum": [
+                        "low",
+                        "medium",
+                        "high"
+                      ]
+                    },
+                    "allowedModels": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "deniedModels": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "locked": {
+                      "type": "boolean"
+                    },
+                    "reasoningEffort": {
+                      "type": "string",
+                      "enum": [
+                        "auto",
+                        "off"
+                      ]
+                    },
+                    "updatedAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "scope",
+                    "scopeId",
+                    "costTier",
+                    "allowedModels",
+                    "deniedModels",
+                    "locked",
+                    "reasoningEffort",
+                    "updatedAt"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "routing policies"
+        ]
+      },
+      "delete": {
+        "operationId": "AutoRoutingPoliciesController_removeKey",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "keyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "routing policies"
+        ]
+      }
     }
   },
   "info": {

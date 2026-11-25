@@ -13,7 +13,12 @@ import { z } from 'zod';
 import { IsoDateTime, Slug, UsdAmount } from './common.js';
 import { GuardrailPolicy } from './guardrails.js';
 import { BodyCaptureRule, BodyCaptureSettings } from './request-body.js';
-import { RoutingRuleConfig, ShadowPolicyConfig, TrafficSplitConfig } from './routing-policy.js';
+import {
+  AutoRoutingPolicyConfig,
+  RoutingRuleConfig,
+  ShadowPolicyConfig,
+  TrafficSplitConfig,
+} from './routing-policy.js';
 import { ProviderDataPolicy, RoutingPolicyRule } from './routing-policy.js';
 
 export const CONFIG_SNAPSHOT_SCHEMA_VERSION = 1 as const;
@@ -614,6 +619,16 @@ export const GatewaySettings = z.object({
       /** Optional small model asked when the rules are unsure (confidence below the threshold). */
       classifierModel: z.string().min(1).optional(),
       classifierThreshold: z.number().min(0).max(1).default(0.5),
+      /**
+       * Price ceilings of the cost tiers (card 32.8), in dollars per million tokens blended 3:1
+       * (three input tokens per output token). `high` has no ceiling.
+       */
+      costTiers: z
+        .object({
+          lowMaxPerMTok: UsdAmount.default('1'),
+          mediumMaxPerMTok: UsdAmount.default('10'),
+        })
+        .optional(),
     })
     .optional(),
   /** DiRouter as an A2A agent (card 20.3): the model that answers when a request names none. */
@@ -723,6 +738,8 @@ export const ConfigSnapshot = z.object({
   trafficSplits: z.array(TrafficSplitConfig).default([]),
   /** Shadow traffic policies (card 32.4). */
   shadowPolicies: z.array(ShadowPolicyConfig).default([]),
+  /** Cost tier and allowed models of automatic routing per organization and key (card 32.8). */
+  autoPolicies: z.array(AutoRoutingPolicyConfig).default([]),
   /** Routing policies per organization, project or key (cards 32.1, 32.5 and 32.7). */
   routingPolicies: z.array(RoutingPolicyRule).default([]),
 });

@@ -1,4 +1,5 @@
-/** Routing policies over HTTP (sprint 5): rules (32.2), traffic splits (32.3) and shadow traffic (32.4). */
+/** Routing policies over HTTP (sprint 5): rules (32.2), traffic splits (32.3), shadow traffic (32.4) and
+ * the controls of automatic routing (32.8). */
 import { SPLIT_ROLLBACKS_KEY, splitRolledBackKey } from '@dirouter/contracts';
 import { generateKey } from '@dirouter/shared';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
@@ -106,7 +107,7 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('routing policies over HTTP', () =
       }),
     );
     await db().$executeRawUnsafe(
-      'TRUNCATE refresh_tokens, memberships, audit_logs, users, api_keys, projects, teams, providers, models, routing_rules, traffic_splits, shadow_policies, shadow_requests, request_log, change_requests, organizations CASCADE',
+      'TRUNCATE refresh_tokens, memberships, audit_logs, users, api_keys, projects, teams, providers, models, routing_rules, traffic_splits, shadow_policies, shadow_requests, auto_routing_policies, request_log, change_requests, organizations CASCADE',
     );
     await app.init();
     await app.getHttpAdapter().getInstance().ready();
@@ -619,6 +620,104 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('routing policies over HTTP', () =
         ).statusCode,
       ).toBe(403);
       expect((await call('DELETE', `routing/shadows/${shadowId}`)).statusCode).toBe(204);
+    });
+  });
+
+  describe('automatic routing controls (card 32.8)', () => {
+    let keyId = '';
+
+    beforeAll(async () => {
+      const project = (await call('POST', 'projects', { name: 'Auto', slug: 'auto-rp' })).json<{
+        id: string;
+      }>().id;
+      keyId = (await call('POST', 'keys', { name: 'auto-key', projectId: project })).json<{
+        id: string;
+      }>().id;
+    });
+
+    it('sets the organization policy, previews the tiers and publishes it', async () => {
+      const res = await call('PUT', 'routing/auto', {
+        costTier: 'medium',
+        allowedModels: ['cheap', 'n*'],
+        deniedModels: ['big'],
+        locked: true,
+      });
+      expect(res.statusCode).toBe(200);
+      expect(res.json()).toMatchObject({ scope: 'organization', costTier: 'medium', locked: true });
+      const overview = (await call('GET', 'routing/auto')).json<{
+        models: { slug: string; tier: string }[];
+        tiers: unknown;
+      }>();
+      expect(overview.tiers).toEqual({ lowMaxPerMTok: '1', mediumMaxPerMTok: '10' });
+      expect(overview.models).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ slug: 'cheap', tier: 'low' }),
+          expect.objectContaining({ slug: 'next', tier: 'low' }),
+          expect.objectContaining({ slug: 'big', tier: 'high' }),
+        ]),
+      );
+      const image = await snapshot();
+      expect(image.autoPolicies).toEqual([
+        expect.objectContaining({
+          organizationId: org,
+          scope: 'organization',
+          costTier: 'medium',
+          allowedModels: ['cheap', 'n*'],
+          locked: true,
+        }),
+      ]);
+    });
+
+    it('refuses a key policy that would widen the locked organization policy', async () => {
+      for (const body of [
+        { costTier: 'high' },
+        {},
+        { costTier: 'low', allowedModels: ['big'] },
+        { costTier: 'low', allowedModels: ['*'] },
+        { costTier: 'low', locked: true },
+      ]) {
+        const res = await call('PUT', `routing/auto/keys/${keyId}`, body);
+        expect(res.statusCode).toBe(400);
+      }
+      const narrowed = await call('PUT', `routing/auto/keys/${keyId}`, {
+        costTier: 'low',
+        allowedModels: ['next'],
+      });
+      expect(narrowed.statusCode).toBe(200);
+      // A member with keys:write may narrow their key too, but never the organization's policy.
+      expect(
+        (
+          await inject(tokens.member ?? '', 'PUT', `orgs/${org}/routing/auto/keys/${keyId}`, {
+            costTier: 'low',
+          })
+        ).statusCode,
+      ).toBe(200);
+      expect(
+        (await inject(tokens.member ?? '', 'PUT', `orgs/${org}/routing/auto`, { costTier: 'high' }))
+          .statusCode,
+      ).toBe(403);
+      expect(
+        (await call('PUT', 'routing/auto/keys/key_nope', { costTier: 'low' })).statusCode,
+      ).toBe(404);
+      expect(
+        (await call('PUT', 'routing/auto', { allowedModels: ['bad pattern!'] })).statusCode,
+      ).toBe(400);
+    });
+
+    it('lets a key choose freely once the organization policy is unlocked, and deletes both', async () => {
+      await call('PUT', 'routing/auto', { costTier: 'low', locked: false });
+      expect(
+        (await call('PUT', `routing/auto/keys/${keyId}`, { costTier: 'high' })).statusCode,
+      ).toBe(200);
+      const image = await snapshot();
+      expect((image.autoPolicies as { scope: string }[]).map((p) => p.scope).sort()).toEqual([
+        'key',
+        'organization',
+      ]);
+      expect((await call('DELETE', `routing/auto/keys/${keyId}`)).statusCode).toBe(204);
+      expect((await call('DELETE', 'routing/auto')).statusCode).toBe(204);
+      expect((await call('DELETE', 'routing/auto')).statusCode).toBe(404);
+      expect((await snapshot()).autoPolicies ?? []).toEqual([]);
     });
   });
 });

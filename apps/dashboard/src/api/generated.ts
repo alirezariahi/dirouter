@@ -8619,6 +8619,287 @@ export type ShadowPoliciesControllerReport200 = {
   today: ShadowPoliciesControllerReport200Today;
 };
 
+export type AutoRoutingPoliciesControllerGet200OrganizationScope = typeof AutoRoutingPoliciesControllerGet200OrganizationScope[keyof typeof AutoRoutingPoliciesControllerGet200OrganizationScope];
+
+
+export const AutoRoutingPoliciesControllerGet200OrganizationScope = {
+  organization: 'organization',
+  key: 'key',
+} as const;
+
+/**
+ * @nullable
+ */
+export type AutoRoutingPoliciesControllerGet200OrganizationCostTier = typeof AutoRoutingPoliciesControllerGet200OrganizationCostTier[keyof typeof AutoRoutingPoliciesControllerGet200OrganizationCostTier] | null;
+
+
+export const AutoRoutingPoliciesControllerGet200OrganizationCostTier = {
+  low: 'low',
+  medium: 'medium',
+  high: 'high',
+} as const;
+
+export type AutoRoutingPoliciesControllerGet200OrganizationReasoningEffort = typeof AutoRoutingPoliciesControllerGet200OrganizationReasoningEffort[keyof typeof AutoRoutingPoliciesControllerGet200OrganizationReasoningEffort];
+
+
+export const AutoRoutingPoliciesControllerGet200OrganizationReasoningEffort = {
+  auto: 'auto',
+  off: 'off',
+} as const;
+
+/**
+ * @nullable
+ */
+export type AutoRoutingPoliciesControllerGet200Organization = {
+  scope: AutoRoutingPoliciesControllerGet200OrganizationScope;
+  scopeId: string;
+  /** @nullable */
+  costTier: AutoRoutingPoliciesControllerGet200OrganizationCostTier;
+  allowedModels: string[];
+  deniedModels: string[];
+  locked: boolean;
+  reasoningEffort: AutoRoutingPoliciesControllerGet200OrganizationReasoningEffort;
+  updatedAt: string;
+} | null;
+
+export type AutoRoutingPoliciesControllerGet200KeysItemScope = typeof AutoRoutingPoliciesControllerGet200KeysItemScope[keyof typeof AutoRoutingPoliciesControllerGet200KeysItemScope];
+
+
+export const AutoRoutingPoliciesControllerGet200KeysItemScope = {
+  organization: 'organization',
+  key: 'key',
+} as const;
+
+/**
+ * @nullable
+ */
+export type AutoRoutingPoliciesControllerGet200KeysItemCostTier = typeof AutoRoutingPoliciesControllerGet200KeysItemCostTier[keyof typeof AutoRoutingPoliciesControllerGet200KeysItemCostTier] | null;
+
+
+export const AutoRoutingPoliciesControllerGet200KeysItemCostTier = {
+  low: 'low',
+  medium: 'medium',
+  high: 'high',
+} as const;
+
+export type AutoRoutingPoliciesControllerGet200KeysItemReasoningEffort = typeof AutoRoutingPoliciesControllerGet200KeysItemReasoningEffort[keyof typeof AutoRoutingPoliciesControllerGet200KeysItemReasoningEffort];
+
+
+export const AutoRoutingPoliciesControllerGet200KeysItemReasoningEffort = {
+  auto: 'auto',
+  off: 'off',
+} as const;
+
+export type AutoRoutingPoliciesControllerGet200KeysItem = {
+  scope: AutoRoutingPoliciesControllerGet200KeysItemScope;
+  scopeId: string;
+  /** @nullable */
+  costTier: AutoRoutingPoliciesControllerGet200KeysItemCostTier;
+  allowedModels: string[];
+  deniedModels: string[];
+  locked: boolean;
+  reasoningEffort: AutoRoutingPoliciesControllerGet200KeysItemReasoningEffort;
+  updatedAt: string;
+};
+
+export type AutoRoutingPoliciesControllerGet200Tiers = {
+  lowMaxPerMTok: string;
+  mediumMaxPerMTok: string;
+};
+
+export type AutoRoutingPoliciesControllerGet200ModelsItemTier = typeof AutoRoutingPoliciesControllerGet200ModelsItemTier[keyof typeof AutoRoutingPoliciesControllerGet200ModelsItemTier];
+
+
+export const AutoRoutingPoliciesControllerGet200ModelsItemTier = {
+  low: 'low',
+  medium: 'medium',
+  high: 'high',
+} as const;
+
+export type AutoRoutingPoliciesControllerGet200ModelsItem = {
+  slug: string;
+  blendedPerMTok: number;
+  tier: AutoRoutingPoliciesControllerGet200ModelsItemTier;
+};
+
+export type AutoRoutingPoliciesControllerGet200 = {
+  /** @nullable */
+  organization: AutoRoutingPoliciesControllerGet200Organization;
+  keys: AutoRoutingPoliciesControllerGet200KeysItem[];
+  tiers: AutoRoutingPoliciesControllerGet200Tiers;
+  models: AutoRoutingPoliciesControllerGet200ModelsItem[];
+};
+
+/**
+ * null or absent: no price ceiling
+ * @nullable
+ */
+export type AutoRoutingPoliciesControllerPutBodyCostTier = typeof AutoRoutingPoliciesControllerPutBodyCostTier[keyof typeof AutoRoutingPoliciesControllerPutBodyCostTier] | null;
+
+
+export const AutoRoutingPoliciesControllerPutBodyCostTier = {
+  low: 'low',
+  medium: 'medium',
+  high: 'high',
+} as const;
+
+export type AutoRoutingPoliciesControllerPutBodyReasoningEffort = typeof AutoRoutingPoliciesControllerPutBodyReasoningEffort[keyof typeof AutoRoutingPoliciesControllerPutBodyReasoningEffort];
+
+
+export const AutoRoutingPoliciesControllerPutBodyReasoningEffort = {
+  auto: 'auto',
+  off: 'off',
+} as const;
+
+export type AutoRoutingPoliciesControllerPutBody = {
+  /**
+     * null or absent: no price ceiling
+     * @nullable
+     */
+  costTier?: AutoRoutingPoliciesControllerPutBodyCostTier;
+  /**
+     * model slugs or globs such as openai/*; empty: all
+     * @maxItems 200
+     * @items.minLength 1
+     * @items.maxLength 200
+     */
+  allowedModels?: string[];
+  /**
+     * @maxItems 200
+     * @items.minLength 1
+     * @items.maxLength 200
+     */
+  deniedModels?: string[];
+  /** organization only: keys can narrow, never widen */
+  locked?: boolean;
+  reasoningEffort?: AutoRoutingPoliciesControllerPutBodyReasoningEffort;
+};
+
+export type AutoRoutingPoliciesControllerPut200Scope = typeof AutoRoutingPoliciesControllerPut200Scope[keyof typeof AutoRoutingPoliciesControllerPut200Scope];
+
+
+export const AutoRoutingPoliciesControllerPut200Scope = {
+  organization: 'organization',
+  key: 'key',
+} as const;
+
+/**
+ * @nullable
+ */
+export type AutoRoutingPoliciesControllerPut200CostTier = typeof AutoRoutingPoliciesControllerPut200CostTier[keyof typeof AutoRoutingPoliciesControllerPut200CostTier] | null;
+
+
+export const AutoRoutingPoliciesControllerPut200CostTier = {
+  low: 'low',
+  medium: 'medium',
+  high: 'high',
+} as const;
+
+export type AutoRoutingPoliciesControllerPut200ReasoningEffort = typeof AutoRoutingPoliciesControllerPut200ReasoningEffort[keyof typeof AutoRoutingPoliciesControllerPut200ReasoningEffort];
+
+
+export const AutoRoutingPoliciesControllerPut200ReasoningEffort = {
+  auto: 'auto',
+  off: 'off',
+} as const;
+
+export type AutoRoutingPoliciesControllerPut200 = {
+  scope: AutoRoutingPoliciesControllerPut200Scope;
+  scopeId: string;
+  /** @nullable */
+  costTier: AutoRoutingPoliciesControllerPut200CostTier;
+  allowedModels: string[];
+  deniedModels: string[];
+  locked: boolean;
+  reasoningEffort: AutoRoutingPoliciesControllerPut200ReasoningEffort;
+  updatedAt: string;
+};
+
+/**
+ * null or absent: no price ceiling
+ * @nullable
+ */
+export type AutoRoutingPoliciesControllerPutKeyBodyCostTier = typeof AutoRoutingPoliciesControllerPutKeyBodyCostTier[keyof typeof AutoRoutingPoliciesControllerPutKeyBodyCostTier] | null;
+
+
+export const AutoRoutingPoliciesControllerPutKeyBodyCostTier = {
+  low: 'low',
+  medium: 'medium',
+  high: 'high',
+} as const;
+
+export type AutoRoutingPoliciesControllerPutKeyBodyReasoningEffort = typeof AutoRoutingPoliciesControllerPutKeyBodyReasoningEffort[keyof typeof AutoRoutingPoliciesControllerPutKeyBodyReasoningEffort];
+
+
+export const AutoRoutingPoliciesControllerPutKeyBodyReasoningEffort = {
+  auto: 'auto',
+  off: 'off',
+} as const;
+
+export type AutoRoutingPoliciesControllerPutKeyBody = {
+  /**
+     * null or absent: no price ceiling
+     * @nullable
+     */
+  costTier?: AutoRoutingPoliciesControllerPutKeyBodyCostTier;
+  /**
+     * model slugs or globs such as openai/*; empty: all
+     * @maxItems 200
+     * @items.minLength 1
+     * @items.maxLength 200
+     */
+  allowedModels?: string[];
+  /**
+     * @maxItems 200
+     * @items.minLength 1
+     * @items.maxLength 200
+     */
+  deniedModels?: string[];
+  /** organization only: keys can narrow, never widen */
+  locked?: boolean;
+  reasoningEffort?: AutoRoutingPoliciesControllerPutKeyBodyReasoningEffort;
+};
+
+export type AutoRoutingPoliciesControllerPutKey200Scope = typeof AutoRoutingPoliciesControllerPutKey200Scope[keyof typeof AutoRoutingPoliciesControllerPutKey200Scope];
+
+
+export const AutoRoutingPoliciesControllerPutKey200Scope = {
+  organization: 'organization',
+  key: 'key',
+} as const;
+
+/**
+ * @nullable
+ */
+export type AutoRoutingPoliciesControllerPutKey200CostTier = typeof AutoRoutingPoliciesControllerPutKey200CostTier[keyof typeof AutoRoutingPoliciesControllerPutKey200CostTier] | null;
+
+
+export const AutoRoutingPoliciesControllerPutKey200CostTier = {
+  low: 'low',
+  medium: 'medium',
+  high: 'high',
+} as const;
+
+export type AutoRoutingPoliciesControllerPutKey200ReasoningEffort = typeof AutoRoutingPoliciesControllerPutKey200ReasoningEffort[keyof typeof AutoRoutingPoliciesControllerPutKey200ReasoningEffort];
+
+
+export const AutoRoutingPoliciesControllerPutKey200ReasoningEffort = {
+  auto: 'auto',
+  off: 'off',
+} as const;
+
+export type AutoRoutingPoliciesControllerPutKey200 = {
+  scope: AutoRoutingPoliciesControllerPutKey200Scope;
+  scopeId: string;
+  /** @nullable */
+  costTier: AutoRoutingPoliciesControllerPutKey200CostTier;
+  allowedModels: string[];
+  deniedModels: string[];
+  locked: boolean;
+  reasoningEffort: AutoRoutingPoliciesControllerPutKey200ReasoningEffort;
+  updatedAt: string;
+};
+
 type AwaitedInput<T> = PromiseLike<T> | T;
 
       type Awaited<O> = O extends AwaitedInput<infer T> ? T : never;
@@ -34292,3 +34573,563 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       > => {
       return useMutation(getShadowPoliciesControllerReportMutationOptions(options), queryClient);
     }
+
+export type autoRoutingPoliciesControllerGetResponse200 = {
+  data: AutoRoutingPoliciesControllerGet200
+  status: 200
+}
+
+export type autoRoutingPoliciesControllerGetResponseSuccess = (autoRoutingPoliciesControllerGetResponse200) & {
+  headers: Headers;
+};
+;
+
+export type autoRoutingPoliciesControllerGetResponse = (autoRoutingPoliciesControllerGetResponseSuccess)
+
+export const getAutoRoutingPoliciesControllerGetUrl = (orgId: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/routing/auto`
+}
+
+export const autoRoutingPoliciesControllerGet = async (orgId: string, options?: Parameters<typeof orvalFetch>[1]): Promise<autoRoutingPoliciesControllerGetResponse> => {
+
+  return orvalFetch<autoRoutingPoliciesControllerGetResponse>(getAutoRoutingPoliciesControllerGetUrl(orgId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getAutoRoutingPoliciesControllerGetMutationKey = () => ['autoRoutingPoliciesControllerGet'] as const;
+
+export const getAutoRoutingPoliciesControllerGetMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof autoRoutingPoliciesControllerGet>>, TError,AutoRoutingPoliciesControllerGetMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof autoRoutingPoliciesControllerGet>>, TError,AutoRoutingPoliciesControllerGetMutationVariables, TContext> => {
+
+const mutationKey = getAutoRoutingPoliciesControllerGetMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof autoRoutingPoliciesControllerGet>>, AutoRoutingPoliciesControllerGetMutationVariables> = (props) => {
+          const {orgId} = props ?? {};
+
+          return  autoRoutingPoliciesControllerGet(orgId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AutoRoutingPoliciesControllerGetMutationResult = NonNullable<Awaited<ReturnType<typeof autoRoutingPoliciesControllerGet>>>
+
+    export type AutoRoutingPoliciesControllerGetMutationError = unknown
+    export type AutoRoutingPoliciesControllerGetMutationVariables = {orgId: string}
+
+    export const useAutoRoutingPoliciesControllerGet = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof autoRoutingPoliciesControllerGet>>, TError,AutoRoutingPoliciesControllerGetMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof autoRoutingPoliciesControllerGet>>,
+        TError,
+        AutoRoutingPoliciesControllerGetMutationVariables,
+        TContext
+      > => {
+      return useMutation(getAutoRoutingPoliciesControllerGetMutationOptions(options), queryClient);
+    }
+
+export type autoRoutingPoliciesControllerPutResponse200 = {
+  data: AutoRoutingPoliciesControllerPut200
+  status: 200
+}
+
+export type autoRoutingPoliciesControllerPutResponseSuccess = (autoRoutingPoliciesControllerPutResponse200) & {
+  headers: Headers;
+};
+;
+
+export type autoRoutingPoliciesControllerPutResponse = (autoRoutingPoliciesControllerPutResponseSuccess)
+
+export const getAutoRoutingPoliciesControllerPutUrl = (orgId: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/routing/auto`
+}
+
+export const autoRoutingPoliciesControllerPut = async (orgId: string,
+    autoRoutingPoliciesControllerPutBody: AutoRoutingPoliciesControllerPutBody, options?: Parameters<typeof orvalFetch>[1]): Promise<autoRoutingPoliciesControllerPutResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return orvalFetch<autoRoutingPoliciesControllerPutResponse>(getAutoRoutingPoliciesControllerPutUrl(orgId),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(autoRoutingPoliciesControllerPutBody)
+  }
+);}
+
+
+
+
+
+export const getAutoRoutingPoliciesControllerPutQueryKey = (orgId: string,
+    autoRoutingPoliciesControllerPutBody?: AutoRoutingPoliciesControllerPutBody,) => {
+    return [
+    'PUT', `/api/v1/orgs/${orgId}/routing/auto`, autoRoutingPoliciesControllerPutBody
+    ] as const;
+    }
+
+
+export const getAutoRoutingPoliciesControllerPutQueryOptions = <TData = Awaited<ReturnType<typeof autoRoutingPoliciesControllerPut>>, TError = unknown>(orgId: string,
+    autoRoutingPoliciesControllerPutBody: AutoRoutingPoliciesControllerPutBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof autoRoutingPoliciesControllerPut>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getAutoRoutingPoliciesControllerPutQueryKey(orgId,autoRoutingPoliciesControllerPutBody);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof autoRoutingPoliciesControllerPut>>> = ({ signal }) => autoRoutingPoliciesControllerPut(orgId,autoRoutingPoliciesControllerPutBody, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: orgId !== null && orgId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof autoRoutingPoliciesControllerPut>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type AutoRoutingPoliciesControllerPutQueryResult = NonNullable<Awaited<ReturnType<typeof autoRoutingPoliciesControllerPut>>>
+export type AutoRoutingPoliciesControllerPutQueryError = unknown
+
+
+export function useAutoRoutingPoliciesControllerPut<TData = Awaited<ReturnType<typeof autoRoutingPoliciesControllerPut>>, TError = unknown>(
+ orgId: string,
+    autoRoutingPoliciesControllerPutBody: AutoRoutingPoliciesControllerPutBody, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof autoRoutingPoliciesControllerPut>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof autoRoutingPoliciesControllerPut>>,
+          TError,
+          Awaited<ReturnType<typeof autoRoutingPoliciesControllerPut>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useAutoRoutingPoliciesControllerPut<TData = Awaited<ReturnType<typeof autoRoutingPoliciesControllerPut>>, TError = unknown>(
+ orgId: string,
+    autoRoutingPoliciesControllerPutBody: AutoRoutingPoliciesControllerPutBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof autoRoutingPoliciesControllerPut>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof autoRoutingPoliciesControllerPut>>,
+          TError,
+          Awaited<ReturnType<typeof autoRoutingPoliciesControllerPut>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useAutoRoutingPoliciesControllerPut<TData = Awaited<ReturnType<typeof autoRoutingPoliciesControllerPut>>, TError = unknown>(
+ orgId: string,
+    autoRoutingPoliciesControllerPutBody: AutoRoutingPoliciesControllerPutBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof autoRoutingPoliciesControllerPut>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useAutoRoutingPoliciesControllerPut<TData = Awaited<ReturnType<typeof autoRoutingPoliciesControllerPut>>, TError = unknown>(
+ orgId: string,
+    autoRoutingPoliciesControllerPutBody: AutoRoutingPoliciesControllerPutBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof autoRoutingPoliciesControllerPut>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getAutoRoutingPoliciesControllerPutQueryOptions(orgId,autoRoutingPoliciesControllerPutBody,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export type autoRoutingPoliciesControllerRemoveResponse204 = {
+  data: void
+  status: 204
+}
+
+export type autoRoutingPoliciesControllerRemoveResponseSuccess = (autoRoutingPoliciesControllerRemoveResponse204) & {
+  headers: Headers;
+};
+;
+
+export type autoRoutingPoliciesControllerRemoveResponse = (autoRoutingPoliciesControllerRemoveResponseSuccess)
+
+export const getAutoRoutingPoliciesControllerRemoveUrl = (orgId: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/routing/auto`
+}
+
+export const autoRoutingPoliciesControllerRemove = async (orgId: string, options?: Parameters<typeof orvalFetch>[1]): Promise<autoRoutingPoliciesControllerRemoveResponse> => {
+
+  return orvalFetch<autoRoutingPoliciesControllerRemoveResponse>(getAutoRoutingPoliciesControllerRemoveUrl(orgId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getAutoRoutingPoliciesControllerRemoveQueryKey = (orgId: string,) => {
+    return [
+    'DELETE', `/api/v1/orgs/${orgId}/routing/auto`
+    ] as const;
+    }
+
+
+export const getAutoRoutingPoliciesControllerRemoveQueryOptions = <TData = Awaited<ReturnType<typeof autoRoutingPoliciesControllerRemove>>, TError = unknown>(orgId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof autoRoutingPoliciesControllerRemove>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getAutoRoutingPoliciesControllerRemoveQueryKey(orgId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof autoRoutingPoliciesControllerRemove>>> = ({ signal }) => autoRoutingPoliciesControllerRemove(orgId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: orgId !== null && orgId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof autoRoutingPoliciesControllerRemove>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type AutoRoutingPoliciesControllerRemoveQueryResult = NonNullable<Awaited<ReturnType<typeof autoRoutingPoliciesControllerRemove>>>
+export type AutoRoutingPoliciesControllerRemoveQueryError = unknown
+
+
+export function useAutoRoutingPoliciesControllerRemove<TData = Awaited<ReturnType<typeof autoRoutingPoliciesControllerRemove>>, TError = unknown>(
+ orgId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof autoRoutingPoliciesControllerRemove>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof autoRoutingPoliciesControllerRemove>>,
+          TError,
+          Awaited<ReturnType<typeof autoRoutingPoliciesControllerRemove>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useAutoRoutingPoliciesControllerRemove<TData = Awaited<ReturnType<typeof autoRoutingPoliciesControllerRemove>>, TError = unknown>(
+ orgId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof autoRoutingPoliciesControllerRemove>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof autoRoutingPoliciesControllerRemove>>,
+          TError,
+          Awaited<ReturnType<typeof autoRoutingPoliciesControllerRemove>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useAutoRoutingPoliciesControllerRemove<TData = Awaited<ReturnType<typeof autoRoutingPoliciesControllerRemove>>, TError = unknown>(
+ orgId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof autoRoutingPoliciesControllerRemove>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useAutoRoutingPoliciesControllerRemove<TData = Awaited<ReturnType<typeof autoRoutingPoliciesControllerRemove>>, TError = unknown>(
+ orgId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof autoRoutingPoliciesControllerRemove>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getAutoRoutingPoliciesControllerRemoveQueryOptions(orgId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export type autoRoutingPoliciesControllerPutKeyResponse200 = {
+  data: AutoRoutingPoliciesControllerPutKey200
+  status: 200
+}
+
+export type autoRoutingPoliciesControllerPutKeyResponseSuccess = (autoRoutingPoliciesControllerPutKeyResponse200) & {
+  headers: Headers;
+};
+;
+
+export type autoRoutingPoliciesControllerPutKeyResponse = (autoRoutingPoliciesControllerPutKeyResponseSuccess)
+
+export const getAutoRoutingPoliciesControllerPutKeyUrl = (orgId: string,
+    keyId: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/routing/auto/keys/${keyId}`
+}
+
+export const autoRoutingPoliciesControllerPutKey = async (orgId: string,
+    keyId: string,
+    autoRoutingPoliciesControllerPutKeyBody: AutoRoutingPoliciesControllerPutKeyBody, options?: Parameters<typeof orvalFetch>[1]): Promise<autoRoutingPoliciesControllerPutKeyResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return orvalFetch<autoRoutingPoliciesControllerPutKeyResponse>(getAutoRoutingPoliciesControllerPutKeyUrl(orgId,keyId),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(autoRoutingPoliciesControllerPutKeyBody)
+  }
+);}
+
+
+
+
+
+export const getAutoRoutingPoliciesControllerPutKeyQueryKey = (orgId: string,
+    keyId: string,
+    autoRoutingPoliciesControllerPutKeyBody?: AutoRoutingPoliciesControllerPutKeyBody,) => {
+    return [
+    'PUT', `/api/v1/orgs/${orgId}/routing/auto/keys/${keyId}`, autoRoutingPoliciesControllerPutKeyBody
+    ] as const;
+    }
+
+
+export const getAutoRoutingPoliciesControllerPutKeyQueryOptions = <TData = Awaited<ReturnType<typeof autoRoutingPoliciesControllerPutKey>>, TError = unknown>(orgId: string,
+    keyId: string,
+    autoRoutingPoliciesControllerPutKeyBody: AutoRoutingPoliciesControllerPutKeyBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof autoRoutingPoliciesControllerPutKey>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getAutoRoutingPoliciesControllerPutKeyQueryKey(orgId,keyId,autoRoutingPoliciesControllerPutKeyBody);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof autoRoutingPoliciesControllerPutKey>>> = ({ signal }) => autoRoutingPoliciesControllerPutKey(orgId,keyId,autoRoutingPoliciesControllerPutKeyBody, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: orgId !== null && orgId !== undefined && keyId !== null && keyId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof autoRoutingPoliciesControllerPutKey>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type AutoRoutingPoliciesControllerPutKeyQueryResult = NonNullable<Awaited<ReturnType<typeof autoRoutingPoliciesControllerPutKey>>>
+export type AutoRoutingPoliciesControllerPutKeyQueryError = unknown
+
+
+export function useAutoRoutingPoliciesControllerPutKey<TData = Awaited<ReturnType<typeof autoRoutingPoliciesControllerPutKey>>, TError = unknown>(
+ orgId: string,
+    keyId: string,
+    autoRoutingPoliciesControllerPutKeyBody: AutoRoutingPoliciesControllerPutKeyBody, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof autoRoutingPoliciesControllerPutKey>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof autoRoutingPoliciesControllerPutKey>>,
+          TError,
+          Awaited<ReturnType<typeof autoRoutingPoliciesControllerPutKey>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useAutoRoutingPoliciesControllerPutKey<TData = Awaited<ReturnType<typeof autoRoutingPoliciesControllerPutKey>>, TError = unknown>(
+ orgId: string,
+    keyId: string,
+    autoRoutingPoliciesControllerPutKeyBody: AutoRoutingPoliciesControllerPutKeyBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof autoRoutingPoliciesControllerPutKey>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof autoRoutingPoliciesControllerPutKey>>,
+          TError,
+          Awaited<ReturnType<typeof autoRoutingPoliciesControllerPutKey>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useAutoRoutingPoliciesControllerPutKey<TData = Awaited<ReturnType<typeof autoRoutingPoliciesControllerPutKey>>, TError = unknown>(
+ orgId: string,
+    keyId: string,
+    autoRoutingPoliciesControllerPutKeyBody: AutoRoutingPoliciesControllerPutKeyBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof autoRoutingPoliciesControllerPutKey>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useAutoRoutingPoliciesControllerPutKey<TData = Awaited<ReturnType<typeof autoRoutingPoliciesControllerPutKey>>, TError = unknown>(
+ orgId: string,
+    keyId: string,
+    autoRoutingPoliciesControllerPutKeyBody: AutoRoutingPoliciesControllerPutKeyBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof autoRoutingPoliciesControllerPutKey>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getAutoRoutingPoliciesControllerPutKeyQueryOptions(orgId,keyId,autoRoutingPoliciesControllerPutKeyBody,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export type autoRoutingPoliciesControllerRemoveKeyResponse204 = {
+  data: void
+  status: 204
+}
+
+export type autoRoutingPoliciesControllerRemoveKeyResponseSuccess = (autoRoutingPoliciesControllerRemoveKeyResponse204) & {
+  headers: Headers;
+};
+;
+
+export type autoRoutingPoliciesControllerRemoveKeyResponse = (autoRoutingPoliciesControllerRemoveKeyResponseSuccess)
+
+export const getAutoRoutingPoliciesControllerRemoveKeyUrl = (orgId: string,
+    keyId: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/routing/auto/keys/${keyId}`
+}
+
+export const autoRoutingPoliciesControllerRemoveKey = async (orgId: string,
+    keyId: string, options?: Parameters<typeof orvalFetch>[1]): Promise<autoRoutingPoliciesControllerRemoveKeyResponse> => {
+
+  return orvalFetch<autoRoutingPoliciesControllerRemoveKeyResponse>(getAutoRoutingPoliciesControllerRemoveKeyUrl(orgId,keyId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getAutoRoutingPoliciesControllerRemoveKeyQueryKey = (orgId: string,
+    keyId: string,) => {
+    return [
+    'DELETE', `/api/v1/orgs/${orgId}/routing/auto/keys/${keyId}`
+    ] as const;
+    }
+
+
+export const getAutoRoutingPoliciesControllerRemoveKeyQueryOptions = <TData = Awaited<ReturnType<typeof autoRoutingPoliciesControllerRemoveKey>>, TError = unknown>(orgId: string,
+    keyId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof autoRoutingPoliciesControllerRemoveKey>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getAutoRoutingPoliciesControllerRemoveKeyQueryKey(orgId,keyId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof autoRoutingPoliciesControllerRemoveKey>>> = ({ signal }) => autoRoutingPoliciesControllerRemoveKey(orgId,keyId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: orgId !== null && orgId !== undefined && keyId !== null && keyId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof autoRoutingPoliciesControllerRemoveKey>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type AutoRoutingPoliciesControllerRemoveKeyQueryResult = NonNullable<Awaited<ReturnType<typeof autoRoutingPoliciesControllerRemoveKey>>>
+export type AutoRoutingPoliciesControllerRemoveKeyQueryError = unknown
+
+
+export function useAutoRoutingPoliciesControllerRemoveKey<TData = Awaited<ReturnType<typeof autoRoutingPoliciesControllerRemoveKey>>, TError = unknown>(
+ orgId: string,
+    keyId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof autoRoutingPoliciesControllerRemoveKey>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof autoRoutingPoliciesControllerRemoveKey>>,
+          TError,
+          Awaited<ReturnType<typeof autoRoutingPoliciesControllerRemoveKey>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useAutoRoutingPoliciesControllerRemoveKey<TData = Awaited<ReturnType<typeof autoRoutingPoliciesControllerRemoveKey>>, TError = unknown>(
+ orgId: string,
+    keyId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof autoRoutingPoliciesControllerRemoveKey>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof autoRoutingPoliciesControllerRemoveKey>>,
+          TError,
+          Awaited<ReturnType<typeof autoRoutingPoliciesControllerRemoveKey>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useAutoRoutingPoliciesControllerRemoveKey<TData = Awaited<ReturnType<typeof autoRoutingPoliciesControllerRemoveKey>>, TError = unknown>(
+ orgId: string,
+    keyId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof autoRoutingPoliciesControllerRemoveKey>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useAutoRoutingPoliciesControllerRemoveKey<TData = Awaited<ReturnType<typeof autoRoutingPoliciesControllerRemoveKey>>, TError = unknown>(
+ orgId: string,
+    keyId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof autoRoutingPoliciesControllerRemoveKey>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getAutoRoutingPoliciesControllerRemoveKeyQueryOptions(orgId,keyId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}

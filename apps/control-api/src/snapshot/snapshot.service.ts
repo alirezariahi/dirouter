@@ -178,6 +178,7 @@ export class SnapshotService implements OnModuleInit, OnModuleDestroy {
       routingRules,
       trafficSplits,
       shadowPolicies,
+      autoPolicies,
       routingPolicies,
     ] = await Promise.all([
       db.provider.findMany({
@@ -222,6 +223,8 @@ export class SnapshotService implements OnModuleInit, OnModuleDestroy {
       db.trafficSplit.findMany({ orderBy: { id: 'asc' } }),
       // Shadow traffic (card 32.4).
       db.shadowPolicy.findMany({ orderBy: { id: 'asc' } }),
+      // Controls of automatic routing (card 32.8).
+      db.autoRoutingPolicy.findMany({ orderBy: { id: 'asc' } }),
       // Routing policies (cards 32.1, 32.5 and 32.7).
       db.routingPolicySetting.findMany({
         orderBy: [{ organizationId: 'asc' }, { scope: 'asc' }, { scopeId: 'asc' }],
@@ -515,6 +518,21 @@ export class SnapshotService implements OnModuleInit, OnModuleDestroy {
               dailyBudgetUsd: usd(p.dailyBudgetUsd) ?? '0',
               ...(p.projectId ? { projectId: p.projectId } : {}),
               timeoutMs: p.timeoutMs,
+            })),
+          }
+        : {}),
+      // Cost tier and model sets of automatic routing (card 32.8); absent while nobody has one.
+      ...(autoPolicies.length > 0
+        ? {
+            autoPolicies: autoPolicies.map((p) => ({
+              organizationId: p.organizationId,
+              scope: p.scope as 'organization' | 'key',
+              scopeId: p.scopeId,
+              ...(p.costTier ? { costTier: p.costTier as 'low' | 'medium' | 'high' } : {}),
+              allowedModels: p.allowedModels,
+              deniedModels: p.deniedModels,
+              locked: p.locked,
+              reasoningEffort: p.reasoningEffort as 'auto' | 'off',
             })),
           }
         : {}),

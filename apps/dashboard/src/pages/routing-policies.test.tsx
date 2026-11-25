@@ -275,6 +275,52 @@ describe('routing policies page', () => {
     });
   });
 
+  it('sets the organization auto policy with a lock and shows model tiers (card 32.8)', async () => {
+    const calls = mockApi((path, method) => {
+      if (path.endsWith('/routing/auto') && method === 'GET')
+        return {
+          status: 200,
+          body: {
+            organization: {
+              scope: 'organization',
+              scopeId: 'org_1',
+              costTier: 'medium',
+              allowedModels: ['cheap'],
+              deniedModels: [],
+              locked: false,
+              reasoningEffort: 'auto',
+            },
+            keys: [],
+            tiers: { lowMaxPerMTok: '1', mediumMaxPerMTok: '10' },
+            models: [
+              { slug: 'cheap', blendedPerMTok: 0.1, tier: 'low' },
+              { slug: 'big', blendedPerMTok: 30, tier: 'high' },
+            ],
+          },
+        };
+      if (path.endsWith('/keys')) return { status: 200, body: [{ id: 'vk_1', name: 'ci' }] };
+      if (path.endsWith('/routing/auto') && method === 'PUT') return { status: 200, body: {} };
+      return undefined;
+    });
+    await renderPage();
+    fireEvent.click(await screen.findByRole('radio', { name: 'Auto controls' }));
+    expect((await screen.findByTestId('auto-model-tiers')).textContent).toContain('big · High');
+    fireEvent.change(screen.getAllByLabelText('Cost tier')[0] as HTMLElement, {
+      target: { value: 'low' },
+    });
+    fireEvent.click(screen.getByLabelText('Administrator lock (keys can only narrow it)'));
+    fireEvent.click(screen.getAllByRole('button', { name: 'Save' })[0] as HTMLElement);
+    await vi.waitFor(() => {
+      expect(calls.find((c) => c.method === 'PUT')?.body).toEqual({
+        costTier: 'low',
+        allowedModels: ['cheap'],
+        deniedModels: [],
+        reasoningEffort: 'auto',
+        locked: true,
+      });
+    });
+  });
+
   it('is read only without models:write', async () => {
     mockApi(
       (path) => (path.endsWith('/routing/rules') ? { status: 200, body: [RULE] } : undefined),

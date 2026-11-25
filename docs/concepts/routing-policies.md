@@ -152,3 +152,36 @@ traffic without anyone noticing.
 | `GET /orgs/:orgId/routing/shadows`                          | `models:read`  |
 | `POST /orgs/:orgId/routing/shadows`, `PATCH`/`DELETE …/:id` | `models:write` |
 | `GET /orgs/:orgId/routing/shadows/:id/report`               | `usage:read`   |
+
+## 4. Controls of automatic routing (card 32.8)
+
+An organization and each of its keys can tune `auto*` routing without building a combo:
+
+- **Cost tier** `low`, `medium` or `high`. A model's tier comes from its price per million tokens
+  blended 3:1 (three input tokens per output token): `low` up to $1, `medium` up to $10, `high`
+  above (instance-wide in `settings.autoRouting.costTiers`).
+- **Allowed and denied models**: slugs or `*` patterns (`openai/*`). An empty allowed set means
+  every model; a denied model is out whoever allows it.
+- **Administrator lock** (organization only): a key's own policy can then only narrow it (the
+  cheaper tier, both allowed sets, every denied model). Saving a key policy that would widen a
+  locked one is refused with a 400.
+- **Reasoning effort**: with `auto` (default) automatic routing picks an effort when the client
+  sent none and the chosen model can reason: more for reasoning and large coding work, the least for
+  chat, never above the tier (`low` keeps it `low`). `off` leaves it to the client.
+
+The policy filters concrete models twice: the names `auto*` chooses between (a name whose models
+are all excluded is not a choice; the cheapest capable pool entry that remains is used instead) and
+the resolved candidates, so a combo's fallback cannot bring an expensive or excluded model back.
+Hence with `low` no request reaches a model above the `low` ceiling and a model outside the allowed
+set is never selected; when nothing remains the request gets a 404 or 403 naming the policy. Names
+the client asks for directly are not affected.
+
+The decision records the tier (`routing.costTier`), the chosen effort (`routing.reasoningEffort`)
+and the reasons, e.g. `cost tier low: up to $1 per million tokens`, `allowed models: …` and
+`reasoning effort medium`.
+
+| Method and path                                                                 | Permission     |
+| ------------------------------------------------------------------------------- | -------------- |
+| `GET /orgs/:orgId/routing/auto` (both levels, tier ceilings, each model's tier) | `models:read`  |
+| `PUT`/`DELETE /orgs/:orgId/routing/auto`                                        | `models:write` |
+| `PUT`/`DELETE /orgs/:orgId/routing/auto/keys/:keyId`                            | `keys:write`   |

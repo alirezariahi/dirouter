@@ -331,3 +331,32 @@ export type ShadowTrace = z.infer<typeof ShadowTrace>;
 /** Valkey counter of a shadow policy's spend per UTC day, in 1e-8 dollars. */
 export const shadowSpendKey = (policyId: string, day: string): string =>
   `dirouter:shadow:spend:${policyId}:${day}`;
+
+/** How much `auto*` routing may spend (card 32.8); thresholds are in the gateway settings. */
+export const AutoCostTier = z.enum(['low', 'medium', 'high']);
+export type AutoCostTier = z.infer<typeof AutoCostTier>;
+
+/** Model slug or a glob with `*` (e.g. `openai/*`). */
+const ModelPattern = z.string().min(1).max(200);
+
+/**
+ * Controls of automatic routing (card 32.8) for an organization or one key. The cost tier keeps
+ * `auto*` away from models priced above it; the allowed and denied sets name the models it may
+ * pick. An organization policy with `locked` set is an administrator's ceiling: a key policy can
+ * then only narrow it (the cheaper tier, both allowed sets, every denied model), never widen it.
+ */
+export const AutoRoutingPolicyConfig = z.object({
+  organizationId: z.string(),
+  scope: z.enum(['organization', 'key']),
+  /** The organization id or the key id. */
+  scopeId: z.string(),
+  costTier: AutoCostTier.optional(),
+  /** Empty means every model. */
+  allowedModels: z.array(ModelPattern).max(200).default([]),
+  deniedModels: z.array(ModelPattern).max(200).default([]),
+  /** Organization scope only: keys cannot widen this policy. */
+  locked: z.boolean().default(false),
+  /** `auto` lets automatic routing pick a reasoning effort when the client sent none. */
+  reasoningEffort: z.enum(['auto', 'off']).default('auto'),
+});
+export type AutoRoutingPolicyConfig = z.infer<typeof AutoRoutingPolicyConfig>;

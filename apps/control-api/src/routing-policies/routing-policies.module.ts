@@ -4,6 +4,8 @@ import { OrgGuard } from '../rbac/org.guard.js';
 import { RoutingPoliciesController } from './routing-policies.controller.js';
 import { RoutingPoliciesService } from './routing-policies.service.js';
 import { RoutingRulesController } from './rules.controller.js';
+import { AutoRoutingPoliciesController } from './auto.controller.js';
+import { AutoRoutingPoliciesService } from './auto.service.js';
 import { RoutingRulesService } from './rules.service.js';
 import { TrafficSplitsController } from './splits.controller.js';
 import { TrafficSplitsService } from './splits.service.js';
@@ -20,12 +22,14 @@ import { ShadowPoliciesService } from './shadows.service.js';
     RoutingRulesController,
     TrafficSplitsController,
     ShadowPoliciesController,
+    AutoRoutingPoliciesController,
   ],
   providers: [
     RoutingPoliciesService,
     RoutingRulesService,
     TrafficSplitsService,
     ShadowPoliciesService,
+    AutoRoutingPoliciesService,
     OrgGuard,
   ],
 })

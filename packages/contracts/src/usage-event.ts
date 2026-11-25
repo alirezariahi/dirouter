@@ -139,6 +139,9 @@ export const UsageEvent = z.object({
       source: z.enum(['rules', 'model', 'fixed']),
       reasons: z.array(z.string()),
       classifierMicros: NonNegativeInt.optional(),
+      /** The cost tier the decision was held to and the reasoning effort it chose (card 32.8). */
+      costTier: z.enum(['low', 'medium', 'high']).optional(),
+      reasoningEffort: z.enum(['minimal', 'low', 'medium', 'high']).optional(),
     })
     .optional(),
   /** What the organization's routing policies did to the request (sprint 5, cards 32.x). */

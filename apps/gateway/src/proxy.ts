@@ -140,6 +140,7 @@ import {
 import { resolveCredentialKey, tokenFailure } from './credential-tokens.js';
 import { callUpstream, mergeTimeouts, readErrorBody, UpstreamTimeout } from './upstream.js';
 import { applyRoutingRules, applyTrafficSplit } from './routing-policy.js';
+import { type AutoControls, autoControls } from './auto-controls.js';
 import { type ShadowRunner, shadowPolicyFor } from './shadow.js';
 import type { WebSearchExtension } from './web-search.js';
 import {
@@ -818,6 +819,9 @@ async function proxyRequest(
   // Automatic model choice for the `auto*` aliases (card 20.4), unless the organization defines a
   // model, alias or combo of that name itself, or the key may not use the alias.
   let routing: UsageEvent['routing'];
+  // Cost tier and model sets of automatic routing (card 32.8), with the classification they use.
+  let controls: AutoControls | undefined;
+  let autoClassification: ReturnType<typeof classifyRequest> | undefined;
   const autoRouting = settings.autoRouting;
   if (
     autoRouting?.enabled &&
@@ -843,12 +847,15 @@ async function proxyRequest(
         source = 'model';
       }
     }
+    const held = autoControls(config, key);
+    controls = held;
+    autoClassification = classification;
     const decision = decideAuto(
       alias,
       autoRouting,
       classification,
       {
-        modelsOf: (name) => config.router.modelsFor(key, name),
+        modelsOf: (name) => held.permitted(config.router.modelsFor(key, name)),
         stats: config.router.stats,
         estimatedInputTokens,
         maxOutputTokens: canonical.maxOutputTokens ?? 1_024,
@@ -867,7 +874,12 @@ async function proxyRequest(
       observeEarly(reply.statusCode);
       return;
     }
-    routing = { ...decision, classifierMicros: Math.round(classifierElapsed * 1_000) };
+    routing = {
+      ...decision,
+      reasons: [...decision.reasons, ...held.reasons()],
+      classifierMicros: Math.round(classifierElapsed * 1_000),
+      ...(held.policy?.costTier ? { costTier: held.policy.costTier } : {}),
+    };
     void reply.header('x-dirouter-auto', `${decision.target}; type=${classification.taskType}`);
     deps.logger.debug({ requestId, routing }, 'auto routing decision');
   }
@@ -917,6 +929,32 @@ async function proxyRequest(
     finishSpan('error', { 'gateway.error': route.error });
     observeEarly(reply.statusCode);
     return;
+  }
+
+  // The automatic routing policy (card 32.8) holds every candidate, so a combo's fallback cannot
+  // bring an expensive or excluded model back; `auto` also picks a reasoning effort.
+  if (routing && controls && autoClassification) {
+    const problem = controls.restrict(route);
+    if (problem) {
+      sendError(
+        reply,
+        api,
+        new ForbiddenError('model_not_allowed', { message: problem, param: 'model' }),
+        requestId,
+      );
+      finishSpan('error', { 'gateway.error': 'auto_policy' });
+      observeEarly(reply.statusCode);
+      return;
+    }
+    const effort = controls.effort(autoClassification, route, canonical.reasoning?.effort);
+    if (effort) {
+      canonical = { ...canonical, reasoning: { ...canonical.reasoning, effort } };
+      routing = {
+        ...routing,
+        reasoningEffort: effort,
+        reasons: [...routing.reasons, `reasoning effort ${effort}`],
+      };
+    }
   }
 
   // Documents and audio (card 27.2) only go to targets that can take them; when none can, the

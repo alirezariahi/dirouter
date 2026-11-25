@@ -5,19 +5,21 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { AutoPanel } from '../components/routing-policies/auto-panel';
 import { RulesPanel } from '../components/routing-policies/rules-panel';
 import { ShadowsPanel } from '../components/routing-policies/shadows-panel';
 import { SplitsPanel } from '../components/routing-policies/splits-panel';
 import { PageHeader, Segmented } from '../components/s2/common';
 import { can, currentOrg, useSession } from '../lib/session';
 
-const TABS = ['rules', 'splits', 'shadows'] as const;
+const TABS = ['rules', 'splits', 'shadows', 'auto'] as const;
 type Tab = (typeof TABS)[number];
 
 const PANELS: Record<Tab, typeof RulesPanel> = {
   rules: RulesPanel,
   splits: SplitsPanel,
   shadows: ShadowsPanel,
+  auto: AutoPanel,
 };
 
 export default function RoutingPoliciesPage() {

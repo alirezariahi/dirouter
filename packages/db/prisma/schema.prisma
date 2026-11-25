@@ -82,6 +82,7 @@ model Organization {
   routingRules     RoutingRule[]
   trafficSplits    TrafficSplit[]
   shadowPolicies   ShadowPolicy[]
+  autoPolicies     AutoRoutingPolicy[]
   @@map("organizations")
 }
 
@@ -1724,6 +1725,31 @@ model ShadowRequest {
 
   @@index([organizationId, policyId, createdAt])
   @@map("shadow_requests")
+}
+
+/// Controls of automatic routing (card 32.8) for an organization or one of its keys.
+model AutoRoutingPolicy {
+  id              String   @id
+  organizationId  String   @map("organization_id")
+  /// `organization` or `key`
+  scope           String
+  /// The organization id or the key id.
+  scopeId         String   @map("scope_id")
+  /// `low`, `medium` or `high`; null means no ceiling.
+  costTier        String?  @map("cost_tier")
+  allowedModels   String[] @default([]) @map("allowed_models")
+  deniedModels    String[] @default([]) @map("denied_models")
+  /// Organization scope only: keys can narrow but never widen the policy.
+  locked          Boolean  @default(false)
+  /// `auto` or `off`
+  reasoningEffort String   @default("auto") @map("reasoning_effort")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, scope, scopeId])
+  @@map("auto_routing_policies")
 }
 
 /// Routing policies per organization, project or key (cards 32.1, 32.5 and 32.7): provider

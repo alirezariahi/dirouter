@@ -1,10 +1,18 @@
-/** Routing policies page (sprint 5): conditional rules (32.2) and traffic splits (32.3) and shadow traffic (32.4). */
+/**
+ * Routing policies page (sprint 5): conditional rules (32.2), traffic splits (32.3), shadow
+ * traffic (32.4) and automatic routing controls (32.8).
+ */
 export const routingPoliciesFa = {
   title: 'سیاست‌های مسیریابی',
   subtitle:
     'قانون‌هایی که پیش از انتخاب مدل روی هر درخواست اجرا می‌شوند. تغییرها چند ثانیه بعد به گیت‌وی می‌رسند.',
   readOnly: 'برای تغییر سیاست‌ها مجوز models:write لازم است.',
-  tabs: { rules: 'قانون‌های شرطی', splits: 'canary و تقسیم ترافیک', shadows: 'ترافیک سایه' },
+  tabs: {
+    rules: 'قانون‌های شرطی',
+    splits: 'canary و تقسیم ترافیک',
+    shadows: 'ترافیک سایه',
+    auto: 'کنترل auto',
+  },
   rules: {
     help: 'قانون‌ها به ترتیب اولویت (عدد کمتر اول) بررسی می‌شوند. اولین «ارسال» یا «رد» تصمیم می‌گیرد؛ «برچسب» فقط برچسب می‌زند و ادامه می‌دهد.',
     none: 'هنوز قانونی ندارید.',
@@ -94,6 +102,27 @@ export const routingPoliciesFa = {
     today: 'هزینهٔ سایهٔ امروز: {{spent}} از {{cap}}',
     capped: 'سقف امروز پر شده است؛ تا فردا نسخهٔ سایه‌ای فرستاده نمی‌شود.',
   },
+  auto: {
+    help: 'رفتار مسیریابی خودکار (auto) را بدون ساختن combo تنظیم کنید: سطح هزینه، مدل‌های مجاز و ممنوع و reasoning effort. با قفل ادمین، کلیدها فقط می‌توانند محدودترش کنند.',
+    organization: 'سیاست سازمان',
+    keyTitle: 'سیاست یک کلید',
+    key: 'کلید',
+    costTier: 'سطح هزینه',
+    tiers: { none: 'بدون سقف', low: 'کم', medium: 'متوسط', high: 'زیاد' },
+    tierHelp:
+      'کم: تا {{low}} دلار و متوسط: تا {{medium}} دلار برای هر میلیون توکن (ترکیب ۳ ورودی به ۱ خروجی).',
+    allowed: 'مدل‌های مجاز (هر خط یک نام یا الگو با *؛ خالی یعنی همه)',
+    denied: 'مدل‌های ممنوع',
+    locked: 'قفل ادمین (کلیدها فقط می‌توانند محدودتر کنند)',
+    reasoningEffort: 'reasoning effort',
+    effort: { auto: 'auto انتخاب کند', off: 'به عهدهٔ مشتری' },
+    save: 'ذخیره',
+    remove: 'حذف سیاست',
+    keys: 'سیاست کلیدها',
+    noKeys: 'هیچ کلیدی سیاست خودش را ندارد.',
+    models: 'سطح هزینهٔ مدل‌ها',
+    saved: 'ذخیره شد.',
+  },
   simulator: {
     title: 'ورودی‌های قانون‌های مسیریابی',
     headers: 'هدرها (هر خط name: value)',
@@ -114,7 +143,12 @@ export const routingPoliciesEn = {
   subtitle:
     'Rules that run on every request before a model is chosen. Changes reach the gateway within seconds.',
   readOnly: 'Changing policies needs the models:write permission.',
-  tabs: { rules: 'Conditional rules', splits: 'Canary and splits', shadows: 'Shadow traffic' },
+  tabs: {
+    rules: 'Conditional rules',
+    splits: 'Canary and splits',
+    shadows: 'Shadow traffic',
+    auto: 'Auto controls',
+  },
   rules: {
     help: 'Rules run in priority order (lowest first). The first “route” or “reject” decides; “tag” only labels the request and goes on.',
     none: 'No rules yet.',
@@ -203,6 +237,27 @@ export const routingPoliciesEn = {
     cost: 'Cost',
     today: 'Shadow spend today: {{spent}} of {{cap}}',
     capped: 'Today’s cap is reached; no shadow copies until tomorrow.',
+  },
+  auto: {
+    help: 'Tune automatic routing (auto) without building a combo: a cost tier, allowed and denied models, and the reasoning effort. With the administrator lock, keys can only narrow it.',
+    organization: 'Organization policy',
+    keyTitle: 'Policy of one key',
+    key: 'Key',
+    costTier: 'Cost tier',
+    tiers: { none: 'No ceiling', low: 'Low', medium: 'Medium', high: 'High' },
+    tierHelp:
+      'Low: up to ${{low}} and medium: up to ${{medium}} per million tokens (3 input to 1 output).',
+    allowed: 'Allowed models (one name or * pattern per line; empty means all)',
+    denied: 'Denied models',
+    locked: 'Administrator lock (keys can only narrow it)',
+    reasoningEffort: 'Reasoning effort',
+    effort: { auto: 'Chosen by auto', off: 'Left to the client' },
+    save: 'Save',
+    remove: 'Remove policy',
+    keys: 'Key policies',
+    noKeys: 'No key has its own policy.',
+    models: 'Cost tier of each model',
+    saved: 'Saved.',
   },
   simulator: {
     title: 'Routing rule inputs',
