@@ -1,5 +1,6 @@
 {
   "name": "dirouter",
+  "license": "Apache-2.0",
   "description": "DiRouter — a smart, resilient LLM gateway",
   "private": true,
   "packageManager": "pnpm@10.13.1",

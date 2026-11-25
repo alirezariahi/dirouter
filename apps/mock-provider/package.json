@@ -1,5 +1,6 @@
 {
   "name": "@dirouter/mock-provider",
+  "license": "Apache-2.0",
   "version": "1.1.0",
   "private": true,
   "description": "Mock provider with fault injection for tests",
