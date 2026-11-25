@@ -265,8 +265,16 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('models, aliases and combos over H
       contextWindow: 1047576,
     });
     expect((await call('POST', 'models/sync-catalog')).json()).toMatchObject({ updated: 0 });
-    // A manual price no longer follows the catalog.
+    // A manual price no longer follows the catalog (card 27.5: the key stays, the price is the org's).
     const manual = await call('PATCH', `models/${m.a}`, { pricing: { inputPerMTok: '1.5' } });
-    expect(manual.json()).toMatchObject({ catalogKey: null, pricing: { inputPerMTok: '1.5' } });
+    expect(manual.json()).toMatchObject({
+      catalogKey: 'openai/gpt-4.1',
+      priceOverride: true,
+      pricing: { inputPerMTok: '1.5' },
+    });
+    expect((await call('POST', 'models/sync-catalog')).json()).toMatchObject({ updated: 0 });
+    expect((await call('GET', `models/${m.a}`)).json()).toMatchObject({
+      pricing: { inputPerMTok: '1.5' },
+    });
   });
 });

@@ -1,4 +1,4 @@
-import { UpstreamErrorClass } from '@dirouter/contracts';
+import { DiscountFraction, PricingTier, UpstreamErrorClass } from '@dirouter/contracts';
 import {
   Body,
   Controller,
@@ -31,6 +31,9 @@ const Pricing = z.object({
   perImageUsd: Usd.optional(),
   perMCharUsd: Usd.optional(),
   perSecondUsd: Usd.optional(),
+  /** Context-length tiers and batch discount (card 27.5). */
+  tiers: z.array(PricingTier).max(8).optional(),
+  batchDiscount: DiscountFraction.optional(),
 });
 const Capabilities = z.object({
   streaming: z.boolean().optional(),
@@ -68,7 +71,12 @@ export const ModelBody = z.object({
   isPublic: z.boolean().optional(),
   sale: Sale.optional(),
 });
-export const ModelPatch = ModelBody.omit({ providerId: true, upstreamModel: true }).partial();
+export const ModelPatch = ModelBody.omit({ providerId: true, upstreamModel: true })
+  .partial()
+  .extend({
+    /** Drop the organization's own price and follow the catalog entry again (card 27.5). */
+    followCatalog: z.boolean().optional(),
+  });
 export const AliasBody = z.object({
   slug: Name,
   modelId: z.string().optional(),
@@ -126,6 +134,9 @@ const ModelView = z.object({
   pricing: Pricing,
   capabilities: z.unknown(),
   catalogKey: z.string().nullable(),
+  /** Priced by hand: catalog syncs and approved price changes leave it alone (card 27.5). */
+  priceOverride: z.boolean(),
+  deprecationDate: z.string().nullable(),
   isPublic: z.boolean(),
   sale: z.object({
     multiplier: z.string(),

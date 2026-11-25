@@ -26,3 +26,4 @@ export * from './ledger.js';
 export * from './subscriptions.js';
 export * from './invoices.js';
 export * from './tax.js';
+export * from './catalog.js';

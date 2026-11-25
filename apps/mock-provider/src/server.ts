@@ -24,6 +24,7 @@ import {
 } from './structured.js';
 import { registerMcp } from './mcp.js';
 import { registerMedia, registerWorkersAi } from './media.js';
+import { registerCatalog } from './catalog.js';
 import { registerOAuth } from './oauth.js';
 import { type PaymentMockOptions, registerPayments } from './payments.js';
 
@@ -658,6 +659,7 @@ export function buildServer(options: MockServerOptions = {}) {
   registerMedia(app);
   registerWorkersAi(app);
   registerBedrock(app, { record });
+  registerCatalog(app);
 
   app.get('/healthz', () => ({ status: 'ok' }));
   app.get('/__mock/stats', () => stats);

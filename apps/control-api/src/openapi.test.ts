@@ -27,6 +27,9 @@ const NO_BODY = [
   '/portal/oidc/start',
   '/portal/verify-email/resend',
   '/invoices/generate',
+  '/catalog-sync/run',
+  '/catalog-sync/proposals/{id}/approve',
+  '/catalog-sync/proposals/{id}/reject',
 ];
 
 describe('OpenAPI document', () => {

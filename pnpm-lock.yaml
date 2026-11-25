@@ -430,6 +430,9 @@ importers:
       '@dirouter/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@dirouter/model-catalog':
+        specifier: workspace:*
+        version: link:../../packages/model-catalog
       '@dirouter/shared':
         specifier: workspace:*
         version: link:../../packages/shared

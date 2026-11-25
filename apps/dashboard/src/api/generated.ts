@@ -2293,6 +2293,22 @@ export type ModelsControllerCatalog200 = {
   models: unknown[];
 };
 
+export type ModelsControllerList200ItemPricingTiersItem = {
+  /**
+     * @maximum 9007199254740991
+     * @exclusiveMinimum 0
+     */
+  aboveInputTokens: number;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  inputPerMTok: string;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  outputPerMTok: string;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  cacheReadPerMTok?: string;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  cacheWritePerMTok?: string;
+};
+
 export type ModelsControllerList200ItemPricing = {
   /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
   inputPerMTok: string;
@@ -2310,6 +2326,10 @@ export type ModelsControllerList200ItemPricing = {
   perMCharUsd?: string;
   /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
   perSecondUsd?: string;
+  /** @maxItems 8 */
+  tiers?: ModelsControllerList200ItemPricingTiersItem[];
+  /** @pattern ^(0(\.\d{1,6})?|1(\.0{1,6})?)$ */
+  batchDiscount?: string;
 };
 
 export type ModelsControllerList200ItemSale = {
@@ -2343,8 +2363,27 @@ export type ModelsControllerList200Item = {
   capabilities: unknown;
   /** @nullable */
   catalogKey: string | null;
+  priceOverride: boolean;
+  /** @nullable */
+  deprecationDate: string | null;
   isPublic: boolean;
   sale: ModelsControllerList200ItemSale;
+};
+
+export type ModelsControllerCreateBodyPricingTiersItem = {
+  /**
+     * @maximum 9007199254740991
+     * @exclusiveMinimum 0
+     */
+  aboveInputTokens: number;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  inputPerMTok: string;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  outputPerMTok: string;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  cacheReadPerMTok?: string;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  cacheWritePerMTok?: string;
 };
 
 export type ModelsControllerCreateBodyPricing = {
@@ -2364,6 +2403,10 @@ export type ModelsControllerCreateBodyPricing = {
   perMCharUsd?: string;
   /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
   perSecondUsd?: string;
+  /** @maxItems 8 */
+  tiers?: ModelsControllerCreateBodyPricingTiersItem[];
+  /** @pattern ^(0(\.\d{1,6})?|1(\.0{1,6})?)$ */
+  batchDiscount?: string;
 };
 
 export type ModelsControllerCreateBodyCapabilities = {
@@ -2430,6 +2473,22 @@ export type ModelsControllerCreateBody = {
   sale?: ModelsControllerCreateBodySale;
 };
 
+export type ModelsControllerCreate200PricingTiersItem = {
+  /**
+     * @maximum 9007199254740991
+     * @exclusiveMinimum 0
+     */
+  aboveInputTokens: number;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  inputPerMTok: string;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  outputPerMTok: string;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  cacheReadPerMTok?: string;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  cacheWritePerMTok?: string;
+};
+
 export type ModelsControllerCreate200Pricing = {
   /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
   inputPerMTok: string;
@@ -2447,6 +2506,10 @@ export type ModelsControllerCreate200Pricing = {
   perMCharUsd?: string;
   /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
   perSecondUsd?: string;
+  /** @maxItems 8 */
+  tiers?: ModelsControllerCreate200PricingTiersItem[];
+  /** @pattern ^(0(\.\d{1,6})?|1(\.0{1,6})?)$ */
+  batchDiscount?: string;
 };
 
 export type ModelsControllerCreate200Sale = {
@@ -2480,6 +2543,9 @@ export type ModelsControllerCreate200 = {
   capabilities: unknown;
   /** @nullable */
   catalogKey: string | null;
+  priceOverride: boolean;
+  /** @nullable */
+  deprecationDate: string | null;
   isPublic: boolean;
   sale: ModelsControllerCreate200Sale;
 };
@@ -2491,6 +2557,22 @@ export type ModelsControllerSync200 = {
      * @maximum 9007199254740991
      */
   updated: number;
+};
+
+export type ModelsControllerGet200PricingTiersItem = {
+  /**
+     * @maximum 9007199254740991
+     * @exclusiveMinimum 0
+     */
+  aboveInputTokens: number;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  inputPerMTok: string;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  outputPerMTok: string;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  cacheReadPerMTok?: string;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  cacheWritePerMTok?: string;
 };
 
 export type ModelsControllerGet200Pricing = {
@@ -2510,6 +2592,10 @@ export type ModelsControllerGet200Pricing = {
   perMCharUsd?: string;
   /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
   perSecondUsd?: string;
+  /** @maxItems 8 */
+  tiers?: ModelsControllerGet200PricingTiersItem[];
+  /** @pattern ^(0(\.\d{1,6})?|1(\.0{1,6})?)$ */
+  batchDiscount?: string;
 };
 
 export type ModelsControllerGet200Sale = {
@@ -2543,8 +2629,27 @@ export type ModelsControllerGet200 = {
   capabilities: unknown;
   /** @nullable */
   catalogKey: string | null;
+  priceOverride: boolean;
+  /** @nullable */
+  deprecationDate: string | null;
   isPublic: boolean;
   sale: ModelsControllerGet200Sale;
+};
+
+export type ModelsControllerUpdateBodyPricingTiersItem = {
+  /**
+     * @maximum 9007199254740991
+     * @exclusiveMinimum 0
+     */
+  aboveInputTokens: number;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  inputPerMTok: string;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  outputPerMTok: string;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  cacheReadPerMTok?: string;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  cacheWritePerMTok?: string;
 };
 
 export type ModelsControllerUpdateBodyPricing = {
@@ -2564,6 +2669,10 @@ export type ModelsControllerUpdateBodyPricing = {
   perMCharUsd?: string;
   /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
   perSecondUsd?: string;
+  /** @maxItems 8 */
+  tiers?: ModelsControllerUpdateBodyPricingTiersItem[];
+  /** @pattern ^(0(\.\d{1,6})?|1(\.0{1,6})?)$ */
+  batchDiscount?: string;
 };
 
 export type ModelsControllerUpdateBodyCapabilities = {
@@ -2622,6 +2731,23 @@ export type ModelsControllerUpdateBody = {
   catalogKey?: string | null;
   isPublic?: boolean;
   sale?: ModelsControllerUpdateBodySale;
+  followCatalog?: boolean;
+};
+
+export type ModelsControllerUpdate200PricingTiersItem = {
+  /**
+     * @maximum 9007199254740991
+     * @exclusiveMinimum 0
+     */
+  aboveInputTokens: number;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  inputPerMTok: string;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  outputPerMTok: string;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  cacheReadPerMTok?: string;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  cacheWritePerMTok?: string;
 };
 
 export type ModelsControllerUpdate200Pricing = {
@@ -2641,6 +2767,10 @@ export type ModelsControllerUpdate200Pricing = {
   perMCharUsd?: string;
   /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
   perSecondUsd?: string;
+  /** @maxItems 8 */
+  tiers?: ModelsControllerUpdate200PricingTiersItem[];
+  /** @pattern ^(0(\.\d{1,6})?|1(\.0{1,6})?)$ */
+  batchDiscount?: string;
 };
 
 export type ModelsControllerUpdate200Sale = {
@@ -2674,6 +2804,9 @@ export type ModelsControllerUpdate200 = {
   capabilities: unknown;
   /** @nullable */
   catalogKey: string | null;
+  priceOverride: boolean;
+  /** @nullable */
+  deprecationDate: string | null;
   isPublic: boolean;
   sale: ModelsControllerUpdate200Sale;
 };
@@ -3126,6 +3259,196 @@ export type ModelsControllerUpdateCombo200 = {
   sticky: boolean;
   hedging: unknown;
   isPublic: boolean;
+};
+
+export type CatalogSyncControllerStatus200SettingsMode = typeof CatalogSyncControllerStatus200SettingsMode[keyof typeof CatalogSyncControllerStatus200SettingsMode];
+
+
+export const CatalogSyncControllerStatus200SettingsMode = {
+  manual: 'manual',
+  auto: 'auto',
+} as const;
+
+export type CatalogSyncControllerStatus200Settings = {
+  enabled?: boolean;
+  /**
+     * @maxItems 5
+     * @items.maxLength 2048
+     */
+  sources?: string[];
+  mode?: CatalogSyncControllerStatus200SettingsMode;
+  /**
+     * @minimum 1
+     * @maximum 1000
+     */
+  maxChangeFactor?: number;
+};
+
+export type CatalogSyncControllerStatus200RunsItem = {
+  id: string;
+  status: string;
+  sources: string[];
+  mode: string;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     */
+  added: number;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     */
+  updated: number;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     */
+  repriced: number;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     */
+  proposed: number;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     */
+  removed: number;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     */
+  skipped: number;
+  /** @nullable */
+  error: string | null;
+  startedAt: string;
+  /** @nullable */
+  finishedAt: string | null;
+};
+
+export type CatalogSyncControllerStatus200 = {
+  settings: CatalogSyncControllerStatus200Settings;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     */
+  pendingProposals: number;
+  runs: CatalogSyncControllerStatus200RunsItem[];
+};
+
+export type CatalogSyncControllerSettingsBodyMode = typeof CatalogSyncControllerSettingsBodyMode[keyof typeof CatalogSyncControllerSettingsBodyMode];
+
+
+export const CatalogSyncControllerSettingsBodyMode = {
+  manual: 'manual',
+  auto: 'auto',
+} as const;
+
+export type CatalogSyncControllerSettingsBody = {
+  enabled?: boolean;
+  /**
+     * @maxItems 5
+     * @items.maxLength 2048
+     */
+  sources?: string[];
+  mode?: CatalogSyncControllerSettingsBodyMode;
+  /**
+     * @minimum 1
+     * @maximum 1000
+     */
+  maxChangeFactor?: number;
+};
+
+export type CatalogSyncControllerSettings200Mode = typeof CatalogSyncControllerSettings200Mode[keyof typeof CatalogSyncControllerSettings200Mode];
+
+
+export const CatalogSyncControllerSettings200Mode = {
+  manual: 'manual',
+  auto: 'auto',
+} as const;
+
+export type CatalogSyncControllerSettings200 = {
+  enabled?: boolean;
+  /**
+     * @maxItems 5
+     * @items.maxLength 2048
+     */
+  sources?: string[];
+  mode?: CatalogSyncControllerSettings200Mode;
+  /**
+     * @minimum 1
+     * @maximum 1000
+     */
+  maxChangeFactor?: number;
+};
+
+export type CatalogSyncControllerRun200 = {
+  queued: boolean;
+  /** @nullable */
+  jobId: string | null;
+};
+
+export type CatalogSyncControllerProposals200ItemStatus = typeof CatalogSyncControllerProposals200ItemStatus[keyof typeof CatalogSyncControllerProposals200ItemStatus];
+
+
+export const CatalogSyncControllerProposals200ItemStatus = {
+  pending: 'pending',
+  approved: 'approved',
+  rejected: 'rejected',
+  superseded: 'superseded',
+} as const;
+
+export type CatalogSyncControllerProposals200Item = {
+  id: string;
+  catalogKey: string;
+  source: string;
+  currentPricing: unknown;
+  proposedPricing: unknown;
+  /** @nullable */
+  changeFactor: string | null;
+  reason: string;
+  status: CatalogSyncControllerProposals200ItemStatus;
+  /** @nullable */
+  decidedById: string | null;
+  /** @nullable */
+  decidedAt: string | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  appliedModels: number | null;
+  createdAt: string;
+};
+
+export type CatalogSyncControllerApprove200Status = typeof CatalogSyncControllerApprove200Status[keyof typeof CatalogSyncControllerApprove200Status];
+
+
+export const CatalogSyncControllerApprove200Status = {
+  approved: 'approved',
+} as const;
+
+export type CatalogSyncControllerApprove200 = {
+  id: string;
+  status: CatalogSyncControllerApprove200Status;
+  catalogKey: string;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     */
+  appliedModels: number;
+};
+
+export type CatalogSyncControllerReject200Status = typeof CatalogSyncControllerReject200Status[keyof typeof CatalogSyncControllerReject200Status];
+
+
+export const CatalogSyncControllerReject200Status = {
+  rejected: 'rejected',
+} as const;
+
+export type CatalogSyncControllerReject200 = {
+  id: string;
+  status: CatalogSyncControllerReject200Status;
 };
 
 export type StatsControllerOverviewParams = {
@@ -14399,6 +14722,631 @@ export function useModelsControllerDeleteCombo<TData = Awaited<ReturnType<typeof
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getModelsControllerDeleteComboQueryOptions(orgId,id,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export type catalogSyncControllerStatusResponse200 = {
+  data: CatalogSyncControllerStatus200
+  status: 200
+}
+
+export type catalogSyncControllerStatusResponseSuccess = (catalogSyncControllerStatusResponse200) & {
+  headers: Headers;
+};
+;
+
+export type catalogSyncControllerStatusResponse = (catalogSyncControllerStatusResponseSuccess)
+
+export const getCatalogSyncControllerStatusUrl = (orgId: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/catalog-sync`
+}
+
+export const catalogSyncControllerStatus = async (orgId: string, options?: Parameters<typeof orvalFetch>[1]): Promise<catalogSyncControllerStatusResponse> => {
+
+  return orvalFetch<catalogSyncControllerStatusResponse>(getCatalogSyncControllerStatusUrl(orgId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getCatalogSyncControllerStatusMutationKey = () => ['catalogSyncControllerStatus'] as const;
+
+export const getCatalogSyncControllerStatusMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof catalogSyncControllerStatus>>, TError,CatalogSyncControllerStatusMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof catalogSyncControllerStatus>>, TError,CatalogSyncControllerStatusMutationVariables, TContext> => {
+
+const mutationKey = getCatalogSyncControllerStatusMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof catalogSyncControllerStatus>>, CatalogSyncControllerStatusMutationVariables> = (props) => {
+          const {orgId} = props ?? {};
+
+          return  catalogSyncControllerStatus(orgId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CatalogSyncControllerStatusMutationResult = NonNullable<Awaited<ReturnType<typeof catalogSyncControllerStatus>>>
+
+    export type CatalogSyncControllerStatusMutationError = unknown
+    export type CatalogSyncControllerStatusMutationVariables = {orgId: string}
+
+    export const useCatalogSyncControllerStatus = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof catalogSyncControllerStatus>>, TError,CatalogSyncControllerStatusMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof catalogSyncControllerStatus>>,
+        TError,
+        CatalogSyncControllerStatusMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCatalogSyncControllerStatusMutationOptions(options), queryClient);
+    }
+
+export type catalogSyncControllerSettingsResponse200 = {
+  data: CatalogSyncControllerSettings200
+  status: 200
+}
+
+export type catalogSyncControllerSettingsResponseSuccess = (catalogSyncControllerSettingsResponse200) & {
+  headers: Headers;
+};
+;
+
+export type catalogSyncControllerSettingsResponse = (catalogSyncControllerSettingsResponseSuccess)
+
+export const getCatalogSyncControllerSettingsUrl = (orgId: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/catalog-sync/settings`
+}
+
+export const catalogSyncControllerSettings = async (orgId: string,
+    catalogSyncControllerSettingsBody: CatalogSyncControllerSettingsBody, options?: Parameters<typeof orvalFetch>[1]): Promise<catalogSyncControllerSettingsResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return orvalFetch<catalogSyncControllerSettingsResponse>(getCatalogSyncControllerSettingsUrl(orgId),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(catalogSyncControllerSettingsBody)
+  }
+);}
+
+
+
+
+
+export const getCatalogSyncControllerSettingsQueryKey = (orgId: string,
+    catalogSyncControllerSettingsBody?: CatalogSyncControllerSettingsBody,) => {
+    return [
+    'PUT', `/api/v1/orgs/${orgId}/catalog-sync/settings`, catalogSyncControllerSettingsBody
+    ] as const;
+    }
+
+
+export const getCatalogSyncControllerSettingsQueryOptions = <TData = Awaited<ReturnType<typeof catalogSyncControllerSettings>>, TError = unknown>(orgId: string,
+    catalogSyncControllerSettingsBody: CatalogSyncControllerSettingsBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof catalogSyncControllerSettings>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getCatalogSyncControllerSettingsQueryKey(orgId,catalogSyncControllerSettingsBody);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof catalogSyncControllerSettings>>> = ({ signal }) => catalogSyncControllerSettings(orgId,catalogSyncControllerSettingsBody, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: orgId !== null && orgId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof catalogSyncControllerSettings>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type CatalogSyncControllerSettingsQueryResult = NonNullable<Awaited<ReturnType<typeof catalogSyncControllerSettings>>>
+export type CatalogSyncControllerSettingsQueryError = unknown
+
+
+export function useCatalogSyncControllerSettings<TData = Awaited<ReturnType<typeof catalogSyncControllerSettings>>, TError = unknown>(
+ orgId: string,
+    catalogSyncControllerSettingsBody: CatalogSyncControllerSettingsBody, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof catalogSyncControllerSettings>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof catalogSyncControllerSettings>>,
+          TError,
+          Awaited<ReturnType<typeof catalogSyncControllerSettings>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useCatalogSyncControllerSettings<TData = Awaited<ReturnType<typeof catalogSyncControllerSettings>>, TError = unknown>(
+ orgId: string,
+    catalogSyncControllerSettingsBody: CatalogSyncControllerSettingsBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof catalogSyncControllerSettings>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof catalogSyncControllerSettings>>,
+          TError,
+          Awaited<ReturnType<typeof catalogSyncControllerSettings>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useCatalogSyncControllerSettings<TData = Awaited<ReturnType<typeof catalogSyncControllerSettings>>, TError = unknown>(
+ orgId: string,
+    catalogSyncControllerSettingsBody: CatalogSyncControllerSettingsBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof catalogSyncControllerSettings>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useCatalogSyncControllerSettings<TData = Awaited<ReturnType<typeof catalogSyncControllerSettings>>, TError = unknown>(
+ orgId: string,
+    catalogSyncControllerSettingsBody: CatalogSyncControllerSettingsBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof catalogSyncControllerSettings>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getCatalogSyncControllerSettingsQueryOptions(orgId,catalogSyncControllerSettingsBody,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export type catalogSyncControllerRunResponse200 = {
+  data: CatalogSyncControllerRun200
+  status: 200
+}
+
+export type catalogSyncControllerRunResponseSuccess = (catalogSyncControllerRunResponse200) & {
+  headers: Headers;
+};
+;
+
+export type catalogSyncControllerRunResponse = (catalogSyncControllerRunResponseSuccess)
+
+export const getCatalogSyncControllerRunUrl = (orgId: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/catalog-sync/run`
+}
+
+export const catalogSyncControllerRun = async (orgId: string, options?: Parameters<typeof orvalFetch>[1]): Promise<catalogSyncControllerRunResponse> => {
+
+  return orvalFetch<catalogSyncControllerRunResponse>(getCatalogSyncControllerRunUrl(orgId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getCatalogSyncControllerRunQueryKey = (orgId: string,) => {
+    return [
+    'POST', `/api/v1/orgs/${orgId}/catalog-sync/run`
+    ] as const;
+    }
+
+
+export const getCatalogSyncControllerRunQueryOptions = <TData = Awaited<ReturnType<typeof catalogSyncControllerRun>>, TError = unknown>(orgId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof catalogSyncControllerRun>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getCatalogSyncControllerRunQueryKey(orgId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof catalogSyncControllerRun>>> = ({ signal }) => catalogSyncControllerRun(orgId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: orgId !== null && orgId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof catalogSyncControllerRun>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type CatalogSyncControllerRunQueryResult = NonNullable<Awaited<ReturnType<typeof catalogSyncControllerRun>>>
+export type CatalogSyncControllerRunQueryError = unknown
+
+
+export function useCatalogSyncControllerRun<TData = Awaited<ReturnType<typeof catalogSyncControllerRun>>, TError = unknown>(
+ orgId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof catalogSyncControllerRun>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof catalogSyncControllerRun>>,
+          TError,
+          Awaited<ReturnType<typeof catalogSyncControllerRun>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useCatalogSyncControllerRun<TData = Awaited<ReturnType<typeof catalogSyncControllerRun>>, TError = unknown>(
+ orgId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof catalogSyncControllerRun>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof catalogSyncControllerRun>>,
+          TError,
+          Awaited<ReturnType<typeof catalogSyncControllerRun>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useCatalogSyncControllerRun<TData = Awaited<ReturnType<typeof catalogSyncControllerRun>>, TError = unknown>(
+ orgId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof catalogSyncControllerRun>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useCatalogSyncControllerRun<TData = Awaited<ReturnType<typeof catalogSyncControllerRun>>, TError = unknown>(
+ orgId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof catalogSyncControllerRun>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getCatalogSyncControllerRunQueryOptions(orgId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export type catalogSyncControllerProposalsResponse200 = {
+  data: CatalogSyncControllerProposals200Item[]
+  status: 200
+}
+
+export type catalogSyncControllerProposalsResponseSuccess = (catalogSyncControllerProposalsResponse200) & {
+  headers: Headers;
+};
+;
+
+export type catalogSyncControllerProposalsResponse = (catalogSyncControllerProposalsResponseSuccess)
+
+export const getCatalogSyncControllerProposalsUrl = (orgId: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/catalog-sync/proposals`
+}
+
+export const catalogSyncControllerProposals = async (orgId: string, options?: Parameters<typeof orvalFetch>[1]): Promise<catalogSyncControllerProposalsResponse> => {
+
+  return orvalFetch<catalogSyncControllerProposalsResponse>(getCatalogSyncControllerProposalsUrl(orgId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getCatalogSyncControllerProposalsMutationKey = () => ['catalogSyncControllerProposals'] as const;
+
+export const getCatalogSyncControllerProposalsMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof catalogSyncControllerProposals>>, TError,CatalogSyncControllerProposalsMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof catalogSyncControllerProposals>>, TError,CatalogSyncControllerProposalsMutationVariables, TContext> => {
+
+const mutationKey = getCatalogSyncControllerProposalsMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof catalogSyncControllerProposals>>, CatalogSyncControllerProposalsMutationVariables> = (props) => {
+          const {orgId} = props ?? {};
+
+          return  catalogSyncControllerProposals(orgId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CatalogSyncControllerProposalsMutationResult = NonNullable<Awaited<ReturnType<typeof catalogSyncControllerProposals>>>
+
+    export type CatalogSyncControllerProposalsMutationError = unknown
+    export type CatalogSyncControllerProposalsMutationVariables = {orgId: string}
+
+    export const useCatalogSyncControllerProposals = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof catalogSyncControllerProposals>>, TError,CatalogSyncControllerProposalsMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof catalogSyncControllerProposals>>,
+        TError,
+        CatalogSyncControllerProposalsMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCatalogSyncControllerProposalsMutationOptions(options), queryClient);
+    }
+
+export type catalogSyncControllerApproveResponse200 = {
+  data: CatalogSyncControllerApprove200
+  status: 200
+}
+
+export type catalogSyncControllerApproveResponseSuccess = (catalogSyncControllerApproveResponse200) & {
+  headers: Headers;
+};
+;
+
+export type catalogSyncControllerApproveResponse = (catalogSyncControllerApproveResponseSuccess)
+
+export const getCatalogSyncControllerApproveUrl = (orgId: string,
+    id: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/catalog-sync/proposals/${id}/approve`
+}
+
+export const catalogSyncControllerApprove = async (orgId: string,
+    id: string, options?: Parameters<typeof orvalFetch>[1]): Promise<catalogSyncControllerApproveResponse> => {
+
+  return orvalFetch<catalogSyncControllerApproveResponse>(getCatalogSyncControllerApproveUrl(orgId,id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getCatalogSyncControllerApproveQueryKey = (orgId: string,
+    id: string,) => {
+    return [
+    'POST', `/api/v1/orgs/${orgId}/catalog-sync/proposals/${id}/approve`
+    ] as const;
+    }
+
+
+export const getCatalogSyncControllerApproveQueryOptions = <TData = Awaited<ReturnType<typeof catalogSyncControllerApprove>>, TError = unknown>(orgId: string,
+    id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof catalogSyncControllerApprove>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getCatalogSyncControllerApproveQueryKey(orgId,id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof catalogSyncControllerApprove>>> = ({ signal }) => catalogSyncControllerApprove(orgId,id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: orgId !== null && orgId !== undefined && id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof catalogSyncControllerApprove>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type CatalogSyncControllerApproveQueryResult = NonNullable<Awaited<ReturnType<typeof catalogSyncControllerApprove>>>
+export type CatalogSyncControllerApproveQueryError = unknown
+
+
+export function useCatalogSyncControllerApprove<TData = Awaited<ReturnType<typeof catalogSyncControllerApprove>>, TError = unknown>(
+ orgId: string,
+    id: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof catalogSyncControllerApprove>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof catalogSyncControllerApprove>>,
+          TError,
+          Awaited<ReturnType<typeof catalogSyncControllerApprove>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useCatalogSyncControllerApprove<TData = Awaited<ReturnType<typeof catalogSyncControllerApprove>>, TError = unknown>(
+ orgId: string,
+    id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof catalogSyncControllerApprove>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof catalogSyncControllerApprove>>,
+          TError,
+          Awaited<ReturnType<typeof catalogSyncControllerApprove>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useCatalogSyncControllerApprove<TData = Awaited<ReturnType<typeof catalogSyncControllerApprove>>, TError = unknown>(
+ orgId: string,
+    id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof catalogSyncControllerApprove>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useCatalogSyncControllerApprove<TData = Awaited<ReturnType<typeof catalogSyncControllerApprove>>, TError = unknown>(
+ orgId: string,
+    id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof catalogSyncControllerApprove>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getCatalogSyncControllerApproveQueryOptions(orgId,id,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export type catalogSyncControllerRejectResponse200 = {
+  data: CatalogSyncControllerReject200
+  status: 200
+}
+
+export type catalogSyncControllerRejectResponseSuccess = (catalogSyncControllerRejectResponse200) & {
+  headers: Headers;
+};
+;
+
+export type catalogSyncControllerRejectResponse = (catalogSyncControllerRejectResponseSuccess)
+
+export const getCatalogSyncControllerRejectUrl = (orgId: string,
+    id: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/catalog-sync/proposals/${id}/reject`
+}
+
+export const catalogSyncControllerReject = async (orgId: string,
+    id: string, options?: Parameters<typeof orvalFetch>[1]): Promise<catalogSyncControllerRejectResponse> => {
+
+  return orvalFetch<catalogSyncControllerRejectResponse>(getCatalogSyncControllerRejectUrl(orgId,id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getCatalogSyncControllerRejectQueryKey = (orgId: string,
+    id: string,) => {
+    return [
+    'POST', `/api/v1/orgs/${orgId}/catalog-sync/proposals/${id}/reject`
+    ] as const;
+    }
+
+
+export const getCatalogSyncControllerRejectQueryOptions = <TData = Awaited<ReturnType<typeof catalogSyncControllerReject>>, TError = unknown>(orgId: string,
+    id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof catalogSyncControllerReject>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getCatalogSyncControllerRejectQueryKey(orgId,id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof catalogSyncControllerReject>>> = ({ signal }) => catalogSyncControllerReject(orgId,id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: orgId !== null && orgId !== undefined && id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof catalogSyncControllerReject>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type CatalogSyncControllerRejectQueryResult = NonNullable<Awaited<ReturnType<typeof catalogSyncControllerReject>>>
+export type CatalogSyncControllerRejectQueryError = unknown
+
+
+export function useCatalogSyncControllerReject<TData = Awaited<ReturnType<typeof catalogSyncControllerReject>>, TError = unknown>(
+ orgId: string,
+    id: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof catalogSyncControllerReject>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof catalogSyncControllerReject>>,
+          TError,
+          Awaited<ReturnType<typeof catalogSyncControllerReject>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useCatalogSyncControllerReject<TData = Awaited<ReturnType<typeof catalogSyncControllerReject>>, TError = unknown>(
+ orgId: string,
+    id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof catalogSyncControllerReject>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof catalogSyncControllerReject>>,
+          TError,
+          Awaited<ReturnType<typeof catalogSyncControllerReject>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useCatalogSyncControllerReject<TData = Awaited<ReturnType<typeof catalogSyncControllerReject>>, TError = unknown>(
+ orgId: string,
+    id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof catalogSyncControllerReject>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useCatalogSyncControllerReject<TData = Awaited<ReturnType<typeof catalogSyncControllerReject>>, TError = unknown>(
+ orgId: string,
+    id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof catalogSyncControllerReject>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getCatalogSyncControllerRejectQueryOptions(orgId,id,options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 

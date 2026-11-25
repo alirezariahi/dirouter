@@ -10,13 +10,14 @@ import {
   type ModelCapabilities,
   type ModelPricing,
 } from '@dirouter/contracts';
-import { Prisma } from '@dirouter/db';
-import { catalog, findCatalogEntry } from '@dirouter/model-catalog/catalog';
+import { modelPriceColumns, Prisma } from '@dirouter/db';
+import { catalog } from '@dirouter/model-catalog/catalog';
 import { DiRouterError, prefixedId } from '@dirouter/shared';
 import { Inject, Injectable } from '@nestjs/common';
 
 import { PrismaService } from '../infra/prisma.service.js';
 import type { OrgContext } from '../rbac/org.guard.js';
+import { CatalogService } from './catalog.service.js';
 
 export interface ModelInput {
   providerId: string;
@@ -29,6 +30,8 @@ export interface ModelInput {
   pricing?: Partial<ModelPricing> | undefined;
   capabilities?: Partial<ModelCapabilities> | undefined;
   catalogKey?: string | null | undefined;
+  /** Drop a manual price and follow the catalog entry again (card 27.5). */
+  followCatalog?: boolean | undefined;
   isPublic?: boolean | undefined;
   sale?:
     | {
@@ -94,14 +97,19 @@ const dec = (d: Prisma.Decimal | null) =>
 
 @Injectable()
 export class ModelsService {
-  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
+  constructor(
+    @Inject(PrismaService) private readonly prisma: PrismaService,
+    @Inject(CatalogService) private readonly catalogs: CatalogService,
+  ) {}
 
   get db() {
     return this.prisma.client;
   }
 
-  catalog() {
-    return { version: catalog.version, currency: catalog.currency, models: catalog.models };
+  /** The effective catalog: bundled entries overlaid with synced ones (card 27.5). */
+  async catalog() {
+    const [version, models] = await Promise.all([this.catalogs.version(), this.catalogs.entries()]);
+    return { version, currency: catalog.currency, models };
   }
 
   // ───── Model ─────
@@ -124,9 +132,15 @@ export class ModelsService {
         ...(m.imagePrice ? { perImageUsd: dec(m.imagePrice) } : {}),
         ...(m.charPrice ? { perMCharUsd: dec(m.charPrice) } : {}),
         ...(m.secondPrice ? { perSecondUsd: dec(m.secondPrice) } : {}),
+        ...(Array.isArray(m.pricingTiers) && m.pricingTiers.length > 0
+          ? { tiers: m.pricingTiers as unknown as NonNullable<ModelPricing['tiers']> }
+          : {}),
+        ...(m.batchDiscount ? { batchDiscount: dec(m.batchDiscount) } : {}),
       },
       capabilities: m.capabilities,
       catalogKey: m.catalogKey,
+      priceOverride: m.priceOverride,
+      deprecationDate: m.deprecationDate ? m.deprecationDate.toISOString().slice(0, 10) : null,
       isPublic: m.isPublic,
       sale: {
         multiplier: dec(m.saleMultiplier) ?? '1',
@@ -181,10 +195,10 @@ export class ModelsService {
       });
   }
 
-  #fromCatalog(input: ModelInput) {
-    if (!input.catalogKey) return undefined;
-    const entry = findCatalogEntry(input.catalogKey);
-    if (!entry) throw invalid(`unknown catalog key ${input.catalogKey}`);
+  async #fromCatalog(catalogKey: string | null | undefined) {
+    if (!catalogKey) return undefined;
+    const entry = await this.catalogs.find(catalogKey);
+    if (!entry) throw invalid(`unknown catalog key ${catalogKey}`);
     return entry;
   }
 
@@ -194,8 +208,14 @@ export class ModelsService {
       select: { id: true, slug: true },
     });
     if (!provider) throw notFound('Provider');
-    const entry = this.#fromCatalog(input);
+    const entry = await this.#fromCatalog(input.catalogKey);
     const pricing = { ...entry?.pricing, ...input.pricing };
+    // Explicit prices on a catalog model are the organization's own: syncs leave them alone.
+    const priceOverride =
+      entry !== undefined &&
+      Object.values(input.pricing ?? {}).some((v: unknown) => v !== undefined);
+    // A hand-priced model does not inherit the catalog's context tiers, only its own.
+    const tiers = input.pricing?.tiers ?? (priceOverride ? undefined : entry?.pricing.tiers);
     if (!pricing.inputPerMTok || !pricing.outputPerMTok)
       throw invalid(
         'pricing.inputPerMTok and pricing.outputPerMTok are required (or a catalogKey)',
@@ -222,6 +242,10 @@ export class ModelsService {
         imagePrice: pricing.perImageUsd ?? null,
         charPrice: pricing.perMCharUsd ?? null,
         secondPrice: pricing.perSecondUsd ?? null,
+        ...(tiers && tiers.length > 0 ? { pricingTiers: tiers } : {}),
+        batchDiscount: pricing.batchDiscount ?? null,
+        deprecationDate: entry?.deprecationDate ? new Date(entry.deprecationDate) : null,
+        priceOverride,
         capabilities: { ...entry?.capabilities, ...input.capabilities },
         catalogKey: input.catalogKey ?? null,
         isPublic: input.isPublic ?? false,
@@ -241,6 +265,15 @@ export class ModelsService {
     if (input.slug && input.slug !== m.slug)
       await this.#nameFree(ctx, input.slug, { kind: 'model', id });
     const p = input.pricing ?? {};
+    const manualPrice = Object.values(p).some((v: unknown) => v !== undefined);
+    const catalogKey = input.catalogKey !== undefined ? input.catalogKey : m.catalogKey;
+    // Back to the catalog price: the organization's own price is dropped.
+    const follow =
+      input.followCatalog === true && !manualPrice
+        ? await this.#fromCatalog(catalogKey)
+        : undefined;
+    if (input.followCatalog === true && !follow)
+      throw invalid('followCatalog needs a catalogKey and no explicit pricing');
     await this.db.model.update({
       where: { id },
       data: {
@@ -257,6 +290,13 @@ export class ModelsService {
         ...(p.perImageUsd ? { imagePrice: p.perImageUsd } : {}),
         ...(p.perMCharUsd ? { charPrice: p.perMCharUsd } : {}),
         ...(p.perSecondUsd ? { secondPrice: p.perSecondUsd } : {}),
+        ...(p.tiers
+          ? {
+              pricingTiers:
+                p.tiers.length > 0 ? (p.tiers as unknown as Prisma.InputJsonValue) : Prisma.DbNull,
+            }
+          : {}),
+        ...(p.batchDiscount ? { batchDiscount: p.batchDiscount } : {}),
         ...(input.capabilities
           ? {
               capabilities: {
@@ -267,12 +307,18 @@ export class ModelsService {
           : {}),
         ...(input.isPublic !== undefined ? { isPublic: input.isPublic } : {}),
         ...saleData(input.sale),
-        // A manual price means it no longer follows the catalog, unless a catalogKey is provided again.
-        ...(input.catalogKey !== undefined
-          ? { catalogKey: input.catalogKey }
-          : p.inputPerMTok || p.outputPerMTok
-            ? { catalogKey: null }
-            : {}),
+        ...(input.catalogKey !== undefined ? { catalogKey: input.catalogKey } : {}),
+        // A manual price no longer follows the catalog (card 27.5): the model keeps its catalog key
+        // (deprecation dates and the follow-catalog switch still work), but syncs and approved
+        // price changes leave the price alone.
+        ...(manualPrice && catalogKey ? { priceOverride: true } : {}),
+        ...(follow
+          ? {
+              ...modelPriceColumns(follow.pricing),
+              priceOverride: false,
+              deprecationDate: follow.deprecationDate ? new Date(follow.deprecationDate) : null,
+            }
+          : {}),
       },
     });
     await this.#audit(ctx, 'model.updated', 'model', id, input);
@@ -294,36 +340,45 @@ export class ModelsService {
     await this.#audit(ctx, 'model.deleted', 'model', id);
   }
 
-  /** Syncs the price and context of catalog models with the current catalog version. */
+  /**
+   * Syncs the price and context of this organization's catalog models with the effective catalog
+   * (bundled plus synced entries). Models priced by hand are left alone.
+   */
   async syncCatalog(ctx: OrgContext) {
     const rows = await this.db.model.findMany({
-      where: { organizationId: ctx.organizationId, deletedAt: null, catalogKey: { not: null } },
+      where: {
+        organizationId: ctx.organizationId,
+        deletedAt: null,
+        catalogKey: { not: null },
+        priceOverride: false,
+      },
     });
+    const entries = new Map((await this.catalogs.entries()).map((e) => [e.key, e]));
     let updated = 0;
     for (const m of rows) {
-      const entry = findCatalogEntry(m.catalogKey ?? '');
+      const entry = entries.get(m.catalogKey ?? '');
       if (!entry) continue;
-      const before = this.modelView(m).pricing;
+      const before = this.modelView(m);
+      const deprecationDate = entry.deprecationDate ?? null;
       const changed =
-        JSON.stringify(before) !== JSON.stringify(normalizePricing(entry.pricing)) ||
-        (entry.contextWindow ?? null) !== m.contextWindow;
+        JSON.stringify(normalizePricing(before.pricing)) !==
+          JSON.stringify(normalizePricing(entry.pricing)) ||
+        (entry.contextWindow ?? null) !== m.contextWindow ||
+        deprecationDate !== before.deprecationDate;
       if (!changed) continue;
       await this.db.model.update({
         where: { id: m.id },
         data: {
-          inputPrice: entry.pricing.inputPerMTok,
-          outputPrice: entry.pricing.outputPerMTok,
-          cacheReadPrice: entry.pricing.cacheReadPerMTok ?? null,
-          cacheWritePrice: entry.pricing.cacheWritePerMTok ?? null,
-          reasoningPrice: entry.pricing.reasoningPerMTok ?? null,
+          ...modelPriceColumns(entry.pricing),
           contextWindow: entry.contextWindow ?? m.contextWindow,
+          deprecationDate: deprecationDate ? new Date(deprecationDate) : null,
         },
       });
       updated++;
     }
-    if (updated > 0)
-      await this.#audit(ctx, 'catalog.synced', 'catalog', catalog.version, { updated });
-    return { catalogVersion: catalog.version, updated };
+    const version = await this.catalogs.version();
+    if (updated > 0) await this.#audit(ctx, 'catalog.synced', 'catalog', version, { updated });
+    return { catalogVersion: version, updated };
   }
 
   // ───── alias ─────
@@ -589,5 +644,19 @@ function normalizePricing(p: ModelPricing) {
     ...(p.perImageUsd ? { perImageUsd: n(p.perImageUsd) } : {}),
     ...(p.perMCharUsd ? { perMCharUsd: n(p.perMCharUsd) } : {}),
     ...(p.perSecondUsd ? { perSecondUsd: n(p.perSecondUsd) } : {}),
+    ...(p.tiers && p.tiers.length > 0
+      ? {
+          tiers: [...p.tiers]
+            .sort((a, b) => a.aboveInputTokens - b.aboveInputTokens)
+            .map((t) => ({
+              aboveInputTokens: t.aboveInputTokens,
+              inputPerMTok: n(t.inputPerMTok),
+              outputPerMTok: n(t.outputPerMTok),
+              ...(t.cacheReadPerMTok ? { cacheReadPerMTok: n(t.cacheReadPerMTok) } : {}),
+              ...(t.cacheWritePerMTok ? { cacheWritePerMTok: n(t.cacheWritePerMTok) } : {}),
+            })),
+        }
+      : {}),
+    ...(p.batchDiscount ? { batchDiscount: n(p.batchDiscount) } : {}),
   };
 }

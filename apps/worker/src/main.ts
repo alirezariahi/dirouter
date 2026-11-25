@@ -26,6 +26,7 @@ import { createMetrics } from './metrics.js';
 import { type UsageDb, UsageBatchWriter } from './writer.js';
 import { dropOldMcpCalls, writeMcpCall } from './mcp-calls.js';
 import { dropOldBodyPartitions, ensureBodyPartitions, writeRequestBody } from './request-bodies.js';
+import { runCatalogSync } from './catalog-sync.js';
 import {
   auditLedger,
   chargeWallet,
@@ -208,6 +209,21 @@ const jobs: Record<string, () => Promise<unknown>> = {
   'body-retention': () => dropOldBodyPartitions(mdb, env.REQUEST_BODY_RETENTION_DAYS),
   'health-samples': () =>
     drainHealthSamples(db, connection, logger, { retentionDays: env.HEALTH_SAMPLE_RETENTION_DAYS }),
+  'catalog-sync': () =>
+    runCatalogSync({
+      db,
+      logger,
+      defaults: {
+        enabled: env.CATALOG_SYNC_ENABLED,
+        sources: env.CATALOG_SYNC_SOURCES,
+        mode: env.CATALOG_SYNC_MODE,
+        maxChangeFactor: env.CATALOG_SYNC_MAX_CHANGE_FACTOR,
+        timeoutMs: env.CATALOG_SYNC_TIMEOUT_MS,
+        maxBytes: 50 * 1024 * 1024,
+      },
+      // control-api's rebuild channel: repriced models reach the gateway in the next snapshot.
+      requestRebuild: () => connection.publish('dirouter:config:rebuild', 'catalog-sync'),
+    }),
 };
 
 const maintenanceWorker = new Worker(
@@ -252,6 +268,8 @@ const schedule = {
   'mcp-retention': { pattern: '47 3 * * *', tz: 'UTC' },
   'body-partitions': { every: 3_600_000 },
   'body-retention': { pattern: '27 3 * * *', tz: 'UTC' },
+  // Admins can also run it at once from the dashboard (control-api adds a one-off job).
+  'catalog-sync': { every: env.CATALOG_SYNC_INTERVAL_MS },
 };
 for (const [name, repeat] of Object.entries(schedule)) {
   await maintenanceQueue.upsertJobScheduler(name, repeat, {

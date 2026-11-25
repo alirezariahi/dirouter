@@ -115,6 +115,7 @@ CI تغییرات و مصرف‌کنندگانشان را lint، typecheck، tes
 - [فهرست مستندات](DOCUMENTATION.fa.md) و [راهنمای مشارکت](CONTRIBUTING.fa.md)
 - [استقرار production](deploy-production.fa.md) و [مرجع env](env-reference.fa.md)
 - [Runbook عملیاتی](runbook.fa.md)، [مشاهده‌پذیری](observability.fa.md) و [usage pipeline](usage-pipeline.fa.md)
+- [همگام‌سازی کاتالوگ مدل و قیمت](catalog-sync.fa.md)
 - [دادهٔ seed](seed.fa.md)، [مسیریابی](concepts/routing.fa.md) و [محدودیتها](concepts/limits.fa.md)
 - [صورتحساب، مالیات بر ارزش افزوده، PDF فارسی و پرتال](concepts/invoices.fa.md)
 - [بدنهٔ درخواست، نمایش payload و replay](concepts/request-bodies.fa.md)

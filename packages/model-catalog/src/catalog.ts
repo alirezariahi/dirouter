@@ -1,7 +1,8 @@
 /**
- * Versioned catalog of model prices and capabilities. Updating prices only means editing catalog.json
- * (no migration); control-api uses it when adding a model or via "catalog sync"
- * to read it.
+ * Versioned catalog of model prices and capabilities, bundled with each release. It is the baseline:
+ * control-api overlays the entries the worker synced from external price sources (card 27.5), so
+ * new models and approved price changes arrive without a release, and an install without internet
+ * keeps this last good catalog.
  */
 import { ModelCapabilities, ModelPricing } from '@dirouter/contracts';
 import { z } from 'zod';
@@ -16,6 +17,10 @@ export const CatalogEntry = z.object({
   maxOutputTokens: z.int().positive().optional(),
   pricing: ModelPricing,
   capabilities: ModelCapabilities,
+  /** Provider's announced retirement date, `YYYY-MM-DD` (card 27.5). */
+  deprecationDate: z.iso.date().optional(),
+  /** `chat`, `embedding`, `image_generation`, … as the source reports it. */
+  mode: z.string().max(40).optional(),
 });
 export type CatalogEntry = z.infer<typeof CatalogEntry>;
 

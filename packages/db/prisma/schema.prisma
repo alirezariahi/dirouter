@@ -381,6 +381,14 @@ model Model {
   salePerRequestUsd Decimal? @map("sale_per_request_usd") @db.Decimal(18, 8)
   /// Share of the normal sale price charged for an answer served from DiRouter's cache.
   saleCacheMultiplier Decimal @default(0) @map("sale_cache_multiplier") @db.Decimal(14, 8)
+  /// Context-length price tiers, `[{ aboveInputTokens, inputPerMTok, outputPerMTok, … }]` (card 27.5).
+  pricingTiers     Json?     @map("pricing_tiers")
+  /// Batch API discount as a fraction (0.5 = half price).
+  batchDiscount    Decimal?  @map("batch_discount") @db.Decimal(7, 6)
+  /// Provider's announced retirement date.
+  deprecationDate  DateTime? @map("deprecation_date") @db.Date
+  /// The organization set this catalog model's price by hand: catalog syncs leave it alone.
+  priceOverride    Boolean   @default(false) @map("price_override")
   createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
   deletedAt        DateTime? @map("deleted_at") @db.Timestamptz(3)
@@ -1405,6 +1413,96 @@ model AgentProfile {
 
   @@unique([organizationId, name])
   @@map("agent_profiles")
+}
+
+// ───────────── Catalog sync (card 27.5) ─────────────
+
+/// Catalog entries synced from external price sources. They overlay the catalog bundled with the
+/// release (packages/model-catalog); a key here wins over the bundled entry with the same key.
+model CatalogModel {
+  key             String    @id
+  provider        String
+  upstreamModel   String    @map("upstream_model")
+  contextWindow   Int?      @map("context_window")
+  maxOutputTokens Int?      @map("max_output_tokens")
+  /// ModelPricing JSON (decimal strings per million tokens, tiers, batchDiscount).
+  pricing         Json
+  capabilities    Json      @default("{}")
+  deprecationDate DateTime? @map("deprecation_date") @db.Date
+  mode            String?
+  /// URL of the source that last listed this entry.
+  source          String
+  /// Set while the sources no longer list the entry; cleared when it comes back.
+  removedAt       DateTime? @map("removed_at") @db.Timestamptz(3)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@index([provider, upstreamModel])
+  @@map("catalog_models")
+}
+
+enum CatalogProposalStatus {
+  pending
+  approved
+  rejected
+  superseded
+}
+
+/// A price change seen in a source that waits for an admin (manual mode, or a suspiciously large
+/// change in automatic mode). Until it is approved, request costs keep the current price.
+model CatalogPriceProposal {
+  id              String                @id
+  catalogKey      String                @map("catalog_key")
+  source          String
+  /// Price in force when the proposal was made (null for a bundled entry never synced).
+  currentPricing  Json?                 @map("current_pricing")
+  proposedPricing Json                  @map("proposed_pricing")
+  /// Largest old/new ratio of the token rates; null when a rate became or was zero.
+  changeFactor    Decimal?              @map("change_factor") @db.Decimal(12, 4)
+  /// Why it was not applied automatically: manual_mode | large_change.
+  reason          String
+  status          CatalogProposalStatus @default(pending)
+  decidedById     String?               @map("decided_by_id")
+  decidedAt       DateTime?             @map("decided_at") @db.Timestamptz(3)
+  /// Organization models repriced when the proposal was approved.
+  appliedModels   Int?                  @map("applied_models")
+  createdAt       DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([status, createdAt])
+  @@index([catalogKey, status])
+  @@map("catalog_price_proposals")
+}
+
+/// One run of the catalog sync job, for the admin page and alerting.
+model CatalogSyncRun {
+  id         String    @id
+  /// ok | failed | disabled
+  status     String
+  sources    String[]
+  mode       String
+  added      Int       @default(0)
+  updated    Int       @default(0)
+  repriced   Int       @default(0)
+  proposed   Int       @default(0)
+  removed    Int       @default(0)
+  skipped    Int       @default(0)
+  error      String?
+  startedAt  DateTime  @default(now()) @map("started_at") @db.Timestamptz(3)
+  finishedAt DateTime? @map("finished_at") @db.Timestamptz(3)
+
+  @@index([startedAt])
+  @@map("catalog_sync_runs")
+}
+
+/// Admin settings of the catalog sync, `{ enabled, sources, mode, maxChangeFactor }`; absent fields
+/// fall back to the worker's CATALOG_SYNC_* environment variables.
+model CatalogSyncSetting {
+  id        String   @id @default("global")
+  settings  Json     @default("{}")
+  updatedBy String?  @map("updated_by")
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+
+  @@map("catalog_sync_settings")
 }
 
 // ───────────── Request bodies (card 24.1) ─────────────

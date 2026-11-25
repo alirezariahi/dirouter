@@ -1,5 +1,19 @@
-import { baseEnvSchema, envPort } from '@dirouter/shared';
+import { DEFAULT_CATALOG_SOURCE } from '@dirouter/model-catalog/sync';
+import { baseEnvSchema, envBoolean, envPort } from '@dirouter/shared';
 import { z } from 'zod';
+
+/** Comma-separated http(s) URLs, at most five. */
+const envUrlList = (defaultValue: string) =>
+  z
+    .string()
+    .default(defaultValue)
+    .transform((value) =>
+      value
+        .split(',')
+        .map((url) => url.trim())
+        .filter(Boolean),
+    )
+    .pipe(z.array(z.url()).max(5));
 
 export const workerEnvSchema = baseEnvSchema.extend({
   PORT: envPort(3100),
@@ -25,5 +39,14 @@ export const workerEnvSchema = baseEnvSchema.extend({
   /** SMTP for `email` alert channels (card 24.2); empty means email channels need an HTTP relay. */
   SMTP_URL: z.string().optional(),
   SMTP_FROM: z.string().default('DiRouter <noreply@localhost>'),
+  /** Catalog and price sync from external sources (card 27.5); admin settings override these. */
+  CATALOG_SYNC_ENABLED: envBoolean(true),
+  /** Comma-separated source URLs: LiteLLM's public list by default, or an internal mirror. */
+  CATALOG_SYNC_SOURCES: envUrlList(DEFAULT_CATALOG_SOURCE),
+  /** `manual`: price changes wait for an admin; `auto`: applied unless larger than the factor. */
+  CATALOG_SYNC_MODE: z.enum(['manual', 'auto']).default('manual'),
+  CATALOG_SYNC_INTERVAL_MS: z.coerce.number().int().min(60_000).default(21_600_000),
+  CATALOG_SYNC_MAX_CHANGE_FACTOR: z.coerce.number().min(1).max(1000).default(3),
+  CATALOG_SYNC_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(300_000).default(30_000),
 });
 export type WorkerEnv = z.infer<typeof workerEnvSchema>;

@@ -14,6 +14,7 @@ import {
   ConfigSnapshot,
   type ConfigSnapshotInput,
   GatewaySettings,
+  type ModelPricing,
 } from '@dirouter/contracts';
 import type { Prisma } from '@dirouter/db';
 import type { Logger } from '@dirouter/shared';
@@ -276,10 +277,18 @@ export class SnapshotService implements OnModuleInit, OnModuleDestroy {
           ...(m.imagePrice ? { perImageUsd: usd(m.imagePrice) } : {}),
           ...(m.charPrice ? { perMCharUsd: usd(m.charPrice) } : {}),
           ...(m.secondPrice ? { perSecondUsd: usd(m.secondPrice) } : {}),
+          // Context tiers and batch discount (card 27.5); the gateway prices tiers itself.
+          ...(Array.isArray(m.pricingTiers) && m.pricingTiers.length > 0
+            ? { tiers: m.pricingTiers as unknown as NonNullable<ModelPricing['tiers']> }
+            : {}),
+          ...(m.batchDiscount ? { batchDiscount: usd(m.batchDiscount) } : {}),
         },
         capabilities: m.capabilities as Record<string, boolean>,
         ...(m.isPublic && m.organizationId === platformId ? { public: true } : {}),
         ...saleOf(m),
+        ...(m.deprecationDate
+          ? { deprecationDate: m.deprecationDate.toISOString().slice(0, 10) }
+          : {}),
       })),
       combos: combos
         .filter((c) => c.targets.some((t) => modelIds.has(t.modelId)))

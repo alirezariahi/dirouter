@@ -8,7 +8,8 @@ import { Empty, ErrorState, Loading } from '../components/ui/states';
 import { api } from '../lib/api';
 import { formatNumber } from '../lib/date';
 import type { SubmitEvent } from '../lib/form';
-import { currentOrg, useSession } from '../lib/session';
+import { can, currentOrg, useSession } from '../lib/session';
+import { CatalogSync } from '../components/catalog-sync';
 
 /**
  * Model/alias/combo management. All user-facing strings are deliberately under
@@ -62,6 +63,8 @@ interface Model {
   pricing: Pricing;
   capabilities: unknown;
   catalogKey: string | null;
+  /** Priced by hand: catalog price changes leave it alone (card 27.5). */
+  priceOverride?: boolean;
 }
 interface Provider {
   id: string;
@@ -947,6 +950,7 @@ function ModelEditor({
   const [draft, setDraft] = useState(() => modelDraft(initial, resources.providers));
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
+  const [followCatalog, setFollowCatalog] = useState(false);
   const update = (patch: Partial<ModelDraft>) => {
     setDraft((old) => ({ ...old, ...patch }));
   };
@@ -1008,9 +1012,21 @@ function ModelEditor({
       setError('models.validation.basePrice');
       return;
     }
+    // Only prices that differ from the catalog entry (or the saved model) are sent: an explicit
+    // price makes the model the organization's own, and catalog price changes skip it (card 27.5).
+    const catalogChanged = draft.catalogKey !== (initial?.catalogKey ?? '');
+    const entry = resources.catalog.models.find((item) => item.key === draft.catalogKey);
+    const reference: Partial<Pricing> | undefined =
+      draft.catalogKey && (catalogChanged || !initial) ? entry?.pricing : initial?.pricing;
     const pricing = Object.fromEntries(
-      pricingKeys.filter((key) => draft[key] !== '').map((key) => [key, draft[key]]),
+      pricingKeys
+        .filter((key) => draft[key] !== '' && draft[key] !== (reference?.[key] ?? ''))
+        .map((key) => [key, draft[key]]),
     );
+    const follow =
+      Boolean(draft.catalogKey) &&
+      Object.keys(pricing).length === 0 &&
+      (followCatalog || (Boolean(initial) && catalogChanged));
     const body = {
       ...(initial ? {} : { providerId: draft.providerId, upstreamModel: draft.upstreamModel }),
       slug: draft.slug,
@@ -1018,7 +1034,9 @@ function ModelEditor({
       enabled: draft.enabled,
       contextWindow: draft.contextWindow ? Number(draft.contextWindow) : null,
       maxOutputTokens: draft.maxOutputTokens ? Number(draft.maxOutputTokens) : null,
-      pricing,
+      ...(Object.keys(pricing).length > 0 || !reference ? { pricing } : {}),
+      ...(draft.catalogKey && catalogChanged ? { catalogKey: draft.catalogKey } : {}),
+      ...(follow && initial ? { followCatalog: true } : {}),
       capabilities: draft.capabilities,
     };
     setBusy(true);
@@ -1118,6 +1136,16 @@ function ModelEditor({
             </label>
           ))}
         </div>
+        {initial?.priceOverride && initial.catalogKey ? (
+          <Check
+            label={t('models.followCatalog')}
+            checked={followCatalog}
+            onChange={(event) => {
+              setFollowCatalog(event.target.checked);
+              if (event.target.checked) chooseCatalog(initial.catalogKey ?? '');
+            }}
+          />
+        ) : null}
         <div className="flex flex-wrap gap-4">
           {CAPABILITIES.map((key) => (
             <Check
@@ -1516,6 +1544,7 @@ export default function ModelsPage() {
               onSaved={saved}
             />
           )}
+          {org && <CatalogSync base={`/orgs/${org.id}`} canManage={can(org, 'models:write')} />}
         </>
       )}
     </section>

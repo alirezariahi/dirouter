@@ -402,3 +402,23 @@ describe('mock OAuth token endpoints (card 27.4)', () => {
     expect(stats.byIdentity['contoso/app']).toBe(1);
   });
 });
+
+describe('mock price list (card 27.5)', () => {
+  it('serves the document that was put, and 404 when none is set', async () => {
+    expect((await fetch(`${base}/catalog/prices.json`)).status).toBe(404);
+    const doc = { 'gpt-x': { litellm_provider: 'openai', input_cost_per_token: 1e-6 } };
+    const put = await fetch(`${base}/__mock/catalog`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(doc),
+    });
+    expect(await put.json()).toEqual({ ok: true, set: true });
+    expect(await (await fetch(`${base}/catalog/prices.json`)).json()).toEqual(doc);
+    await fetch(`${base}/__mock/catalog`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: '{}',
+    });
+    expect((await fetch(`${base}/catalog/prices.json`)).status).toBe(404);
+  });
+});

@@ -26,6 +26,8 @@ A fake provider compatible with OpenAI, Azure OpenAI and Anthropic (stream and n
 | `POST /{tenant}/oauth2/v2.0/token`                                     | Entra ID v2 client-credentials token endpoint                                          |
 | `POST /{v1,v1beta1}/projects/…/publishers/google/models/{m}:{verb}`    | Vertex AI (shares the Gemini handler)                                                  |
 | `GET/PUT /__mock/oauth`                                                | Issued tokens per identity; `{"ttlSeconds":n,"reset":true}`                            |
+| `GET /catalog/prices.json`                                             | Fake model price list for the catalog sync (card 27.5); 404 until set                  |
+| `PUT /__mock/catalog`                                                  | Body = the price list (LiteLLM or DiRouter format); `{}` clears it                     |
 
 ## Scenario selection
 

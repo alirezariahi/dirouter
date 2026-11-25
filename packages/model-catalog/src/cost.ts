@@ -6,6 +6,7 @@
  * - Regular output = outputTokens − reasoning, priced at the output rate; reasoning at its own rate or the output rate
  * - Media (card 21.1): images × per-image price, characters at the per-million-characters price and
  *   audio seconds (to the millisecond) at the per-second price, added to any token cost
+ * - Context tiers (card 27.5): a prompt longer than a tier's threshold is priced at that tier
  */
 import type { CanonicalUsage, MediaUsage, ModelPricing } from '@dirouter/contracts';
 import { costForTokens, formatUsd, parseUsd, type UsdUnits } from '@dirouter/shared';
@@ -34,11 +35,30 @@ export function mediaCost(media: MediaUsage | undefined, pricing: ModelPricing):
   return total;
 }
 
+/**
+ * Rates for this request (card 27.5): the highest context tier whose threshold the prompt exceeds
+ * replaces the base token rates (unset tier rates keep the base rate); media prices never tier.
+ */
+export function effectivePricing(pricing: ModelPricing, inputTokens: number): ModelPricing {
+  const tier = (pricing.tiers ?? [])
+    .filter((t) => inputTokens > t.aboveInputTokens)
+    .sort((a, b) => b.aboveInputTokens - a.aboveInputTokens)[0];
+  if (!tier) return pricing;
+  return {
+    ...pricing,
+    inputPerMTok: tier.inputPerMTok,
+    outputPerMTok: tier.outputPerMTok,
+    ...(tier.cacheReadPerMTok ? { cacheReadPerMTok: tier.cacheReadPerMTok } : {}),
+    ...(tier.cacheWritePerMTok ? { cacheWritePerMTok: tier.cacheWritePerMTok } : {}),
+  };
+}
+
 export function computeCost(
   usage: CanonicalUsage,
-  pricing: ModelPricing,
+  basePricing: ModelPricing,
   media?: MediaUsage,
 ): CostBreakdown {
+  const pricing = effectivePricing(basePricing, usage.inputTokens);
   const plainInput = Math.max(
     0,
     usage.inputTokens - usage.cacheReadTokens - usage.cacheWriteTokens,

@@ -11,7 +11,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run --coverage --coverage.thresholds.lines=0 --coverage.thresholds.statements=0 --coverage.thresholds.branches=0 --coverage.thresholds.functions=0 --passWithNoTests",
-    "test:integration": "vitest run --coverage --no-file-parallelism src/pipeline.integration.test.ts src/budgets.integration.test.ts src/wallets.integration.test.ts src/request-bodies.integration.test.ts",
+    "test:integration": "vitest run --coverage --no-file-parallelism src/pipeline.integration.test.ts src/budgets.integration.test.ts src/wallets.integration.test.ts src/request-bodies.integration.test.ts src/catalog-sync.integration.test.ts",
     "clean": "rm -rf dist .turbo"
   },
   "devDependencies": {
@@ -24,6 +24,7 @@
   "dependencies": {
     "@dirouter/contracts": "workspace:*",
     "@dirouter/db": "workspace:*",
+    "@dirouter/model-catalog": "workspace:*",
     "@dirouter/shared": "workspace:*",
     "bullmq": "^6.7.2",
     "ioredis": "^6.0.0",

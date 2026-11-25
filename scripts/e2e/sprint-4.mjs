@@ -1354,6 +1354,164 @@ try {
       console.log(`     oauth tokens issued: ${JSON.stringify(stats.byIdentity)}`);
     },
   );
+
+  await scenario(
+    '27.5 catalog sync: a new model arrives without a release, a price change waits for approval, offline keeps the last good catalog',
+    async () => {
+      const tag = randomUUID().slice(0, 6);
+      const key = `openai/e2e-${tag}`;
+      const upstream = `e2e-${tag}`;
+      const mirror = 'http://mock-provider:8090/catalog/prices.json';
+      const putList = (input, output) =>
+        request(
+          `${urls.mock}/__mock/catalog`,
+          {
+            method: 'PUT',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({
+              [upstream]: {
+                litellm_provider: 'openai',
+                mode: 'chat',
+                max_input_tokens: 64000,
+                input_cost_per_token: input,
+                output_cost_per_token: output,
+                supports_function_calling: true,
+              },
+            }),
+          },
+          200,
+        );
+      // Settings are restored exactly afterwards; the e2e rows are removed.
+      const saved = await sql(
+        `SELECT settings::text FROM catalog_sync_settings WHERE id = 'global'`,
+      );
+      cleanups.push(async () => {
+        await sql(
+          saved
+            ? `UPDATE catalog_sync_settings SET settings = '${saved.replaceAll("'", "''")}'::jsonb WHERE id = 'global'`
+            : `DELETE FROM catalog_sync_settings WHERE id = 'global'`,
+        );
+        await sql(`DELETE FROM catalog_price_proposals WHERE catalog_key = '${key}'`);
+        await sql(`DELETE FROM catalog_models WHERE key = '${key}'`);
+        await request(`${urls.mock}/__mock/catalog`, {
+          method: 'PUT',
+          body: '{}',
+          headers: { 'content-type': 'application/json' },
+        });
+      });
+      const status = async () => (await org('GET', 'catalog-sync', undefined, 200)).body;
+      // Keep the sources the worker already uses after the mirror, so the dev catalog stays whole.
+      const previous = ((await status()).runs[0]?.sources ?? []).filter(
+        (s) => !s.includes('mock-provider'),
+      );
+      const runSync = async () => {
+        const before = (await status()).runs[0]?.id;
+        await org('POST', 'catalog-sync/run', undefined, 202);
+        return waitFor(
+          'the worker to finish a catalog sync',
+          async () => {
+            const run = (await status()).runs[0];
+            return run && run.id !== before ? run : undefined;
+          },
+          120_000,
+        );
+      };
+
+      // 1. A model only the price source knows appears in the catalog, without a release.
+      await putList(1e-6, 2e-6);
+      await org(
+        'PUT',
+        'catalog-sync/settings',
+        { enabled: true, mode: 'manual', sources: [mirror, ...previous] },
+        200,
+      );
+      const first = await runSync();
+      assert.equal(first.status, 'ok', JSON.stringify(first));
+      const entry = (await org('GET', 'catalog', undefined, 200)).body.models.find(
+        (m) => m.key === key,
+      );
+      assert.deepEqual(
+        entry?.pricing,
+        { inputPerMTok: '1', outputPerMTok: '2' },
+        JSON.stringify(entry),
+      );
+      assert.equal(entry.source, mirror);
+
+      const model = (
+        await published(() =>
+          org(
+            'POST',
+            'models',
+            {
+              providerId: 'prv_mock',
+              upstreamModel: upstream,
+              slug: `e2e-${tag}/catalog`,
+              catalogKey: key,
+            },
+            201,
+          ),
+        )
+      ).body;
+      cleanups.push(() => org('DELETE', `models/${model.id}`, undefined, null));
+      const apiKey = await createKey('catalog');
+      const costOf = async () => {
+        const res = await chat(apiKey.key, {
+          model: model.slug,
+          messages: [{ role: 'user', content: 'price me' }],
+        });
+        assert.equal(res.response.status, 200, res.text);
+        const id = res.response.headers.get('x-request-id');
+        return Number(
+          await waitFor(
+            'the request in request_log',
+            async () =>
+              (await sql(`SELECT cost_usd FROM request_log WHERE id = '${String(id)}'`)) ||
+              undefined,
+          ),
+        );
+      };
+      const base = await costOf();
+      assert.ok(base > 0, String(base));
+
+      // 2. The source raises the price ten times: manual mode only proposes it.
+      await putList(1e-5, 2e-5);
+      const second = await runSync();
+      assert.equal(second.status, 'ok', JSON.stringify(second));
+      const proposal = (
+        await org('GET', 'catalog-sync/proposals?status=pending', undefined, 200)
+      ).body.find((p) => p.catalogKey === key);
+      assert.deepEqual(proposal?.proposedPricing, { inputPerMTok: '10', outputPerMTok: '20' });
+      assert.equal(await costOf(), base, 'cost must not change before approval');
+
+      // 3. Approved: the new price reaches request costs.
+      const approved = (
+        await published(() =>
+          org('POST', `catalog-sync/proposals/${proposal.id}/approve`, undefined, 200),
+        )
+      ).body;
+      assert.equal(approved.appliedModels >= 1, true, JSON.stringify(approved));
+      const raised = await costOf();
+      assert.ok(Math.abs(raised / base - 10) < 0.01, `${String(raised)} vs ${String(base)}`);
+
+      // 4. No reachable source: the sync fails, the catalog and the gateway keep working.
+      await org(
+        'PUT',
+        'catalog-sync/settings',
+        { sources: ['http://127.0.0.1:9/prices.json'] },
+        200,
+      );
+      const offline = await runSync();
+      assert.equal(offline.status, 'failed', JSON.stringify(offline));
+      const kept = (await org('GET', 'catalog', undefined, 200)).body.models.find(
+        (m) => m.key === key,
+      );
+      assert.deepEqual(kept?.pricing, { inputPerMTok: '10', outputPerMTok: '20' });
+      assert.equal(await costOf(), raised);
+      console.log(
+        `     catalog sync: ${key} cost ${String(base)} → ${String(raised)}; offline run ${offline.status}`,
+      );
+    },
+  );
   // ───────────── Epic 28: MCP and A2A ─────────────
 
   /** Registers an MCP server (replacing one left over with the same slug) and removes it after. */

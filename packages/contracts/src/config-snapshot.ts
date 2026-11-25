@@ -116,6 +116,22 @@ export const ProviderConfig = z.object({
 export type ProviderConfig = z.infer<typeof ProviderConfig>;
 
 /** Price in dollars per million tokens (decimal string, at most 8 decimal places). */
+/**
+ * Higher rates once the prompt is longer than `aboveInputTokens` (card 27.5), e.g. Gemini 2.5 Pro
+ * above 200k tokens. The whole request is priced at the tier's rates; unset rates keep the base rate.
+ */
+export const PricingTier = z.object({
+  aboveInputTokens: z.int().positive(),
+  inputPerMTok: UsdAmount,
+  outputPerMTok: UsdAmount,
+  cacheReadPerMTok: UsdAmount.optional(),
+  cacheWritePerMTok: UsdAmount.optional(),
+});
+export type PricingTier = z.infer<typeof PricingTier>;
+
+/** A fraction between 0 and 1 with up to 6 decimals, e.g. `0.5` for half price. */
+export const DiscountFraction = z.string().regex(/^(0(\.\d{1,6})?|1(\.0{1,6})?)$/);
+
 export const ModelPricing = z.object({
   inputPerMTok: UsdAmount,
   outputPerMTok: UsdAmount,
@@ -129,6 +145,10 @@ export const ModelPricing = z.object({
   perMCharUsd: UsdAmount.optional(),
   /** Speech to text: price per second of input audio. */
   perSecondUsd: UsdAmount.optional(),
+  /** Context-length tiers (card 27.5), ascending by threshold. */
+  tiers: z.array(PricingTier).max(8).optional(),
+  /** Discount for the provider's batch API (card 27.5): `0.5` = batch calls cost half. */
+  batchDiscount: DiscountFraction.optional(),
 });
 export type ModelPricing = z.infer<typeof ModelPricing>;
 
@@ -184,6 +204,8 @@ export const ModelConfig = z.object({
   /** Platform model sold to customer organizations (marketplace, card 19.4). */
   public: z.boolean().optional(),
   sale: SalePrice.optional(),
+  /** Provider's announced retirement date, `YYYY-MM-DD` (card 27.5). */
+  deprecationDate: z.iso.date().optional(),
 });
 export type ModelConfig = z.infer<typeof ModelConfig>;
 
