@@ -31,7 +31,7 @@ import { type DiRouterError, type Keyring, type Logger, prefixedId } from '@diro
 import { setTimeout as sleep } from 'node:timers/promises';
 
 import type { Redis } from 'ioredis';
-import Fastify, { type FastifyRequest } from 'fastify';
+import Fastify, { type FastifyReply, type FastifyRequest } from 'fastify';
 
 import { authenticate, extractApiKey } from './auth.js';
 import { ConfigStore } from './config-store.js';
@@ -345,24 +345,27 @@ export function buildGateway(opts: GatewayOptions) {
   );
   deps.web = web;
   // The `:online` suffix (card 31.5) searches through these services unless a test injected one.
+  const ownOnline = deps.webSearch === undefined;
   deps.webSearch ??= web.onlineExtension();
+  /**
+   * Chat routes: web search options, the `web` plugin, the Anthropic server tool, or the `:online`
+   * suffix go to online mode, which answers with the sources; everything else to the proxy.
+   */
+  const chatRoute =
+    (api: 'openai.chat' | 'anthropic.messages') => (req: FastifyRequest, reply: FastifyReply) => {
+      if (web.wants(api, req.body)) return web.handle(api, req, reply);
+      const plain = ownOnline ? web.onlineModel(req) : undefined;
+      if (plain !== undefined) {
+        req.body = { ...(req.body as Record<string, unknown>), model: plain };
+        return web.serveOnline(api, req, reply);
+      }
+      return handleProxy(api, req, reply, deps);
+    };
   const onlineAvailable = () => deps.webSearch?.available?.() ?? deps.webSearch !== undefined;
   web.register();
-  app.post('/v1/chat/completions', (req, reply) =>
-    web.wants('openai.chat', req.body)
-      ? web.handle('openai.chat', req, reply)
-      : handleProxy('openai.chat', req, reply, deps),
-  );
-  app.post('/chat/completions', (req, reply) =>
-    web.wants('openai.chat', req.body)
-      ? web.handle('openai.chat', req, reply)
-      : handleProxy('openai.chat', req, reply, deps),
-  );
-  app.post('/v1/messages', (req, reply) =>
-    web.wants('anthropic.messages', req.body)
-      ? web.handle('anthropic.messages', req, reply)
-      : handleProxy('anthropic.messages', req, reply, deps),
-  );
+  app.post('/v1/chat/completions', chatRoute('openai.chat'));
+  app.post('/chat/completions', chatRoute('openai.chat'));
+  app.post('/v1/messages', chatRoute('anthropic.messages'));
   app.post('/v1/messages/count_tokens', (req, reply) => {
     handleCountTokens(req, reply, deps);
   });

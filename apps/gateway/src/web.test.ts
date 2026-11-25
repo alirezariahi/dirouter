@@ -389,6 +389,12 @@ describe('web search and fetch through the gateway', () => {
       messages: [{ role: 'user', content: 'Latest gateway news?' }],
     });
     expect(res.status).toBe(200);
+    // Like the web plugin, the answer carries the sources.
+    const body = (await res.json()) as {
+      model: string;
+      choices: { message: { annotations?: { type: string }[] } }[];
+    };
+    expect(body.choices[0]?.message.annotations?.[0]?.type).toBe('url_citation');
     const stats = (await (await fetch(`${root}/__mock/stats`)).json()) as {
       last: { messages: { role: string; content: string }[] }[];
     };

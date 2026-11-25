@@ -95,13 +95,13 @@ Differences that matter:
 Suffixes chain (`openai/gpt-4.1:floor:online`) and a name that exists as written is never split.
 They work on `/v1/chat/completions`, `/v1/responses` and `/v1/messages`.
 
-`:online` puts the search results in front of the system prompt and bills the search as its own
-`web.search` usage row, but it does not return the sources. When the application reads
-`url_citation` annotations, send `plugins: [{ "id": "web", "max_results": 5 }]` (or
-`web_search_options`) on `/v1/chat/completions` instead: that form returns the sources as
-`url_citation` annotations, as OpenRouter does ([web search](gateway/web-search.md)). Without a
-web search backend, `:online` fails with 400 `web_search_unavailable`, while the plugin form
-answers without results and says so in `x-dirouter-web-search: unavailable`.
+`:online` searches the last user message, puts the results in front of the system prompt and bills
+the search as its own `web.search` usage row. On `/v1/chat/completions` the answer carries the
+sources as `url_citation` annotations, and on `/v1/messages` as `web_search_tool_result` blocks, as
+with `plugins: [{ "id": "web" }]` ([web search](gateway/web-search.md)). On `/v1/responses` the
+results reach the model but the sources are not returned; use chat completions when you read them.
+Without a web search backend, `:online` fails with 400 `web_search_unavailable`, while the plugin
+form answers without results and says so in `x-dirouter-web-search: unavailable`.
 
 ## 5. Other request fields
 
@@ -145,6 +145,5 @@ provider's own API that DiRouter does not translate can be reached through
 1. Connect providers and register models; create aliases with the names your application uses.
 2. Create a project key with its limits and budget.
 3. Change the base URL and the key; leave `provider`, `models` and suffixes as they are.
-4. Replace `:online` with the `web` plugin where you read citations; replace the `reasoning`
-   object with `reasoning_effort`.
+4. Replace the `reasoning` object with `reasoning_effort`.
 5. Compare a few requests in the routing simulator and the Log Explorer before switching traffic.

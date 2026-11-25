@@ -24,7 +24,7 @@ import {
   type VirtualKeyConfig,
   WebSearchSettings,
 } from '@dirouter/contracts';
-import { isRouteError } from '@dirouter/routing';
+import { isAutoAlias, isRouteError, parseModelSuffixes } from '@dirouter/routing';
 import { DiRouterError, formatUsd, parseUsd, RateLimitError, ulid } from '@dirouter/shared';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
@@ -466,6 +466,33 @@ export class WebServices {
           b.plugins.some((p: unknown) => (p as { id?: unknown } | undefined)?.id === 'web'))
       );
     return Array.isArray(b.tools) && b.tools.some(isWebSearchServerTool);
+  }
+
+  /**
+   * The model name without its `:online` suffix (card 31.5) when the request asks for online mode
+   * this way and search can be served, else undefined. Other suffixes stay on the name, and a name
+   * that exists as written is never split. Without search the proxy answers 400
+   * `web_search_unavailable` itself.
+   */
+  onlineModel(req: FastifyRequest): string | undefined {
+    const model = (req.body as { model?: unknown } | undefined)?.model;
+    if (typeof model !== 'string' || !model.includes(':online') || !this.available)
+      return undefined;
+    const config = this.#deps.store.current;
+    if (!config) return undefined;
+    // An unauthenticated request goes to the proxy, which answers with the proper error.
+    let key: VirtualKeyConfig;
+    try {
+      key = this.#key(req);
+    } catch {
+      return undefined;
+    }
+    const exists = (name: string) =>
+      isAutoAlias(name) || config.router.modelsFor(key, name) !== undefined;
+    const parsed = parseModelSuffixes(model, exists);
+    if (!parsed.webSearch) return undefined;
+    const rest = parsed.suffixes.filter((s) => s !== 'online');
+    return [parsed.model, ...rest].join(':');
   }
 
   /** Inner model call through the gateway's own route with the caller's credentials. */

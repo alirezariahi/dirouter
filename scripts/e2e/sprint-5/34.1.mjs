@@ -452,8 +452,8 @@ export async function register({ scenario, cleanups, org, createKey }) {
     const systemOfLastUpstream = async () =>
       (await lastUpstream())?.messages?.find((m) => m.role === 'system')?.content ?? '';
 
-    // `:online`: the results go in front of the prompt (sources are not returned as annotations
-    // on this path) and the search is billed as its own row.
+    // `:online`: the results go in front of the prompt, the sources come back as url_citation
+    // annotations and the search is billed as its own row.
     await resetMock();
     const online = await client.chat.completions
       .create({
@@ -463,6 +463,9 @@ export async function register({ scenario, cleanups, org, createKey }) {
       .withResponse();
     assert.ok(online.data.choices[0].message.content);
     assert.match(String(await systemOfLastUpstream()), /Web search results for/, hint);
+    const onlineSources = online.data.choices[0].message.annotations ?? [];
+    assert.ok(onlineSources.length > 0, hint);
+    assert.equal(onlineSources[0].type, 'url_citation');
     const onlineId = online.response.headers.get('x-request-id');
     await waitFor('the :online search row', async () =>
       sql(
@@ -494,6 +497,10 @@ export async function register({ scenario, cleanups, org, createKey }) {
     });
     assert.equal(message.type, 'message');
     assert.ok(message.content.some((block) => block.type === 'text'));
+    assert.ok(
+      message.content.some((block) => block.type === 'web_search_tool_result'),
+      hint,
+    );
     assert.match(String(await systemOfLastUpstream()), /Web search results for/, hint);
 
     // Claude Code's server web_search tool on a non-Anthropic model.
