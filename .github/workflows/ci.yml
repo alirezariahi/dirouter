@@ -478,6 +478,17 @@ jobs:
             done
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+          # Summaries and logs need a GitHub sign-in; annotations of a public run do not.
+          annotate() {
+            local body
+            body=$(tail -c 3500 | sed -e 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+            echo "::error title=$1::$body"
+          }
+          { kubectl get pods -o wide; kubectl get events --sort-by=.lastTimestamp | tail -n 15; } 2>&1 | annotate 'Helm on kind: pods and events'
+          for pod in $(kubectl get pods -o name 2>/dev/null); do
+            ready=$(kubectl get "$pod" -o jsonpath='{.status.containerStatuses[*].ready}' 2>/dev/null)
+            case "$ready" in *false*|'') kubectl logs "$pod" --all-containers --tail=40 2>&1 | annotate "Helm on kind: $pod" ;; esac
+          done
 
   ci:
     name: CI passed
