@@ -9841,7 +9841,8 @@
                       "secret",
                       "json_schema",
                       "max_input_tokens",
-                      "prompt_injection"
+                      "prompt_injection",
+                      "moderation"
                     ]
                   },
                   "action": {
@@ -9951,7 +9952,8 @@
                       "secret",
                       "json_schema",
                       "max_input_tokens",
-                      "prompt_injection"
+                      "prompt_injection",
+                      "moderation"
                     ]
                   },
                   "action": {
@@ -10067,7 +10069,8 @@
                       "secret",
                       "json_schema",
                       "max_input_tokens",
-                      "prompt_injection"
+                      "prompt_injection",
+                      "moderation"
                     ]
                   },
                   "config": {

@@ -3814,6 +3814,7 @@ export const GuardrailsControllerCreateBodyType = {
   json_schema: 'json_schema',
   max_input_tokens: 'max_input_tokens',
   prompt_injection: 'prompt_injection',
+  moderation: 'moderation',
 } as const;
 
 export type GuardrailsControllerCreateBodyAction = typeof GuardrailsControllerCreateBodyAction[keyof typeof GuardrailsControllerCreateBodyAction];
@@ -3866,6 +3867,7 @@ export const GuardrailsControllerUpdateBodyType = {
   json_schema: 'json_schema',
   max_input_tokens: 'max_input_tokens',
   prompt_injection: 'prompt_injection',
+  moderation: 'moderation',
 } as const;
 
 export type GuardrailsControllerUpdateBodyAction = typeof GuardrailsControllerUpdateBodyAction[keyof typeof GuardrailsControllerUpdateBodyAction];
@@ -3909,6 +3911,7 @@ export const GuardrailsControllerTestBodyType = {
   json_schema: 'json_schema',
   max_input_tokens: 'max_input_tokens',
   prompt_injection: 'prompt_injection',
+  moderation: 'moderation',
 } as const;
 
 export type GuardrailsControllerTestBodyConfig = {[key: string]: unknown};
