@@ -13663,6 +13663,60 @@
                       "maxLength": 4096
                     }
                   },
+                  "oauth": {
+                    "nullable": true,
+                    "type": "object",
+                    "properties": {
+                      "grantType": {
+                        "type": "string",
+                        "enum": [
+                          "client_credentials",
+                          "authorization_code"
+                        ]
+                      },
+                      "clientId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 500
+                      },
+                      "clientSecret": {
+                        "type": "string",
+                        "maxLength": 4096
+                      },
+                      "scope": {
+                        "type": "string",
+                        "maxLength": 1000
+                      },
+                      "issuer": {
+                        "type": "string",
+                        "format": "uri"
+                      },
+                      "tokenEndpoint": {
+                        "type": "string",
+                        "format": "uri"
+                      },
+                      "authorizationEndpoint": {
+                        "type": "string",
+                        "format": "uri"
+                      },
+                      "tokenEndpointAuthMethod": {
+                        "type": "string",
+                        "enum": [
+                          "client_secret_basic",
+                          "client_secret_post",
+                          "none"
+                        ]
+                      },
+                      "refreshToken": {
+                        "type": "string",
+                        "maxLength": 8192
+                      }
+                    },
+                    "required": [
+                      "grantType",
+                      "clientId"
+                    ]
+                  },
                   "enabled": {
                     "type": "boolean"
                   },
@@ -13807,6 +13861,60 @@
                       "maxLength": 4096
                     }
                   },
+                  "oauth": {
+                    "nullable": true,
+                    "type": "object",
+                    "properties": {
+                      "grantType": {
+                        "type": "string",
+                        "enum": [
+                          "client_credentials",
+                          "authorization_code"
+                        ]
+                      },
+                      "clientId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 500
+                      },
+                      "clientSecret": {
+                        "type": "string",
+                        "maxLength": 4096
+                      },
+                      "scope": {
+                        "type": "string",
+                        "maxLength": 1000
+                      },
+                      "issuer": {
+                        "type": "string",
+                        "format": "uri"
+                      },
+                      "tokenEndpoint": {
+                        "type": "string",
+                        "format": "uri"
+                      },
+                      "authorizationEndpoint": {
+                        "type": "string",
+                        "format": "uri"
+                      },
+                      "tokenEndpointAuthMethod": {
+                        "type": "string",
+                        "enum": [
+                          "client_secret_basic",
+                          "client_secret_post",
+                          "none"
+                        ]
+                      },
+                      "refreshToken": {
+                        "type": "string",
+                        "maxLength": 8192
+                      }
+                    },
+                    "required": [
+                      "grantType",
+                      "clientId"
+                    ]
+                  },
                   "enabled": {
                     "type": "boolean"
                   },
@@ -13946,6 +14054,140 @@
                     "latencyMs",
                     "tools"
                   ]
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "mcp"
+        ]
+      }
+    },
+    "/api/v1/orgs/{orgId}/mcp/servers/{id}/oauth/authorize": {
+      "post": {
+        "operationId": "McpController_authorize",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "redirectUri": {
+                    "type": "string",
+                    "maxLength": 1000,
+                    "format": "uri"
+                  }
+                },
+                "required": [
+                  "redirectUri"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "mcp"
+        ]
+      }
+    },
+    "/api/v1/orgs/{orgId}/mcp/servers/{id}/oauth/callback": {
+      "post": {
+        "operationId": "McpController_callback",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "code": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 4096
+                  },
+                  "state": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 4096
+                  }
+                },
+                "required": [
+                  "code",
+                  "state"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {}
                 }
               }
             }

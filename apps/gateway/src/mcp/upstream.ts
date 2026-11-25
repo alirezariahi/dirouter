@@ -9,7 +9,7 @@
  *
  * One connection is kept per server and gateway replica and initialized lazily.
  */
-import type { Logger } from '@dirouter/shared';
+import { type Logger, OAuthError } from '@dirouter/shared';
 
 export const CLIENT_PROTOCOL = '2025-06-18';
 const CLIENT_INFO = { name: 'dirouter-gateway', version: '1.0.0' };
@@ -31,11 +31,19 @@ export class McpUpstreamError extends Error {
   }
 }
 
+/** Bearer tokens for an OAuth-protected server (card 28.1). */
+export interface UpstreamAuth {
+  token(): Promise<string>;
+  /** The server answered 401 to `token`; `challenge` is its `WWW-Authenticate` header. */
+  rejected(token: string, challenge: string | null): void;
+}
+
 export interface UpstreamTarget {
   url: string;
   transport: 'streamable-http' | 'sse';
   headers: Record<string, string>;
   timeoutMs: number;
+  auth?: UpstreamAuth | undefined;
 }
 
 /** Reads `data:` payloads of an SSE body one event at a time. */
@@ -139,15 +147,54 @@ export class McpUpstream {
     };
   }
 
+  /** The Authorization header of an OAuth-protected server, or nothing. */
+  async #auth(): Promise<{ token?: string; header: Record<string, string> }> {
+    if (!this.target.auth) return { header: {} };
+    let token: string;
+    try {
+      token = await this.target.auth.token();
+    } catch (error) {
+      if (error instanceof OAuthError)
+        throw new McpUpstreamError(`upstream authorization failed: ${error.message}`);
+      throw error;
+    }
+    return { token, header: { authorization: `Bearer ${token}` } };
+  }
+
+  /**
+   * POSTs with the current token; a 401 drops the token and tries once more with a new one, which
+   * is how a revoked or early-expired token is renewed.
+   */
+  async #post(url: string, body: string, extraHeaders: Record<string, string>): Promise<Response> {
+    for (let attempt = 0; ; attempt++) {
+      const auth = await this.#auth();
+      let res: Response;
+      try {
+        res = await fetch(url, {
+          method: 'POST',
+          headers: this.#headers({ ...extraHeaders, ...auth.header }),
+          body,
+          signal: AbortSignal.timeout(this.target.timeoutMs),
+        });
+      } catch (error) {
+        throw new McpUpstreamError(
+          `upstream unreachable (${error instanceof Error ? error.message : String(error)})`,
+        );
+      }
+      if (res.status !== 401) return res;
+      await res.body?.cancel().catch(() => undefined);
+      if (!this.target.auth || !auth.token)
+        throw new McpUpstreamError('upstream requires authorization (HTTP 401): configure OAuth');
+      this.target.auth.rejected(auth.token, res.headers.get('www-authenticate'));
+      if (attempt > 0)
+        throw new McpUpstreamError('upstream refused a fresh OAuth token (HTTP 401)');
+    }
+  }
+
   async #notify(method: string): Promise<void> {
     const url = this.target.transport === 'sse' ? this.#postUrl : this.target.url;
     if (!url) throw new McpUpstreamError('no message endpoint');
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: this.#headers(),
-      body: JSON.stringify({ jsonrpc: '2.0', method }),
-      signal: AbortSignal.timeout(this.target.timeoutMs),
-    });
+    const res = await this.#post(url, JSON.stringify({ jsonrpc: '2.0', method }), {});
     await res.body?.cancel();
   }
 
@@ -160,19 +207,7 @@ export class McpUpstream {
     const body = JSON.stringify({ jsonrpc: '2.0', id, method, params });
     if (this.target.transport === 'sse') return this.#sendOverStream(id, body, extraHeaders);
 
-    let res: Response;
-    try {
-      res = await fetch(this.target.url, {
-        method: 'POST',
-        headers: this.#headers(extraHeaders),
-        body,
-        signal: AbortSignal.timeout(this.target.timeoutMs),
-      });
-    } catch (error) {
-      throw new McpUpstreamError(
-        `upstream unreachable (${error instanceof Error ? error.message : String(error)})`,
-      );
-    }
+    const res = await this.#post(this.target.url, body, extraHeaders);
     if (res.status === 404 && this.#session && method !== 'initialize') {
       await res.body?.cancel();
       throw new SessionExpired();
@@ -202,10 +237,18 @@ export class McpUpstream {
   async #openStream(): Promise<void> {
     const controller = new AbortController();
     this.#stream = controller;
-    const res = await fetch(this.target.url, {
-      headers: { accept: 'text/event-stream', ...this.target.headers },
-      signal: controller.signal,
-    });
+    let res: Response | undefined;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const auth = await this.#auth();
+      res = await fetch(this.target.url, {
+        headers: { accept: 'text/event-stream', ...this.target.headers, ...auth.header },
+        signal: controller.signal,
+      });
+      if (res.status !== 401 || !this.target.auth || !auth.token) break;
+      await res.body?.cancel().catch(() => undefined);
+      this.target.auth.rejected(auth.token, res.headers.get('www-authenticate'));
+    }
+    if (!res) throw new McpUpstreamError('SSE stream refused');
     if (!res.ok || !res.body)
       throw new McpUpstreamError(`SSE stream refused (HTTP ${String(res.status)})`);
     const events = sseEvents(res.body);
@@ -250,16 +293,9 @@ export class McpUpstream {
         resolve(response);
       });
     });
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: this.#headers(extraHeaders),
-      body,
-      signal: AbortSignal.timeout(this.target.timeoutMs),
-    }).catch((error: unknown) => {
+    const res = await this.#post(url, body, extraHeaders).catch((error: unknown) => {
       this.#pending.delete(id);
-      throw new McpUpstreamError(
-        `upstream unreachable (${error instanceof Error ? error.message : String(error)})`,
-      );
+      throw error;
     });
     await res.body?.cancel();
     if (!res.ok) {

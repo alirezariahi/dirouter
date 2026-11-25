@@ -1345,11 +1345,13 @@ model McpServer {
   name            String
   /// Tool prefix: tools appear as `<slug>__<tool>`.
   slug            String
-  /// streamable-http | sse
+  /// streamable-http | sse | a2a
   transport       String
   url             String
   /// Encrypted JSON object of headers sent upstream (e.g. Authorization); AAD `mcp:<id>`.
   headersEnc      String?   @map("headers_enc")
+  /// Encrypted JSON `McpOAuthConfig` (shared OAuth 2.1 credential, card 28.1); AAD `mcp-oauth:<id>`.
+  oauthEnc        String?   @map("oauth_enc")
   enabled         Boolean   @default(true)
   forwardIdentity Boolean   @default(false) @map("forward_identity")
   timeoutMs       Int       @default(60000) @map("timeout_ms")

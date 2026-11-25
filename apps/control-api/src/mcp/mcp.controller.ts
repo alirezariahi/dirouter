@@ -11,6 +11,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { McpOAuthConfig } from '@dirouter/contracts';
 import { ApiBearerAuth, ApiNoContentResponse, ApiTags } from '@nestjs/swagger';
 import { z } from 'zod';
 
@@ -34,6 +35,8 @@ const McpServerFields = z.object({
   transport: z.enum(['streamable-http', 'sse', 'a2a']),
   url: z.url().max(1000),
   headers: z.record(HeaderName, z.string().max(4096)).nullable().optional(),
+  /** Shared OAuth 2.1 credential (card 28.1); `null` removes it. Write-only: never returned. */
+  oauth: McpOAuthConfig.nullable().optional(),
   enabled: z.boolean().optional(),
   forwardIdentity: z.boolean().optional(),
   timeoutMs: z.int().min(1_000).max(300_000).optional(),
@@ -52,6 +55,14 @@ const McpTestResult = z.object({
   tools: z.array(z.object({ name: z.string(), description: z.string().optional() })),
   agentName: z.string().optional(),
   error: z.string().optional(),
+});
+const OAuthAuthorizeBody = z.object({
+  /** Where the authorization server sends the administrator back with `code` and `state`. */
+  redirectUri: z.url().max(1000),
+});
+const OAuthCallbackBody = z.object({
+  code: z.string().min(1).max(4096),
+  state: z.string().min(1).max(4096),
 });
 const CallsQuery = z.object({
   limit: z.coerce.number().int().min(1).max(500).default(100),
@@ -118,6 +129,32 @@ export class McpController {
   @ApiZodOk(McpTestResult, 'Connection test: latency and the tools (A2A: skills) the server offers')
   test(@Org() org: OrgContext, @Param('id') id: string) {
     return this.mcp.test(org, id);
+  }
+
+  @Post('servers/:id/oauth/authorize')
+  @HttpCode(200)
+  @RequirePermission('mcp:write')
+  @ApiZodBody(OAuthAuthorizeBody)
+  @ApiZodOk(JsonObjectSchema)
+  authorize(
+    @Org() org: OrgContext,
+    @Param('id') id: string,
+    @Body(new ZodPipe(OAuthAuthorizeBody)) body: z.infer<typeof OAuthAuthorizeBody>,
+  ) {
+    return this.mcp.authorize(org, id, body.redirectUri);
+  }
+
+  @Post('servers/:id/oauth/callback')
+  @HttpCode(200)
+  @RequirePermission('mcp:write')
+  @ApiZodBody(OAuthCallbackBody)
+  @ApiZodOk(JsonObjectSchema)
+  callback(
+    @Org() org: OrgContext,
+    @Param('id') id: string,
+    @Body(new ZodPipe(OAuthCallbackBody)) body: z.infer<typeof OAuthCallbackBody>,
+  ) {
+    return this.mcp.callback(org, id, body);
   }
 
   @Get('calls')

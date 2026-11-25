@@ -40,3 +40,28 @@ export function mcpToolAllowed(allowlist: readonly string[], name: string): bool
         : pattern === name,
   );
 }
+
+/**
+ * Shared OAuth 2.1 credential of an organization for one upstream MCP server (card 28.1), stored
+ * encrypted. `client_credentials` gets tokens with the client secret alone; `authorization_code`
+ * is connected once by an administrator, after which the stored refresh token keeps it working.
+ * Endpoints are discovered from the server URL (RFC 9728, RFC 8414) unless given.
+ */
+export const McpOAuthConfig = z.object({
+  grantType: z.enum(['client_credentials', 'authorization_code']),
+  clientId: z.string().min(1).max(500),
+  clientSecret: z.string().max(4096).optional(),
+  scope: z.string().max(1000).optional(),
+  /** Skips protected resource metadata and discovers this authorization server directly. */
+  issuer: z.url().optional(),
+  /** Skips discovery altogether. */
+  tokenEndpoint: z.url().optional(),
+  authorizationEndpoint: z.url().optional(),
+  tokenEndpointAuthMethod: z.enum(['client_secret_basic', 'client_secret_post', 'none']).optional(),
+  /** Set by the authorization code exchange; the gateway may rotate it afterwards. */
+  refreshToken: z.string().max(8192).optional(),
+});
+export type McpOAuthConfig = z.infer<typeof McpOAuthConfig>;
+
+/** Separator between the server slug and an upstream resource URI: `<slug>+<uri>`. */
+export const MCP_URI_SEPARATOR = '+';

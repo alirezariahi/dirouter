@@ -2,8 +2,22 @@
  * MCP servers of an organization and the tool-call log (card 20.1). The gateway serves them under
  * /mcp; this service registers them (headers encrypted with MASTER_KEY, AAD `mcp:<id>`, never
  * returned), checks the URL against the outbound policy, and reads the calls the worker logged.
+ *
+ * Card 28.1: an OAuth-protected server keeps the organization's shared OAuth 2.1 credential
+ * (encrypted, AAD `mcp-oauth:<id>`). With the authorization code grant an administrator connects it
+ * once: `authorize` returns the authorization URL (PKCE S256, state sealed with MASTER_KEY) and
+ * `callback` trades the code for a refresh token, which the gateway then uses and renews.
  */
-import { encrypt } from '@dirouter/shared';
+import type { McpOAuthConfig } from '@dirouter/contracts';
+import {
+  decrypt,
+  discoverOAuth,
+  encrypt,
+  type FetchLike,
+  OAuthError,
+  pkcePair,
+  requestToken,
+} from '@dirouter/shared';
 import { DiRouterError, prefixedId } from '@dirouter/shared';
 import { Inject, Injectable } from '@nestjs/common';
 
@@ -19,6 +33,8 @@ export interface McpServerInput {
   url: string;
   /** Replaces the stored headers; `null` removes them, absent keeps them. */
   headers?: Record<string, string> | null | undefined;
+  /** Replaces the stored OAuth credential; `null` removes it, absent keeps it. */
+  oauth?: McpOAuthConfig | null | undefined;
   enabled?: boolean | undefined;
   forwardIdentity?: boolean | undefined;
   timeoutMs?: number | undefined;
@@ -26,7 +42,27 @@ export interface McpServerInput {
 
 type Row = NonNullable<Awaited<ReturnType<PrismaService['client']['mcpServer']['findFirst']>>>;
 
-export function mcpServerView(s: Row) {
+const STATE_AAD = 'mcp-oauth-state';
+const STATE_TTL_MS = 10 * 60_000;
+
+/** What an administrator may see of the OAuth credential: never the secret or the tokens. */
+function oauthView(config: McpOAuthConfig | undefined) {
+  if (!config) return null;
+  return {
+    grantType: config.grantType,
+    clientId: config.clientId,
+    hasClientSecret: Boolean(config.clientSecret),
+    scope: config.scope ?? null,
+    issuer: config.issuer ?? null,
+    tokenEndpoint: config.tokenEndpoint ?? null,
+    authorizationEndpoint: config.authorizationEndpoint ?? null,
+    tokenEndpointAuthMethod: config.tokenEndpointAuthMethod ?? null,
+    /** Authorization code: whether the server has been connected (a refresh token is stored). */
+    connected: config.grantType === 'client_credentials' || Boolean(config.refreshToken),
+  };
+}
+
+export function mcpServerView(s: Row, oauth?: McpOAuthConfig) {
   return {
     id: s.id,
     name: s.name,
@@ -34,6 +70,7 @@ export function mcpServerView(s: Row) {
     transport: s.transport,
     url: s.url,
     hasHeaders: s.headersEnc !== null,
+    oauth: oauthView(oauth),
     enabled: s.enabled,
     forwardIdentity: s.forwardIdentity,
     timeoutMs: s.timeoutMs,
@@ -53,11 +90,67 @@ export class McpService {
     return this.prisma.client;
   }
 
-  async #checkUrl(url: string) {
+  async #checkUrl(ctx: OrgContext, url: string) {
     // The gateway calls this address: same policy as alert webhooks (https and public addresses in
-    // production; anything in development, where MCP servers run next door).
-    const check = await checkOutboundUrl(url, { production: this.env.NODE_ENV === 'production' });
+    // production; anything in development, where MCP servers run next door). The platform
+    // organization may reach private addresses, such as the stdio bridge sidecar (card 28.1).
+    let production = this.env.NODE_ENV === 'production';
+    if (production) {
+      const org = await this.db.organization.findUnique({
+        where: { id: ctx.organizationId },
+        select: { isPlatform: true },
+      });
+      if (org?.isPlatform) production = false;
+    }
+    const check = await checkOutboundUrl(url, { production });
     if (!check.ok) throw new DiRouterError('validation_failed', { message: check.error });
+  }
+
+  #oauth(row: Row): McpOAuthConfig | undefined {
+    return row.oauthEnc
+      ? (JSON.parse(
+          decrypt(this.env.MASTER_KEY, row.oauthEnc, `mcp-oauth:${row.id}`),
+        ) as McpOAuthConfig)
+      : undefined;
+  }
+
+  #sealOauth(id: string, config: McpOAuthConfig): string {
+    return encrypt(this.env.MASTER_KEY, JSON.stringify(config), `mcp-oauth:${id}`);
+  }
+
+  #view(row: Row) {
+    return mcpServerView(row, this.#oauth(row));
+  }
+
+  /** Endpoints found in metadata obey the same outbound policy as the server URL. */
+  readonly #fetch: FetchLike = async (url, init) => {
+    const check = await checkOutboundUrl(url, { production: this.env.NODE_ENV === 'production' });
+    if (!check.ok) throw new OAuthError(`${url}: ${check.error}`);
+    return fetch(url, { ...init, redirect: 'manual' });
+  };
+
+  async #discover(row: Row, config: McpOAuthConfig) {
+    try {
+      return await discoverOAuth(row.url, config, { fetchImpl: this.#fetch });
+    } catch (error) {
+      throw new DiRouterError('validation_failed', {
+        message: `OAuth discovery failed: ${error instanceof Error ? error.message : String(error)}`,
+      });
+    }
+  }
+
+  /**
+   * A new credential keeps the stored refresh token while it still names the same client and
+   * authorization server, so rotating the client secret does not disconnect the server.
+   */
+  #mergeOauth(previous: McpOAuthConfig | undefined, next: McpOAuthConfig): McpOAuthConfig {
+    const same =
+      previous?.refreshToken &&
+      previous.grantType === next.grantType &&
+      previous.clientId === next.clientId &&
+      previous.issuer === next.issuer &&
+      previous.tokenEndpoint === next.tokenEndpoint;
+    return !next.refreshToken && same ? { ...next, refreshToken: previous.refreshToken } : next;
   }
 
   async #audit(ctx: OrgContext, action: string, targetId: string, diff?: object) {
@@ -102,15 +195,15 @@ export class McpService {
       where: { organizationId: ctx.organizationId, deletedAt: null },
       orderBy: { slug: 'asc' },
     });
-    return rows.map(mcpServerView);
+    return rows.map((row) => this.#view(row));
   }
 
   async get(ctx: OrgContext, id: string) {
-    return mcpServerView(await this.#load(ctx, id));
+    return this.#view(await this.#load(ctx, id));
   }
 
   async create(ctx: OrgContext, input: McpServerInput) {
-    await this.#checkUrl(input.url);
+    await this.#checkUrl(ctx, input.url);
     await this.#slugFree(ctx, input.slug);
     const id = prefixedId('mcp');
     await this.db.mcpServer.create({
@@ -124,6 +217,7 @@ export class McpService {
         headersEnc: input.headers
           ? encrypt(this.env.MASTER_KEY, JSON.stringify(input.headers), `mcp:${id}`)
           : null,
+        oauthEnc: input.oauth ? this.#sealOauth(id, input.oauth) : null,
         enabled: input.enabled ?? true,
         forwardIdentity: input.forwardIdentity ?? false,
         timeoutMs: input.timeoutMs ?? 60_000,
@@ -135,7 +229,7 @@ export class McpService {
 
   async update(ctx: OrgContext, id: string, input: Partial<McpServerInput>) {
     const row = await this.#load(ctx, id);
-    if (input.url !== undefined) await this.#checkUrl(input.url);
+    if (input.url !== undefined) await this.#checkUrl(ctx, input.url);
     if (input.slug !== undefined && input.slug !== row.slug)
       await this.#slugFree(ctx, input.slug, id);
     await this.db.mcpServer.update({
@@ -152,17 +246,122 @@ export class McpService {
                 : null,
             }
           : {}),
+        ...(input.oauth !== undefined
+          ? {
+              oauthEnc: input.oauth
+                ? this.#sealOauth(id, this.#mergeOauth(this.#oauth(row), input.oauth))
+                : null,
+            }
+          : {}),
         ...(input.enabled !== undefined ? { enabled: input.enabled } : {}),
         ...(input.forwardIdentity !== undefined ? { forwardIdentity: input.forwardIdentity } : {}),
         ...(input.timeoutMs !== undefined ? { timeoutMs: input.timeoutMs } : {}),
       },
     });
     // Header values are secrets: the audit trail records that they changed, not what they are.
-    const { headers, ...rest } = input;
+    const { headers, oauth, ...rest } = input;
     await this.#audit(ctx, 'mcp_server.updated', id, {
       ...rest,
       ...(headers !== undefined ? { headers: headers ? 'replaced' : 'removed' } : {}),
+      ...(oauth !== undefined
+        ? { oauth: oauth ? { replaced: true, grantType: oauth.grantType } : 'removed' }
+        : {}),
     });
+    return this.get(ctx, id);
+  }
+
+  /** Starts the authorization code connection: the URL the administrator opens. */
+  async authorize(ctx: OrgContext, id: string, redirectUri: string) {
+    const row = await this.#load(ctx, id);
+    const config = this.#oauth(row);
+    if (config?.grantType !== 'authorization_code')
+      throw new DiRouterError('validation_failed', {
+        message: 'the server has no OAuth credential with the authorization code grant',
+      });
+    const { resource, server } = await this.#discover(row, config);
+    if (!server.authorization_endpoint)
+      throw new DiRouterError('validation_failed', {
+        message: 'the authorization server publishes no authorization endpoint',
+      });
+    // OAuth 2.1 and the MCP authorization spec: PKCE with S256, refused if not advertised.
+    if (!config.authorizationEndpoint && !server.code_challenge_methods_supported?.includes('S256'))
+      throw new DiRouterError('validation_failed', {
+        message: 'the authorization server does not advertise PKCE S256',
+      });
+    const pkce = pkcePair();
+    const state = encrypt(
+      this.env.MASTER_KEY,
+      JSON.stringify({
+        s: id,
+        o: ctx.organizationId,
+        v: pkce.verifier,
+        r: redirectUri,
+        e: Date.now() + STATE_TTL_MS,
+      }),
+      STATE_AAD,
+    );
+    const url = new URL(server.authorization_endpoint);
+    url.searchParams.set('response_type', 'code');
+    url.searchParams.set('client_id', config.clientId);
+    url.searchParams.set('redirect_uri', redirectUri);
+    url.searchParams.set('code_challenge', pkce.challenge);
+    url.searchParams.set('code_challenge_method', 'S256');
+    url.searchParams.set('state', state);
+    url.searchParams.set('resource', resource);
+    if (config.scope) url.searchParams.set('scope', config.scope);
+    return { authorizationUrl: url.toString(), state };
+  }
+
+  /** Finishes the connection: trades the code for tokens and keeps the refresh token. */
+  async callback(ctx: OrgContext, id: string, input: { code: string; state: string }) {
+    const row = await this.#load(ctx, id);
+    const config = this.#oauth(row);
+    let state: { s: string; o: string; v: string; r: string; e: number };
+    try {
+      state = JSON.parse(decrypt(this.env.MASTER_KEY, input.state, STATE_AAD)) as typeof state;
+    } catch {
+      throw new DiRouterError('validation_failed', { message: 'invalid state' });
+    }
+    if (state.s !== id || state.o !== ctx.organizationId || state.e < Date.now())
+      throw new DiRouterError('validation_failed', { message: 'invalid or expired state' });
+    if (config?.grantType !== 'authorization_code')
+      throw new DiRouterError('validation_failed', {
+        message: 'the server has no OAuth credential with the authorization code grant',
+      });
+    const { resource, server } = await this.#discover(row, config);
+    let tokens;
+    try {
+      tokens = await requestToken(
+        server,
+        {
+          clientId: config.clientId,
+          clientSecret: config.clientSecret,
+          authMethod: config.tokenEndpointAuthMethod,
+        },
+        {
+          grant_type: 'authorization_code',
+          code: input.code,
+          code_verifier: state.v,
+          redirect_uri: state.r,
+          resource,
+        },
+        { fetchImpl: this.#fetch },
+      );
+    } catch (error) {
+      throw new DiRouterError('validation_failed', {
+        message: `code exchange failed: ${error instanceof Error ? error.message : String(error)}`,
+      });
+    }
+    if (!tokens.refresh_token)
+      throw new DiRouterError('validation_failed', {
+        message:
+          'the authorization server issued no refresh token (does the scope need offline_access?)',
+      });
+    await this.db.mcpServer.update({
+      where: { id },
+      data: { oauthEnc: this.#sealOauth(id, { ...config, refreshToken: tokens.refresh_token }) },
+    });
+    await this.#audit(ctx, 'mcp_server.oauth_connected', id);
     return this.get(ctx, id);
   }
 

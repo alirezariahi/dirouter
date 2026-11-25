@@ -4595,6 +4595,45 @@ export const McpControllerCreateBodyTransport = {
  */
 export type McpControllerCreateBodyHeaders = {[key: string]: string} | null;
 
+export type McpControllerCreateBodyOauthGrantType = typeof McpControllerCreateBodyOauthGrantType[keyof typeof McpControllerCreateBodyOauthGrantType];
+
+
+export const McpControllerCreateBodyOauthGrantType = {
+  client_credentials: 'client_credentials',
+  authorization_code: 'authorization_code',
+} as const;
+
+export type McpControllerCreateBodyOauthTokenEndpointAuthMethod = typeof McpControllerCreateBodyOauthTokenEndpointAuthMethod[keyof typeof McpControllerCreateBodyOauthTokenEndpointAuthMethod];
+
+
+export const McpControllerCreateBodyOauthTokenEndpointAuthMethod = {
+  client_secret_basic: 'client_secret_basic',
+  client_secret_post: 'client_secret_post',
+  none: 'none',
+} as const;
+
+/**
+ * @nullable
+ */
+export type McpControllerCreateBodyOauth = {
+  grantType: McpControllerCreateBodyOauthGrantType;
+  /**
+     * @minLength 1
+     * @maxLength 500
+     */
+  clientId: string;
+  /** @maxLength 4096 */
+  clientSecret?: string;
+  /** @maxLength 1000 */
+  scope?: string;
+  issuer?: string;
+  tokenEndpoint?: string;
+  authorizationEndpoint?: string;
+  tokenEndpointAuthMethod?: McpControllerCreateBodyOauthTokenEndpointAuthMethod;
+  /** @maxLength 8192 */
+  refreshToken?: string;
+} | null;
+
 export type McpControllerCreateBody = {
   /**
      * @minLength 1
@@ -4608,6 +4647,8 @@ export type McpControllerCreateBody = {
   url: string;
   /** @nullable */
   headers?: McpControllerCreateBodyHeaders;
+  /** @nullable */
+  oauth?: McpControllerCreateBodyOauth;
   enabled?: boolean;
   forwardIdentity?: boolean;
   /**
@@ -4635,6 +4676,45 @@ export const McpControllerUpdateBodyTransport = {
  */
 export type McpControllerUpdateBodyHeaders = {[key: string]: string} | null;
 
+export type McpControllerUpdateBodyOauthGrantType = typeof McpControllerUpdateBodyOauthGrantType[keyof typeof McpControllerUpdateBodyOauthGrantType];
+
+
+export const McpControllerUpdateBodyOauthGrantType = {
+  client_credentials: 'client_credentials',
+  authorization_code: 'authorization_code',
+} as const;
+
+export type McpControllerUpdateBodyOauthTokenEndpointAuthMethod = typeof McpControllerUpdateBodyOauthTokenEndpointAuthMethod[keyof typeof McpControllerUpdateBodyOauthTokenEndpointAuthMethod];
+
+
+export const McpControllerUpdateBodyOauthTokenEndpointAuthMethod = {
+  client_secret_basic: 'client_secret_basic',
+  client_secret_post: 'client_secret_post',
+  none: 'none',
+} as const;
+
+/**
+ * @nullable
+ */
+export type McpControllerUpdateBodyOauth = {
+  grantType: McpControllerUpdateBodyOauthGrantType;
+  /**
+     * @minLength 1
+     * @maxLength 500
+     */
+  clientId: string;
+  /** @maxLength 4096 */
+  clientSecret?: string;
+  /** @maxLength 1000 */
+  scope?: string;
+  issuer?: string;
+  tokenEndpoint?: string;
+  authorizationEndpoint?: string;
+  tokenEndpointAuthMethod?: McpControllerUpdateBodyOauthTokenEndpointAuthMethod;
+  /** @maxLength 8192 */
+  refreshToken?: string;
+} | null;
+
 export type McpControllerUpdateBody = {
   /**
      * @minLength 1
@@ -4648,6 +4728,8 @@ export type McpControllerUpdateBody = {
   url?: string;
   /** @nullable */
   headers?: McpControllerUpdateBodyHeaders;
+  /** @nullable */
+  oauth?: McpControllerUpdateBodyOauth;
   enabled?: boolean;
   forwardIdentity?: boolean;
   /**
@@ -4675,6 +4757,28 @@ export type McpControllerTest200 = {
   agentName?: string;
   error?: string;
 };
+
+export type McpControllerAuthorizeBody = {
+  /** @maxLength 1000 */
+  redirectUri: string;
+};
+
+export type McpControllerAuthorize200 = {[key: string]: unknown};
+
+export type McpControllerCallbackBody = {
+  /**
+     * @minLength 1
+     * @maxLength 4096
+     */
+  code: string;
+  /**
+     * @minLength 1
+     * @maxLength 4096
+     */
+  state: string;
+};
+
+export type McpControllerCallback200 = {[key: string]: unknown};
 
 export type McpControllerCallsParams = {
   /**
@@ -23528,6 +23632,278 @@ export function useMcpControllerTest<TData = Awaited<ReturnType<typeof mcpContro
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getMcpControllerTestQueryOptions(orgId,id,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export type mcpControllerAuthorizeResponse200 = {
+  data: McpControllerAuthorize200
+  status: 200
+}
+
+export type mcpControllerAuthorizeResponseSuccess = (mcpControllerAuthorizeResponse200) & {
+  headers: Headers;
+};
+;
+
+export type mcpControllerAuthorizeResponse = (mcpControllerAuthorizeResponseSuccess)
+
+export const getMcpControllerAuthorizeUrl = (orgId: string,
+    id: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/mcp/servers/${id}/oauth/authorize`
+}
+
+export const mcpControllerAuthorize = async (orgId: string,
+    id: string,
+    mcpControllerAuthorizeBody: McpControllerAuthorizeBody, options?: Parameters<typeof orvalFetch>[1]): Promise<mcpControllerAuthorizeResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return orvalFetch<mcpControllerAuthorizeResponse>(getMcpControllerAuthorizeUrl(orgId,id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(mcpControllerAuthorizeBody)
+  }
+);}
+
+
+
+
+
+export const getMcpControllerAuthorizeQueryKey = (orgId: string,
+    id: string,
+    mcpControllerAuthorizeBody?: McpControllerAuthorizeBody,) => {
+    return [
+    'POST', `/api/v1/orgs/${orgId}/mcp/servers/${id}/oauth/authorize`, mcpControllerAuthorizeBody
+    ] as const;
+    }
+
+
+export const getMcpControllerAuthorizeQueryOptions = <TData = Awaited<ReturnType<typeof mcpControllerAuthorize>>, TError = unknown>(orgId: string,
+    id: string,
+    mcpControllerAuthorizeBody: McpControllerAuthorizeBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof mcpControllerAuthorize>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getMcpControllerAuthorizeQueryKey(orgId,id,mcpControllerAuthorizeBody);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof mcpControllerAuthorize>>> = ({ signal }) => mcpControllerAuthorize(orgId,id,mcpControllerAuthorizeBody, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: orgId !== null && orgId !== undefined && id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof mcpControllerAuthorize>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type McpControllerAuthorizeQueryResult = NonNullable<Awaited<ReturnType<typeof mcpControllerAuthorize>>>
+export type McpControllerAuthorizeQueryError = unknown
+
+
+export function useMcpControllerAuthorize<TData = Awaited<ReturnType<typeof mcpControllerAuthorize>>, TError = unknown>(
+ orgId: string,
+    id: string,
+    mcpControllerAuthorizeBody: McpControllerAuthorizeBody, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof mcpControllerAuthorize>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof mcpControllerAuthorize>>,
+          TError,
+          Awaited<ReturnType<typeof mcpControllerAuthorize>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useMcpControllerAuthorize<TData = Awaited<ReturnType<typeof mcpControllerAuthorize>>, TError = unknown>(
+ orgId: string,
+    id: string,
+    mcpControllerAuthorizeBody: McpControllerAuthorizeBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof mcpControllerAuthorize>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof mcpControllerAuthorize>>,
+          TError,
+          Awaited<ReturnType<typeof mcpControllerAuthorize>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useMcpControllerAuthorize<TData = Awaited<ReturnType<typeof mcpControllerAuthorize>>, TError = unknown>(
+ orgId: string,
+    id: string,
+    mcpControllerAuthorizeBody: McpControllerAuthorizeBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof mcpControllerAuthorize>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useMcpControllerAuthorize<TData = Awaited<ReturnType<typeof mcpControllerAuthorize>>, TError = unknown>(
+ orgId: string,
+    id: string,
+    mcpControllerAuthorizeBody: McpControllerAuthorizeBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof mcpControllerAuthorize>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getMcpControllerAuthorizeQueryOptions(orgId,id,mcpControllerAuthorizeBody,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export type mcpControllerCallbackResponse200 = {
+  data: McpControllerCallback200
+  status: 200
+}
+
+export type mcpControllerCallbackResponseSuccess = (mcpControllerCallbackResponse200) & {
+  headers: Headers;
+};
+;
+
+export type mcpControllerCallbackResponse = (mcpControllerCallbackResponseSuccess)
+
+export const getMcpControllerCallbackUrl = (orgId: string,
+    id: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/mcp/servers/${id}/oauth/callback`
+}
+
+export const mcpControllerCallback = async (orgId: string,
+    id: string,
+    mcpControllerCallbackBody: McpControllerCallbackBody, options?: Parameters<typeof orvalFetch>[1]): Promise<mcpControllerCallbackResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return orvalFetch<mcpControllerCallbackResponse>(getMcpControllerCallbackUrl(orgId,id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(mcpControllerCallbackBody)
+  }
+);}
+
+
+
+
+
+export const getMcpControllerCallbackQueryKey = (orgId: string,
+    id: string,
+    mcpControllerCallbackBody?: McpControllerCallbackBody,) => {
+    return [
+    'POST', `/api/v1/orgs/${orgId}/mcp/servers/${id}/oauth/callback`, mcpControllerCallbackBody
+    ] as const;
+    }
+
+
+export const getMcpControllerCallbackQueryOptions = <TData = Awaited<ReturnType<typeof mcpControllerCallback>>, TError = unknown>(orgId: string,
+    id: string,
+    mcpControllerCallbackBody: McpControllerCallbackBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof mcpControllerCallback>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getMcpControllerCallbackQueryKey(orgId,id,mcpControllerCallbackBody);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof mcpControllerCallback>>> = ({ signal }) => mcpControllerCallback(orgId,id,mcpControllerCallbackBody, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: orgId !== null && orgId !== undefined && id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof mcpControllerCallback>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type McpControllerCallbackQueryResult = NonNullable<Awaited<ReturnType<typeof mcpControllerCallback>>>
+export type McpControllerCallbackQueryError = unknown
+
+
+export function useMcpControllerCallback<TData = Awaited<ReturnType<typeof mcpControllerCallback>>, TError = unknown>(
+ orgId: string,
+    id: string,
+    mcpControllerCallbackBody: McpControllerCallbackBody, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof mcpControllerCallback>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof mcpControllerCallback>>,
+          TError,
+          Awaited<ReturnType<typeof mcpControllerCallback>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useMcpControllerCallback<TData = Awaited<ReturnType<typeof mcpControllerCallback>>, TError = unknown>(
+ orgId: string,
+    id: string,
+    mcpControllerCallbackBody: McpControllerCallbackBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof mcpControllerCallback>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof mcpControllerCallback>>,
+          TError,
+          Awaited<ReturnType<typeof mcpControllerCallback>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useMcpControllerCallback<TData = Awaited<ReturnType<typeof mcpControllerCallback>>, TError = unknown>(
+ orgId: string,
+    id: string,
+    mcpControllerCallbackBody: McpControllerCallbackBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof mcpControllerCallback>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useMcpControllerCallback<TData = Awaited<ReturnType<typeof mcpControllerCallback>>, TError = unknown>(
+ orgId: string,
+    id: string,
+    mcpControllerCallbackBody: McpControllerCallbackBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof mcpControllerCallback>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getMcpControllerCallbackQueryOptions(orgId,id,mcpControllerCallbackBody,options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 

@@ -386,6 +386,7 @@ export class SnapshotService implements OnModuleInit, OnModuleDestroy {
         url: m.url,
         enabled: m.enabled,
         ...(m.headersEnc ? { headers: m.headersEnc } : {}),
+        ...(m.oauthEnc ? { oauth: m.oauthEnc } : {}),
         forwardIdentity: m.forwardIdentity,
         timeoutMs: m.timeoutMs,
       })),

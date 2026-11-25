@@ -513,6 +513,11 @@ export const McpServerConfig = z.object({
   enabled: z.boolean(),
   /** Encrypted with MASTER_KEY (AAD `mcp:<id>`): a JSON object of headers, e.g. Authorization. */
   headers: z.string().optional(),
+  /**
+   * Encrypted with MASTER_KEY (AAD `mcp-oauth:<id>`): the organization's shared OAuth credential
+   * for an OAuth-protected server (card 28.1), a JSON `McpOAuthConfig`.
+   */
+  oauth: z.string().optional(),
   /** Send the caller's organization, project and key ids as X-DiRouter-* headers. */
   forwardIdentity: z.boolean().default(false),
   timeoutMs: z.int().positive().max(300_000).default(60_000),

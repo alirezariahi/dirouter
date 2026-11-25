@@ -178,6 +178,35 @@ export function publicOnlyLookup(
   });
 }
 
+let publicOnlyAgent: Agent | undefined;
+
+/**
+ * `fetch` for addresses a tenant supplies outside the provider list: OAuth endpoints found in an
+ * MCP server's metadata (card 28.1) and A2A push-notification webhooks (card 28.2). With the guard
+ * on, customer organizations reach public addresses only, checked when connecting (DNS rebinding)
+ * and for IP literals here. Redirects are never followed.
+ */
+export function tenantFetch(
+  organizationId: string,
+): (url: string, init?: RequestInit) => Promise<Response> {
+  if (!guard.enabled || organizationId === guard.platformOrganizationId())
+    return (url, init) => globalThis.fetch(url, { ...init, redirect: 'manual' });
+  const connect = { timeout: 10_000, lookup: publicOnlyLookup };
+  publicOnlyAgent ??= new Agent({ connect });
+  const agent = publicOnlyAgent;
+  return async (url, init) => {
+    const host = new URL(url).hostname.replace(/^\[|\]$/g, '');
+    if (isIP(host) !== 0 && isBlockedAddress(host))
+      throw new UpstreamBlocked(`${host} is not a public address`);
+    const res = await fetch(url, {
+      ...(init as Parameters<typeof fetch>[1]),
+      redirect: 'manual',
+      dispatcher: agent,
+    });
+    return res as unknown as Response;
+  };
+}
+
 export function dispatcherFor(
   provider: ProviderConfig,
   connectMs: number,

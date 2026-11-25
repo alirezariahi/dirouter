@@ -1,4 +1,6 @@
 /** MCP servers, the key tool allowlist, the snapshot and the call log (card 20.1). */
+import { MOCK_OAUTH_CLIENT } from '@dirouter/mock-provider/mcp';
+import { buildServer as buildMock } from '@dirouter/mock-provider/server';
 import { decrypt, generateKey, parseKeyring } from '@dirouter/shared';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -79,6 +81,100 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('MCP servers over HTTP', () => {
 
   afterAll(async () => {
     await app.close();
+  });
+
+  it('keeps a shared OAuth credential write-only and connects it by authorization code (card 28.1)', async () => {
+    const mock = buildMock();
+    await mock.listen({ port: 0, host: '127.0.0.1' });
+    const address = mock.server.address();
+    const mockRoot = `http://127.0.0.1:${String(typeof address === 'object' && address ? address.port : 0)}`;
+    try {
+      const created = await call('POST', 'mcp/servers', {
+        name: 'Protected',
+        slug: 'protected',
+        url: `${mockRoot}/mcp-oauth/protected`,
+        oauth: {
+          grantType: 'authorization_code',
+          clientId: MOCK_OAUTH_CLIENT.clientId,
+          clientSecret: MOCK_OAUTH_CLIENT.clientSecret,
+          scope: 'mcp',
+        },
+      });
+      expect(created.statusCode).toBe(201);
+      const id = created.json<{ id: string }>().id;
+      expect(created.json()).toMatchObject({
+        oauth: { grantType: 'authorization_code', hasClientSecret: true, connected: false },
+      });
+      expect(created.body).not.toContain(MOCK_OAUTH_CLIENT.clientSecret);
+
+      // Discovery from the server URL, PKCE S256, the resource indicator and a sealed state.
+      const started = await call('POST', `mcp/servers/${id}/oauth/authorize`, {
+        redirectUri: 'http://localhost:5173/mcp/callback',
+      });
+      expect(started.statusCode).toBe(200);
+      const authorizationUrl = new URL(
+        started.json<{ authorizationUrl: string }>().authorizationUrl,
+      );
+      expect(authorizationUrl.origin + authorizationUrl.pathname).toBe(
+        `${mockRoot}/oauth/authorize`,
+      );
+      expect(Object.fromEntries(authorizationUrl.searchParams)).toMatchObject({
+        response_type: 'code',
+        client_id: MOCK_OAUTH_CLIENT.clientId,
+        code_challenge_method: 'S256',
+        resource: `${mockRoot}/mcp-oauth/protected`,
+        scope: 'mcp',
+      });
+      // The administrator approves; the authorization server sends the browser back.
+      const back = new URL(
+        (await fetch(authorizationUrl, { redirect: 'manual' })).headers.get('location') ?? '',
+      );
+      const code = back.searchParams.get('code') ?? '';
+      const state = back.searchParams.get('state') ?? '';
+      expect(
+        (await call('POST', `mcp/servers/${id}/oauth/callback`, { code, state: `${state}x` }))
+          .statusCode,
+      ).toBe(422);
+      const connected = await call('POST', `mcp/servers/${id}/oauth/callback`, { code, state });
+      expect(connected.statusCode).toBe(200);
+      expect(connected.json()).toMatchObject({ oauth: { connected: true } });
+
+      // The snapshot carries the credential encrypted, refresh token included.
+      const snapshot = await app.get(SnapshotService).build();
+      const entry = snapshot.mcpServers?.find((s) => s.id === id);
+      expect(entry?.oauth).toBeDefined();
+      expect(JSON.stringify(snapshot)).not.toContain(MOCK_OAUTH_CLIENT.clientSecret);
+      const sealed = JSON.parse(
+        decrypt(parseKeyring(MASTER_KEY), entry?.oauth ?? '', `mcp-oauth:${id}`),
+      ) as { refreshToken?: string };
+      expect(sealed.refreshToken).toMatch(/^rt-/);
+
+      // A new client secret keeps the connection; removing the credential drops it.
+      const rotated = await call('PATCH', `mcp/servers/${id}`, {
+        oauth: {
+          grantType: 'authorization_code',
+          clientId: MOCK_OAUTH_CLIENT.clientId,
+          clientSecret: 'another-secret',
+        },
+      });
+      expect(rotated.json()).toMatchObject({ oauth: { connected: true } });
+      const audit = await app.get(PrismaService).client.auditLog.findFirst({
+        where: { action: 'mcp_server.updated', targetId: id },
+      });
+      expect(JSON.stringify(audit?.diff)).not.toContain('another-secret');
+      const removed = await call('PATCH', `mcp/servers/${id}`, { oauth: null });
+      expect(removed.json()).toMatchObject({ oauth: null });
+      expect(
+        (
+          await call('POST', `mcp/servers/${id}/oauth/authorize`, {
+            redirectUri: 'http://x.test/cb',
+          })
+        ).statusCode,
+      ).toBe(422);
+      expect((await call('DELETE', `mcp/servers/${id}`)).statusCode).toBe(204);
+    } finally {
+      await mock.close();
+    }
   });
 
   it('registers a server; header values are encrypted and never returned', async () => {

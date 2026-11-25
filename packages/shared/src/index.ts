@@ -8,3 +8,4 @@ export * from './money.js';
 export * from './metrics.js';
 export * from './valkey.js';
 export * from './network.js';
+export * from './oauth-client.js';

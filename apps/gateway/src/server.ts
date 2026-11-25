@@ -402,6 +402,8 @@ export function buildGateway(opts: GatewayOptions) {
     pepper: opts.pepper,
     logger: opts.logger,
     instance: deps.instance,
+    keyring: opts.keyring,
+    redis: opts.stateRedis ?? opts.limiterRedis,
     ...(opts.recordMcpCall ? { record: opts.recordMcpCall } : {}),
   });
   app.route({

@@ -1236,6 +1236,129 @@ try {
       assert.equal((await ask(key.key, 'what time is it')).response.status, 200);
     },
   );
+  // ───────────── Epic 28: MCP and A2A ─────────────
+
+  /** Registers an MCP server (replacing one left over with the same slug) and removes it after. */
+  async function mcpServer(body) {
+    const existing = (await org('GET', 'mcp/servers')).body.find((x) => x.slug === body.slug);
+    if (existing) await org('DELETE', `mcp/servers/${existing.id}`, undefined, 204);
+    const created = (await published(() => org('POST', 'mcp/servers', body, 201))).body;
+    cleanups.push(() => org('DELETE', `mcp/servers/${created.id}`, undefined, null));
+    return created;
+  }
+
+  await scenario(
+    '28.1 MCP: resources and prompts pass through, an OAuth-protected server works and renews its token',
+    async () => {
+      // The mock's test OAuth client (apps/mock-provider/src/mcp.ts), not a secret.
+      const client = { clientId: 'mock-client', clientSecret: 'mock-client-pass' };
+      await mcpServer({ name: 'Docs', slug: 's4docs', url: 'http://mock-provider:8090/mcp/docs' });
+      const secure = await mcpServer({
+        name: 'Secure',
+        slug: 's4secure',
+        url: 'http://mock-provider:8090/mcp-oauth/s4secure',
+        oauth: { grantType: 'client_credentials', ...client },
+      });
+      assert.equal(secure.oauth.hasClientSecret, true);
+      assert.ok(!JSON.stringify(secure).includes(client.clientSecret));
+      const key = await createKey('mcp');
+      const mcp = async (method, params) =>
+        (
+          await request(
+            `${urls.gateway}/mcp`,
+            {
+              method: 'POST',
+              headers: {
+                authorization: `Bearer ${key.key}`,
+                'content-type': 'application/json',
+                accept: 'application/json, text/event-stream',
+              },
+              body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+            },
+            200,
+          )
+        ).body;
+
+      // 1. Resources, templates and prompts of an upstream server, namespaced like tools.
+      const resources = await waitFor('the gateway to list the resources', async () => {
+        const list = (await mcp('resources/list')).result.resources.map((r) => r.uri);
+        return list.includes('s4docs+mock://readme') ? list : undefined;
+      });
+      assert.ok(resources.includes('s4docs+file:///notes/today.md'), resources.join(' '));
+      const templates = (await mcp('resources/templates/list')).result.resourceTemplates;
+      assert.ok(templates.some((t) => t.uriTemplate === 's4docs+mock://items/{id}'));
+      const read = await mcp('resources/read', { uri: 's4docs+mock://items/7' });
+      assert.deepEqual(read.result.contents, [
+        { uri: 's4docs+mock://items/7', mimeType: 'text/plain', text: 'item 7' },
+      ]);
+      const prompts = (await mcp('prompts/list')).result.prompts.map((p) => p.name);
+      assert.ok(prompts.includes('s4docs__greet'), prompts.join(' '));
+      const prompt = await mcp('prompts/get', {
+        name: 's4docs__greet',
+        arguments: { name: 'Ali' },
+      });
+      assert.equal(prompt.result.messages[0].content.text, 'Say hello to Ali.');
+      assert.equal(prompt.result.messages[1].content.resource.uri, 's4docs+mock://readme');
+
+      // 2. Client credentials, discovered from the server URL; renewed after the server revokes it.
+      const stats = async () => (await request(`${urls.mock}/__oauth/stats`, {}, 200)).body;
+      const echo = async (tool, text) =>
+        (await mcp('tools/call', { name: tool, arguments: { text } })).result?.content?.[0]?.text;
+      assert.equal(await echo('s4secure__echo', 'protected'), 'protected');
+      const before = await stats();
+      await request(`${urls.mock}/__oauth/revoke`, { method: 'POST' }, 200);
+      assert.equal(await echo('s4secure__echo', 'after revoke'), 'after revoke');
+      const after = await stats();
+      assert.equal(after.rejected - before.rejected, 1, JSON.stringify({ before, after }));
+      assert.equal(after.client_credentials - before.client_credentials, 1);
+      const listed = (await mcp('resources/list')).result.resources.map((r) => r.uri);
+      assert.ok(listed.includes('s4secure+mock://readme'));
+
+      // 3. Authorization code: connected once through the control-api, then refreshed by itself.
+      const linked = await mcpServer({
+        name: 'Linked',
+        slug: 's4linked',
+        url: 'http://mock-provider:8090/mcp-oauth/s4linked',
+        oauth: { grantType: 'authorization_code', ...client },
+      });
+      assert.equal(linked.oauth.connected, false);
+      const { authorizationUrl } = (
+        await org(
+          'POST',
+          `mcp/servers/${linked.id}/oauth/authorize`,
+          { redirectUri: 'http://localhost:5173/mcp/callback' },
+          200,
+        )
+      ).body;
+      // The control-api discovered the mock inside the stack; the browser reaches it via Traefik.
+      const approve = await fetch(
+        authorizationUrl.replace('http://mock-provider:8090', urls.mock),
+        {
+          redirect: 'manual',
+        },
+      );
+      const back = new URL(approve.headers.get('location'));
+      const connected = (
+        await published(() =>
+          org(
+            'POST',
+            `mcp/servers/${linked.id}/oauth/callback`,
+            { code: back.searchParams.get('code'), state: back.searchParams.get('state') },
+            200,
+          ),
+        )
+      ).body;
+      assert.equal(connected.oauth.connected, true);
+      const refreshes = (await stats()).refresh_token;
+      assert.equal(
+        await waitFor('the gateway to reach the linked server', async () =>
+          (await echo('s4linked__echo', 'linked')) === 'linked' ? 'linked' : undefined,
+        ),
+        'linked',
+      );
+      assert.ok((await stats()).refresh_token > refreshes, 'the gateway used the refresh token');
+    },
+  );
 
   // ───────────── Epic 27: translation and providers ─────────────
 

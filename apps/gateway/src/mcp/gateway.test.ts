@@ -156,9 +156,9 @@ describe('MCP gateway', () => {
   it('lists the tools of every enabled server, paged and prefixed; a broken one is skipped', async () => {
     const all = await names(ALL);
     for (const server of ['demo', 'stream', 'old'])
-      for (const tool of ['add', 'echo', 'fail', 'whoami'])
+      for (const tool of ['add', 'echo', 'fail', 'link', 'whoami'])
         expect(all).toContain(`${server}__${tool}`);
-    expect(all).toHaveLength(12);
+    expect(all).toHaveLength(15);
     expect(all.some((n) => n.startsWith('off__') || n.startsWith('down__'))).toBe(false);
     // Another organization's key sees none of them.
     expect(await names(OTHER_ORG)).toEqual([]);
@@ -170,6 +170,7 @@ describe('MCP gateway', () => {
       'old__add',
       'old__echo',
       'old__fail',
+      'old__link',
       'old__whoami',
     ]);
     const denied = await rpc(LIMITED, 'tools/call', {
@@ -232,6 +233,101 @@ describe('MCP gateway', () => {
     });
     expect(String(last?.arguments.text)).toMatch(/^x{200}…\(500\)$/);
     expect(JSON.stringify(records)).not.toContain('hunter2');
+  });
+
+  it('passes resources, templates and prompts through, namespaced like tools (card 28.1)', async () => {
+    type Listed = { name: string; uri?: string; uriTemplate?: string }[];
+    const init = await rpc(ALL, 'initialize', { protocolVersion: '2025-06-18', capabilities: {} });
+    expect(init.body?.result?.capabilities).toMatchObject({ resources: {}, prompts: {} });
+
+    // Paged upstream lists (resources come one per page), from all three transports.
+    const resources = (await rpc(ALL, 'resources/list')).body?.result?.resources as Listed;
+    const uris = resources.map((r) => r.uri).sort();
+    for (const server of ['demo', 'stream', 'old']) {
+      expect(uris).toContain(`${server}+mock://readme`);
+      expect(uris).toContain(`${server}+file:///notes/today.md`);
+    }
+    expect(uris).toHaveLength(6);
+    expect(resources.find((r) => r.uri === 'demo+mock://readme')?.name).toBe('demo__readme');
+    const templates = (await rpc(ALL, 'resources/templates/list')).body?.result
+      ?.resourceTemplates as Listed;
+    expect(templates.map((t) => t.uriTemplate).sort()).toEqual([
+      'demo+mock://items/{id}',
+      'old+mock://items/{id}',
+      'stream+mock://items/{id}',
+    ]);
+
+    // A listed URI and an expanded template both find their server again.
+    const read = async (key: string, uri: string) =>
+      (await rpc(key, 'resources/read', { uri })).body;
+    expect((await read(ALL, 'demo+mock://items/42'))?.result?.contents).toEqual([
+      { uri: 'demo+mock://items/42', mimeType: 'text/plain', text: 'item 42' },
+    ]);
+    expect((await read(ALL, 'old+file:///notes/today.md'))?.result?.contents).toMatchObject([
+      { uri: 'old+file:///notes/today.md', text: '# Today\n- test the gateway' },
+    ]);
+    expect(records.at(-1)).toMatchObject({
+      status: 'success',
+      serverId: 'mcp-old',
+      tool: 'resource:file:///notes/today.md',
+    });
+    expect((await read(ALL, 'demo+mock://nothing'))?.error?.code).toBe(-32002);
+    expect((await read(ALL, 'nope+mock://readme'))?.error?.code).toBe(-32002);
+    expect((await read(ALL, 'mock://readme'))?.error?.code).toBe(-32002);
+
+    const prompts = (await rpc(ALL, 'prompts/list')).body?.result?.prompts as Listed;
+    expect(prompts.map((p) => p.name).sort()).toEqual([
+      'demo__greet',
+      'old__greet',
+      'stream__greet',
+    ]);
+    const prompt = await rpc(ALL, 'prompts/get', {
+      name: 'stream__greet',
+      arguments: { name: 'Sara' },
+    });
+    expect(prompt.body?.result?.messages).toEqual([
+      { role: 'user', content: { type: 'text', text: 'Say hello to Sara.' } },
+      {
+        role: 'user',
+        content: {
+          type: 'resource',
+          resource: {
+            uri: 'stream+mock://readme',
+            mimeType: 'text/plain',
+            text: 'This is the mock MCP server.',
+          },
+        },
+      },
+    ]);
+    expect((await rpc(ALL, 'prompts/get', { name: 'demo__nope' })).body?.error?.code).toBe(-32602);
+
+    // Resource links in tool results point back through the gateway too.
+    const link = await rpc(ALL, 'tools/call', { name: 'demo__link', arguments: {} });
+    expect(link.body?.result?.content).toMatchObject([
+      { type: 'resource_link', uri: 'demo+mock://readme' },
+    ]);
+  });
+
+  it('applies the key allowlist to resources and prompts', async () => {
+    type Listed = { name: string; uri?: string }[];
+    // LIMITED may use demo__echo and old__*: prompts by name, resources only with the whole server.
+    const resources = (await rpc(LIMITED, 'resources/list')).body?.result?.resources as Listed;
+    expect(resources.map((r) => r.uri).sort()).toEqual([
+      'old+file:///notes/today.md',
+      'old+mock://readme',
+    ]);
+    const prompts = (await rpc(LIMITED, 'prompts/list')).body?.result?.prompts as Listed;
+    expect(prompts.map((p) => p.name)).toEqual(['old__greet']);
+    const denied = await rpc(LIMITED, 'resources/read', { uri: 'demo+mock://readme' });
+    expect(denied.body?.error).toMatchObject({ code: -32002 });
+    expect(records.at(-1)).toMatchObject({ status: 'denied', virtualKeyId: 'vk-limited' });
+    const prompt = await rpc(LIMITED, 'prompts/get', { name: 'demo__greet', arguments: {} });
+    expect(prompt.body?.error).toMatchObject({
+      code: -32602,
+      message: 'Unknown prompt: demo__greet',
+    });
+    // Another organization sees nothing.
+    expect((await rpc(OTHER_ORG, 'resources/list')).body?.result?.resources).toEqual([]);
   });
 
   it('masks deep and wide values', () => {
