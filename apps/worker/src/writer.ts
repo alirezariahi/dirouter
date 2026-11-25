@@ -67,6 +67,7 @@ export function toRequestLogRow(e: UsageEvent) {
     hedgeAttempts: e.hedgeAttempts ?? 0,
     ...(e.routing ? { routing: e.routing } : {}),
     ...(e.media ? { media: e.media } : {}),
+    ...(e.policy ? { policy: e.policy } : {}),
     // The routing decision (cards 32.5 and 32.7): data policy, removed targets and more.
     ...(e.routeDecision ? { routeDecision: e.routeDecision } : {}),
     // The service tier the request was priced at (card 31.5).

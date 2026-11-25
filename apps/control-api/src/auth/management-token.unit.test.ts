@@ -74,6 +74,8 @@ const READ_ONLY_POSTS = new Set([
   // caller's own virtual key.
   'PlaygroundController.stream',
   'StatsController.simulate',
+  // Compiles a routing rule condition and returns the problem (card 32.2); stores nothing.
+  'RoutingRulesController.validate',
 ]);
 
 describe('read-only scopes', () => {

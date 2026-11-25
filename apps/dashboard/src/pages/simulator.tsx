@@ -6,11 +6,13 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { textareaClass } from '../components/s2/common';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
 import { Field, FormError } from '../components/ui/field';
 import { api } from '../lib/api';
 import { formatNumber } from '../lib/date';
+import { parsePairs } from '../lib/pairs';
 import type { SubmitEvent } from '../lib/form';
 import { errorMessage } from '../lib/errors';
 import { type DataPolicyView, dataPolicyText, reasonText } from '../lib/route-decision';
@@ -72,6 +74,14 @@ interface Simulation {
   skipped?: Skipped[];
   neededTokens?: number;
   error?: { code?: string; message?: string };
+  /** Conditional routing rules (card 32.2). */
+  rules?: {
+    matched: { id: string; name: string }[];
+    decidedBy?: string;
+    target?: string;
+    tags?: Record<string, string>;
+    reject?: { message: string; status: number };
+  };
   /** Provider preferences and fallback models (card 32.1). */
   models?: string[];
   preferences?: Record<string, unknown>;
@@ -113,6 +123,9 @@ export default function SimulatorPage() {
   const [inputTokens, setInputTokens] = useState('');
   const [maxOutput, setMaxOutput] = useState('');
   const [sessionKey, setSessionKey] = useState('');
+  const [headersText, setHeadersText] = useState('');
+  const [metadataText, setMetadataText] = useState('');
+  const [teamBudget, setTeamBudget] = useState('');
   const [providerJson, setProviderJson] = useState('');
   const [fallbackModels, setFallbackModels] = useState('');
   const [jsonError, setJsonError] = useState(false);
@@ -139,6 +152,9 @@ export default function SimulatorPage() {
           ...(inputTokens ? { estimatedInputTokens: Number(inputTokens) } : {}),
           ...(maxOutput ? { maxOutputTokens: Number(maxOutput) } : {}),
           ...(sessionKey.trim() ? { sessionKey: sessionKey.trim() } : {}),
+          ...(headersText.trim() ? { headers: parsePairs(headersText, ':') } : {}),
+          ...(metadataText.trim() ? { metadata: parsePairs(metadataText, '=') } : {}),
+          ...(teamBudget ? { budget: { team: Number(teamBudget) } } : {}),
           ...(provider ? { provider } : {}),
           ...(fallbacks.length > 0 ? { models: fallbacks } : {}),
         },
@@ -248,6 +264,41 @@ export default function SimulatorPage() {
               setSessionKey(event.target.value);
             }}
           />
+          <label htmlFor="simulator-headers" className="flex flex-col gap-1 text-sm">
+            <span className="font-medium">{t('routingPolicies.simulator.headers')}</span>
+            <textarea
+              id="simulator-headers"
+              dir="ltr"
+              className={textareaClass}
+              value={headersText}
+              onChange={(event) => {
+                setHeadersText(event.target.value);
+              }}
+            />
+          </label>
+          <label htmlFor="simulator-metadata" className="flex flex-col gap-1 text-sm">
+            <span className="font-medium">{t('routingPolicies.simulator.metadata')}</span>
+            <textarea
+              id="simulator-metadata"
+              dir="ltr"
+              className={textareaClass}
+              value={metadataText}
+              onChange={(event) => {
+                setMetadataText(event.target.value);
+              }}
+            />
+          </label>
+          <Field
+            name="teamBudget"
+            label={t('routingPolicies.simulator.teamBudget')}
+            type="number"
+            min={0}
+            dir="ltr"
+            value={teamBudget}
+            onChange={(event) => {
+              setTeamBudget(event.target.value);
+            }}
+          />
           <Field
             name="fallbackModels"
             label={t('routingRequests.fallbackModels')}
@@ -284,6 +335,31 @@ export default function SimulatorPage() {
       </Card>
 
       {run.isError ? <FormError message={errorMessage(run.error, t)} /> : null}
+
+      {result?.rules ? (
+        <Card data-testid="simulator-rules">
+          <h2 className="mb-2 text-base font-semibold">{t('routingPolicies.simulator.matched')}</h2>
+          {result.rules.matched.length === 0 ? (
+            <p className="text-sm text-muted">{t('routingPolicies.simulator.noneMatched')}</p>
+          ) : (
+            <ul className="flex flex-col gap-1 text-sm">
+              {result.rules.matched.map((rule) => (
+                <li key={rule.id}>{rule.name}</li>
+              ))}
+            </ul>
+          )}
+          {result.rules.target ? (
+            <p className="mt-2 text-sm">
+              {t('routingPolicies.simulator.routedTo', { target: result.rules.target })}
+            </p>
+          ) : null}
+          {result.rules.reject ? (
+            <p className="mt-2 text-sm text-danger">
+              {t('routingPolicies.simulator.rejected', { message: result.rules.reject.message })}
+            </p>
+          ) : null}
+        </Card>
+      ) : null}
       {jsonError ? <FormError message={t('routingRequests.invalidJson')} /> : null}
 
       {result ? (

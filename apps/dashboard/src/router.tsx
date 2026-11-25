@@ -116,6 +116,7 @@ const guides = createRoute({
 });
 /** Sprint 2 pages; each entry is lazy-loaded like the pages above. */
 const SPRINT2_PAGES = [
+  { path: '/routing-policies', load: () => import('./pages/routing-policies') },
   { path: '/simulator', load: () => import('./pages/simulator') },
   { path: '/security', load: () => import('./pages/security') },
   { path: '/cost', load: () => import('./pages/cost') },

@@ -138,6 +138,7 @@ import {
 } from './genai.js';
 import { resolveCredentialKey, tokenFailure } from './credential-tokens.js';
 import { callUpstream, mergeTimeouts, readErrorBody, UpstreamTimeout } from './upstream.js';
+import { applyRoutingRules } from './routing-policy.js';
 import type { WebSearchExtension } from './web-search.js';
 import {
   planErrorToClient,
@@ -758,17 +759,60 @@ async function proxyRequest(
       : affinity?.enabled
         ? promptPrefixSessionKey(key.id, canonical)
         : undefined;
+  // Conditional routing rules (card 32.2) run before automatic routing and candidate selection.
+  // A `route` rule replaces the name the rest of the pipeline resolves; the client-facing name in
+  // the answer stays what the client sent.
+  let routeName = canonical.model;
+  let policy: UsageEvent['policy'];
+  let ruleDecided: { id: string; name: string } | undefined;
+  const budgetGuard = deps.budgets;
+  const rules = await applyRoutingRules(
+    config,
+    key,
+    req,
+    canonical,
+    estimatedInputTokens,
+    budgetGuard ? () => budgetGuard.usage(budgetScopes(config, key)) : undefined,
+  );
+  if (rules && rules.trace.matched.length > 0) {
+    policy = { rules: rules.trace };
+    const decidedBy = rules.decision.decidedBy;
+    if (decidedBy) {
+      void reply.header('x-dirouter-rule', decidedBy.id);
+      ruleDecided = { id: decidedBy.id, name: decidedBy.name };
+    }
+    if (rules.decision.reject) {
+      sendError(
+        reply,
+        api,
+        new DiRouterError('forbidden', {
+          message: rules.decision.reject.message,
+          status: rules.decision.reject.status,
+        }),
+        requestId,
+      );
+      deps.metrics?.reject('routing_rule', 'reject');
+      finishSpan('error', { 'gateway.error': 'routing_rule' });
+      observeEarly(reply.statusCode);
+      return;
+    }
+    if (rules.decision.target) routeName = rules.decision.target;
+  }
+  // The rule's target is the organization's choice: the key's allow-list applied to the name the
+  // client sent (checked before the rules ran), not to where a rule sends it.
+  const ruleRouted = routeName !== canonical.model;
+
   // Automatic model choice for the `auto*` aliases (card 20.4), unless the organization defines a
   // model, alias or combo of that name itself, or the key may not use the alias.
   let routing: UsageEvent['routing'];
   const autoRouting = settings.autoRouting;
   if (
     autoRouting?.enabled &&
-    isAutoAlias(canonical.model) &&
-    !config.router.modelsFor(key, canonical.model) &&
-    (key.allowedModels.length === 0 || key.allowedModels.includes(canonical.model))
+    isAutoAlias(routeName) &&
+    !config.router.modelsFor(key, routeName) &&
+    (ruleRouted || key.allowedModels.length === 0 || key.allowedModels.includes(routeName))
   ) {
-    const alias = canonical.model;
+    const alias = routeName;
     const startedAt = performance.now();
     const classification = classifyRequest(canonical, estimatedInputTokens);
     let source: 'rules' | 'model' = 'rules';
@@ -821,8 +865,8 @@ async function proxyRequest(
   // Same planner as the routing simulator (cards 12.5 and 32.1): resolve, fallback models, then
   // provider preferences.
   const route = planRoute(config.router, {
-    key: routing ? { ...key, allowedModels: [] } : key,
-    model: routing?.target ?? canonical.model,
+    key: routing || ruleRouted ? { ...key, allowedModels: [] } : key,
+    model: routing?.target ?? routeName,
     fallbackModels: requestRouting.fallbackModels,
     preferences: requestRouting.preferences,
     dataPolicy: requestRouting.dataPolicy,
@@ -838,7 +882,7 @@ async function proxyRequest(
     },
   });
   if (isPlanError(route)) {
-    const error = planErrorToClient(route, canonical.model);
+    const error = planErrorToClient(route, routeName);
     if (route.error === 'no_provider_matches_data_policy')
       deps.logger.info(
         { requestId, dataPolicy: requestRouting.dataPolicy, skipped: route.skipped },
@@ -898,14 +942,16 @@ async function proxyRequest(
     priceMultiplier: key.priceMultiplier,
     priced: (m) => ({ ...m, pricing: pricingForServiceTier(m.pricing, canonical.serviceTier) }),
     suffixes: suffix.suffixes,
-    ...(routing
-      ? {
-          rule: {
-            id: `auto:${routing.alias}`,
-            name: `${routing.alias} → ${routing.target}${routing.taskType ? ` (${routing.taskType})` : ''}`,
-          },
-        }
-      : {}),
+    ...(ruleDecided
+      ? { rule: ruleDecided }
+      : routing
+        ? {
+            rule: {
+              id: `auto:${routing.alias}`,
+              name: `${routing.alias} → ${routing.target}${routing.taskType ? ` (${routing.taskType})` : ''}`,
+            },
+          }
+        : {}),
   });
   if (explainAllowed) void reply.header(EXPLAIN_HEADER, encodeExplanation(explanation));
 
@@ -1152,6 +1198,7 @@ async function proxyRequest(
       attempts: [],
       cacheHit: true,
       cacheKind,
+      ...(policy ? { policy } : {}),
       ...(firstCandidate
         ? {
             metricProvider: firstCandidate.provider.slug,
@@ -1236,6 +1283,7 @@ async function proxyRequest(
           ? { savedInputTokens: Math.round(savedCompressedChars / 4) }
           : {}),
         ...(routing ? { routing } : {}),
+        ...(policy ? { policy } : {}),
         routeDecision: routeDecisionOf(explanation),
         ...(explainAllowed ? { explanation } : {}),
         finishSpan,
@@ -1368,6 +1416,8 @@ async function runRoute(
     cacheBypass?: boolean;
     /** How an `auto*` alias was resolved (card 20.4). */
     routing?: UsageEvent['routing'];
+    /** What the organization's routing policies did (sprint 5). */
+    policy?: UsageEvent['policy'];
     /** How the route was planned (cards 32.5 and 32.7), for the request log. */
     routeDecision?: RouteDecision | undefined;
     /** Set when the client may and did ask for the routing explanation (card 32.7). */
@@ -1959,6 +2009,7 @@ async function runRoute(
     metricModel: resolvedModel?.slug ?? candidate?.model.slug,
     savedInputTokens: ctx.savedInputTokens ?? 0,
     ...(ctx.routing ? { routing: ctx.routing } : {}),
+    ...(ctx.policy ? { policy: ctx.policy } : {}),
     ...(ctx.routeDecision ? { routeDecision: ctx.routeDecision } : {}),
     // The tier the provider says it used, else the one requested (streams, card 31.5).
     serviceTier:
@@ -2310,6 +2361,7 @@ function emitUsageEvent(
     savedInputTokens?: number;
     hedgeAttempts?: number;
     routing?: UsageEvent['routing'];
+    policy?: UsageEvent['policy'];
     routeDecision?: RouteDecision;
     serviceTier?: string | undefined;
   },
@@ -2373,6 +2425,7 @@ function emitUsageEvent(
         : {}),
       ...(e.hedgeAttempts && e.hedgeAttempts > 0 ? { hedgeAttempts: e.hedgeAttempts } : {}),
       ...(e.routing ? { routing: e.routing } : {}),
+      ...(e.policy ? { policy: e.policy } : {}),
       ...(e.routeDecision ? { routeDecision: e.routeDecision } : {}),
       ...(tier && e.cacheHit !== true ? { serviceTier: tier } : {}),
       latencyMs: Date.now() - e.started,

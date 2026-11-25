@@ -69,6 +69,9 @@ importers:
       '@dirouter/providers':
         specifier: workspace:*
         version: link:../../packages/providers
+      '@dirouter/routing':
+        specifier: workspace:*
+        version: link:../../packages/routing
       '@dirouter/shared':
         specifier: workspace:*
         version: link:../../packages/shared

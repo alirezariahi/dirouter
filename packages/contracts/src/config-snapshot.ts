@@ -13,6 +13,7 @@ import { z } from 'zod';
 import { IsoDateTime, Slug, UsdAmount } from './common.js';
 import { GuardrailPolicy } from './guardrails.js';
 import { BodyCaptureRule, BodyCaptureSettings } from './request-body.js';
+import { RoutingRuleConfig } from './routing-policy.js';
 import { ProviderDataPolicy, RoutingPolicyRule } from './routing-policy.js';
 
 export const CONFIG_SNAPSHOT_SCHEMA_VERSION = 1 as const;
@@ -716,6 +717,8 @@ export const ConfigSnapshot = z.object({
   mcpServers: z.array(McpServerConfig).default([]),
   /** Request body capture levels per organization, project or key (card 24.1). */
   bodyCapture: z.array(BodyCaptureRule).default([]),
+  /** Conditional routing rules, evaluated before candidate selection (card 32.2). */
+  routingRules: z.array(RoutingRuleConfig).default([]),
   /** Routing policies per organization, project or key (cards 32.1, 32.5 and 32.7). */
   routingPolicies: z.array(RoutingPolicyRule).default([]),
 });

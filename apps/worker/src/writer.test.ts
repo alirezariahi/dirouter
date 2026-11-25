@@ -109,6 +109,12 @@ describe('usage batch writer', () => {
     expect(toRequestLogRow(event(3))).not.toHaveProperty('media');
   });
 
+  it('keeps what the routing policies did (card 32.2)', () => {
+    const policy = { rules: { matched: ['rr_1'], decidedBy: 'rr_1', target: 'cheap' } };
+    expect(toRequestLogRow(event(4, { policy }))).toMatchObject({ policy });
+    expect(toRequestLogRow(event(5))).not.toHaveProperty('policy');
+  });
+
   it('keeps the routing decision with the log entry (card 32.5)', () => {
     const routeDecision = {
       dataPolicy: { requireZdr: true },

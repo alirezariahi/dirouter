@@ -175,6 +175,7 @@ export class SnapshotService implements OnModuleInit, OnModuleDestroy {
       organizations,
       mcpServers,
       bodyCapture,
+      routingRules,
       routingPolicies,
     ] = await Promise.all([
       db.provider.findMany({
@@ -213,6 +214,8 @@ export class SnapshotService implements OnModuleInit, OnModuleDestroy {
       db.bodyCaptureSetting.findMany({
         orderBy: [{ organizationId: 'asc' }, { scope: 'asc' }, { scopeId: 'asc' }],
       }),
+      // Conditional routing rules (card 32.2).
+      db.routingRule.findMany({ orderBy: [{ priority: 'asc' }, { id: 'asc' }] }),
       // Routing policies (cards 32.1, 32.5 and 32.7).
       db.routingPolicySetting.findMany({
         orderBy: [{ organizationId: 'asc' }, { scope: 'asc' }, { scopeId: 'asc' }],
@@ -454,6 +457,22 @@ export class SnapshotService implements OnModuleInit, OnModuleDestroy {
               scope: r.scope as 'organization' | 'project' | 'key',
               scopeId: r.scopeId,
               level: r.level as 'none' | 'metadata' | 'full',
+            })),
+          }
+        : {}),
+      // Routing rules (card 32.2); absent while nobody has one, like body capture above.
+      ...(routingRules.length > 0
+        ? {
+            routingRules: routingRules.map((r) => ({
+              id: r.id,
+              organizationId: r.organizationId,
+              name: r.name,
+              enabled: r.enabled,
+              priority: r.priority,
+              ...(r.teamId ? { teamId: r.teamId } : {}),
+              ...(r.projectId ? { projectId: r.projectId } : {}),
+              condition: r.condition,
+              action: r.action as never,
             })),
           }
         : {}),

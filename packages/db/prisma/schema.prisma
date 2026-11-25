@@ -79,6 +79,7 @@ model Organization {
   changeRequests   ChangeRequest[]
   serviceAccounts  ServiceAccount[]
   managementTokens ManagementToken[]
+  routingRules     RoutingRule[]
   @@map("organizations")
 }
 
@@ -615,6 +616,8 @@ model RequestLog {
   routing          Json?
   /// Images, characters or audio seconds of a media request (card 21.1).
   media            Json?
+  /// What the organization's routing policies did (sprint 5): matched rules, split branch.
+  policy           Json?
   /// How the route was planned (cards 32.5 and 32.7): data policy, removed targets and more.
   routeDecision    Json?    @map("route_decision")
   /// Service tier the request was priced at (card 31.5): flex or priority.
@@ -1601,6 +1604,29 @@ model RequestBody {
   @@id([requestId, createdAt])
   @@index([organizationId, createdAt])
   @@map("request_bodies")
+}
+
+/// Conditional routing rule (card 32.2): a CEL-subset condition and an action, in priority order.
+model RoutingRule {
+  id             String   @id
+  organizationId String   @map("organization_id")
+  name           String
+  enabled        Boolean  @default(true)
+  /// Lower runs first.
+  priority       Int
+  /// A team's or a project's own rule; both null means the whole organization.
+  teamId         String?  @map("team_id")
+  projectId      String?  @map("project_id")
+  condition      String
+  /// `{ type: 'route', target } | { type: 'reject', message?, status } | { type: 'tag', tags }`
+  action         Json
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, priority])
+  @@map("routing_rules")
 }
 
 /// Routing policies per organization, project or key (cards 32.1, 32.5 and 32.7): provider

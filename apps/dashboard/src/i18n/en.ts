@@ -12,6 +12,7 @@ import { mcpPageEn } from './mcp-page';
 import { scopeLimitsEn } from './scope-limits';
 import { upstreamServicesEn } from './upstream-services';
 import { playgroundStreamEn } from './playground-stream';
+import { routingPoliciesEn } from './routing-policies';
 
 type Widen<T> = { [K in keyof T]: T[K] extends string ? string : Widen<T[K]> };
 
@@ -25,6 +26,7 @@ export const en: Widen<Messages> = {
     logs: 'Request logs',
     health: 'Health',
     simulator: 'Routing simulator',
+    routingPolicies: 'Routing policies',
     security: 'Security',
     cost: 'Cost and budgets',
     analytics: 'Analytics',
@@ -265,4 +267,5 @@ export const en: Widen<Messages> = {
   scopeLimits: scopeLimitsEn,
   upstreamServices: upstreamServicesEn,
   playgroundStream: playgroundStreamEn,
+  routingPolicies: routingPoliciesEn,
 };

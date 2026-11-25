@@ -199,7 +199,7 @@ export function createGatewayMetrics(options: GatewayMetricOptions) {
         genAiTokens.observe({ ...base, token_type: 'output' }, call.outputTokens);
     },
     reject(
-      guard: 'rate_limit' | 'budget' | 'wallet' | 'concurrency' | 'guardrail',
+      guard: 'rate_limit' | 'budget' | 'wallet' | 'concurrency' | 'guardrail' | 'routing_rule',
       reason: string,
     ) {
       rejected.inc({ guard, reason });

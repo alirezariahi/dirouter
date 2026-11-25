@@ -180,3 +180,57 @@ export const RoutingPolicyRule = RoutingPolicy.extend({
   scopeId: z.string(),
 });
 export type RoutingPolicyRule = z.infer<typeof RoutingPolicyRule>;
+
+// ───────────── Conditional routing rules (card 32.2) ─────────────
+
+/** What a matching rule does. `route` and `reject` end the evaluation; `tag` adds labels and goes on. */
+export const RoutingRuleAction = z.discriminatedUnion('type', [
+  /** Send the request to a model, alias, combo or `auto*` name of the organization instead. */
+  z.object({ type: z.literal('route'), target: z.string().min(1).max(200) }),
+  z.object({
+    type: z.literal('reject'),
+    message: z.string().max(500).optional(),
+    status: z.union([z.literal(400), z.literal(403), z.literal(429)]).default(403),
+  }),
+  /** Labels recorded with the request (usage event and request log). */
+  z.object({
+    type: z.literal('tag'),
+    tags: z
+      .record(z.string().regex(/^[a-z0-9_.-]{1,40}$/), z.string().max(100))
+      .refine((t) => Object.keys(t).length > 0 && Object.keys(t).length <= 10, {
+        message: 'a tag action needs 1 to 10 tags',
+      }),
+  }),
+]);
+export type RoutingRuleAction = z.infer<typeof RoutingRuleAction>;
+
+export const RoutingRuleConfig = z.object({
+  id: z.string(),
+  organizationId: z.string(),
+  name: z.string().min(1).max(100),
+  enabled: z.boolean().default(true),
+  /** Lower runs first. */
+  priority: z.int().min(0).max(1_000_000),
+  /** A team's own policy: the rule only applies to keys of this team (card 32.2). */
+  teamId: z.string().optional(),
+  projectId: z.string().optional(),
+  /** CEL-subset condition, see `@dirouter/routing` rules-expr. */
+  condition: z.string().min(1).max(2_000),
+  action: RoutingRuleAction,
+});
+export type RoutingRuleConfig = z.infer<typeof RoutingRuleConfig>;
+
+/** How the policies changed a request, recorded with its usage event (sprint 5). */
+export const PolicyTrace = z.object({
+  rules: z
+    .object({
+      /** Every rule that matched, in evaluation order. */
+      matched: z.array(z.string()),
+      /** The rule whose `route` or `reject` decided the request. */
+      decidedBy: z.string().optional(),
+      target: z.string().optional(),
+      tags: z.record(z.string(), z.string()).optional(),
+    })
+    .optional(),
+});
+export type PolicyTrace = z.infer<typeof PolicyTrace>;

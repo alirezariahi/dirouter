@@ -199,6 +199,17 @@ const SimulateBody = z.object({
   estimatedInputTokens: z.coerce.number().int().nonnegative().optional(),
   maxOutputTokens: z.coerce.number().int().positive().optional(),
   sessionKey: z.string().max(200).optional(),
+  /** Request attributes the routing rules read (card 32.2). */
+  headers: z.record(z.string().max(100), z.string().max(1_000)).optional(),
+  metadata: z.record(z.string().max(100), z.string().max(1_000)).optional(),
+  budget: z
+    .object({
+      key: z.number().min(0).max(10_000).optional(),
+      project: z.number().min(0).max(10_000).optional(),
+      team: z.number().min(0).max(10_000).optional(),
+    })
+    .optional()
+    .describe('percent of each budget already spent, for rules on budget.*'),
   provider: z
     .record(z.string(), z.unknown())
     .optional()

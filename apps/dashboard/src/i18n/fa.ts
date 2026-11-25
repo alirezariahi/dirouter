@@ -11,6 +11,7 @@ import { mcpPageFa } from './mcp-page';
 import { scopeLimitsFa } from './scope-limits';
 import { upstreamServicesFa } from './upstream-services';
 import { playgroundStreamFa } from './playground-stream';
+import { routingPoliciesFa } from './routing-policies';
 export const fa = {
   app: { name: 'دی‌روتر', tagline: 'درگاه هوشمند مدل‌های زبانی' },
   nav: {
@@ -21,6 +22,7 @@ export const fa = {
     logs: 'لاگ درخواست‌ها',
     health: 'سلامت',
     simulator: 'شبیه‌ساز مسیریابی',
+    routingPolicies: 'سیاست‌های مسیریابی',
     security: 'امنیت',
     cost: 'هزینه و بودجه',
     analytics: 'تحلیل مصرف',
@@ -262,6 +264,7 @@ export const fa = {
   scopeLimits: scopeLimitsFa,
   upstreamServices: upstreamServicesFa,
   playgroundStream: playgroundStreamFa,
+  routingPolicies: routingPoliciesFa,
 } as const;
 
 export type Messages = typeof fa;

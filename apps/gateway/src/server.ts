@@ -668,9 +668,60 @@ export function buildGateway(opts: GatewayOptions) {
       (name) => isAutoAlias(name) || config.router.modelsFor(key, name) !== undefined,
     );
     requestRouting = withSuffixes(requestRouting, suffix);
+    // Conditional routing rules (card 32.2) with the request attributes the caller describes.
+    const strings = (value: unknown, lower = false): Record<string, string> =>
+      value && typeof value === 'object'
+        ? Object.fromEntries(
+            Object.entries(value as Record<string, unknown>)
+              .filter((e): e is [string, string] => typeof e[1] === 'string')
+              .map(([k, v]) => [lower ? k.toLowerCase() : k, v]),
+          )
+        : {};
+    const spent = (body.budget ?? {}) as Record<string, unknown>;
+    const budget = {
+      key: number(spent.key) ?? 0,
+      project: number(spent.project) ?? 0,
+      team: number(spent.team) ?? 0,
+      max: 0,
+    };
+    budget.max = Math.max(budget.key, budget.project, budget.team);
+    const decision = config.rules.has(key)
+      ? config.rules.evaluate(key, {
+          request: {
+            model: suffix.model,
+            api: 'openai.chat',
+            stream: body.stream === true,
+            headers: strings(body.headers, true),
+            metadata: strings(body.metadata),
+            estimated_tokens: inputTokens ?? 0,
+            max_output_tokens: outputTokens ?? 0,
+            user: '',
+            has_tools: body.hasTools === true,
+            has_images: body.hasImages === true,
+          },
+          budget,
+        })
+      : undefined;
+    const ruleNames = new Map(config.snapshot.routingRules.map((r) => [r.id, r.name]));
+    const rules = decision
+      ? {
+          matched: decision.matched.map((id) => ({ id, name: ruleNames.get(id) ?? id })),
+          ...(decision.decidedBy ? { decidedBy: decision.decidedBy.id } : {}),
+          ...(decision.target ? { target: decision.target } : {}),
+          ...(Object.keys(decision.tags).length > 0 ? { tags: decision.tags } : {}),
+          ...(decision.reject ? { reject: decision.reject } : {}),
+        }
+      : undefined;
+    if (decision?.reject)
+      return reply.status(decision.reject.status).send({
+        error: { message: decision.reject.message, code: 'routing_rule_reject' },
+        rules,
+        skipped: [],
+      });
     const result = planRoute(config.router, {
-      key,
-      model: suffix.model,
+      // A rule's target is the organization's choice, not limited by the key's allow-list.
+      key: decision?.target ? { ...key, allowedModels: [] } : key,
+      model: decision?.target ?? suffix.model,
       fallbackModels: requestRouting.fallbackModels,
       preferences: requestRouting.preferences,
       dataPolicy: requestRouting.dataPolicy,
@@ -691,6 +742,7 @@ export function buildGateway(opts: GatewayOptions) {
       },
     });
     const routingView = {
+      ...(rules ? { rules } : {}),
       ...(requestRouting.preferences ? { preferences: requestRouting.preferences } : {}),
       policy: {
         lockProvider: requestRouting.policy.lockProvider,
@@ -734,10 +786,16 @@ export function buildGateway(opts: GatewayOptions) {
       priceMultiplier: key.priceMultiplier,
       priced: (m) => ({ ...m, pricing: pricingForServiceTier(m.pricing, tier) }),
       suffixes: suffix.suffixes,
+      ...(decision?.decidedBy
+        ? { rule: { id: decision.decidedBy.id, name: decision.decidedBy.name } }
+        : {}),
     });
     return {
       explanation,
-      requested: result.requested,
+      // When a rule routed elsewhere, `requested` stays the client's name and `resolvedName` says
+      // where the rule sent it (card 32.2).
+      requested: decision?.target ? suffix.model : result.requested,
+      ...(decision?.target ? { resolvedName: result.requested } : {}),
       models: result.models,
       ...routingView,
       kind: result.kind,

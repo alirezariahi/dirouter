@@ -563,6 +563,13 @@ export class StatsService {
       estimatedInputTokens?: number | undefined;
       maxOutputTokens?: number | undefined;
       sessionKey?: string | undefined;
+      headers?: Record<string, string> | undefined;
+      metadata?: Record<string, string> | undefined;
+      budget?: {
+        key?: number | undefined;
+        project?: number | undefined;
+        team?: number | undefined;
+      };
       provider?: Record<string, unknown> | undefined;
       models?: string[] | undefined;
     },

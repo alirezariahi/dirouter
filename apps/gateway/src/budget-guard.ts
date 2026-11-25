@@ -42,6 +42,15 @@ export type BudgetCheck =
       unavailable?: boolean;
     };
 
+/** Percent of the current period's budget spent per scope (card 32.2). */
+export interface BudgetUsage {
+  key: number;
+  project: number;
+  team: number;
+  /** The highest of the three. */
+  max: number;
+}
+
 /** KEYS: counter keys; ARGV: usdDelta, tokenDelta, nowMs, then expireAt for each key */
 const RECORD = `
 local out = {}
@@ -67,6 +76,7 @@ export class BudgetGuard {
   readonly #redis: RedisWithBudget | undefined;
   readonly #timeoutMs: number;
   readonly stats = { checks: 0, rejected: 0, recorded: 0, alerts: 0, errors: 0 };
+  readonly #usageCache = new Map<string, { percent: number; expires: number }>();
 
   constructor(
     private readonly options: {
@@ -152,6 +162,65 @@ export class BudgetGuard {
         unavailable: true,
       };
     }
+  }
+
+  /**
+   * Share of each scope's budget already spent in the current period, in percent (card 32.2): the
+   * highest of the dollar and token shares over the scope's budgets, 0 for a scope without one.
+   * Read by routing rules (`budget.team > 80`). Values are cached for a second so a busy key does
+   * not add a Valkey round trip to every request; without Valkey, or when it fails, every share
+   * reads 0 (a rule cannot be fooled into spending more, only into not switching early).
+   */
+  async usage(budgets: ScopedBudget[]): Promise<BudgetUsage> {
+    const out: BudgetUsage = { key: 0, project: 0, team: 0, max: 0 };
+    const redis = this.#redis;
+    if (!redis || budgets.length === 0) return out;
+    const now = this.#now();
+    const nowMs = now.getTime();
+    const missing = budgets.filter((b) => {
+      const hit = this.#usageCache.get(b.budget.id);
+      return !hit || hit.expires <= nowMs;
+    });
+    if (missing.length > 0) {
+      try {
+        const pipeline = redis.pipeline();
+        for (const b of missing)
+          pipeline.hmget(
+            budgetCounterKey(b.budget.id, budgetPeriodKey(b.budget.period, now)),
+            'usd',
+            'tokens',
+          );
+        const results = await withTimeout(pipeline.exec(), this.#timeoutMs);
+        if (this.#usageCache.size > 10_000) this.#usageCache.clear();
+        for (const [i, b] of missing.entries()) {
+          const [error, values] = results?.[i] ?? [null, null];
+          if (error) throw error;
+          const [usdRaw, tokensRaw] = (values as (string | null)[] | null) ?? [null, null];
+          const usdShare =
+            b.budget.limitUsd !== undefined && usdToUnits(b.budget.limitUsd) > 0
+              ? (Number(usdRaw ?? 0) / usdToUnits(b.budget.limitUsd)) * 100
+              : 0;
+          const tokenShare =
+            b.budget.limitTokens !== undefined
+              ? (Number(tokensRaw ?? 0) / b.budget.limitTokens) * 100
+              : 0;
+          this.#usageCache.set(b.budget.id, {
+            percent: Math.max(usdShare, tokenShare),
+            expires: nowMs + 1_000,
+          });
+        }
+      } catch (error) {
+        this.stats.errors++;
+        this.options.logger.warn({ err: error }, 'budget usage lookup failed (Valkey)');
+        return out;
+      }
+    }
+    for (const b of budgets) {
+      const percent = this.#usageCache.get(b.budget.id)?.percent ?? 0;
+      out[b.scope] = Math.max(out[b.scope], percent);
+      out.max = Math.max(out.max, percent);
+    }
+    return out;
   }
 
   /** Increments the counters after the response; never awaited and never throws. */

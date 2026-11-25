@@ -3,10 +3,15 @@ import { Module } from '@nestjs/common';
 import { OrgGuard } from '../rbac/org.guard.js';
 import { RoutingPoliciesController } from './routing-policies.controller.js';
 import { RoutingPoliciesService } from './routing-policies.service.js';
+import { RoutingRulesController } from './rules.controller.js';
+import { RoutingRulesService } from './rules.service.js';
 
-/** Routing policies per organization, project and key (cards 32.1, 32.5 and 32.7). */
+/**
+ * Routing policies per organization, project and key (cards 32.1, 32.5 and 32.7) and the rules
+ * that run before candidate selection (cards 32.2–32.4, 32.8).
+ */
 @Module({
-  controllers: [RoutingPoliciesController],
-  providers: [RoutingPoliciesService, OrgGuard],
+  controllers: [RoutingPoliciesController, RoutingRulesController],
+  providers: [RoutingPoliciesService, RoutingRulesService, OrgGuard],
 })
 export class RoutingPoliciesModule {}
