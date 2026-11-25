@@ -1,11 +1,22 @@
 import { baseEnvSchema, envKeyring, envPort } from '@dirouter/shared';
 import { z } from 'zod';
 
+import { parseTrustProxy } from './trust-proxy.js';
+
 // Compose passes unset variables as empty strings; empty means "not configured".
 const optionalString = z.preprocess(
   (value) => (value === '' ? undefined : value),
   z.string().optional(),
 );
+
+function trustProxySetting(value: string | undefined, ctx: z.RefinementCtx<string | undefined>) {
+  try {
+    return parseTrustProxy(value);
+  } catch (error) {
+    ctx.addIssue({ code: 'custom', message: (error as Error).message });
+    return z.NEVER;
+  }
+}
 
 export const envSchema = baseEnvSchema.extend({
   PORT: envPort(3000),
@@ -15,6 +26,11 @@ export const envSchema = baseEnvSchema.extend({
   KEY_PEPPER: z.string().min(32),
   JWT_SECRET: z.string().min(32),
   INTERNAL_TOKEN: z.string().min(32),
+  /**
+   * Proxies whose X-Forwarded-For is believed (see trust-proxy.ts): a hop count (default 1, the
+   * bundled Traefik), a comma list of proxy addresses/CIDRs, or true/false.
+   */
+  TRUST_PROXY: z.string().optional().transform(trustProxySetting),
   DASHBOARD_ORIGIN: z.string().default('https://app.localhost'),
   PUBLIC_DASHBOARD_URL: z.string().default('https://app.localhost'),
   /** Gateway for testing the connection and discovering provider models (card 3.6). */

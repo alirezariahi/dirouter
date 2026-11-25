@@ -110,6 +110,8 @@ services:
       DASHBOARD_ORIGIN: ${DASHBOARD_ORIGIN:-https://app.${DOMAIN:-localhost}}
       PUBLIC_DASHBOARD_URL: ${DASHBOARD_ORIGIN:-https://app.${DOMAIN:-localhost}}
       GATEWAY_INTERNAL_URL: http://gateway:8080
+      # Proxies whose X-Forwarded-For is believed: one hop, the Traefik in front (docs/env-reference.md).
+      TRUST_PROXY: ${TRUST_PROXY:-1}
       # Semantic cache (card 13.2): off until an embeddings endpoint is configured.
       SEMANTIC_CACHE_EMBEDDING_URL: ${SEMANTIC_CACHE_EMBEDDING_URL:-}
       SEMANTIC_CACHE_EMBEDDING_KEY: ${SEMANTIC_CACHE_EMBEDDING_KEY:-}

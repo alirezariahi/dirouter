@@ -9,6 +9,7 @@ import { isIP } from 'node:net';
 import { DiRouterError, ForbiddenError, hashApiKey, prefixedId } from '@dirouter/shared';
 import { Inject, Injectable } from '@nestjs/common';
 
+import { requireVerifiedEmail } from '../auth/acting-human.js';
 import { ENV, type Env } from '../env.js';
 import { PrismaService } from '../infra/prisma.service.js';
 import type { OrgContext } from '../rbac/org.guard.js';
@@ -174,24 +175,11 @@ export class KeysService {
     if (!p) throw new DiRouterError('not_found', { message: 'Project not found' });
   }
 
-  /**
-   * A portal sign-up whose address is not verified yet cannot create keys (card 23.4); every
-   * other account is verified when it is created.
-   */
-  async #requireVerifiedEmail(ctx: OrgContext) {
-    const user = await this.db.user.findUnique({
-      where: { id: ctx.userId },
-      select: { emailVerifiedAt: true },
-    });
-    if (user && !user.emailVerifiedAt)
-      throw new DiRouterError('email_not_verified', {
-        message: 'Verify your email address before creating API keys',
-      });
-  }
-
   async create(ctx: OrgContext, input: KeyInput) {
     this.#check(input, ctx);
-    await this.#requireVerifiedEmail(ctx);
+    // A portal sign-up whose address is not verified yet cannot create keys (card 23.4); with a
+    // management token the person who created the token is checked.
+    await requireVerifiedEmail(this.db, ctx, 'Verify your email address before creating API keys');
     await this.#project(ctx, input.projectId);
     const { key, prefix } = newApiKey();
     const id = prefixedId('key');

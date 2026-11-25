@@ -274,9 +274,37 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('sign-in sessions over HTTP', () =
       token: admin.token,
     });
     expect(seen.statusCode).toBe(200);
-    expect(seen.json<SessionRow[]>()).toMatchObject([
-      { ip: '10.8.8.2', device: 'Safari on iOS', current: false },
+    // A session is the member's, across all their organizations: the administrator of one sees
+    // that it exists and when it was active, not where from or on which device.
+    const rows = seen.json<(SessionRow & { userAgent: string | null })[]>();
+    expect(rows).toMatchObject([
+      { ip: null, userAgent: null, device: 'Hidden', method: 'pwd', current: false },
     ]);
+    expect(Date.parse(rows[0]?.lastActiveAt ?? '')).toBeGreaterThan(0);
+    expect(seen.body).not.toContain('10.8.8.2');
+    expect(seen.body).not.toContain('iPhone');
+
+    // Neither route is open to a management token, whatever its scopes.
+    const sa = await inject({
+      method: 'POST',
+      url: `orgs/${orgId}/service-accounts`,
+      token: owner.token,
+      body: { name: 'hr-sync', role: 'ADMIN' },
+    });
+    expect(sa.statusCode, sa.body).toBe(201);
+    const issued = await inject({
+      method: 'POST',
+      url: `orgs/${orgId}/service-accounts/${sa.json<{ id: string }>().id}/tokens`,
+      token: owner.token,
+      body: { name: 'ci', scopes: ['members:read', 'members:write'] },
+    });
+    expect(issued.statusCode, issued.body).toBe(201);
+    const bot = issued.json<{ token: string }>().token;
+    for (const [method, url] of [
+      ['GET', `orgs/${orgId}/members/${viewerId}/sessions`],
+      ['POST', `orgs/${orgId}/members/${viewerId}/sessions/revoke`],
+    ] as const)
+      expect((await inject({ method, url, token: bot })).statusCode).toBe(403);
 
     // A viewer cannot sign anybody out.
     const denied = await inject({

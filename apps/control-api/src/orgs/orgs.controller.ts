@@ -17,7 +17,7 @@ import { z } from 'zod';
 import { SessionSchema } from '../auth/auth.controller.js';
 import { AccessGuard } from '../auth/auth.guard.js';
 import { ApiZodBody, ApiZodOk, ZodPipe } from '../common/zod.js';
-import { Org, OrgGuard, type OrgContext, RequirePermission } from '../rbac/org.guard.js';
+import { HumanOnly, Org, OrgGuard, type OrgContext, RequirePermission } from '../rbac/org.guard.js';
 import { OrgsService } from './orgs.service.js';
 import { ChangeRequestsService } from '../change-requests/change-requests.service.js';
 import { sendGated } from '../change-requests/gated.js';
@@ -140,14 +140,21 @@ export class OrgsController {
     await this.orgs.removeMember(org, userId);
   }
 
+  /**
+   * Sessions are the member's account-wide sign-ins, not this organization's, so an administrator
+   * sees when and how each was opened but not its address or device, and only from a dashboard
+   * session (never with a management token).
+   */
   @Get('members/:userId/sessions')
+  @HumanOnly()
   @RequirePermission('members:write')
-  @ApiZodOk(z.array(SessionSchema), 'نشست‌های فعال یک عضو')
+  @ApiZodOk(z.array(SessionSchema), 'نشست‌های فعال یک عضو، بدون نشانی IP و دستگاه')
   memberSessions(@Org() org: OrgContext, @Param('userId') userId: string) {
     return this.orgs.memberSessions(org, userId);
   }
 
   @Post('members/:userId/sessions/revoke')
+  @HumanOnly()
   @HttpCode(200)
   @RequirePermission('members:write')
   @ApiZodOk(z.object({ revoked: z.int() }), 'عضو از همهٔ دستگاه‌ها خارج شد')

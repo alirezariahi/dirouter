@@ -264,7 +264,14 @@ async function measure(
   }
   if (rule.type === 'queue_length') {
     if (!sources.queueLength) return { skip: 'no_queue_source' };
-    // The usage queue is shared by the deployment, so the value is the same for every organization.
+    // The usage queue is shared by the deployment, so the value is the same for every organization
+    // and is operator information: only the platform organization's rules are evaluated (the
+    // control-api refuses the rule elsewhere; this covers rules created before that).
+    const owner = await db.$queryRawUnsafe<{ is_platform: boolean }[]>(
+      'SELECT is_platform FROM organizations WHERE id = $1',
+      rule.organizationId,
+    );
+    if (owner[0]?.is_platform !== true) return { skip: 'not_platform_organization' };
     return { value: await sources.queueLength(), extra: { queue: 'usage' } };
   }
   return { skip: 'unknown_rule_type' };

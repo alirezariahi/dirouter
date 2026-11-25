@@ -57,6 +57,10 @@ export async function repriceCatalogModels(
 /**
  * Puts a pending proposal's price into force: the catalog entry, then the organization models.
  * Returns undefined when the proposal is not pending (already decided or superseded).
+ *
+ * The proposal is claimed first with a conditional update (`status = 'pending'`), so of two
+ * concurrent decisions (two admins, or an admin and a sync superseding it) exactly one proceeds;
+ * a plain read-then-write would let both reprice under READ COMMITTED.
  */
 export async function approveCatalogProposal(
   db: Pick<PrismaClient, '$transaction'>,
@@ -64,8 +68,12 @@ export async function approveCatalogProposal(
   decidedById: string | null,
 ): Promise<{ catalogKey: string; appliedModels: number } | undefined> {
   return db.$transaction(async (tx) => {
-    const proposal = await tx.catalogPriceProposal.findUnique({ where: { id: proposalId } });
-    if (proposal?.status !== 'pending') return undefined;
+    const claimed = await tx.catalogPriceProposal.updateMany({
+      where: { id: proposalId, status: 'pending' },
+      data: { status: 'approved', decidedById, decidedAt: new Date() },
+    });
+    if (claimed.count !== 1) return undefined;
+    const proposal = await tx.catalogPriceProposal.findUniqueOrThrow({ where: { id: proposalId } });
     const pricing = proposal.proposedPricing as unknown as CatalogPricing;
     await tx.catalogModel.update({
       where: { key: proposal.catalogKey },
@@ -74,7 +82,7 @@ export async function approveCatalogProposal(
     const appliedModels = await repriceCatalogModels(tx, proposal.catalogKey, pricing);
     await tx.catalogPriceProposal.update({
       where: { id: proposalId },
-      data: { status: 'approved', decidedById, decidedAt: new Date(), appliedModels },
+      data: { appliedModels },
     });
     return { catalogKey: proposal.catalogKey, appliedModels };
   });

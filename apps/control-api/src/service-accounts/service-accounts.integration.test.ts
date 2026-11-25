@@ -319,6 +319,61 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('service accounts and management t
     expect((await call('GET', 'auth/sessions', anywhere.token)).statusCode).toBe(403);
   });
 
+  it('the allow-list sees the address the proxy appended, not one the client wrote', async () => {
+    const sa = await account('ADMIN', 'proxied');
+    const pinned = await issue(sa.id, ['keys:read'], { allowedIps: ['192.168.0.0/16'] });
+    const via = (forwardedFor: string) =>
+      app
+        .getHttpAdapter()
+        .getInstance()
+        .inject({
+          method: 'GET',
+          url: `/api/v1/orgs/${org}/keys`,
+          // The connection comes from the proxy (Traefik), which appends the client it saw.
+          remoteAddress: '10.0.0.1',
+          headers: {
+            authorization: `Bearer ${pinned.token}`,
+            'x-forwarded-proto': 'https',
+            'x-forwarded-for': forwardedFor,
+          },
+        });
+    expect((await via('192.168.4.2')).statusCode).toBe(200);
+    // The client sent "X-Forwarded-For: 192.168.4.2" itself; the proxy appended its real address.
+    expect((await via('192.168.4.2, 203.0.113.7')).statusCode).toBe(403);
+  });
+
+  it('service accounts and token-made keys need a verified person behind them', async () => {
+    const ownerUser = await db().user.findFirstOrThrow({ where: { email: 'owner@sa.test' } });
+    // Made while the owner was verified.
+    const sa = await account('ADMIN', 'verified-later');
+    const bot = await issue(sa.id, ['keys:write', 'keys:read']);
+    await db().user.update({ where: { id: ownerUser.id }, data: { emailVerifiedAt: null } });
+    try {
+      const create = await call('POST', `orgs/${org}/service-accounts`, owner, {
+        name: 'sneaky',
+        role: 'ADMIN',
+      });
+      expect(create.statusCode).toBe(403);
+      expect(create.json<{ code: string }>().code).toBe('email_not_verified');
+      // The service account's own user counts as verified; the token's creator is checked instead.
+      const key = await call('POST', `orgs/${org}/keys`, bot.token, {
+        name: 'via-token',
+        projectId: project,
+      });
+      expect(key.statusCode).toBe(403);
+      expect(key.json<{ code: string }>().code).toBe('email_not_verified');
+    } finally {
+      await db().user.update({
+        where: { id: ownerUser.id },
+        data: { emailVerifiedAt: new Date() },
+      });
+    }
+    expect(
+      (await call('POST', `orgs/${org}/keys`, bot.token, { name: 'via-token', projectId: project }))
+        .statusCode,
+    ).toBe(201);
+  });
+
   it('only people who can manage security create service accounts, within their own power', async () => {
     const db_ = db();
     const memberUser = await db_.user.create({

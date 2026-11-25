@@ -12,6 +12,8 @@ export type LiveListener = (event: LiveRequestEvent) => void;
 
 /** Upper bound of open streams per process; more are refused and the page polls instead. */
 export const MAX_LIVE_STREAMS = 500;
+/** Upper bound of open streams of one user (or management token's service account) per process. */
+export const MAX_LIVE_STREAMS_PER_USER = 5;
 
 @Injectable()
 export class LiveHub implements OnModuleDestroy {
@@ -20,6 +22,7 @@ export class LiveHub implements OnModuleDestroy {
   /** Settles once Valkey confirmed the SUBSCRIBE of a channel (errors included). */
   readonly #subscribed = new Map<string, Promise<void>>();
   #count = 0;
+  readonly #perUser = new Map<string, number>();
 
   constructor(@Inject(ValkeyService) private readonly valkey: ValkeyService) {}
 
@@ -52,15 +55,25 @@ export class LiveHub implements OnModuleDestroy {
     return sub;
   }
 
+  /** Open streams of one user in this process. */
+  sizeOf(userId: string): number {
+    return this.#perUser.get(userId) ?? 0;
+  }
+
   /**
    * Starts listening. `ready` settles once the channel subscription is confirmed (or failed), so
-   * nothing published after it is missed; `off` stops. Undefined when the process is full.
+   * nothing published after it is missed; `off` stops. `full` when the process is full, `user`
+   * when this user already has MAX_LIVE_STREAMS_PER_USER streams open.
    */
   subscribe(
     organizationId: string,
     listener: LiveListener,
-  ): { off: () => void; ready: Promise<void> } | undefined {
-    if (this.#count >= MAX_LIVE_STREAMS) return undefined;
+    userId: string,
+  ): { off: () => void; ready: Promise<void> } | 'full' | 'user' {
+    if (this.#count >= MAX_LIVE_STREAMS) return 'full';
+    const mine = this.sizeOf(userId);
+    if (mine >= MAX_LIVE_STREAMS_PER_USER) return 'user';
+    this.#perUser.set(userId, mine + 1);
     const channel = liveChannel(organizationId);
     let listeners = this.#listeners.get(channel);
     if (!listeners) {
@@ -83,6 +96,9 @@ export class LiveHub implements OnModuleDestroy {
       if (!active) return;
       active = false;
       this.#count--;
+      const left = this.sizeOf(userId) - 1;
+      if (left > 0) this.#perUser.set(userId, left);
+      else this.#perUser.delete(userId);
       listeners.delete(listener);
       if (listeners.size === 0) {
         this.#listeners.delete(channel);

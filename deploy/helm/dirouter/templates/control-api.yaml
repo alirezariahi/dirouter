@@ -41,6 +41,7 @@ spec:
             - { name: PUBLIC_API_URL, value: 'https://{{ include "dirouter.host" (dict "ctx" $ "name" "admin") }}' }
             - { name: PUBLIC_GATEWAY_URL, value: 'https://{{ include "dirouter.host" (dict "ctx" $ "name" "api") }}' }
             - { name: PUBLIC_PORTAL_URL, value: 'https://{{ include "dirouter.host" (dict "ctx" $ "name" "portal") }}' }
+            - { name: TRUST_PROXY, value: {{ $v.trustProxy | default "1" | quote }} }
             {{- range $name, $value := $v.extraEnv }}
             - { name: {{ $name }}, value: {{ $value | quote }} }
             {{- end }}

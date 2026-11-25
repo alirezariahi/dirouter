@@ -4,12 +4,14 @@
  */
 import { createHmac } from 'node:crypto';
 
-import { DiRouterError, prefixedId } from '@dirouter/shared';
+import { DiRouterError, prefixedId, RateLimitError } from '@dirouter/shared';
 import { isEmailAddress, type Mailer } from '@dirouter/shared/mail';
 import { Inject, Injectable } from '@nestjs/common';
 
+import { requireVerifiedEmail } from '../auth/acting-human.js';
 import { MailService } from '../infra/mail.service.js';
 import { PrismaService } from '../infra/prisma.service.js';
+import { ValkeyService } from '../infra/valkey.service.js';
 import type { OrgContext } from '../rbac/org.guard.js';
 import { checkOutboundUrl, checkUrlSyntax, type UrlPolicyOptions } from './alert-url.js';
 
@@ -29,6 +31,17 @@ export type RuleInput = {
   channelId?: string | null;
   enabled?: boolean;
 };
+
+/**
+ * "Send test" goes out through the operator's SMTP server or to an admin-entered URL, so it is
+ * limited: one test per channel per minute and ten per organization per hour.
+ */
+export const CHANNEL_TEST_LIMITS = { channelGapSeconds: 60, orgPerHour: 10 } as const;
+/**
+ * Title of a test notification. Fixed: tenant-chosen text (such as the channel name) must not end
+ * up in the subject of an email sent from the operator's address.
+ */
+export const TEST_ALERT_TITLE = 'Test alert from DiRouter';
 
 /** Shown instead of a stored secret; sending it back on update means "keep the stored value". */
 export const SECRET_PLACEHOLDER = '***';
@@ -180,6 +193,7 @@ export class AlertsService {
   constructor(
     @Inject(PrismaService) private readonly db: PrismaService,
     @Inject(MailService) private readonly mail: MailService,
+    @Inject(ValkeyService) private readonly valkey: ValkeyService,
   ) {}
 
   /** Every channel response goes through here: secrets never leave the service. */
@@ -219,6 +233,22 @@ export class AlertsService {
       throw new DiRouterError('invalid_request', {
         message: `rule type '${rule.type}' requires a threshold`,
         status: 400,
+      });
+  }
+
+  /**
+   * The usage queue is shared by the whole deployment, so its length says nothing about one
+   * tenant and is operator information: only the platform organization may alert on it.
+   */
+  async #assertRuleTypeAllowed(org: OrgContext, type: string): Promise<void> {
+    if (type !== 'queue_length') return;
+    const organization = await this.db.client.organization.findUnique({
+      where: { id: org.organizationId },
+      select: { isPlatform: true },
+    });
+    if (!organization?.isPlatform)
+      throw new DiRouterError('forbidden', {
+        message: "Rule type 'queue_length' is only available to the platform organization",
       });
   }
 
@@ -304,13 +334,47 @@ export class AlertsService {
 
   async testChannel(org: OrgContext, id: string) {
     const channel = await this.channelOwned(org, id);
-    return sendChannel(
-      channel,
-      { title: `Test alert from DiRouter (${channel.name})` },
-      fetch,
-      {},
-      this.mail.mailer,
-    );
+    // An email test goes to addresses the tenant chose, from the operator's address: only a person
+    // whose own address is verified may send one (card 23.4).
+    if (channel.type === 'email')
+      await requireVerifiedEmail(
+        this.db.client,
+        org,
+        'Verify your email address before sending test emails',
+      );
+    await this.#limitTest(org, channel.id);
+    return sendChannel(channel, { title: TEST_ALERT_TITLE }, fetch, {}, this.mail.mailer);
+  }
+
+  /** Counters live in Valkey (shared by replicas); without Valkey no test is sent. */
+  async #limitTest(org: OrgContext, channelId: string) {
+    const valkey = this.valkey.client;
+    const gapKey = `dirouter:alerts:test-gap:${channelId}`;
+    const hourKey = `dirouter:alerts:test-hour:${org.organizationId}`;
+    try {
+      const gap = await valkey.set(gapKey, '1', 'EX', CHANNEL_TEST_LIMITS.channelGapSeconds, 'NX');
+      if (gap !== 'OK') {
+        const ttl = await valkey.pttl(gapKey);
+        throw new RateLimitError({
+          message: 'This channel was tested a moment ago; wait a minute',
+          retryAfterMs: ttl > 0 ? ttl : CHANNEL_TEST_LIMITS.channelGapSeconds * 1000,
+        });
+      }
+      const count = await valkey.incr(hourKey);
+      if (count === 1) await valkey.expire(hourKey, 3_600);
+      if (count > CHANNEL_TEST_LIMITS.orgPerHour) {
+        const ttl = await valkey.pttl(hourKey);
+        throw new RateLimitError({
+          message: `At most ${String(CHANNEL_TEST_LIMITS.orgPerHour)} channel tests per hour; try again later`,
+          retryAfterMs: ttl > 0 ? ttl : 3_600_000,
+        });
+      }
+    } catch (error) {
+      if (error instanceof RateLimitError) throw error;
+      throw new DiRouterError('service_unavailable', {
+        message: 'Channel tests are unavailable right now; try again later',
+      });
+    }
   }
 
   listRules(org: OrgContext) {
@@ -322,6 +386,7 @@ export class AlertsService {
 
   async createRule(org: OrgContext, input: RuleInput) {
     this.#assertRule({ type: input.type, threshold: input.threshold });
+    await this.#assertRuleTypeAllowed(org, input.type);
     if (input.channelId) await this.channelOwned(org, input.channelId);
     const row = await this.db.client.alertRule.create({
       data: {
@@ -351,6 +416,7 @@ export class AlertsService {
         type: input.type ?? stored.type,
         threshold: input.threshold ?? stored.threshold,
       });
+    if (input.type !== undefined) await this.#assertRuleTypeAllowed(org, input.type);
     if (input.channelId) await this.channelOwned(org, input.channelId);
     const row = await this.db.client.alertRule.update({
       where: { id },

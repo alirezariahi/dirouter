@@ -63,6 +63,7 @@ function fakeDb(options: {
     p95?: number | null;
     spent?: number;
     failures?: number;
+    is_platform?: boolean;
   }>;
   recent?: AlertEventRow | null;
   channels?: ChannelRow[];
@@ -300,7 +301,8 @@ describe('breaker_open and queue_length rules (24.2)', () => {
     let length = 120;
     const { db, created } = fakeDb({
       rules: [rule({ id: 'rq', type: 'queue_length', threshold: 500, channelId: null })],
-      measure: [],
+      // The rule belongs to the platform organization (asked once per evaluation).
+      measure: [{ is_platform: true }, { is_platform: true }],
     });
     const sources = { queueLength: async () => length };
     const quiet = await evaluateAlerts({ db, logger, clock: { now: () => NOW }, sources });
@@ -310,6 +312,24 @@ describe('breaker_open and queue_length rules (24.2)', () => {
     expect(fired.fired[0]?.value).toBe(750);
     expect(created[0]?.details).toMatchObject({ type: 'queue_length', value: 750, queue: 'usage' });
     expect(String(created[0]?.title)).toContain('750 jobs (threshold 500 jobs)');
+  });
+
+  it('ignores queue_length rules of tenant organizations: the queue is deployment-wide', async () => {
+    const { db, created } = fakeDb({
+      rules: [rule({ id: 'rt', type: 'queue_length', threshold: 1, channelId: null })],
+      measure: [{ is_platform: false }],
+    });
+    const result = await evaluateAlerts({
+      db,
+      logger,
+      clock: { now: () => NOW },
+      sources: { queueLength: async () => 10_000 },
+    });
+    expect(result.fired).toHaveLength(0);
+    expect(created).toHaveLength(0);
+    expect(result.skipped).toEqual([
+      { ruleId: 'rt', type: 'queue_length', reason: 'not_platform_organization' },
+    ]);
   });
 
   it('defaults breaker_open to one open breaker; queue_length needs a threshold', () => {

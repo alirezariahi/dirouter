@@ -5,7 +5,9 @@
  * do not run when asked. A pending request is recorded instead, and the change is applied
  * automatically once a second person approves it:
  *
- * - the requester can never approve their own request (cancelling it is allowed);
+ * - the requester can never approve their own request (cancelling it is allowed). A request made
+ *   with a management token is the service account's, so the person who created that token, and
+ *   the person who created the service account, cannot approve it either;
  * - the approver needs the operation's permission, and the change is applied as the approver, so
  *   every check of the operation (e.g. "no role above your own") applies to them too;
  * - a request is decided once: the status moves away from PENDING atomically before anything runs;
@@ -17,6 +19,7 @@
 import { DiRouterError, ForbiddenError, prefixedId } from '@dirouter/shared';
 import { Inject, Injectable } from '@nestjs/common';
 
+import { actingHumanId } from '../auth/acting-human.js';
 import { PrismaService } from '../infra/prisma.service.js';
 import type { OrgContext } from '../rbac/org.guard.js';
 import { canAny, type Permission } from '../rbac/permissions.js';
@@ -62,6 +65,7 @@ export class ChangeRequestsService {
       payload: row.payload,
       status: row.status.toLowerCase(),
       requestedById: row.requestedById,
+      requestedByHumanId: row.requestedByHumanId,
       decidedById: row.decidedById,
       decidedAt: row.decidedAt?.toISOString() ?? null,
       reason: row.reason,
@@ -94,6 +98,7 @@ export class ChangeRequestsService {
     const operation = this.#operation(kind) as unknown as SensitiveOperation<object>;
     const id = prefixedId('chr');
     const summary = (await operation.describe(ctx, payload)).slice(0, 300);
+    const human = ctx.tokenId ? await actingHumanId(this.db, ctx) : null;
     const row = await this.db.$transaction(async (tx) => {
       const created = await tx.changeRequest.create({
         data: {
@@ -104,6 +109,7 @@ export class ChangeRequestsService {
           payload: payload as never,
           summary,
           requestedById: ctx.userId,
+          requestedByHumanId: human,
           expiresAt: new Date(Date.now() + CHANGE_REQUEST_TTL_MS),
         },
       });
@@ -165,7 +171,7 @@ export class ChangeRequestsService {
 
   async approve(ctx: OrgContext, id: string) {
     const row = await this.#pending(ctx, id);
-    if (row.requestedById === ctx.userId)
+    if (await this.#isRequester(row, ctx.userId))
       throw new ForbiddenError('forbidden', {
         message: 'A change request must be approved by someone other than its requester',
       });
@@ -196,6 +202,19 @@ export class ChangeRequestsService {
       }),
     });
     return this.view(await this.db.changeRequest.findUniqueOrThrow({ where: { id } }));
+  }
+
+  /**
+   * Whether `userId` is, or stands behind, the requester: the requester itself, the person whose
+   * management token made the request, or the person who created the requesting service account.
+   */
+  async #isRequester(row: Row, userId: string): Promise<boolean> {
+    if (row.requestedById === userId || row.requestedByHumanId === userId) return true;
+    const account = await this.db.serviceAccount.findUnique({
+      where: { userId: row.requestedById },
+      select: { createdById: true },
+    });
+    return account !== null && account.createdById === userId;
   }
 
   /** Rejection by an approver, or cancellation by the requester. */

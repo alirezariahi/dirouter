@@ -7,7 +7,7 @@ import { randomBytes } from 'node:crypto';
 import { DiRouterError, ForbiddenError, prefixedId } from '@dirouter/shared';
 import { Inject, Injectable } from '@nestjs/common';
 
-import { SessionsService } from '../auth/sessions.service.js';
+import { type SessionView, SessionsService } from '../auth/sessions.service.js';
 import { hashInvite, slugify } from '../common/ids.js';
 import { ENV, type Env } from '../env.js';
 import { MailService } from '../infra/mail.service.js';
@@ -22,6 +22,8 @@ import {
 } from '../rbac/permissions.js';
 
 export const INVITE_TTL_MS = 7 * 24 * 3600 * 1000;
+/** Device label an organization administrator sees on a member's session. */
+export const HIDDEN_DEVICE = 'Hidden';
 
 const notFound = () => new DiRouterError('not_found');
 
@@ -201,13 +203,28 @@ export class OrgsService {
     return target;
   }
 
-  async memberSessions(ctx: OrgContext, userId: string) {
+  /**
+   * A session belongs to the person, not to an organization: one sign-in opens every organization
+   * they are a member of. The administrator of one organization therefore sees how many sessions
+   * there are, when they started and were last active, but not the address or device (that would
+   * expose the member's activity in their other organizations).
+   */
+  async memberSessions(ctx: OrgContext, userId: string): Promise<SessionView[]> {
     await this.#manageableMember(ctx, userId);
     // The administrator's own current session is not marked: `current` is about the caller.
-    return this.sessions.list(userId);
+    return (await this.sessions.list(userId)).map((session) => ({
+      ...session,
+      device: HIDDEN_DEVICE,
+      userAgent: null,
+      ip: null,
+    }));
   }
 
-  /** Signs the member out everywhere: every refresh token and access token stops working. */
+  /**
+   * Signs the member out everywhere: every refresh token and access token stops working. Sessions
+   * are not per organization, so this ends their sessions in other organizations too; the
+   * alternative (removing the member) is the only organization-scoped way to cut access.
+   */
   async revokeMemberSessions(ctx: OrgContext, userId: string) {
     await this.#manageableMember(ctx, userId);
     const result = await this.sessions.revokeAll(userId, { audit: false });
@@ -305,6 +322,12 @@ export class OrgsService {
     if (!sent.ok)
       await this.#audit(ctx, 'invitation.email_failed', 'invitation', invitation.id, {
         error: sent.error,
+      });
+    // Accepting a delivered invitation proves the invitee's address; an undelivered one does not.
+    else
+      await this.db.invitation.update({
+        where: { id: invitation.id },
+        data: { emailSentAt: new Date() },
       });
     return sent.ok;
   }

@@ -59,6 +59,8 @@ Tier pricing is applied by `computeCost` in `@dirouter/model-catalog`, so the ga
 
 - Creating a model with a `catalogKey` takes price, context window, capabilities, tiers and deprecation date from the effective catalog.
 - Giving explicit prices (on create or later) keeps the catalog key but sets `priceOverride: true`: catalog price changes, approvals and `POST models/sync-catalog` no longer touch that model.
+- Models that existed before catalog sync all started with `priceOverride: false`, hand-priced ones included. Migration `20261125200000_review_hardening` marks every such model `priceOverride: true` unless its prices equal its synced catalog entry exactly (an entry that is only in the bundled catalog cannot be compared in SQL, so its models are marked too). A sync therefore never reprices a hand-priced model silently; use `followCatalog` to put a model back on the catalog price.
+- Approving a proposal claims it first (`UPDATE … WHERE status = 'pending'`), so two concurrent approvals, or an approval racing a sync that supersedes the proposal, apply it at most once; the other gets 404 (no pending proposal).
 - `PATCH /orgs/{org}/models/{id}` with `{ "followCatalog": true }` drops the manual price and takes the catalog price again. The dashboard's model editor offers this as a checkbox and only sends prices that differ from the catalog.
 
 ## Admin API (platform organization only)

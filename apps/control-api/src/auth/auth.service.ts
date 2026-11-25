@@ -6,6 +6,7 @@ import { AuthenticationError, DiRouterError, prefixedId } from '@dirouter/shared
 import { Inject, Injectable } from '@nestjs/common';
 
 import { ENV, type Env } from '../env.js';
+import { MailService } from '../infra/mail.service.js';
 import { PrismaService } from '../infra/prisma.service.js';
 import { ValkeyService } from '../infra/valkey.service.js';
 import {
@@ -46,6 +47,7 @@ export class AuthService {
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(ValkeyService) valkey: ValkeyService,
     @Inject(MfaService) private readonly mfa: MfaService,
+    @Inject(MailService) private readonly mail: MailService,
   ) {
     this.tokens = new TokenService(env.JWT_SECRET);
     this.limiter = new LoginLimiter(valkey.client);
@@ -233,6 +235,14 @@ export class AuthService {
         message: 'name is required for a new account',
       });
     const passwordHash = existing ? undefined : await hashPassword(input.password);
+    // The inviter gets the link back as well, so accepting it proves the address only when it was
+    // delivered there by email. Without SMTP no address can ever be verified; then a verified
+    // inviter vouches for the invitee, as before.
+    const emailVerifiedAt = existing
+      ? undefined
+      : (await this.#invitationProvesEmail(invite))
+        ? new Date()
+        : null;
     const user = await db.$transaction(async (tx) => {
       const claimed = await tx.invitation.updateMany({
         where: { id: invite.id, acceptedAt: null, revokedAt: null },
@@ -248,6 +258,7 @@ export class AuthService {
             email: invite.email,
             name: input.name ?? '',
             passwordHash: passwordHash ?? '',
+            emailVerifiedAt: emailVerifiedAt ?? null,
           },
         }));
       await tx.membership.upsert({
@@ -274,6 +285,19 @@ export class AuthService {
       return u;
     });
     return this.#issue(user, prefixedId('fam'), client);
+  }
+
+  async #invitationProvesEmail(invite: {
+    emailSentAt: Date | null;
+    invitedById: string;
+  }): Promise<boolean> {
+    if (invite.emailSentAt) return true;
+    if (this.mail.enabled) return false;
+    const inviter = await this.prisma.client.user.findUnique({
+      where: { id: invite.invitedById },
+      select: { emailVerifiedAt: true },
+    });
+    return Boolean(inviter?.emailVerifiedAt);
   }
 
   async logout(token: string | undefined): Promise<void> {

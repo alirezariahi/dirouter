@@ -25,6 +25,8 @@ export const ChangeRequestView = z.object({
   payload: z.unknown(),
   status: z.enum(['pending', 'applied', 'failed', 'rejected', 'cancelled', 'expired']),
   requestedById: z.string(),
+  /** The person behind a request made with a management token (that token's creator). */
+  requestedByHumanId: z.string().nullable(),
   decidedById: z.string().nullable(),
   decidedAt: z.string().nullable(),
   reason: z.string().nullable(),

@@ -216,4 +216,65 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('change requests over HTTP', () =>
     await as('admin', 'POST', `change-requests/${again.changeRequest.id}/approve`);
     expect((await call('GET', 'security')).json()).toMatchObject({ changeApprovalRequired: false });
   });
+
+  it('a management token does not let the person behind it approve their own request', async () => {
+    const db = app.get(PrismaService).client;
+    const ownerId = (await db.user.findFirstOrThrow({ where: { email: 'owner@cr.example.com' } }))
+      .id;
+    expect(
+      (await call('PATCH', 'security', { changeApprovalRequired: true })).json(),
+    ).toMatchObject({ changeApprovalRequired: true });
+    /** `who` creates a service account; `issuer` gives it a token; returns the token. */
+    const automation = async (who: string, issuer: string, name: string) => {
+      const sa = await as(who, 'POST', 'service-accounts', { name, role: 'ADMIN' });
+      expect(sa.statusCode, sa.body).toBe(201);
+      const issued = await as(
+        issuer,
+        'POST',
+        `service-accounts/${sa.json<{ id: string }>().id}/tokens`,
+        { name: 'ci', scopes: ['providers:read', 'providers:write'] },
+      );
+      expect(issued.statusCode, issued.body).toBe(201);
+      return {
+        token: issued.json<{ token: string }>().token,
+        userId: sa.json<{ userId: string }>().userId,
+      };
+    };
+    const requestDelete = async (token: string, name: string) => {
+      const provider = (await call('POST', 'providers', { name, type: 'openai' })).json<{
+        id: string;
+      }>().id;
+      tokens.bot = token;
+      const asked = await as('bot', 'DELETE', `providers/${provider}`);
+      expect(asked.statusCode, asked.body).toBe(202);
+      return asked.json<{ changeRequest: { id: string; requestedById: string } }>().changeRequest;
+    };
+
+    // The owner's own token: the request is the service account's, but the owner stands behind it.
+    const mine = await automation('owner', 'owner', 'owner-bot');
+    const request = await requestDelete(mine.token, 'Via token');
+    expect(request.requestedById).toBe(mine.userId);
+    const listed = (await call('GET', 'change-requests?status=pending')).json<
+      { id: string; requestedByHumanId: string | null }[]
+    >();
+    expect(listed.find((r) => r.id === request.id)?.requestedByHumanId).toBe(ownerId);
+    const self = await call('POST', `change-requests/${request.id}/approve`);
+    expect(self.statusCode).toBe(403);
+    expect(self.body).toContain('someone other than its requester');
+    expect(
+      (await as('admin', 'POST', `change-requests/${request.id}/approve`)).json(),
+    ).toMatchObject({ status: 'applied' });
+
+    // The person who created the service account cannot approve what its tokens ask for either,
+    // even when someone else issued the token.
+    const theirs = await automation('admin', 'owner', 'admin-bot');
+    const second = await requestDelete(theirs.token, 'Via admin bot');
+    expect((await as('admin', 'POST', `change-requests/${second.id}/approve`)).statusCode).toBe(
+      403,
+    );
+    expect((await call('POST', `change-requests/${second.id}/approve`)).statusCode).toBe(403);
+    expect((await call('GET', `change-requests?status=pending`)).json<{ id: string }[]>()).toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: second.id })]),
+    );
+  });
 });

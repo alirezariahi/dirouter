@@ -31,7 +31,7 @@ The event details list the breakers (`details.breakers`), and email, Slack and T
 
 ### Usage queue (`queue_length`)
 
-The worker reads the size of the BullMQ `usage` queue (waiting, delayed and prioritized jobs; not the ones being processed). The queue belongs to the deployment, so every organization's rule sees the same number; a rising value means the worker cannot keep up with the gateway's usage events, and the gateway's outbox starts to grow behind it.
+The worker reads the size of the BullMQ `usage` queue (waiting, delayed and prioritized jobs; not the ones being processed). The queue belongs to the deployment, so it is operator information: only the **platform organization** can create a `queue_length` rule (other organizations get **403**), and the worker skips such a rule of any other organization (`not_platform_organization`), including ones created before this rule. A rising value means the worker cannot keep up with the gateway's usage events, and the gateway's outbox starts to grow behind it.
 
 ## Channels
 
@@ -46,7 +46,11 @@ The worker reads the size of the BullMQ `usage` queue (waiting, delayed and prio
 
 In development the worker and the control-api send to Mailpit (`smtp://mailpit:1025`); read the messages at `http://mail.localhost` or `http://127.0.0.1:58025`.
 
-Every channel has a **Send test message** button (`POST /orgs/:orgId/alerts/channels/:id/test`), which delivers a test notification immediately and reports the provider's answer.
+Every channel has a **Send test message** button (`POST /orgs/:orgId/alerts/channels/:id/test`), which delivers a test notification immediately and reports the provider's answer. Because it goes out through the deployment's SMTP server (or to an admin-entered URL), it is limited:
+
+- one test per channel per minute and ten per organization per hour, counted in Valkey across replicas; beyond that **429** with `Retry-After`. Without Valkey no test is sent (503);
+- a test of an `email` channel needs a verified email address of the person sending it (with a management token, the token's creator): otherwise **403 `email_not_verified`**;
+- the title, and so the email subject, is fixed (`[DiRouter] Test alert from DiRouter`); the channel name and other tenant text are not put into it.
 
 ### Secrets
 

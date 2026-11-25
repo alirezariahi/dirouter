@@ -22,7 +22,8 @@ export async function createApp(
   logger: Logger = createLogger({ service: 'control-api', level: env.LOG_LEVEL }),
 ) {
   const adapter = new FastifyAdapter({
-    trustProxy: true,
+    // Only the configured proxies may name the client (TRUST_PROXY, default one hop: Traefik).
+    trustProxy: env.TRUST_PROXY,
     bodyLimit: 1024 * 1024,
     genReqId: (req: IncomingMessage) => {
       const incoming = req.headers['x-request-id'];

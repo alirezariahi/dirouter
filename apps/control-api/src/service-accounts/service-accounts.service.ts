@@ -9,6 +9,7 @@
 import { DiRouterError, ForbiddenError, prefixedId } from '@dirouter/shared';
 import { Inject, Injectable } from '@nestjs/common';
 
+import { requireVerifiedEmail } from '../auth/acting-human.js';
 import { newManagementToken } from '../auth/management-token.js';
 import { PrismaService } from '../infra/prisma.service.js';
 import type { OrgContext } from '../rbac/org.guard.js';
@@ -158,6 +159,13 @@ export class ServiceAccountsService {
       customRoleId?: string | null | undefined;
     },
   ) {
+    // A service account's user counts as verified, so an unverified person (a portal sign-up,
+    // card 23.4) must not create one to get around the email check on API keys.
+    await requireVerifiedEmail(
+      this.#db,
+      ctx,
+      'Verify your email address before creating service accounts',
+    );
     const customRoleId = await this.#checkGrant(ctx, input.role, input.customRoleId);
     const id = prefixedId('sa');
     const userId = prefixedId('usr');

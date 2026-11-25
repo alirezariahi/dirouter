@@ -3,10 +3,11 @@
  */
 import { generateKey } from '@dirouter/shared';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { createApp } from '../bootstrap.js';
 import { envSchema } from '../env.js';
+import { MailService } from '../infra/mail.service.js';
 import { PrismaService } from '../infra/prisma.service.js';
 import { ValkeyService } from '../infra/valkey.service.js';
 import { decodeBody, type SmtpSink, startSmtpSink } from '../infra/smtp-sink.testing.js';
@@ -317,6 +318,51 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('organization RBAC over HTTP', () 
       (await call('POST', 'auth/invitations/accept', undefined, { token: tB, password: PW }))
         .statusCode,
     ).toBe(200);
+  });
+
+  it('accepting an invitation proves the address only when the link was emailed to it', async () => {
+    const project = (
+      await call('POST', `orgs/${orgA}/projects`, tokens.ownerA, { name: 'Inv' })
+    ).json<{ id: string }>().id;
+    const accept = async (email: string) => {
+      const inv = await call('POST', `orgs/${orgA}/invitations`, tokens.ownerA, {
+        email,
+        role: 'MEMBER',
+      });
+      const { token, emailSent } = inv.json<{ token: string; emailSent: boolean }>();
+      const acc = await call('POST', 'auth/invitations/accept', undefined, {
+        token,
+        name: email,
+        password: PW,
+      });
+      expect(acc.statusCode).toBe(200);
+      const access = acc.json<{ accessToken: string }>().accessToken;
+      const me = (await call('GET', 'auth/me', access)).json<{ emailVerified: boolean }>();
+      const key = await call('POST', `orgs/${orgA}/keys`, access, {
+        name: 'k',
+        projectId: project,
+      });
+      return { emailSent, verified: me.emailVerified, keyStatus: key.statusCode };
+    };
+
+    expect(await accept('delivered@example.com')).toEqual({
+      emailSent: true,
+      verified: true,
+      keyStatus: 201,
+    });
+
+    // The SMTP server refuses the message: the inviter still has the link, which proves nothing.
+    const mail = app.get(MailService);
+    const send = vi.spyOn(mail, 'send').mockResolvedValue({ ok: false, error: 'refused' });
+    try {
+      expect(await accept('undelivered@example.com')).toEqual({
+        emailSent: false,
+        verified: false,
+        keyStatus: 403,
+      });
+    } finally {
+      send.mockRestore();
+    }
   });
 
   it('every change is in the audit log of its own organization', async () => {

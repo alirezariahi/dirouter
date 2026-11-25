@@ -79,8 +79,15 @@ accepted invitation) and keeps its id through every rotation.
 - Administrators: `GET /orgs/{orgId}/members/{userId}/sessions` and
   `POST /orgs/{orgId}/members/{userId}/sessions/revoke` (permission `members:write`) list and end all
   sessions of a member. The rule for role changes applies: nobody can sign out a member with more
-  access than their own (an ADMIN cannot sign out an OWNER). The sessions end everywhere, not only
-  in that organization, because a session is not bound to one organization.
+  access than their own (an ADMIN cannot sign out an OWNER).
+- Sessions are **per person, not per organization**: one sign-in opens every organization the
+  member belongs to. An organization administrator therefore sees only what concerns them: how many
+  sessions there are, with `id`, `method`, `createdAt`, `lastActiveAt` and `expiresAt`. The address
+  and device are withheld (`ip` and `userAgent` are `null`, `device` is `Hidden`), because they
+  would show the member's activity in their other organizations. Revoking still ends the member's
+  sessions everywhere, since there is nothing narrower to end; removing the member is the
+  organization-scoped way to cut access. Both routes are `@HumanOnly()`: a management token cannot
+  use them whatever its scopes.
 - Audit log: `session.revoked` and `session.revoked_all` (with the number of sessions) are recorded
   in every organization of the user; an administrator's action is recorded as
   `member.sessions_revoked` in the organization where it was taken, with the administrator as actor.
@@ -141,15 +148,28 @@ AccessGuard recognises the `drm_` prefix and looks the token up on **every reque
 
 1. Unknown, revoked or expired token, or a deleted service account: **401** `unauthenticated`. A
    revoked token is therefore refused on its very next request; nothing is cached.
-2. Address not in `allowedIps`: **403**. The address is the client address as Traefik forwards it.
+2. Address not in `allowedIps`: **403**. The address is the client address as the trusted proxy
+   reports it in `X-Forwarded-For`. Which proxies are trusted is set with `TRUST_PROXY`
+   ([env reference](../env-reference.md)); the default, one hop, is the bundled Traefik. Behind
+   another proxy in front of Traefik (a cloud load balancer that adds the header), set the number
+   of hops or the proxies' addresses; never `true` behind a proxy that appends to the header, since
+   the client could then choose the address the allow-list sees.
 3. Routes outside `/orgs/{orgId}` (account, sessions, MFA, passkeys): **403**. Another
    organization's routes: **404**, as for a non-member.
 4. OrgGuard: the permission of the route must be granted by **both** the token's scopes and the
    service account's current role, so demoting the account narrows its tokens at once.
    Organization MFA policies do not apply to tokens.
 5. Some routes are never open to tokens, whatever their scopes (`@HumanOnly()`): managing service
-   accounts and tokens, and approving or rejecting change requests (a second person must decide,
-   card 22.2).
+   accounts and tokens, approving or rejecting change requests (a second person must decide,
+   card 22.2), and listing or ending a member's sessions.
+
+A change request made with a token is recorded with the service account as `requestedById` and the
+person who created the token as `requestedByHumanId`. Neither that person nor the person who created
+the service account can approve it: a token does not let its owner be their own second pair of eyes.
+
+Actions that need a verified email address (creating API keys, sending a test email to an alert
+channel) check the person who created the token when they are made with a token; the service
+account's own user does not count. Creating a service account needs a verified address as well.
 
 A unit test walks every organization route and fails if one that changes something (POST, PATCH,
 PUT, DELETE) needs only a `:read` permission without being closed to tokens; the two exceptions
@@ -214,7 +234,11 @@ An unknown, used or expired link is refused with **400 `verification_link_invali
 
 **OIDC**: the portal's OIDC sign-in only accepts an ID token with `email_verified: true`, so an account it creates is verified at once (credit and keys immediately, no email). If a password sign-up that never opened its link later signs in through OIDC with the same verified address, the account becomes verified then.
 
-Every other way an account is created (setup wizard, invitation, SSO, SCIM, seed) counts as verified: the column defaults to the creation time, and the migration marks existing accounts verified. The portal shows a notice with a **Send the link again** button until the address is verified.
+**Invitations**: the inviter always gets the invitation link back (`url` and `token` in the response), so accepting it proves the invitee's address only when the link was also delivered to that address by email (`emailSent: true`, recorded as `invitations.email_sent_at`). A new account created from an invitation that was not delivered starts unverified, like a portal sign-up, and verifies with `POST /portal/verify-email/resend`. Without `SMTP_URL` no address can be verified at all; then an invitation from a verified inviter still gives a verified account, as before. Accepting with an existing account does not change its verification.
+
+Besides API keys, an unverified person cannot create service accounts (**403 `email_not_verified`**; a service account's user counts as verified, so it would otherwise get around the check) or send a test notification to an email alert channel.
+
+Every other way an account is created (setup wizard, SSO, SCIM, seed) counts as verified: the column defaults to the creation time, and the migration marks existing accounts verified. The portal shows a notice with a **Send the link again** button until the address is verified.
 
 ## Check in compose (2026-11-07, through Traefik at `https://admin.localhost`)
 

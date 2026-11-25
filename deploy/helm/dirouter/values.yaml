@@ -70,6 +70,9 @@ controlApi:
     limits: { memory: 768Mi }
   pdb:
     minAvailable: 1
+  # Proxies whose X-Forwarded-For is believed (TRUST_PROXY): one hop is the chart's Traefik. Raise it,
+  # or list the proxies' CIDRs, only if another proxy that adds the header sits in front of Traefik.
+  trustProxy: '1'
   # Extra environment (e.g. SMTP_URL, STRIPE_SECRET_KEY, PORTAL_OIDC_*); see docs/env-reference.md.
   extraEnv: {}
 
