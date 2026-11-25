@@ -7,6 +7,7 @@ import { s4Fa } from './s4';
 import { billingFa } from './billing';
 import { mcpPageFa } from './mcp-page';
 import { scopeLimitsFa } from './scope-limits';
+import { upstreamServicesFa } from './upstream-services';
 import { playgroundStreamFa } from './playground-stream';
 export const fa = {
   app: { name: 'دی‌روتر', tagline: 'درگاه هوشمند مدل‌های زبانی' },
@@ -255,6 +256,7 @@ export const fa = {
   billing: billingFa,
   mcpPage: mcpPageFa,
   scopeLimits: scopeLimitsFa,
+  upstreamServices: upstreamServicesFa,
   playgroundStream: playgroundStreamFa,
 } as const;
 

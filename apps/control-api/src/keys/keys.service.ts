@@ -49,6 +49,7 @@ export interface KeyInput {
   projectId: string;
   allowedModels?: string[] | undefined;
   mcpTools?: string[] | undefined;
+  passthroughProviders?: string[] | undefined;
   mcpAdmin?: 'none' | 'read' | 'write' | undefined;
   ipAllowlist?: string[] | undefined;
   rpm?: number | null | undefined;
@@ -102,6 +103,7 @@ export class KeysService {
       state,
       allowedModels: k.allowedModels,
       mcpTools: k.mcpTools,
+      passthroughProviders: k.passthroughProviders,
       mcpAdmin: k.mcpAdmin as 'none' | 'read' | 'write',
       ipAllowlist: k.ipAllowlist,
       rpm: k.rpm,
@@ -160,6 +162,17 @@ export class KeysService {
       throw new ForbiddenError('forbidden', {
         message: 'Only owners and admins can grant MCP admin access to a key',
       });
+    // Pass-through (card 30.7) reaches the provider's raw API (files, batches, fine-tunes) with
+    // the organization's credentials, so granting it is an owner or admin decision too.
+    if (
+      ctx &&
+      input.passthroughProviders !== undefined &&
+      input.passthroughProviders.length > 0 &&
+      !canAny(ctx.role, ctx.customPermissions, 'org:write')
+    )
+      throw new ForbiddenError('forbidden', {
+        message: 'Only owners and admins can grant pass-through access to a key',
+      });
     for (const ip of input.ipAllowlist ?? [])
       if (!validCidr(ip))
         throw new DiRouterError('validation_failed', { message: `invalid IP or CIDR: ${ip}` });
@@ -194,6 +207,7 @@ export class KeysService {
           hash: hashApiKey(key, this.env.KEY_PEPPER),
           allowedModels: input.allowedModels ?? [],
           mcpTools: input.mcpTools ?? [],
+          passthroughProviders: input.passthroughProviders ?? [],
           mcpAdmin: input.mcpAdmin ?? 'none',
           ipAllowlist: input.ipAllowlist ?? [],
           rpm: input.rpm ?? null,
@@ -224,6 +238,9 @@ export class KeysService {
           ...(input.name !== undefined ? { name: input.name } : {}),
           ...(input.allowedModels !== undefined ? { allowedModels: input.allowedModels } : {}),
           ...(input.mcpTools !== undefined ? { mcpTools: input.mcpTools } : {}),
+          ...(input.passthroughProviders !== undefined
+            ? { passthroughProviders: input.passthroughProviders }
+            : {}),
           ...(input.mcpAdmin !== undefined ? { mcpAdmin: input.mcpAdmin } : {}),
           ...(input.ipAllowlist !== undefined ? { ipAllowlist: input.ipAllowlist } : {}),
           ...(input.rpm !== undefined ? { rpm: input.rpm } : {}),
@@ -281,6 +298,7 @@ export class KeysService {
           hash: hashApiKey(key, this.env.KEY_PEPPER),
           allowedModels: old.allowedModels,
           mcpTools: old.mcpTools,
+          passthroughProviders: old.passthroughProviders,
           mcpAdmin: old.mcpAdmin,
           ipAllowlist: old.ipAllowlist,
           rpm: old.rpm,

@@ -265,6 +265,26 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('providers and credentials over HT
         })
       ).statusCode,
     ).toBe(422);
+    // Pass-through allow-list (card 30.7): `[METHOD ]/path[*]` entries only.
+    for (const passthroughPaths of [['files'], 'POST /files', ['FETCH /x'], ['/a b']])
+      expect(
+        (
+          await call('POST', `orgs/${org}/providers`, token, {
+            name: 'p',
+            type: 'openai',
+            options: { passthroughPaths },
+          })
+        ).statusCode,
+      ).toBe(422);
+    const ok = await call('POST', `orgs/${org}/providers`, token, {
+      name: 'raw',
+      type: 'openai',
+      options: { passthroughPaths: ['POST /batches', '/files/*'] },
+    });
+    expect(ok.statusCode).toBe(201);
+    expect(ok.json()).toMatchObject({
+      options: { passthroughPaths: ['POST /batches', '/files/*'] },
+    });
   });
 
   it('no secret appears in any log line or in the audit log', async () => {

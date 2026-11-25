@@ -9,8 +9,11 @@ import { IsoDateTime, NonNegativeInt, Ulid, UsdAmount } from './common.js';
 
 export const USAGE_EVENT_SCHEMA_VERSION = 1 as const;
 
-/** Inbound APIs that produce usage events (card 11.x adds Responses, Gemini and embeddings). */
-export const UsageInboundApi = InboundApi;
+/**
+ * Inbound APIs that produce usage events (card 11.x adds Responses, Gemini and embeddings), plus
+ * native provider pass-through (card 30.7), which has no canonical request.
+ */
+export const UsageInboundApi = z.enum([...InboundApi.options, 'passthrough']);
 export type UsageInboundApi = z.infer<typeof UsageInboundApi>;
 
 export const AttemptOutcome = z.enum([

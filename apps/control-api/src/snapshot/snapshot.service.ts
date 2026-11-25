@@ -336,6 +336,7 @@ export class SnapshotService implements OnModuleInit, OnModuleDestroy {
           expiresAt: k.expiresAt?.toISOString() ?? null,
           allowedModels: k.allowedModels,
           mcpTools: k.mcpTools,
+          passthroughProviders: k.passthroughProviders,
           ipAllowlist: k.ipAllowlist,
           ...rateLimit(k),
           budgets: budgetsFor('API_KEY', k.id),

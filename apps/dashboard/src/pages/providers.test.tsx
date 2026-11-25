@@ -345,6 +345,19 @@ describe('providers and credentials', () => {
     ).toBe(true);
   });
 
+  it('edits the pass-through allow-list inside the provider options (card 30.7)', async () => {
+    mockApi();
+    await renderPage();
+    await click(screen.getByRole('button', { name: 'Edit' }));
+    fireEvent.change(screen.getByLabelText('Pass-through allowed paths'), {
+      target: { value: 'POST /batches\n\n/files/*' },
+    });
+    await click(screen.getByRole('button', { name: 'Save' }));
+    expect(body('/orgs/org_1/providers/prv_1', 'PATCH')).toMatchObject({
+      options: { passthroughPaths: ['POST /batches', '/files/*'] },
+    });
+  });
+
   it('keeps provider configuration read-only for viewers', async () => {
     mockApi((path) =>
       path === '/auth/me'

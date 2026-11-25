@@ -125,3 +125,4 @@ Stream (card 4.5): `packages/translator/src/stream.test.ts` includes 10,000 chun
 - [Gemini API inbound](gemini-inbound.md) — `generateContent`, `streamGenerateContent`, `countTokens` and `x-goog-api-key` auth.
 - [OpenAI Responses](responses.md) — `/v1/responses`, `previous_response_id` and streaming.
 - [Embeddings](embeddings.md) — `/v1/embeddings` and `:embedContent` / `:batchEmbedContents`.
+- [Native pass-through](passthrough.md) — `/passthrough/{provider}/*` for endpoints without a translation (card 30.7).

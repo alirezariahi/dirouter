@@ -133,5 +133,6 @@ stream (کارت ۴.۵): `packages/translator/src/stream.test.ts` شامل ۱۰�
 - [Gemini API inbound](gemini-inbound.fa.md) — `generateContent`، `streamGenerateContent`، `countTokens` و احراز هویت `x-goog-api-key`.
 - [OpenAI Responses](responses.fa.md) — `/v1/responses`، `previous_response_id` و stream.
 - [Embeddings](embeddings.fa.md) — `/v1/embeddings` و `:embedContent` / `:batchEmbedContents`.
+- [pass-through بومی](passthrough.fa.md) — `/passthrough/{provider}/*` برای endpointهایی که ترجمه ندارند (کارت ۳۰.۷).
 
 </div>

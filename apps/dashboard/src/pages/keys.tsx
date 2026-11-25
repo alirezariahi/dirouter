@@ -122,6 +122,13 @@ function KeyFields({ initial, error }: { initial?: VirtualKey; error?: unknown }
         defaultValue={initial?.ipAllowlist.join(', ')}
         placeholder="192.0.2.10, 2001:db8::/32"
       />
+      <TextListField
+        label={t('upstreamServices.passthrough.keyLabel')}
+        name="passthroughProviders"
+        defaultValue={initial?.passthroughProviders.join(', ')}
+        placeholder="openai, anthropic"
+      />
+      <p className="-mt-2 text-xs text-muted">{t('upstreamServices.passthrough.keyHint')}</p>
       <fieldset>
         <legend className="mb-2 text-sm font-medium">{t('keys.budgets')}</legend>
         <div className="flex flex-col gap-3">
@@ -156,7 +163,7 @@ function KeyFields({ initial, error }: { initial?: VirtualKey; error?: unknown }
   );
 }
 
-function bodyFrom(form: FormData): KeyBody {
+function bodyFrom(form: FormData, initial?: VirtualKey): KeyBody {
   const budgets: NonNullable<KeysControllerCreateBody['budgets']> = [];
   for (const period of ['daily', 'monthly'] as const) {
     const limitUsd = text(form, `${period}Usd`).trim();
@@ -169,7 +176,13 @@ function bodyFrom(form: FormData): KeyBody {
       });
   }
   const expiresAt = text(form, 'expiresAt');
+  // Pass-through (card 30.7) is granted by owners and admins only, so it is sent only when it
+  // changed: a member can still edit the rest of a key that already has it.
+  const passthroughProviders = list(text(form, 'passthroughProviders'));
+  const passthroughChanged =
+    passthroughProviders.join(',') !== (initial?.passthroughProviders ?? []).join(',');
   return {
+    ...(passthroughChanged ? { passthroughProviders } : {}),
     name: text(form, 'name').trim(),
     allowedModels: list(text(form, 'allowedModels')),
     ipAllowlist: list(text(form, 'ipAllowlist')),
@@ -368,7 +381,10 @@ export default function KeysPage() {
   };
   const submit = async (event: SubmitEvent) => {
     event.preventDefault();
-    const body = bodyFrom(new FormData(event.currentTarget));
+    const body = bodyFrom(
+      new FormData(event.currentTarget),
+      dialog === 'edit' ? selected : undefined,
+    );
     setError(undefined);
     try {
       if (dialog === 'create') {

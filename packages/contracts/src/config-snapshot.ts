@@ -358,6 +358,11 @@ export const VirtualKeyConfig = z.object({
    * Empty means every tool of the organization's MCP servers.
    */
   mcpTools: z.array(z.string()).default([]),
+  /**
+   * Providers this key may call through native pass-through routes (card 30.7): provider slugs or
+   * `*`. Empty (the default) means pass-through is off for the key.
+   */
+  passthroughProviders: z.array(z.string()).default([]),
 });
 export type VirtualKeyConfig = z.infer<typeof VirtualKeyConfig>;
 

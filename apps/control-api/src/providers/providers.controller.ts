@@ -43,6 +43,22 @@ export const CredentialBody = z.object({
 export const CredentialPatch = CredentialBody.partial().extend({
   status: z.enum(['ACTIVE', 'DISABLED']).optional(),
 });
+/** One pass-through allow-list entry (card 30.7): `[METHOD ]/path`, a trailing `*` matches the rest. */
+const PASSTHROUGH_PATH = /^(?:(GET|POST|PUT|PATCH|DELETE) )?(\/[\x21-\x7e]*)$/;
+const ProviderOptions = z.record(z.string(), z.unknown()).superRefine((options, ctx) => {
+  const paths = options.passthroughPaths;
+  if (paths === undefined) return;
+  if (
+    !Array.isArray(paths) ||
+    paths.length > 100 ||
+    paths.some((p) => typeof p !== 'string' || p.length > 512 || !PASSTHROUGH_PATH.test(p))
+  )
+    ctx.addIssue({
+      code: 'custom',
+      path: ['passthroughPaths'],
+      message: 'passthroughPaths must be at most 100 entries like "POST /files" or "/batches/*"',
+    });
+});
 export const ProviderBody = z.object({
   name: z.string().trim().min(1).max(100),
   slug: z
@@ -54,7 +70,7 @@ export const ProviderBody = z.object({
   enabled: z.boolean().optional(),
   proxyUrl: ProxyUrl.nullable().optional(),
   timeouts: Timeouts.nullable().optional(),
-  options: z.record(z.string(), z.unknown()).optional(),
+  options: ProviderOptions.optional(),
   maxConcurrency: z.int().positive().max(10_000).nullable().optional(),
   credentials: z.array(CredentialBody).max(50).optional(),
   /** Required when the provider uses a plugin with a terms warning (card 21.2). */

@@ -326,8 +326,27 @@ function NetworkFields({ provider }: { provider?: Provider }) {
         defaultValue={provider?.maxConcurrency ?? ''}
         dir="ltr"
       />
+      <LabeledArea
+        label={t('upstreamServices.passthrough.paths')}
+        name="passthroughPaths"
+        defaultValue={passthroughPathsOf(provider).join('\n')}
+        placeholder={'POST /batches\n/files/*'}
+        dir="ltr"
+      />
+      <p className="-mt-2 text-xs text-muted">{t('upstreamServices.passthrough.pathsHint')}</p>
     </fieldset>
   );
+}
+/** The provider's pass-through allow-list (card 30.7), stored in `options.passthroughPaths`. */
+function passthroughPathsOf(provider?: Provider): string[] {
+  const raw = provider?.options.passthroughPaths;
+  return Array.isArray(raw) ? raw.filter((p): p is string => typeof p === 'string') : [];
+}
+function linesOf(value: string): string[] {
+  return value
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
 }
 function CredentialFields({ credential }: { credential?: Credential }) {
   const { t } = useTranslation();
@@ -604,10 +623,16 @@ export default function ProvidersPage() {
       ...(numberText(text(form, 'maxConcurrency'))
         ? { maxConcurrency: numberText(text(form, 'maxConcurrency')) }
         : {}),
-      ...(!id && selected.type === 'openai-compatible' && selected.id !== 'custom'
-        ? { options: { preset: selected.id } }
-        : {}),
     };
+    if (!id && selected.type === 'openai-compatible' && selected.id !== 'custom')
+      body.options = { preset: selected.id };
+    // Pass-through paths live in `options`, which a save replaces as a whole (card 30.7): only a
+    // changed list is sent, merged into the provider's other options.
+    const paths = linesOf(text(form, 'passthroughPaths'));
+    if (id && editing && paths.join('\n') !== passthroughPathsOf(editing).join('\n')) {
+      const { passthroughPaths: _old, ...rest } = editing.options;
+      body.options = { ...rest, ...(paths.length > 0 ? { passthroughPaths: paths } : {}) };
+    }
     saveProvider.mutate({ ...(id ? { id } : {}), body });
   }
   function submitCredential(event: SyntheticEvent<HTMLFormElement>) {
@@ -1094,6 +1119,17 @@ export default function ProvidersPage() {
                       e.preventDefault();
                       const form = new FormData(e.currentTarget);
                       const baseUrl = text(form, 'baseUrl').trim();
+                      const paths = linesOf(text(form, 'passthroughPaths'));
+                      const options: Record<string, unknown> = {
+                        ...(activePreset.type === 'openai-compatible' &&
+                        activePreset.id !== 'custom'
+                          ? { preset: activePreset.id }
+                          : {}),
+                        ...(activePreset.type === 'plugin' && pluginChoice.plugin
+                          ? { plugin: pluginChoice.plugin.name }
+                          : {}),
+                        ...(paths.length > 0 ? { passthroughPaths: paths } : {}),
+                      };
                       setWizardProvider({
                         name: text(form, 'name').trim(),
                         type: activePreset.type,
@@ -1106,15 +1142,9 @@ export default function ProvidersPage() {
                         ...(numberText(text(form, 'maxConcurrency'))
                           ? { maxConcurrency: numberText(text(form, 'maxConcurrency')) }
                           : {}),
-                        ...(activePreset.type === 'openai-compatible' &&
-                        activePreset.id !== 'custom'
-                          ? { options: { preset: activePreset.id } }
-                          : {}),
-                        ...(activePreset.type === 'plugin' && pluginChoice.plugin
-                          ? {
-                              options: { plugin: pluginChoice.plugin.name },
-                              ...(pluginChoice.plugin.termsWarning ? { acceptTerms: true } : {}),
-                            }
+                        ...(Object.keys(options).length > 0 ? { options } : {}),
+                        ...(activePreset.type === 'plugin' && pluginChoice.plugin?.termsWarning
+                          ? { acceptTerms: true }
                           : {}),
                       });
                       setStep(3);

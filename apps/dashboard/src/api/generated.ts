@@ -1562,6 +1562,7 @@ export type KeysControllerList200Item = {
   state: KeysControllerList200ItemState;
   allowedModels: string[];
   mcpTools: string[];
+  passthroughProviders: string[];
   mcpAdmin: KeysControllerList200ItemMcpAdmin;
   ipAllowlist: string[];
   /**
@@ -1652,6 +1653,11 @@ export type KeysControllerCreateBody = {
      * @items.maxLength 64
      */
   ipAllowlist?: string[];
+  /**
+     * @maxItems 100
+     * @items.pattern ^(\*|[a-z0-9][a-z0-9-]{0,62})$
+     */
+  passthroughProviders?: string[];
   mcpAdmin?: KeysControllerCreateBodyMcpAdmin;
   /**
      * @maximum 9007199254740991
@@ -1733,6 +1739,7 @@ export type KeysControllerCreate200 = {
   state: KeysControllerCreate200State;
   allowedModels: string[];
   mcpTools: string[];
+  passthroughProviders: string[];
   mcpAdmin: KeysControllerCreate200McpAdmin;
   ipAllowlist: string[];
   /**
@@ -1820,6 +1827,7 @@ export type KeysControllerGet200 = {
   state: KeysControllerGet200State;
   allowedModels: string[];
   mcpTools: string[];
+  passthroughProviders: string[];
   mcpAdmin: KeysControllerGet200McpAdmin;
   ipAllowlist: string[];
   /**
@@ -1908,6 +1916,11 @@ export type KeysControllerUpdateBody = {
      * @items.maxLength 64
      */
   ipAllowlist?: string[];
+  /**
+     * @maxItems 100
+     * @items.pattern ^(\*|[a-z0-9][a-z0-9-]{0,62})$
+     */
+  passthroughProviders?: string[];
   mcpAdmin?: KeysControllerUpdateBodyMcpAdmin;
   /**
      * @maximum 9007199254740991
@@ -1989,6 +2002,7 @@ export type KeysControllerUpdate200 = {
   state: KeysControllerUpdate200State;
   allowedModels: string[];
   mcpTools: string[];
+  passthroughProviders: string[];
   mcpAdmin: KeysControllerUpdate200McpAdmin;
   ipAllowlist: string[];
   /**
@@ -2074,6 +2088,7 @@ export type KeysControllerRevoke200 = {
   state: KeysControllerRevoke200State;
   allowedModels: string[];
   mcpTools: string[];
+  passthroughProviders: string[];
   mcpAdmin: KeysControllerRevoke200McpAdmin;
   ipAllowlist: string[];
   /**
@@ -2212,6 +2227,7 @@ export type KeysControllerRotate200Previous = {
   state: KeysControllerRotate200PreviousState;
   allowedModels: string[];
   mcpTools: string[];
+  passthroughProviders: string[];
   mcpAdmin: KeysControllerRotate200PreviousMcpAdmin;
   ipAllowlist: string[];
   /**
@@ -2252,6 +2268,7 @@ export type KeysControllerRotate200 = {
   state: KeysControllerRotate200State;
   allowedModels: string[];
   mcpTools: string[];
+  passthroughProviders: string[];
   mcpAdmin: KeysControllerRotate200McpAdmin;
   ipAllowlist: string[];
   /**

@@ -7,6 +7,7 @@ import { createApp } from '../bootstrap.js';
 import { envSchema } from '../env.js';
 import { PrismaService } from '../infra/prisma.service.js';
 import { ValkeyService } from '../infra/valkey.service.js';
+import { SnapshotService } from '../snapshot/snapshot.service.js';
 
 const DATABASE_URL = process.env.INTEGRATION_DATABASE_URL;
 const VALKEY_URL = process.env.INTEGRATION_VALKEY_URL;
@@ -194,6 +195,46 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('virtual keys over HTTP', () => {
     expect((await call('POST', `orgs/${org}/keys/${key.id}/rotate`, token, {})).statusCode).toBe(
       409,
     );
+  });
+
+  it('pass-through grants (card 30.7): off by default, admin-only, validated and in the snapshot', async () => {
+    const created = await call('POST', `orgs/${org}/keys`, token, {
+      name: 'raw',
+      projectId: project,
+    });
+    expect(created.json()).toMatchObject({ passthroughProviders: [] });
+    const id = created.json<{ id: string }>().id;
+    const granted = await call('PATCH', `orgs/${org}/keys/${id}`, token, {
+      passthroughProviders: ['openai', 'anthropic'],
+    });
+    expect(granted.json()).toMatchObject({ passthroughProviders: ['openai', 'anthropic'] });
+    expect(
+      (await call('PATCH', `orgs/${org}/keys/${id}`, token, { passthroughProviders: ['Bad Slug'] }))
+        .statusCode,
+    ).toBe(422);
+    // A member may create keys but not grant pass-through, and may still edit other fields.
+    expect(
+      (
+        await call('POST', `orgs/${org}/keys`, member, {
+          name: 'm-raw',
+          projectId: project,
+          passthroughProviders: ['*'],
+        })
+      ).statusCode,
+    ).toBe(403);
+    expect(
+      (await call('PATCH', `orgs/${org}/keys/${id}`, member, { name: 'renamed' })).statusCode,
+    ).toBe(200);
+    const snapshot = await app.get(SnapshotService).build();
+    expect(snapshot.virtualKeys.find((k) => k.id === id)?.passthroughProviders).toEqual([
+      'openai',
+      'anthropic',
+    ]);
+    // Rotation keeps the grant.
+    const rotated = await call('POST', `orgs/${org}/keys/${id}/rotate`, token, {
+      graceSeconds: 0,
+    });
+    expect(rotated.json()).toMatchObject({ passthroughProviders: ['openai', 'anthropic'] });
   });
 
   it('members create keys, viewers only read', async () => {

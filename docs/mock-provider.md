@@ -35,6 +35,8 @@ A fake provider compatible with OpenAI, Azure OpenAI and Anthropic (stream and n
 ### Realtime (card 30.5)
 
 The WebSocket endpoint answers `session.update`, `input_audio_buffer.append/commit/clear`, `conversation.item.create/delete`, `response.create` and `response.cancel` like OpenAI, and rejects anything else with an `error` event. Usage is deterministic so billing can be checked: input text is one token per 4 characters of the conversation, committed audio is 10 tokens per second of PCM16 at 24 kHz (48,000 bytes), and a response produces the scenario `text` (one token per 4 characters) plus 2 audio tokens per delta when audio output is on. The handshake honours `status=` (refused with that HTTP status), and `chunks=`, `chunk_delay=`, `text=` and `no_usage` shape the response. `GET /__mock/stats` has a `realtime` section: sessions opened and open, the client event types received, the last upstream model, auth header and beta flag, and `cutMidResponse` (sessions whose socket closed while a response was still streaming).
+| ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `POST /v1/completions` | Legacy OpenAI text completions with usage; untranslated, for pass-through (card 30.7) |
 
 ## Scenario selection
 

@@ -41,6 +41,14 @@ export const KeyBody = z.object({
     .max(200)
     .optional(),
   ipAllowlist: z.array(z.string().max(64)).max(100).optional(),
+  /**
+   * Native pass-through (card 30.7): provider slugs (or `*`) this key may call through
+   * /passthrough/{provider}/*; empty (the default) keeps pass-through off.
+   */
+  passthroughProviders: z
+    .array(z.string().regex(/^(\*|[a-z0-9][a-z0-9-]{0,62})$/))
+    .max(100)
+    .optional(),
   /** DiRouter's admin MCP server (card 20.2); only owners and admins may grant read or write. */
   mcpAdmin: z.enum(['none', 'read', 'write']).optional(),
   rpm: z.int().positive().nullable().optional(),
@@ -67,6 +75,7 @@ const KeyView = z.object({
   state: z.enum(['active', 'rotating', 'expired', 'revoked']),
   allowedModels: z.array(z.string()),
   mcpTools: z.array(z.string()),
+  passthroughProviders: z.array(z.string()),
   mcpAdmin: z.enum(['none', 'read', 'write']),
   ipAllowlist: z.array(z.string()),
   rpm: z.int().nullable(),

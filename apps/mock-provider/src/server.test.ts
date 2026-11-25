@@ -422,3 +422,21 @@ describe('mock price list (card 27.5)', () => {
     expect((await fetch(`${base}/catalog/prices.json`)).status).toBe(404);
   });
 });
+
+describe('legacy completions (card 30.7)', () => {
+  it('answers /v1/completions with usage, for pass-through tests', async () => {
+    const res = await post('/v1/completions', { model: 'gpt-3.5-turbo-instruct', prompt: 'hi' });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      object: string;
+      model: string;
+      usage: { prompt_tokens: number; completion_tokens: number };
+    };
+    expect(body).toMatchObject({ object: 'text_completion', model: 'gpt-3.5-turbo-instruct' });
+    expect(body.usage.prompt_tokens).toBeGreaterThan(0);
+    expect(body.usage.completion_tokens).toBeGreaterThan(0);
+    expect(
+      (await post('/v1/completions', { prompt: 'x' }, { 'x-mock': 'status=503' })).status,
+    ).toBe(503);
+  });
+});

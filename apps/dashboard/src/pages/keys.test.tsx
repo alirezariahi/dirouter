@@ -48,6 +48,7 @@ const KEY = {
   state: 'active',
   allowedModels: ['gpt-4.1'],
   ipAllowlist: ['192.0.2.10'],
+  passthroughProviders: ['openai'],
   rpm: 60,
   tpm: 100_000,
   maxConcurrency: 4,
@@ -347,6 +348,8 @@ describe('virtual key management', () => {
       name: 'Renamed key',
       rpm: null,
     });
+    // An unchanged pass-through grant (card 30.7) is not sent, so members can edit such keys.
+    expect(JSON.parse(patch?.init.body as string)).not.toHaveProperty('passthroughProviders');
 
     fireEvent.click(screen.getByRole('button', { name: 'Revoke' }));
     expect(calls.some((call) => call.path.endsWith('/revoke'))).toBe(false);
@@ -354,6 +357,25 @@ describe('virtual key management', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Revoke permanently' }));
     });
     expect(calls.find((call) => call.path.endsWith('/revoke'))?.init.method).toBe('POST');
+  });
+
+  it('sends a changed pass-through grant (card 30.7)', async () => {
+    const calls = mockApi();
+    await renderPage();
+    fireEvent.click(screen.getAllByRole('button', { name: 'Edit' })[0] as HTMLElement);
+    const edit = within(screen.getByRole('dialog'));
+    const field = edit.getByLabelText('Pass-through providers');
+    expect((field as HTMLTextAreaElement).value).toBe('openai');
+    fireEvent.change(field, { target: { value: 'openai, anthropic' } });
+    await act(async () => {
+      fireEvent.click(edit.getByRole('button', { name: 'Save key' }));
+    });
+    const patch = calls.find(
+      (call) => call.path === '/orgs/org_1/keys/key_1' && call.init.method === 'PATCH',
+    );
+    expect(JSON.parse(patch?.init.body as string)).toMatchObject({
+      passthroughProviders: ['openai', 'anthropic'],
+    });
   });
 
   it('gives viewers read-only access', async () => {

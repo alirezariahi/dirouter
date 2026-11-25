@@ -69,6 +69,7 @@ const key = (organizationId: string): VirtualKeyConfig => ({
   ipAllowlist: [],
   budgets: [],
   mcpTools: [],
+  passthroughProviders: [],
 });
 
 describe('marketplace', () => {

@@ -8,6 +8,7 @@ import { s4En } from './s4';
 import { billingEn } from './billing';
 import { mcpPageEn } from './mcp-page';
 import { scopeLimitsEn } from './scope-limits';
+import { upstreamServicesEn } from './upstream-services';
 import { playgroundStreamEn } from './playground-stream';
 
 type Widen<T> = { [K in keyof T]: T[K] extends string ? string : Widen<T[K]> };
@@ -258,5 +259,6 @@ export const en: Widen<Messages> = {
   billing: billingEn,
   mcpPage: mcpPageEn,
   scopeLimits: scopeLimitsEn,
+  upstreamServices: upstreamServicesEn,
   playgroundStream: playgroundStreamEn,
 };

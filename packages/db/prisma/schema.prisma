@@ -249,6 +249,8 @@ model ApiKey {
   allowedModels  String[]     @default([]) @map("allowed_models")
   /// MCP tools the key may use (card 20.1): `server__tool`, `server__*` or `*`; empty = all.
   mcpTools       String[]     @default([]) @map("mcp_tools")
+  /// Native pass-through (card 30.7): provider slugs or `*` the key may call; empty = off.
+  passthroughProviders String[] @default([]) @map("passthrough_providers")
   /// DiRouter's own MCP server (card 20.2): none | read | write. Only owners and admins grant it.
   mcpAdmin       String       @default("none") @map("mcp_admin")
   ipAllowlist    String[]     @default([]) @map("ip_allowlist")

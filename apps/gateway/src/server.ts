@@ -45,6 +45,7 @@ import { handleModerations } from './classifiers.js';
 import { handleCompletions } from './completions.js';
 import { handleEmbeddings, handleGeminiEmbeddings } from './embeddings.js';
 import { registerMediaRoutes } from './media.js';
+import { registerPassthroughRoutes } from './passthrough.js';
 import { DEFAULT_REALTIME_SETTINGS, RealtimeGateway, type RealtimeSettings } from './realtime.js';
 import { registerRerankRoutes } from './rerank.js';
 import { refreshBatch, registerBatchRoutes } from './batches.js';
@@ -288,7 +289,7 @@ export function buildGateway(opts: GatewayOptions) {
     // During drain every response closes its connection so Traefik opens a new one (to a healthy replica).
     if (lifecycle.draining) void reply.header('connection', 'close');
     // `/v1beta/` (Gemini) and `/v2/` (Cohere rerank) requests are drained like every other API call.
-    if (/^\/(v1|v2|v1beta|chat)\//.test(req.url)) {
+    if (/^\/(v1|v2|v1beta|chat|passthrough)\//.test(req.url)) {
       inFlight++;
       reply.raw.once('close', () => {
         inFlight--;
@@ -310,6 +311,8 @@ export function buildGateway(opts: GatewayOptions) {
   app.post('/v1/embeddings', (req, reply) => handleEmbeddings(req, reply, deps));
   app.post('/v1/moderations', (req, reply) => handleModerations(req, reply, deps));
   registerMediaRoutes(app, deps);
+  // Native provider pass-through (card 30.7), with its own raw-body parser.
+  registerPassthroughRoutes(app, deps);
   // Realtime API over WebSocket (card 30.5).
   const realtime = new RealtimeGateway(deps, { ...DEFAULT_REALTIME_SETTINGS, ...opts.realtime });
   realtime.register(app);
@@ -584,6 +587,7 @@ export function buildGateway(opts: GatewayOptions) {
       ipAllowlist: [],
       budgets: [],
       mcpTools: [],
+      passthroughProviders: [],
     };
     const number = (value: unknown) => (typeof value === 'number' ? value : undefined);
     const inputTokens = number(body.estimatedInputTokens);
