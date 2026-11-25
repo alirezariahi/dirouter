@@ -1042,6 +1042,7 @@ async function proxyRequest(
         projectId: key.projectId,
         virtualKeyId: key.id,
         requestId,
+        attribution: requestAttribution(req.headers, canonical.user, key),
       });
     } catch (error) {
       sendError(
@@ -1364,6 +1365,8 @@ async function proxyRequest(
           status: reply.statusCode,
           latencyMs: Date.now() - started,
           costUsd: spent.costUsd,
+          // The request's own policy (its `provider` object) holds for the copy too.
+          dataPolicy: requestRouting.dataPolicy,
         });
       }
     }
