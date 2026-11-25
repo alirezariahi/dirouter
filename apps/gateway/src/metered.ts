@@ -55,6 +55,15 @@ export interface MeteredRequest<T> {
   build(candidate: Candidate, apiKey: string): UpstreamRequest | undefined;
   read(response: UpstreamResponse, candidate: Candidate): Promise<T>;
   meter(value: T, candidate: Candidate): Metering;
+  /**
+   * A call the gateway makes for another request (a guardrail's moderation or classifier call,
+   * cards 23.2 and 23.3): its own request id, so the usage event and the wallet reservation do
+   * not collide with the parent's, and no second slot of the key's concurrency cap, which the
+   * parent already holds.
+   */
+  nested?: { requestId: string };
+  /** Aborts the upstream call (the guardrail's timeout). */
+  signal?: AbortSignal;
 }
 
 export type MeteredResult<T> =
@@ -97,7 +106,7 @@ export async function runMetered<T>(
   deps: ProxyDeps,
   input: MeteredRequest<T>,
 ): Promise<MeteredResult<T>> {
-  const requestId = req.id;
+  const requestId = input.nested?.requestId ?? req.id;
   const started = Date.now();
   const config = deps.store.current;
   if (!config)
@@ -223,8 +232,17 @@ export async function runMetered<T>(
     clientGone.abort(new Error('gateway shutting down'));
   };
   deps.lifecycle?.signal.addEventListener('abort', onShutdown, { once: true });
+  input.signal?.addEventListener(
+    'abort',
+    () => {
+      clientGone.abort(input.signal?.reason ?? new Error('aborted'));
+    },
+    { once: true },
+  );
 
-  const keyBulkhead = deps.bulkheads?.get(`key:${key.id}`, key.rateLimit?.maxConcurrency, {});
+  const keyBulkhead = input.nested
+    ? undefined
+    : deps.bulkheads?.get(`key:${key.id}`, key.rateLimit?.maxConcurrency, {});
   const releaseKey = keyBulkhead ? await keyBulkhead.acquire(clientGone.signal) : () => undefined;
   if (!releaseKey) {
     releaseAdmission();

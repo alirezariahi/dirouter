@@ -6,6 +6,7 @@ import { Script } from 'node:vm';
 
 import {
   type GuardrailPreview,
+  externalConfigProblem,
   jsonSchemaProblem,
   previewGuardrailText,
 } from '@dirouter/contracts';
@@ -42,6 +43,9 @@ const matchAllScript = new Script('Array.from(text.matchAll(re), (m) => m[0])');
  */
 export function assertValidPolicyConfig(type: string, config: unknown): void {
   const cfg = (config ?? {}) as Record<string, unknown>;
+  // Moderation and the injection classifier (cards 23.2 and 23.3) name a model and its limits.
+  const external = externalConfigProblem(type, cfg);
+  if (external) throw new DiRouterError('invalid_request', { message: external, status: 400 });
   if (type === 'json_schema') {
     if (cfg.schema === undefined)
       throw new DiRouterError('invalid_request', {

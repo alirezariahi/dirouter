@@ -4,6 +4,8 @@
  */
 import {
   evaluateGuardrails,
+  type ExternalVerdict,
+  externalPolicies,
   pendingPrivateKeyStart,
   type CanonicalResponse,
   type GuardrailHit,
@@ -37,13 +39,19 @@ const MAX_HELD_ANSWER = 1_048_576;
  *   block is redacted or blocked as a whole and no line of it leaks.
  * - `json_schema` with `block`: the answer can only be judged once complete, so all text is held
  *   until the end of the stream. With `flag` the text flows and the verdict is recorded at the end.
+ * - `moderation`, and `prompt_injection` with a classifier (cards 23.2 and 23.3), judge the whole
+ *   answer the same way. Their model call is async: the caller asks `pendingJudgement()` before
+ *   `finish()`, makes the calls and hands the verdicts over with `setVerdicts()`.
  */
 export class StreamGuardrailBuffer {
   #buffer = '';
   #policies: readonly GuardrailPolicy[];
-  /** Policies applied chunk by chunk (everything except `json_schema`). */
+  /** Policies applied chunk by chunk (everything that does not judge the whole answer). */
   #windowed: readonly GuardrailPolicy[];
+  /** Whole-answer policies: `json_schema` and the ones that need a model call. */
   #schema: readonly GuardrailPolicy[];
+  #external: readonly GuardrailPolicy[];
+  #verdicts: ReadonlyMap<string, ExternalVerdict> | undefined;
   #holdAll: boolean;
   #holdKeys: boolean;
   #window: number;
@@ -58,8 +66,10 @@ export class StreamGuardrailBuffer {
     this.#policies = policies.filter(
       (policy) => policy.enabled && (policy.stage === 'response' || policy.stage === 'both'),
     );
-    this.#windowed = this.#policies.filter((p) => p.type !== 'json_schema');
-    this.#schema = this.#policies.filter((p) => p.type === 'json_schema');
+    this.#external = externalPolicies(this.#policies, 'response');
+    const whole = (p: GuardrailPolicy) => p.type === 'json_schema' || this.#external.includes(p);
+    this.#windowed = this.#policies.filter((p) => !whole(p));
+    this.#schema = this.#policies.filter(whole);
     this.#holdAll = this.#schema.some((p) => p.action === 'block');
     this.#holdKeys = this.#policies.some((p) => p.type === 'secret');
     this.#window = Math.max(64, window);
@@ -90,7 +100,11 @@ export class StreamGuardrailBuffer {
       finishReason: 'stop',
       created: 0,
     };
-    const result = evaluateGuardrails(policies, { stage: 'response', response: fake });
+    const result = evaluateGuardrails(policies, {
+      stage: 'response',
+      response: fake,
+      ...(this.#verdicts ? { external: this.#verdicts } : {}),
+    });
     this.#record(result.hits, result.unknown);
     if (result.blocked) return { text: '', blocked: { message: result.blocked.message } };
     const part = fake.content[0];
@@ -161,6 +175,28 @@ export class StreamGuardrailBuffer {
     const out = this.#buffer.slice(0, cut);
     this.#buffer = this.#buffer.slice(cut);
     return { text: this.#release(out) };
+  }
+
+  /**
+   * The text and policies whose model calls must be made before `finish(final)`, when that call
+   * gives the whole-answer verdict and some policy needs a model call; otherwise undefined.
+   */
+  pendingJudgement(
+    final = false,
+  ): { policies: readonly GuardrailPolicy[]; text: string } | undefined {
+    if (!this.active || this.#external.length === 0 || this.#judged || this.#verdicts)
+      return undefined;
+    if (this.#holdAll)
+      return this.#buffer === '' && !final
+        ? undefined
+        : { policies: this.#external, text: this.#buffer };
+    const text = this.#answer + this.#buffer;
+    return text !== '' || final ? { policies: this.#external, text } : undefined;
+  }
+
+  /** Verdicts of the model calls asked for by `pendingJudgement()`. */
+  setVerdicts(verdicts: ReadonlyMap<string, ExternalVerdict>): void {
+    this.#verdicts = verdicts;
   }
 
   /**

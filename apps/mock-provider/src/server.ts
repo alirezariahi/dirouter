@@ -6,6 +6,8 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import Fastify, { type FastifyReply, type FastifyRequest } from 'fastify';
 
 import {
+  classifierAnswer,
+  moderationScores,
   DEFAULT_SCENARIO,
   directivesFromKey,
   parseScenario,
@@ -192,6 +194,9 @@ export function buildServer(options: MockServerOptions = {}) {
       stream?: boolean;
       stream_options?: { include_usage?: boolean };
     };
+    // Classifier models used by guardrails (cards 23.2 and 23.3) answer deterministically.
+    const verdict = classifierAnswer(model, body.messages);
+    if (verdict !== undefined) s.text = verdict;
     const promptTokens = tokens(body.messages);
     const id = `chatcmpl-mock${Date.now().toString(36)}`;
     const created = Math.floor(Date.now() / 1000);
@@ -293,6 +298,31 @@ export function buildServer(options: MockServerOptions = {}) {
   app.post('/v1/chat/completions', (req, reply) =>
     openai(req, reply, (req.body as { model?: string } | undefined)?.model ?? 'mock'),
   );
+
+  // ───────────── Moderation (card 23.2) ─────────────
+  app.post('/v1/moderations', async (req, reply) => {
+    const s = scenarioFor(req);
+    await sleep(sampleLatency(s.latency));
+    if (await maybeFail('openai', s, req, reply)) return;
+    const body = (req.body ?? {}) as { model?: string; input?: string | string[] };
+    const inputs = Array.isArray(body.input) ? body.input : [body.input ?? ''];
+    record(req, 200);
+    return reply.send({
+      id: `modr-mock${Date.now().toString(36)}`,
+      model: body.model ?? 'omni-moderation-latest',
+      results: inputs.map((text) => {
+        const scores = moderationScores(text);
+        const categories = Object.fromEntries(
+          Object.entries(scores).map(([name, score]) => [name, score >= 0.5]),
+        );
+        return {
+          flagged: Object.values(categories).some(Boolean),
+          categories,
+          category_scores: scores,
+        };
+      }),
+    });
+  });
 
   // ───────────── Embeddings (card 11.4) ─────────────
   const embedding = (text: string, dimensions: number) =>

@@ -13,15 +13,118 @@ const IBAN = /\b[A-Z]{2}\d{2}[A-Z0-9]{10,30}\b/g;
 const NATIONAL_ID = /\b\d{10}\b/g;
 const PHONE = /(?:\+?\d[\d\s-]{8,14}\d)/g;
 
-/** Instruction-override heuristics; a score of 2 or more is treated as an injection attempt. */
+/**
+ * Instruction-override heuristics (cards 15.1 and 23.3); a score of 2 or more is an injection.
+ * Strong signals weigh 2, weak ones 1, so a weak signal alone ("you are now", a role tag) never
+ * blocks. Measured on the labelled set in __fixtures__/guardrails/prompt-injection.json.
+ */
+const ZW = '[\\s\\u200c]*';
+const fa = (source: string) => new RegExp(source.replaceAll(' ', ZW), 'u');
 const INJECTION_PATTERNS: { regex: RegExp; weight: number }[] = [
-  { regex: /ignore (all )?(previous|above|prior) (instructions|rules|prompts)/i, weight: 2 },
-  { regex: /(disregard|forget) (your|all|the) (instructions|rules|system prompt)/i, weight: 2 },
-  { regex: /you are now|act as (a|an) (unrestricted|jailbroken|developer mode)/i, weight: 1 },
-  { regex: /reveal (the |your )?(system prompt|hidden instructions)/i, weight: 2 },
-  { regex: /<\/?(system|assistant)>/i, weight: 1 },
-  { regex: /\bDAN\b|developer mode enabled/i, weight: 1 },
-  { regex: /دستورات?\s*(قبلی|بالا)\s*را\s*نادیده/, weight: 2 },
+  // English: override the instructions.
+  {
+    regex:
+      /\b(ignore|disregard|forget|override|bypass|drop)\b\s+(?:(?:all|any|every|the|of|your|my|these|those)\s+)*(?:previous|prior|above|earlier|preceding|original|initial|system|safety|existing|developer)\b[^.\n]{0,30}?\b(instructions?|rules|directions|guidelines|prompts?|constraints|polic(?:y|ies)|guardrails|messages?|context)\b/i,
+    weight: 2,
+  },
+  {
+    regex:
+      /\b(ignore|disregard|forget|override|bypass)\b\s+(?:(?:all|any|every|of|your)\s+)+(instructions|rules|guidelines|restrictions|constraints|guardrails|safety)\b/i,
+    weight: 2,
+  },
+  {
+    regex:
+      /\b(do not|don't|never) (follow|obey|listen to) (your|the|any) (rules|instructions|guidelines|system prompt)\b/i,
+    weight: 2,
+  },
+  {
+    regex:
+      /\b(reveal|print|show|repeat|output|leak|dump|display|tell me|give me|share|expose)\b[^.\n]{0,25}\b(system prompt|hidden (?:instructions|prompt)|initial (?:instructions|prompt)|developer (?:message|prompt)|your (?:instructions|prompt|rules)|the (?:text|instructions) above)\b/i,
+    weight: 2,
+  },
+  {
+    regex:
+      /\b(you are now|from now on,? you are|you will now act as|pretend (?:to be|you are)|act as|roleplay as)\b[^.\n]{0,40}\b(unrestricted|unfiltered|uncensored|jailbroken|DAN|evil|without (?:any )?(?:rules|limits|restrictions|filters|guidelines)|no (?:rules|limits|restrictions|filters))\b/i,
+    weight: 2,
+  },
+  {
+    regex: /\bdo anything now\b|\bDAN mode\b|\bdeveloper mode (?:enabled|on|activated)\b/i,
+    weight: 2,
+  },
+  {
+    regex: /\b(you are|you're) (?:no longer|not) (?:bound|restricted|limited) by\b/i,
+    weight: 2,
+  },
+  {
+    regex:
+      /\b(?:attention|note to|message to|instructions? for)\s+(?:the\s+)?(?:AI|assistant|LLM|language model|chatbot|agent)\b|\bif you are an? (?:AI|LLM|language model|assistant)\b/i,
+    weight: 2,
+  },
+  {
+    regex:
+      /\b(send|post|forward|upload|exfiltrate|email)\b[^.\n]{0,30}\b(conversation|chat history|api keys?|credentials|secrets|passwords?|tokens?|environment variables)\b[^.\n]{0,30}\b(to|at)\b\s+(?:https?:\/\/|\S+@\S+)/i,
+    weight: 2,
+  },
+  {
+    regex: /\byou are now\b|\bnew instructions\s*:|\bupdated instructions\s*:|\bjailbreak\b/i,
+    weight: 1,
+  },
+  {
+    regex:
+      /<\/?(system|assistant)>|<\|im_start\|>|<<SYS>>|\[\/?(?:SYSTEM|INST)\]|^#{2,}\s*system\s*:/im,
+    weight: 1,
+  },
+  { regex: /\bDAN\b/, weight: 1 },
+  // Persian: ignore or forget the instructions, rules or limits.
+  {
+    regex: fa(
+      '(دستور|دستورات|دستورها|دستورالعمل|دستورالعمل‌ها|دستورالعمل‌های|قوانین|قواعد|محدودیت|محدودیت‌ها|راهنمایی‌ها|راهنمایی‌های|راهنماها|تنظیمات|پرامپت)( قبلی| بالا| پیشین| اولیه| سیستمی| سیستم| خود| خودت| ات| ت)*( را| رو)? (نادیده بگیر|نادیده بگیرید|فراموش کن|فراموش کنید|کنار بگذار|کنار بذار|دور بریز|بی‌خیال شو|رعایت نکن|اجرا نکن)',
+    ),
+    weight: 2,
+  },
+  {
+    regex: fa('(همه|تمام|هر) (چیز|دستورات|قوانین)ی?( که)? (قبلا|قبلاً|بالا|تا الان)'),
+    weight: 1,
+  },
+  {
+    regex: fa(
+      '(پرامپت سیستم|پرامپت سیستمی|دستورات سیستمی|دستورات پنهان|دستورات مخفی|پیام سیستم|پیام سیستمی|دستورالعمل‌های اولیه|دستورات اولیه)( ات| ت)?( را| رو)? [^.؟?\\n]{0,25}?(نشان بده|نشون بده|بگو|فاش کن|چاپ کن|بنویس|تکرار کن|افشا کن|لو بده)',
+    ),
+    weight: 2,
+  },
+  {
+    regex: fa(
+      '(نشان بده|نشون بده|بگو|فاش کن|چاپ کن|افشا کن|لو بده)[^.\\n]{0,20}(پرامپت سیستم|دستورات سیستمی|دستورات پنهان|دستورات مخفی|پیام سیستمی)',
+    ),
+    weight: 2,
+  },
+  {
+    regex: fa(
+      '(تو|شما)( الان| اکنون| دیگر| دیگه| حالا| از این به بعد)+[^.\\n]{0,30}(بدون|بی|هیچ) ?(محدودیت|قید|فیلتر|سانسور|قانون)',
+    ),
+    weight: 2,
+  },
+  {
+    regex: fa(
+      'حالت (دن|DAN|جیلبریک)|جیلبریک|حالت (توسعه‌دهنده|توسعه دهنده) (فعال شد|فعال است|روشن شد)',
+    ),
+    weight: 2,
+  },
+  { regex: fa('حالت (توسعه‌دهنده|توسعه دهنده)'), weight: 1 },
+  { regex: fa('(بدون|بی) (هیچ )?(محدودیت|سانسور|فیلتر)'), weight: 1 },
+  {
+    regex: fa(
+      '(خطاب به|توجه|پیام برای) (هوش مصنوعی|دستیار|مدل زبانی|ربات)|اگر (تو )?(یک )?(هوش مصنوعی|مدل زبانی|دستیار هوشمند) هستی',
+    ),
+    weight: 2,
+  },
+  {
+    regex: fa(
+      '(کلید|کلیدهای|رمز|رمزهای|توکن|تاریخچه|مکالمه)[^.\\n]{0,25}( را| رو)? به [^.\\n]{0,40}(بفرست|ارسال کن|ارسال کنید|آپلود کن)',
+    ),
+    weight: 1,
+  },
+  { regex: fa('از (این به بعد|الان به بعد|حالا به بعد)'), weight: 1 },
 ];
 
 const PII_PATTERNS: Record<string, RegExp> = {
@@ -406,7 +509,158 @@ export const ENFORCED_GUARDRAIL_TYPES: ReadonlySet<string> = new Set([
   'json_schema',
   'max_input_tokens',
   'prompt_injection',
+  'moderation',
 ]);
+
+/**
+ * Outcome of the model call a policy needs before it can be evaluated: a `moderation` policy
+ * (card 23.2) or a `prompt_injection` policy with a classifier (card 23.3). The gateway makes the
+ * call (it is async and metered) and hands the verdicts to the synchronous engine.
+ */
+export interface ExternalVerdict {
+  /** The model judged the text harmful (moderation) or an injection attempt (classifier). */
+  flagged: boolean;
+  /** Categories over their threshold, for logs. */
+  categories?: string[];
+  /** The call failed or timed out; the policy's `failMode` decides what that means. */
+  unavailable?: boolean;
+}
+
+export type FailMode = 'open' | 'closed';
+
+export interface ModerationConfig {
+  model: string;
+  /**
+   * `moderations`: an OpenAI-compatible `/moderations` endpoint (scores per category).
+   * `llama_guard`: a chat model that answers `safe` or `unsafe` plus category codes (Llama Guard).
+   */
+  mode: 'moderations' | 'llama_guard';
+  /** Category → minimum score. Empty: the provider's own `flagged` decides. */
+  thresholds: Record<string, number>;
+  timeoutMs: number;
+  failMode: FailMode;
+}
+
+export interface ClassifierConfig {
+  model: string;
+  /** Score (0–1) from which the classifier's answer counts as an injection. */
+  threshold: number;
+  timeoutMs: number;
+  failMode: FailMode;
+}
+
+const DEFAULT_EXTERNAL_TIMEOUT_MS = 2_000;
+
+function timeoutOf(value: unknown): number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 50 && value <= 30_000
+    ? value
+    : DEFAULT_EXTERNAL_TIMEOUT_MS;
+}
+
+/** Normalized configuration of a `moderation` policy, or undefined when it has no model. */
+export function moderationConfig(config: Record<string, unknown>): ModerationConfig | undefined {
+  if (typeof config.model !== 'string' || config.model.trim() === '') return undefined;
+  const thresholds: Record<string, number> = {};
+  if (isObject(config.thresholds))
+    for (const [name, value] of Object.entries(config.thresholds))
+      if (typeof value === 'number' && value >= 0 && value <= 1) thresholds[name] = value;
+  return {
+    model: config.model.trim(),
+    mode: config.mode === 'llama_guard' ? 'llama_guard' : 'moderations',
+    thresholds,
+    timeoutMs: timeoutOf(config.timeoutMs),
+    failMode: config.failMode === 'closed' ? 'closed' : 'open',
+  };
+}
+
+/** The classifier of a `prompt_injection` policy (card 23.3), when one is configured. */
+export function injectionClassifier(config: Record<string, unknown>): ClassifierConfig | undefined {
+  const c = config.classifier;
+  if (!isObject(c) || typeof c.model !== 'string' || c.model.trim() === '') return undefined;
+  return {
+    model: c.model.trim(),
+    threshold:
+      typeof c.threshold === 'number' && c.threshold > 0 && c.threshold <= 1 ? c.threshold : 0.5,
+    timeoutMs: timeoutOf(c.timeoutMs),
+    // A guard that silently disappears is worse than a slow one only for blocking setups; the
+    // default keeps traffic flowing and the built-in patterns still apply.
+    failMode: c.failMode === 'closed' ? 'closed' : 'open',
+  };
+}
+
+/** Problem with a `moderation` or classifier configuration, checked when a policy is saved. */
+export function externalConfigProblem(
+  type: string,
+  config: Record<string, unknown>,
+): string | undefined {
+  const checkCommon = (c: Record<string, unknown>, at: string): string | undefined => {
+    if (
+      c.timeoutMs !== undefined &&
+      !(typeof c.timeoutMs === 'number' && Number.isInteger(c.timeoutMs) && c.timeoutMs >= 50)
+    )
+      return `${at}timeoutMs must be an integer of at least 50`;
+    if (typeof c.timeoutMs === 'number' && c.timeoutMs > 30_000)
+      return `${at}timeoutMs must be at most 30000`;
+    if (c.failMode !== undefined && c.failMode !== 'open' && c.failMode !== 'closed')
+      return `${at}failMode must be "open" or "closed"`;
+    return undefined;
+  };
+  if (type === 'moderation') {
+    if (typeof config.model !== 'string' || config.model.trim() === '')
+      return 'moderation policy requires config.model';
+    if (config.mode !== undefined && config.mode !== 'moderations' && config.mode !== 'llama_guard')
+      return 'config.mode must be "moderations" or "llama_guard"';
+    if (config.thresholds !== undefined) {
+      if (!isObject(config.thresholds)) return 'config.thresholds must be an object';
+      for (const [name, value] of Object.entries(config.thresholds))
+        if (typeof value !== 'number' || value < 0 || value > 1)
+          return `config.thresholds.${name} must be a number between 0 and 1`;
+    }
+    return checkCommon(config, 'config.');
+  }
+  if (type === 'prompt_injection' && config.classifier !== undefined) {
+    const c = config.classifier;
+    if (!isObject(c) || typeof c.model !== 'string' || c.model.trim() === '')
+      return 'config.classifier requires a model';
+    if (
+      c.threshold !== undefined &&
+      !(typeof c.threshold === 'number' && c.threshold > 0 && c.threshold <= 1)
+    )
+      return 'config.classifier.threshold must be a number above 0 and at most 1';
+    return checkCommon(c, 'config.classifier.');
+  }
+  return undefined;
+}
+
+/** Enabled policies of a stage that need a model call before evaluation. */
+export function externalPolicies(
+  policies: readonly GuardrailPolicy[],
+  stage: Exclude<GuardrailStage, 'both'>,
+): GuardrailPolicy[] {
+  return policies.filter(
+    (p) =>
+      p.enabled &&
+      (p.stage === 'both' || p.stage === stage) &&
+      ((p.type === 'moderation' && moderationConfig(p.config) !== undefined) ||
+        (p.type === 'prompt_injection' && injectionClassifier(p.config) !== undefined)),
+  );
+}
+
+/** The text the guardrails of a stage look at, joined; what a moderation model is shown. */
+export function guardrailText(
+  input: Pick<GuardrailInput, 'stage' | 'request' | 'response'>,
+): string {
+  const targets =
+    input.stage === 'request' && input.request
+      ? requestTargets(input.request)
+      : input.stage === 'response' && input.response
+        ? responseTargets(input.response)
+        : [];
+  return targets
+    .map((t) => t.get())
+    .filter((t) => t !== '')
+    .join('\n');
+}
 
 export interface GuardrailResult {
   blocked?: { policy: GuardrailPolicy; message: string };
@@ -428,6 +682,11 @@ export interface GuardrailInput {
   estimatedInputTokens?: number;
   /** Collect the matched text into `result.matches` (the panel's live test). */
   collectMatches?: boolean;
+  /**
+   * Verdicts of the model calls, by policy id. A policy that needs one and has none (the panel's
+   * live test, which makes no calls) is evaluated without it.
+   */
+  external?: ReadonlyMap<string, ExternalVerdict>;
 }
 
 interface Target {
@@ -627,8 +886,43 @@ export function evaluateGuardrails(
       continue;
     }
 
+    if (policy.type === 'moderation') {
+      const verdict = input.external?.get(policy.id);
+      if (!verdict) continue;
+      const settings = moderationConfig(policy.config);
+      if (verdict.unavailable) {
+        // Fail-closed: no verdict means no pass. `flag` still only records it.
+        if (
+          settings?.failMode === 'closed' &&
+          hit(policy, 1, 'Blocked: content moderation is unavailable, try again shortly')
+        )
+          return result;
+        continue;
+      }
+      if (!verdict.flagged) continue;
+      if (result.matches && verdict.categories) result.matches.push(...verdict.categories);
+      // Redacting a judgement on the whole text has no meaning: `redact` records it like `flag`.
+      if (
+        hit(policy, Math.max(1, verdict.categories?.length ?? 0), 'Blocked by content moderation')
+      )
+        return result;
+      continue;
+    }
+
     if (policy.type === 'prompt_injection') {
       let score = 0;
+      const verdict = input.external?.get(policy.id);
+      if (verdict?.flagged) {
+        score += 2;
+        if (result.matches) result.matches.push('classifier');
+      } else if (
+        verdict?.unavailable &&
+        injectionClassifier(policy.config)?.failMode === 'closed'
+      ) {
+        if (hit(policy, 1, 'Blocked: the prompt-injection check is unavailable, try again shortly'))
+          return result;
+        continue;
+      }
       for (const target of targets) {
         const text = target.get();
         for (const rule of INJECTION_PATTERNS) {
@@ -702,6 +996,11 @@ export interface GuardrailPreview {
   /** `json_schema`: whether the sample parses and conforms. */
   valid?: boolean;
   schemaErrors?: string[];
+  /**
+   * The policy also asks a model (moderation, or the injection classifier); the live test makes
+   * no model calls, so that part is only judged on real traffic.
+   */
+  needsModelCall?: boolean;
 }
 
 /**
@@ -770,5 +1069,6 @@ export function previewGuardrailText(
     redacted: result.redactions > 0,
     redactedText: after,
     ...(policy.type === 'max_input_tokens' ? { estimatedTokens: estimatedInputTokens } : {}),
+    ...(externalPolicies([full], 'request').length > 0 ? { needsModelCall: true } : {}),
   };
 }

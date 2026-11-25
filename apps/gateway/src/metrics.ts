@@ -79,6 +79,12 @@ export function createGatewayMetrics(options: GatewayMetricOptions) {
     labelNames: ['type'],
     registers: [registry],
   });
+  const guardrailCalls = new Counter({
+    name: 'dirouter_gateway_guardrail_calls_total',
+    help: 'Model calls made by moderation and classifier guardrails, by outcome',
+    labelNames: ['type', 'outcome'],
+    registers: [registry],
+  });
   const cacheHits = new Counter({
     name: 'dirouter_gateway_cache_hits_total',
     help: 'Responses served from the exact or semantic cache',
@@ -154,6 +160,9 @@ export function createGatewayMetrics(options: GatewayMetricOptions) {
     /** A policy type this gateway does not enforce (label sanitised to keep cardinality bounded). */
     guardrailUnknown(type: string) {
       guardrailUnknown.inc({ type: type.replace(/[^a-z0-9_]/gi, '_').slice(0, 32) || 'empty' });
+    },
+    guardrailCall(type: string, outcome: 'pass' | 'flagged' | 'timeout' | 'error') {
+      guardrailCalls.inc({ type, outcome });
     },
     cacheHit(kind: 'exact' | 'semantic') {
       cacheHits.inc({ kind });

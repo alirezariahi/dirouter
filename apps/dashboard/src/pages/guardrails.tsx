@@ -25,6 +25,7 @@ const TYPES = [
   'prompt_injection',
   'max_input_tokens',
   'json_schema',
+  'moderation',
 ] as const;
 const STAGES = ['request', 'response', 'both'] as const;
 const ACTIONS = ['block', 'redact', 'flag'] as const;
@@ -48,6 +49,8 @@ interface Preview {
   redacted?: boolean | string;
   redactedText?: string;
   estimatedTokens?: number;
+  /** Moderation or classifier: the model call happens only on real traffic. */
+  needsModelCall?: boolean;
   valid?: boolean;
 }
 interface Draft {
@@ -61,6 +64,10 @@ interface Draft {
   piiType: (typeof PII)[number];
   maxTokens: string;
   schema: string;
+  model: string;
+  mode: 'moderations' | 'llama_guard';
+  failMode: 'open' | 'closed';
+  timeoutMs: string;
   message: string;
 }
 /** Limits enforced by the API (guardrails controller and regex-safety). */
@@ -91,6 +98,10 @@ const EMPTY: Draft = {
   piiType: 'email',
   maxTokens: '8000',
   schema: '{\n  "type": "object"\n}',
+  model: '',
+  mode: 'moderations',
+  failMode: 'open',
+  timeoutMs: '2000',
   message: '',
 };
 
@@ -412,6 +423,72 @@ export default function GuardrailsPage() {
                 />
               </label>
             ) : null}
+            {draft.type === 'moderation' || draft.type === 'prompt_injection' ? (
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field
+                  name="guardrail-model"
+                  label={t(
+                    draft.type === 'moderation'
+                      ? 's2.guardrails.model'
+                      : 's2.guardrails.classifierModel',
+                  )}
+                  dir="ltr"
+                  value={draft.model}
+                  onChange={(event) => {
+                    set('model', event.target.value);
+                  }}
+                />
+                {draft.type === 'moderation' ? (
+                  <label htmlFor="guardrail-mode" className="flex flex-col gap-1 text-sm">
+                    <span className="font-medium">{t('s2.guardrails.mode')}</span>
+                    <select
+                      id="guardrail-mode"
+                      className={selectClass}
+                      value={draft.mode}
+                      onChange={(event) => {
+                        set('mode', event.target.value as Draft['mode']);
+                      }}
+                    >
+                      <option value="moderations">{t('s2.guardrails.modes.moderations')}</option>
+                      <option value="llama_guard">{t('s2.guardrails.modes.llama_guard')}</option>
+                    </select>
+                  </label>
+                ) : null}
+                <Field
+                  name="guardrail-timeout"
+                  label={t('s2.guardrails.timeoutMs')}
+                  type="number"
+                  min={50}
+                  max={30000}
+                  dir="ltr"
+                  value={draft.timeoutMs}
+                  onChange={(event) => {
+                    set('timeoutMs', event.target.value);
+                  }}
+                />
+                <label htmlFor="guardrail-failmode" className="flex flex-col gap-1 text-sm">
+                  <span className="font-medium">{t('s2.guardrails.failMode')}</span>
+                  <select
+                    id="guardrail-failmode"
+                    className={selectClass}
+                    value={draft.failMode}
+                    onChange={(event) => {
+                      set('failMode', event.target.value as Draft['failMode']);
+                    }}
+                  >
+                    <option value="open">{t('s2.guardrails.failModes.open')}</option>
+                    <option value="closed">{t('s2.guardrails.failModes.closed')}</option>
+                  </select>
+                </label>
+                <p className="text-xs text-muted sm:col-span-2">
+                  {t(
+                    draft.type === 'moderation'
+                      ? 's2.guardrails.moderationHelp'
+                      : 's2.guardrails.classifierHelp',
+                  )}
+                </p>
+              </div>
+            ) : null}
             <Field
               name="guardrail-message"
               label={t('s2.guardrails.message')}
@@ -464,6 +541,11 @@ export default function GuardrailsPage() {
                         ? t('s2.guardrails.result.flagged')
                         : t('s2.guardrails.result.passed')}
                   </p>
+                  {result.needsModelCall ? (
+                    <p className="text-xs text-muted" data-testid="guardrail-model-note">
+                      {t('s2.guardrails.result.needsModelCall')}
+                    </p>
+                  ) : null}
                   {result.schemaErrors && result.schemaErrors.length > 0 ? (
                     <div data-testid="guardrail-schema-errors">
                       <p className="text-muted">{t('s2.guardrails.result.schemaErrors')}</p>

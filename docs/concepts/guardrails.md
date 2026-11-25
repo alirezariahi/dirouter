@@ -8,14 +8,14 @@ A guardrail is a rule the gateway evaluates on the request (before routing) or o
 
 ## Policy
 
-| Field     | Values                                                                                                  |
-| --------- | ------------------------------------------------------------------------------------------------------- |
-| `stage`   | `request`, `response`, `both`                                                                           |
-| `type`    | `regex`, `keyword`, `pii`, `secret`, `prompt_injection`, `max_input_tokens`, `json_schema`              |
-| `action`  | `block` (reject with `content_filter`), `redact` (replace the match with `[REDACTED]`), `flag` (record) |
-| `config`  | depends on the type, see below                                                                          |
-| `message` | text returned to the client on a block (optional)                                                       |
-| scope     | organization-wide, or limited with `projectId` / `virtualKeyId`                                         |
+| Field     | Values                                                                                                   |
+| --------- | -------------------------------------------------------------------------------------------------------- |
+| `stage`   | `request`, `response`, `both`                                                                            |
+| `type`    | `regex`, `keyword`, `pii`, `secret`, `prompt_injection`, `max_input_tokens`, `json_schema`, `moderation` |
+| `action`  | `block` (reject with `content_filter`), `redact` (replace the match with `[REDACTED]`), `flag` (record)  |
+| `config`  | depends on the type, see below                                                                           |
+| `message` | text returned to the client on a block (optional)                                                        |
+| scope     | organization-wide, or limited with `projectId` / `virtualKeyId`                                          |
 
 | Type               | `config`                                                       | Notes                                                                                                                              |
 | ------------------ | -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
@@ -23,9 +23,10 @@ A guardrail is a rule the gateway evaluates on the request (before routing) or o
 | `keyword`          | `terms` (array or comma list), `caseSensitive`                 | literal match                                                                                                                      |
 | `pii`              | `type`: `email`, `credit_card`, `iban`, `national_id`, `phone` | card numbers must pass the **Luhn** check and national IDs the Iranian **mod-11** check digit, so ordinary numbers are not flagged |
 | `secret`           | none                                                           | provider tokens, API keys and private-key material; see [Secrets](#secrets)                                                        |
-| `prompt_injection` | none                                                           | heuristic score over instruction-override patterns; fires at score 2 or more                                                       |
+| `prompt_injection` | optional `classifier`                                          | English and Persian instruction-override patterns, plus an optional classifier model; see [Prompt injection](#prompt-injection)    |
 | `max_input_tokens` | `maxTokens`                                                    | request stage; compares the estimated input size                                                                                   |
 | `json_schema`      | `schema`                                                       | response stage only; the answer must parse as JSON and satisfy the schema, see [JSON Schema](#json-schema)                         |
+| `moderation`       | `model`, `mode`, `thresholds`, `timeoutMs`, `failMode`         | a moderation model judges the text through the gateway; see [Moderation](#moderation)                                              |
 
 Policies run in order; the first blocking policy stops evaluation. Hits (policy, type, action, match count) are written to the gateway log (`guardrail hits`) for requests, answers, streams and cached answers; matched text is not.
 
@@ -58,6 +59,47 @@ Supported keywords: `type` (one or a list), `enum`, `const`, `properties`, `requ
 The schema itself is checked when the policy is saved: any other keyword (for example `$ref` or `if`), an unknown type, or a `pattern` that could backtrack catastrophically is refused with `400`. That way a schema can never be stored that the gateway would only half enforce.
 
 `block` rejects a non-conforming answer; `flag` lets it through and records the hit with the number of problems; `redact` has no meaning for a document and behaves like `flag`. The provider has already answered (and is billed) when the answer is checked.
+
+## Moderation
+
+A `moderation` policy (card 23.2, since v1.1) sends the text to a moderation model. The call goes **through the gateway itself** with the caller's own key: it is routed (with fallback), rate limited, charged to the wallet and recorded in usage like any request, under its own request id (`<request id>-guard-request-0`). It does not take a second slot of the key's concurrency cap. The key must be allowed to use the moderation model.
+
+| `config`     | Meaning                                                                                                                                                                                                                                                   | Default       |
+| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
+| `model`      | model or alias of the moderation model (required)                                                                                                                                                                                                         |               |
+| `mode`       | `moderations`: an OpenAI-compatible `/moderations` endpoint (OpenAI `omni-moderation-latest`, or any server with that API); `llama_guard`: a chat model that answers `safe` or `unsafe` plus category codes (Llama Guard served by vLLM, Groq, Together…) | `moderations` |
+| `thresholds` | category → minimum score, e.g. `{"violence": 0.7, "hate": 0.5}`. Only the listed categories count. Without it the provider's own `flagged` decides. For `llama_guard` it lists the codes that count (`{"S1": 1}`)                                         | none          |
+| `timeoutMs`  | how long the gateway waits for the verdict (50–30000)                                                                                                                                                                                                     | `2000`        |
+| `failMode`   | `open`: when the model times out or fails, the request passes; `closed`: it is rejected                                                                                                                                                                   | `open`        |
+
+`block` rejects with `content_filter`; `flag` records the hit with the categories; `redact` behaves like `flag`. With `stage: both` the request is checked before routing and the answer after it. In a stream with `block` the whole answer is held until it is complete and then judged; with `flag` the text flows and the verdict is recorded at the end.
+
+Clients can call the same moderation models directly with `POST /v1/moderations` (OpenAI format).
+
+Every call is counted in `dirouter_gateway_guardrail_calls_total{type, outcome}` (`pass`, `flagged`, `timeout`, `error`); a timeout or failure is also logged at `warn` (`guardrail model call timed out` / `failed`).
+
+The live test in the panel makes no model calls: for these policies it says so (`needsModelCall`), and the verdict only applies to real traffic.
+
+## Prompt injection
+
+The built-in patterns (card 23.3) cover English and Persian: instructions to ignore, forget or override earlier instructions; requests to reveal the system prompt; role switches to an unrestricted mode (DAN, developer mode, jailbreak); fake role tags (`</system>`, `<|im_start|>`); text addressed to the AI inside a document or tool output; and requests to send keys or the conversation to an address. Strong signals score 2 and weak ones 1; the policy fires at 2, so a weak signal alone ("you are now", a role tag) does not block. Tool results (`tool_result`) are scanned as untrusted input like user messages.
+
+`packages/contracts/src/__fixtures__/guardrails/prompt-injection.json` holds 50 attacks and 50 benign texts, half English and half Persian, including near misses such as "ignore the outliers" or how to turn on Android's developer mode. `guardrail-engine.injection.test.ts` prints the rates and fails CI below 90% detection or above 4% false positives per language. Currently: English 100% detection and 0% false positives, Persian 100% and 0%. The set was written together with the patterns, so these numbers show the patterns cover the set, not how they do on unseen attacks; the classifier is for what patterns miss.
+
+The optional classifier asks a small chat model as well:
+
+```json
+{
+  "classifier": {
+    "model": "my-small-model",
+    "threshold": 0.5,
+    "timeoutMs": 2000,
+    "failMode": "open"
+  }
+}
+```
+
+The model is asked to answer `{"injection": true|false, "score": 0..1}`; a score at or above `threshold` counts like a strong pattern. The call goes through the gateway like a moderation call, with the same timeout and `failMode` rules (`open` by default: the patterns still apply when the classifier is down).
 
 ## Unknown policy types
 

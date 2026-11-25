@@ -132,6 +132,49 @@ export function maxEmbeddingBatch(
   return MAX_EMBEDDING_BATCH[provider.type] ?? EMBEDDING_BATCH_CONTRACT_MAX;
 }
 
+// ───────────── Moderation (card 23.2) ─────────────
+
+export interface ModerationBuildContext {
+  provider: ProviderConfig;
+  model: ModelConfig;
+  apiKey: string;
+  credentialHeaders?: Record<string, string>;
+  texts: string[];
+}
+
+export interface ModerationResult {
+  results: {
+    flagged: boolean;
+    categories: Record<string, boolean>;
+    scores: Record<string, number>;
+  }[];
+}
+
+/** OpenAI's moderation response, also served by compatible moderation servers. */
+export function parseModerationJson(json: unknown): ModerationResult {
+  const body = json as {
+    results?: {
+      flagged?: unknown;
+      categories?: Record<string, unknown>;
+      category_scores?: Record<string, unknown>;
+    }[];
+  };
+  if (!Array.isArray(body.results)) throw new Error('moderation response has no results');
+  return {
+    results: body.results.map((r) => ({
+      flagged: r.flagged === true,
+      categories: Object.fromEntries(
+        Object.entries(r.categories ?? {}).map(([k, v]) => [k, v === true]),
+      ),
+      scores: Object.fromEntries(
+        Object.entries(r.category_scores ?? {}).filter(
+          (e): e is [string, number] => typeof e[1] === 'number',
+        ),
+      ),
+    })),
+  };
+}
+
 export interface EmbeddingsResult {
   vectors: number[][];
   usage?: { inputTokens: number };
@@ -151,6 +194,9 @@ export interface ProviderAdapter {
   /** Provider supports `/v1/embeddings` (card 11.4). */
   buildEmbeddingsRequest?(ctx: EmbeddingsBuildContext): UpstreamRequest;
   parseEmbeddingsResponse?(json: unknown): EmbeddingsResult;
+  /** Provider serves an OpenAI-compatible `/moderations` (card 23.2); undefined when it cannot. */
+  buildModerationRequest?(ctx: ModerationBuildContext): UpstreamRequest | undefined;
+  parseModerationResponse?(json: unknown): ModerationResult;
 }
 
 const trimSlash = (url: string) => url.replace(/\/+$/, '');
@@ -279,6 +325,25 @@ class OpenAICompatibleAdapter implements ProviderAdapter {
         : {}),
     };
   }
+
+  buildModerationRequest(ctx: ModerationBuildContext): UpstreamRequest | undefined {
+    // Azure OpenAI has no moderation endpoint; its content filter runs on every call instead.
+    if (this.type === 'azure-openai') return undefined;
+    return {
+      url: `${trimSlash(ctx.provider.baseUrl)}/moderations`,
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        accept: 'application/json',
+        ...(ctx.apiKey ? { authorization: `Bearer ${ctx.apiKey}` } : {}),
+        ...presetFor(ctx.provider).headers,
+        ...ctx.credentialHeaders,
+      },
+      body: JSON.stringify({ model: ctx.model.upstreamModel, input: ctx.texts }),
+    };
+  }
+
+  parseModerationResponse = parseModerationJson;
 }
 
 // ───────────── Azure OpenAI ─────────────

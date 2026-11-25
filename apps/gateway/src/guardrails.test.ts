@@ -430,7 +430,7 @@ describe('secret and json_schema in streams (card 23.1)', () => {
 
 describe('unknown policy types (card 23.1)', () => {
   it('are skipped and reported instead of silently ignored', () => {
-    const unknown = policy({ id: 'future', type: 'moderation', action: 'block' });
+    const unknown = policy({ id: 'future', type: 'toxicity_v9', action: 'block' });
     const result = evaluateGuardrails(
       [unknown, policy({ id: 'known', config: { pattern: 'x' }, action: 'flag' })],
       {

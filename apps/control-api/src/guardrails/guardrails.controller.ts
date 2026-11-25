@@ -26,6 +26,7 @@ const Type = z.enum([
   'json_schema',
   'max_input_tokens',
   'prompt_injection',
+  'moderation',
 ]);
 export const GuardrailBody = z.object({
   name: z.string().trim().min(1).max(100),

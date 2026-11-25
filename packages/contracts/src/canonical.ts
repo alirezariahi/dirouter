@@ -110,6 +110,7 @@ export const InboundApi = z.enum([
   'openai.responses',
   'gemini.generate',
   'openai.embeddings',
+  'openai.moderations',
   'openai.images',
   'openai.speech',
   'openai.transcriptions',

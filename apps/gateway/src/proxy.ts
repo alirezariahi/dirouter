@@ -10,7 +10,9 @@ import {
   type CanonicalResponse,
   type CanonicalStreamEvent,
   type CanonicalUsage,
+  type ExternalVerdict,
   type GuardrailHit,
+  guardrailText,
   type GuardrailPolicy,
   type InboundApi,
   OpenAIChatCompletionRequest,
@@ -93,6 +95,7 @@ import {
   StreamAssembler,
 } from './cache.js';
 import { compressRequest } from './compress.js';
+import { externalVerdicts } from './classifiers.js';
 import { evaluateGuardrails, policiesFor, StreamGuardrailBuffer } from './guardrails.js';
 import type { Tracer, TraceSpan } from './tracing.js';
 import { callUpstream, mergeTimeouts, readErrorBody, UpstreamTimeout } from './upstream.js';
@@ -547,10 +550,19 @@ export async function handleProxy(
   pageGuard: {
     const policies = policiesFor(config.snapshot.guardrails, key);
     if (policies.length === 0) break pageGuard;
+    // Moderation and classifier policies (cards 23.2 and 23.3) need a model call first.
+    const external = await externalVerdicts(
+      req,
+      deps,
+      policies,
+      'request',
+      guardrailText({ stage: 'request', request: canonical }),
+    );
     const guard = evaluateGuardrails(policies, {
       stage: 'request',
       request: canonical,
       estimatedInputTokens: estimateRequestTokens(canonical, roughTokens),
+      external,
     });
     reportGuardrails(deps, requestId, 'request', guard);
     if (guard.blocked) {
@@ -837,7 +849,14 @@ export async function handleProxy(
     const policies = policiesFor(config.snapshot.guardrails, key);
     if (policies.length > 0) {
       const copy = structuredClone(cached);
-      const guard = evaluateGuardrails(policies, { stage: 'response', response: copy });
+      const external = await externalVerdicts(
+        req,
+        deps,
+        policies,
+        'response',
+        guardrailText({ stage: 'response', response: copy }),
+      );
+      const guard = evaluateGuardrails(policies, { stage: 'response', response: copy, external });
       reportGuardrails(deps, requestId, 'response', guard);
       cached = guard.blocked ? undefined : copy;
     }
@@ -1217,6 +1236,7 @@ async function runRoute(
           draining: () => deps.lifecycle?.draining === true,
           shuttingDown: () => deps.lifecycle?.signal.aborted === true,
           guardrails: policiesFor(config.snapshot.guardrails, key),
+          judge: (policies, text) => externalVerdicts(req, deps, policies, 'response', text),
           onGuardrails: (result) => {
             reportGuardrails(deps, requestId, 'response', result);
           },
@@ -1345,7 +1365,17 @@ async function runRoute(
       // Response guardrails (stage=response) run on the canonical answer before it is encoded.
       const policies = policiesFor(config.snapshot.guardrails, key);
       const guard = policies.length
-        ? evaluateGuardrails(policies, { stage: 'response', response: outcome.response })
+        ? evaluateGuardrails(policies, {
+            stage: 'response',
+            response: outcome.response,
+            external: await externalVerdicts(
+              req,
+              deps,
+              policies,
+              'response',
+              guardrailText({ stage: 'response', response: outcome.response }),
+            ),
+          })
         : undefined;
       if (guard) reportGuardrails(deps, requestId, 'response', guard);
       if (guard?.blocked) {
@@ -1538,6 +1568,11 @@ async function pipeStream(
     draining: () => boolean;
     shuttingDown: () => boolean;
     guardrails?: readonly GuardrailPolicy[];
+    /** Makes the model calls of moderation and classifier policies on the held answer. */
+    judge?: (
+      policies: readonly GuardrailPolicy[],
+      text: string,
+    ) => Promise<ReadonlyMap<string, ExternalVerdict>>;
     /** Called once the stream ends with the response guardrail hits and unknown policies. */
     onGuardrails?: (result: {
       hits: readonly GuardrailHit[];
@@ -1616,6 +1651,9 @@ async function pipeStream(
   // left for that text (an Anthropic block cannot be reopened, OpenAI already sent finish_reason).
   const releaseHeld = async (final = false) => {
     if (!streamGuard.active) return;
+    const pending = streamGuard.pendingJudgement(final);
+    if (pending && opts.judge)
+      streamGuard.setVerdicts(await opts.judge(pending.policies, pending.text));
     const tail = streamGuard.finish(final);
     if (tail.blocked) await blockStream(tail.blocked);
     if (tail.text === '') return;

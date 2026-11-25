@@ -88,3 +88,48 @@ describe('json_schema policies are validated when saved (card 23.1)', () => {
     }).not.toThrow();
   });
 });
+
+describe('moderation and classifier settings are validated when saved (cards 23.2 and 23.3)', () => {
+  it('requires a model and sane limits', () => {
+    expect(() => {
+      assertValidPolicyConfig('moderation', {});
+    }).toThrow(/config.model/);
+    expect(() => {
+      assertValidPolicyConfig('moderation', { model: 'm', thresholds: { violence: 2 } });
+    }).toThrow(/between 0 and 1/);
+    expect(() => {
+      assertValidPolicyConfig('moderation', { model: 'm', failMode: 'maybe' });
+    }).toThrow(/failMode/);
+    expect(() => {
+      assertValidPolicyConfig('moderation', { model: 'm', timeoutMs: 10 });
+    }).toThrow(/timeoutMs/);
+    expect(() => {
+      assertValidPolicyConfig('prompt_injection', { classifier: { threshold: 0.5 } });
+    }).toThrow(/classifier requires a model/);
+    assertValidPolicyConfig('moderation', {
+      model: 'omni-moderation-latest',
+      mode: 'moderations',
+      thresholds: { violence: 0.7 },
+      timeoutMs: 1500,
+      failMode: 'closed',
+    });
+    assertValidPolicyConfig('prompt_injection', {
+      classifier: { model: 'small', failMode: 'open' },
+    });
+    assertValidPolicyConfig('prompt_injection', {});
+  });
+
+  it('the live test says the model call only happens on real traffic', () => {
+    const preview = previewGuardrail(
+      {
+        name: 'moderation',
+        type: 'moderation',
+        action: 'block',
+        config: { model: 'omni-moderation-latest' },
+      },
+      'anything',
+    );
+    expect(preview.needsModelCall).toBe(true);
+    expect(preview.blocked).toBe(false);
+  });
+});

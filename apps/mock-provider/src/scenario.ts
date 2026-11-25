@@ -123,3 +123,65 @@ export function directivesFromKey(key: string | undefined): string | undefined {
 export function sampleLatency([min, max]: [number, number]): number {
   return max <= min ? min : min + Math.random() * (max - min);
 }
+
+/**
+ * Deterministic moderation scores (card 23.2): a few marker words per category, so tests can
+ * choose whether a text is flagged and by how much.
+ */
+const MODERATION_MARKERS: Record<string, { strong: RegExp; weak: RegExp }> = {
+  violence: { strong: /\b(kill|murder|bomb)\b|بمب|قتل/i, weak: /\b(fight|punch)\b|دعوا/i },
+  hate: { strong: /\bhate (?:them|all)\b|نفرت از همه/i, weak: /\bhate\b/i },
+  'self-harm': { strong: /\bhurt myself\b|خودزنی/i, weak: /\bsad\b/i },
+};
+
+export function moderationScores(text: string): Record<string, number> {
+  return Object.fromEntries(
+    Object.entries(MODERATION_MARKERS).map(([name, { strong, weak }]) => [
+      name,
+      strong.test(text) ? 0.95 : weak.test(text) ? 0.3 : 0.01,
+    ]),
+  );
+}
+
+const messageText = (messages: unknown): { system: string; user: string } => {
+  const list = Array.isArray(messages) ? (messages as { role?: string; content?: unknown }[]) : [];
+  const text = (content: unknown): string =>
+    typeof content === 'string'
+      ? content
+      : Array.isArray(content)
+        ? (content as { text?: string }[]).map((p) => p.text ?? '').join('')
+        : '';
+  return {
+    system: list
+      .filter((m) => m.role === 'system' || m.role === 'developer')
+      .map((m) => text(m.content))
+      .join('\n'),
+    user: list
+      .filter((m) => m.role !== 'system' && m.role !== 'developer')
+      .map((m) => text(m.content))
+      .join('\n'),
+  };
+};
+
+/**
+ * Answers of the classifier models guardrails call (cards 23.2 and 23.3): a model whose name
+ * contains `guard` answers like Llama Guard (`safe`, or `unsafe` and category codes); a request
+ * whose system prompt is DiRouter's injection classifier gets its JSON verdict.
+ */
+export function classifierAnswer(model: string, messages: unknown): string | undefined {
+  const { system, user } = messageText(messages);
+  if (/prompt-injection classifier/i.test(system)) {
+    const injection = /\bignore\b|\breveal\b|system prompt|نادیده|فاش کن/i.test(user);
+    return JSON.stringify({ injection, score: injection ? 0.97 : 0.02 });
+  }
+  if (/guard/i.test(model)) {
+    const scores = moderationScores(user);
+    const codes = [
+      scores.violence && scores.violence >= 0.5 ? 'S1' : '',
+      scores.hate && scores.hate >= 0.5 ? 'S10' : '',
+      scores['self-harm'] && scores['self-harm'] >= 0.5 ? 'S11' : '',
+    ].filter(Boolean);
+    return codes.length > 0 ? `unsafe\n${codes.join(',')}` : 'safe';
+  }
+  return undefined;
+}

@@ -22,6 +22,11 @@ export interface GuardrailDraft {
   piiType: string;
   maxTokens: string;
   schema: string;
+  /** `moderation` (card 23.2) and the injection classifier (card 23.3). */
+  model?: string;
+  mode?: string;
+  failMode?: string;
+  timeoutMs?: string;
 }
 
 /** Rollup and ledger totals agree when they differ by less than a hundredth of a cent. */
@@ -261,6 +266,15 @@ export function channelFormOf(type: ChannelType, config: unknown): ChannelForm {
 }
 
 /** Builds the `config` object of a policy from the form; throws on invalid JSON Schema text. */
+function callLimits(draft: GuardrailDraft): Record<string, unknown> {
+  return {
+    failMode: draft.failMode === 'closed' ? 'closed' : 'open',
+    ...(draft.timeoutMs && Number(draft.timeoutMs) > 0
+      ? { timeoutMs: Math.round(Number(draft.timeoutMs)) }
+      : {}),
+  };
+}
+
 export function configOf(draft: GuardrailDraft): Record<string, unknown> {
   switch (draft.type) {
     case 'regex':
@@ -278,6 +292,17 @@ export function configOf(draft: GuardrailDraft): Record<string, unknown> {
       return { maxTokens: Number(draft.maxTokens) };
     case 'json_schema':
       return { schema: JSON.parse(draft.schema) as unknown };
+    case 'moderation':
+      return {
+        model: draft.model?.trim() ?? '',
+        ...callLimits(draft),
+        mode: draft.mode ?? 'moderations',
+      };
+    case 'prompt_injection':
+      // The classifier is optional: without a model only the built-in patterns run.
+      return draft.model?.trim()
+        ? { classifier: { model: draft.model.trim(), ...callLimits(draft) } }
+        : {};
     default:
       return {};
   }

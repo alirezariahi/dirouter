@@ -16,6 +16,10 @@ export type GuardrailStage = z.infer<typeof GuardrailStage>;
  * - `prompt_injection`: heuristic score for instruction-override patterns
  * - `secret`: provider tokens, API keys and private-key material
  * - `json_schema`: response text must parse and satisfy a JSON Schema subset in `config.schema`
+ * - `moderation`: the text is sent to a moderation model through the gateway (card 23.2);
+ *   `config.model`, optional per-category `config.thresholds`, `timeoutMs` and `failMode`
+ * - `prompt_injection` also takes an optional `config.classifier` (card 23.3) that asks a small
+ *   model through the gateway in addition to the built-in patterns
  *
  * The engine itself is in guardrail-engine.ts, shared by the gateway and the panel's live test.
  */
@@ -27,6 +31,7 @@ export const GuardrailType = z.enum([
   'json_schema',
   'max_input_tokens',
   'prompt_injection',
+  'moderation',
 ]);
 export type GuardrailType = z.infer<typeof GuardrailType>;
 

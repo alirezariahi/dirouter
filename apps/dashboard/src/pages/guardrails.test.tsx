@@ -132,4 +132,39 @@ describe('guardrail live test (card 23.1)', () => {
       within(preview).getByText('This text would pass but be flagged in the log.'),
     ).toBeTruthy();
   });
+
+  it('sends a moderation policy with its model, timeout and fail mode (card 23.2)', async () => {
+    const calls = mockApi(() => ({
+      status: 200,
+      body: {
+        blocked: false,
+        hit: false,
+        matches: [],
+        redacted: false,
+        redactedText: 'x',
+        needsModelCall: true,
+      },
+    }));
+    await renderPage();
+    fireEvent.change(await screen.findByLabelText('Type'), { target: { value: 'moderation' } });
+    fireEvent.change(screen.getByLabelText('Moderation model'), {
+      target: { value: 'omni-moderation-latest' },
+    });
+    fireEvent.change(screen.getByLabelText('Timeout (ms)'), { target: { value: '1500' } });
+    fireEvent.change(screen.getByLabelText('If the model does not answer'), {
+      target: { value: 'closed' },
+    });
+    fireEvent.change(screen.getByLabelText('Sample text'), { target: { value: 'x' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Test' }));
+    expect(await screen.findByTestId('guardrail-model-note')).toBeTruthy();
+    expect(calls.find((c) => c.path.endsWith('/guardrails/test'))?.body).toMatchObject({
+      type: 'moderation',
+      config: {
+        model: 'omni-moderation-latest',
+        mode: 'moderations',
+        timeoutMs: 1500,
+        failMode: 'closed',
+      },
+    });
+  });
 });

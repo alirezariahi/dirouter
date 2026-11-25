@@ -16,18 +16,19 @@
 
 ## Gateway
 
-| متریک                                                | نوع       | labelها                               | معنا                                                                                                                               |
-| ---------------------------------------------------- | --------- | ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `dirouter_gateway_requests_total`                    | Counter   | `provider`, `model`, `status`         | تمام درخواست‌های LLM، از جمله ردهای پیش از upstream؛ status فقط `success`/`error`                                                  |
-| `dirouter_gateway_request_duration_seconds`          | Histogram | `provider`, `model`                   | latency کامل درخواست                                                                                                               |
-| `dirouter_gateway_ttft_seconds`                      | Histogram | `provider`, `model`                   | زمان اولین بایت پاسخ stream؛ فقط وقتی TTFT موجود است                                                                               |
-| `dirouter_gateway_request_attempts`                  | Histogram | `provider`, `model`                   | تعداد تلاش واقعی upstream؛ candidateهای skip شده شمرده نمی‌شوند                                                                    |
-| `dirouter_gateway_upstream_attempt_duration_seconds` | Histogram | `provider`, `model`, `outcome`        | مدت هر تلاش، با attribution خود همان تلاش                                                                                          |
-| `dirouter_gateway_admission_rejected_total`          | Counter   | `guard`, `reason`                     | رد rate limit، budget یا concurrency؛ reason فقط enumهای ثابت مثل `requests`, `tokens`, `concurrency`, `usd`, `unavailable`, `key` |
-| `dirouter_gateway_guardrail_unknown_total`           | Counter   | `type`                                | سیاست guardrail فعالی که این گیت‌وی نوعش را اجرا نمی‌کند و کنار گذاشته شد (کارت ۲۳.۱)؛ باید صفر بماند                              |
-| `dirouter_gateway_active_streams`                    | Gauge     | —                                     | streamهای باز از admission تا پایان/abort                                                                                          |
-| `dirouter_gateway_usage_outbox_events`               | Gauge     | —                                     | تعداد رویدادهای بافر حافظه + خطوط NDJSON باقی‌مانده در outbox محلی؛ هنگام scrape خوانده می‌شود                                     |
-| `dirouter_gateway_breaker_state`                     | Gauge     | `scope`, `provider`, `model`, `state` | مقدار ۱ برای `open`/`half_open` و صفر برای `closed`؛ scope=`provider` یا `model`                                                   |
+| متریک                                                | نوع       | labelها                               | معنا                                                                                                                                 |
+| ---------------------------------------------------- | --------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `dirouter_gateway_requests_total`                    | Counter   | `provider`, `model`, `status`         | تمام درخواست‌های LLM، از جمله ردهای پیش از upstream؛ status فقط `success`/`error`                                                    |
+| `dirouter_gateway_request_duration_seconds`          | Histogram | `provider`, `model`                   | latency کامل درخواست                                                                                                                 |
+| `dirouter_gateway_ttft_seconds`                      | Histogram | `provider`, `model`                   | زمان اولین بایت پاسخ stream؛ فقط وقتی TTFT موجود است                                                                                 |
+| `dirouter_gateway_request_attempts`                  | Histogram | `provider`, `model`                   | تعداد تلاش واقعی upstream؛ candidateهای skip شده شمرده نمی‌شوند                                                                      |
+| `dirouter_gateway_upstream_attempt_duration_seconds` | Histogram | `provider`, `model`, `outcome`        | مدت هر تلاش، با attribution خود همان تلاش                                                                                            |
+| `dirouter_gateway_admission_rejected_total`          | Counter   | `guard`, `reason`                     | رد rate limit، budget یا concurrency؛ reason فقط enumهای ثابت مثل `requests`, `tokens`, `concurrency`, `usd`, `unavailable`, `key`   |
+| `dirouter_gateway_guardrail_unknown_total`           | Counter   | `type`                                | سیاست guardrail فعالی که این گیت‌وی نوعش را اجرا نمی‌کند و کنار گذاشته شد (کارت ۲۳.۱)؛ باید صفر بماند                                |
+| `dirouter_gateway_guardrail_calls_total`             | Counter   | `type`، `outcome`                     | فراخوانی مدل در guardrailهای تعدیل محتوا و طبقه‌بند (کارت‌های ۲۳.۲ و ۲۳.۳)؛ `outcome` یکی از `pass`، `flagged`، `timeout` یا `error` |
+| `dirouter_gateway_active_streams`                    | Gauge     | —                                     | streamهای باز از admission تا پایان/abort                                                                                            |
+| `dirouter_gateway_usage_outbox_events`               | Gauge     | —                                     | تعداد رویدادهای بافر حافظه + خطوط NDJSON باقی‌مانده در outbox محلی؛ هنگام scrape خوانده می‌شود                                       |
+| `dirouter_gateway_breaker_state`                     | Gauge     | `scope`, `provider`, `model`, `state` | مقدار ۱ برای `open`/`half_open` و صفر برای `closed`؛ scope=`provider` یا `model`                                                     |
 
 برای breaker مدل، label provider در صورت وجود در snapshot پر می‌شود. در breaker provider، label model خالی است. جست‌وجوی وضعیت باز مستقل از label state:
 
