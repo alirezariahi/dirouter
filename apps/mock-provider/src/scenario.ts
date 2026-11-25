@@ -28,7 +28,12 @@ export interface Scenario {
   contextLength: boolean;
   /** No usage in the response (to test token estimation). */
   noUsage: boolean;
+  /** Answer with a web source cited for the whole text (card 31.7). */
+  citations?: boolean;
 }
+
+/** The source the mock cites with the `citations` directive. */
+export const MOCK_SOURCE = { url: 'https://example.org/mock-source', title: 'Mock source' };
 
 export const DEFAULT_SCENARIO: Scenario = {
   errorRate: 0,
@@ -118,6 +123,9 @@ export function parseScenario(
         break;
       case 'no_usage':
         s.noUsage = true;
+        break;
+      case 'citations':
+        s.citations = true;
         break;
       case '':
         break;

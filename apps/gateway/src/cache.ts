@@ -8,6 +8,7 @@
 import { createHash } from 'node:crypto';
 
 import type {
+  CanonicalCitation,
   CanonicalRequest,
   CanonicalResponse,
   CanonicalStreamEvent,
@@ -95,7 +96,7 @@ export class StreamAssembler {
   #usage: CanonicalResponse['usage'];
   readonly #parts = new Map<
     number,
-    | { type: 'text'; text: string }
+    | { type: 'text'; text: string; citations?: CanonicalCitation[] }
     | { type: 'reasoning'; text: string; signature?: string }
     | { type: 'tool_call'; id: string; name: string; arguments: string }
   >();
@@ -157,6 +158,12 @@ export class StreamAssembler {
       case 'error':
         this.#failed = true;
         break;
+      case 'citation': {
+        // Sources of a text block (card 31.7) stay with the assembled answer.
+        const part = this.#parts.get(event.index);
+        if (part?.type === 'text') part.citations = [...(part.citations ?? []), event.citation];
+        break;
+      }
       case 'content_end':
         break;
     }

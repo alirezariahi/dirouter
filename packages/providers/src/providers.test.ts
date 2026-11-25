@@ -461,3 +461,51 @@ describe('Gemini adapter (card 4.8)', () => {
     expect(body.safetySettings[0]?.threshold).toBe('BLOCK_ONLY_HIGH');
   });
 });
+
+describe('card 31.7: server tools from another API on Anthropic', () => {
+  it('adds the beta flags code execution and web fetch need', () => {
+    const up = adapterFor('anthropic').buildRequest({
+      provider: {
+        id: 'p',
+        organizationId: 'o',
+        slug: 'p',
+        type: 'anthropic',
+        name: 'p',
+        baseUrl: 'https://api.anthropic.com',
+        enabled: true,
+        options: {},
+        credentials: [],
+      },
+      model: {
+        id: 'm',
+        organizationId: 'o',
+        slug: 'm',
+        providerId: 'p',
+        upstreamModel: 'claude-sonnet-4-5',
+        enabled: true,
+        pricing: { inputPerMTok: '1', outputPerMTok: '1' },
+        capabilities: {
+          streaming: true,
+          tools: true,
+          vision: false,
+          reasoning: false,
+          jsonMode: false,
+          embeddings: false,
+        },
+      },
+      apiKey: 'k',
+      request: {
+        inboundApi: 'openai.responses',
+        model: 'm',
+        system: [],
+        messages: [{ role: 'user', content: [{ type: 'text', text: 'hi' }] }],
+        serverTools: [{ type: 'code_execution' }, { type: 'web_fetch' }, { type: 'web_search' }],
+        stream: false,
+      },
+    });
+    expect(up.headers['anthropic-beta']).toBe('code-execution-2025-08-25,web-fetch-2025-09-10');
+    expect(
+      (JSON.parse(up.body ?? '{}') as { tools: { type: string }[] }).tools.map((t) => t.type),
+    ).toEqual(['code_execution_20250825', 'web_fetch_20250910', 'web_search_20250305']);
+  });
+});

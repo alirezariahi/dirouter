@@ -53,25 +53,26 @@ Directives are separated by `,` or `;`. Sources in priority order:
 
 > The gateway does not forward client headers to upstream, so for testing through the gateway, put the scenario in the **credential key** (for example `mock:status=503`). The `x-mock` header is for testing mock directly.
 
-| Directive                                 | Effect                                                                                                         |
-| ----------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| `status=<code>`                           | Always return that error status (400, 401, 429, 500, 503, 529 …) with each API's standard error body           |
-| `rate_limit`                              | 429                                                                                                            |
-| `overloaded`                              | 529 (Anthropic overloaded)                                                                                     |
-| `auth`                                    | 401                                                                                                            |
-| `context_length`                          | 400 with the message "maximum context length"                                                                  |
-| `retry_after=<s>`                         | `Retry-After` header                                                                                           |
-| `error_rate=<0..1>`                       | Probability of a random 503                                                                                    |
-| `latency=<min>-<max>`                     | Random delay (milliseconds) before the response                                                                |
-| `ttft=<ms>`                               | Delay before the header and the first chunk                                                                    |
-| `chunk_delay=<ms>`                        | Interval between stream chunks                                                                                 |
-| `chunks=<n>`                              | Number of text chunks (default 5)                                                                              |
-| `drop_after=<n>` (or `stream_drop_after`) | Cut the connection in the middle of the stream after n chunks                                                  |
-| `tool[=name]`                             | Response with a tool call (default `get_weather`)                                                              |
-| `text=<str>`                              | Response text                                                                                                  |
-| `tool_input_b64=<base64url>`              | Input of the `tool` call as base64url JSON (default `{"city":"Tehran"}`), e.g. an apply_patch call (card 31.2) |
-| `text_b64=<base64url>`                    | Response text of any content (commas included), unpadded base64url; e.g. broken JSON for card 31.1             |
-| `no_usage`                                | No `usage` (for testing token estimation, card 6.2)                                                            |
+| Directive                                 | Effect                                                                                                                                                                     |
+| ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `status=<code>`                           | Always return that error status (400, 401, 429, 500, 503, 529 …) with each API's standard error body                                                                       |
+| `rate_limit`                              | 429                                                                                                                                                                        |
+| `overloaded`                              | 529 (Anthropic overloaded)                                                                                                                                                 |
+| `auth`                                    | 401                                                                                                                                                                        |
+| `context_length`                          | 400 with the message "maximum context length"                                                                                                                              |
+| `retry_after=<s>`                         | `Retry-After` header                                                                                                                                                       |
+| `error_rate=<0..1>`                       | Probability of a random 503                                                                                                                                                |
+| `latency=<min>-<max>`                     | Random delay (milliseconds) before the response                                                                                                                            |
+| `ttft=<ms>`                               | Delay before the header and the first chunk                                                                                                                                |
+| `chunk_delay=<ms>`                        | Interval between stream chunks                                                                                                                                             |
+| `chunks=<n>`                              | Number of text chunks (default 5)                                                                                                                                          |
+| `drop_after=<n>` (or `stream_drop_after`) | Cut the connection in the middle of the stream after n chunks                                                                                                              |
+| `tool[=name]`                             | Response with a tool call (default `get_weather`)                                                                                                                          |
+| `text=<str>`                              | Response text                                                                                                                                                              |
+| `tool_input_b64=<base64url>`              | Input of the `tool` call as base64url JSON (default `{"city":"Tehran"}`), e.g. an apply_patch call (card 31.2)                                                             |
+| `citations`                               | The answer cites `https://example.org/mock-source`: Anthropic `citations` (and `citations_delta` in streams), OpenAI `annotations`, Gemini `groundingMetadata` (card 31.7) |
+| `text_b64=<base64url>`                    | Response text of any content (commas included), unpadded base64url; e.g. broken JSON for card 31.1                                                                         |
+| `no_usage`                                | No `usage` (for testing token estimation, card 6.2)                                                                                                                        |
 
 Structured output (card 27.1): when an Anthropic request carries `output_config.format` (or a Bedrock request `additionalModelRequestFields.output_config.format`), the answer text is JSON built from the schema; when it carries the gateway's `dirouter_structured_output` tool, the answer is a call to that tool with input built from the schema. Strings become `"mock"`, numbers `1` (or `minimum`), booleans `true`, arrays get `minItems` items.
 

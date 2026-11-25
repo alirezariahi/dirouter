@@ -4,6 +4,7 @@
  * Each converter is stateful, but its memory does not grow with the stream length (only indexes and
  * open block state are kept, not text).
  */
+import { anthropicCitationIn, anthropicCitationOut } from './citations.js';
 import type {
   AnthropicStreamEvent,
   CanonicalFinishReason,
@@ -156,6 +157,11 @@ export class AnthropicStreamDecoder {
             return [{ type: 'reasoning_delta', index: event.index, text: d.thinking }];
           case 'signature_delta':
             return [{ type: 'reasoning_delta', index: event.index, signature: d.signature }];
+          case 'citations_delta': {
+            // A source of the text block (card 31.7).
+            const citation = anthropicCitationIn(d.citation);
+            return citation ? [{ type: 'citation', index: event.index, citation }] : [];
+          }
           default:
             return [];
         }
@@ -236,6 +242,9 @@ export class OpenAIStreamEncoder {
   readonly #toolOrdinal = new Map<number, number>();
   #usage: CanonicalUsage | undefined;
   #finished = false;
+  /** Characters of message text sent so far, and where each text block began (card 31.7). */
+  #textLength = 0;
+  readonly #textStart = new Map<number, number>();
 
   constructor(options: StreamEncoderOptions & { includeUsage: boolean }) {
     this.#model = options.model;
@@ -254,7 +263,33 @@ export class OpenAIStreamEncoder {
         this.#created = event.created;
         return this.#ensureStarted();
       case 'text_delta':
+        if (!this.#textStart.has(event.index)) this.#textStart.set(event.index, this.#textLength);
+        this.#textLength += event.text.length;
         return this.#ensureStarted() + this.#chunk({ content: event.text });
+      case 'citation': {
+        // A url source of a text block: an annotation over the block's text so far.
+        if (event.citation.kind !== 'url') return '';
+        const blockStart = this.#textStart.get(event.index) ?? this.#textLength;
+        return (
+          this.#ensureStarted() +
+          this.#chunk({
+            annotations: [
+              {
+                type: 'url_citation',
+                url_citation: {
+                  url: event.citation.url,
+                  title: event.citation.title ?? event.citation.url,
+                  start_index: blockStart + (event.citation.start ?? 0),
+                  end_index:
+                    event.citation.end !== undefined
+                      ? blockStart + event.citation.end
+                      : this.#textLength,
+                },
+              },
+            ],
+          })
+        );
+      }
       case 'tool_call_start': {
         const ordinal = this.#toolOrdinal.size;
         this.#toolOrdinal.set(event.index, ordinal);
@@ -393,6 +428,12 @@ export class AnthropicStreamEncoder {
       case 'tool_call_delta':
         if (this.#open?.canonical !== event.index) return '';
         return this.#delta({ type: 'input_json_delta', partial_json: event.argumentsDelta });
+      case 'citation':
+        return (
+          this.#ensureStarted() +
+          this.#block(event.index, 'text', { type: 'text', text: '' }) +
+          this.#delta({ type: 'citations_delta', citation: anthropicCitationOut(event.citation) })
+        );
       case 'content_end':
         return this.#open?.canonical === event.index ? this.#closeOpen() : '';
       case 'usage':

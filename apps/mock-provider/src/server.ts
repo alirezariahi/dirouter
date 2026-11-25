@@ -9,6 +9,7 @@ import {
   classifierAnswer,
   moderationScores,
   DEFAULT_SCENARIO,
+  MOCK_SOURCE,
   directivesFromKey,
   parseScenario,
   sampleLatency,
@@ -112,6 +113,15 @@ export interface MockServerOptions {
   /** Fake Zarinpal and Stripe (card 19.2). */
   payments?: PaymentMockOptions;
 }
+
+/** The `citations` directive's source as an Anthropic web search citation (card 31.7). */
+const anthropicCitation = () => ({
+  type: 'web_search_result_location',
+  url: MOCK_SOURCE.url,
+  title: MOCK_SOURCE.title,
+  encrypted_index: 'bW9jaw',
+  cited_text: 'mock',
+});
 
 /**
  * The OpenAI chat turn when the request offers a `web_search` function tool (card 30.8): before
@@ -313,6 +323,20 @@ export function buildServer(options: MockServerOptions = {}) {
               role: 'assistant',
               content: toolCall ? null : s.text,
               ...(toolCall ? { tool_calls: [toolCall] } : {}),
+              ...(s.citations && !toolCall
+                ? {
+                    annotations: [
+                      {
+                        type: 'url_citation',
+                        url_citation: {
+                          ...MOCK_SOURCE,
+                          start_index: 0,
+                          end_index: s.text.length,
+                        },
+                      },
+                    ],
+                  }
+                : {}),
             },
             finish_reason: toolCall ? 'tool_calls' : 'stop',
             logprobs: null,
@@ -606,7 +630,7 @@ export function buildServer(options: MockServerOptions = {}) {
         model,
         content: tool
           ? [{ type: 'tool_use', id: 'toolu_mock1', name: tool, input: toolInput }]
-          : [{ type: 'text', text }],
+          : [{ type: 'text', text, ...(s.citations ? { citations: [anthropicCitation()] } : {}) }],
         stop_reason: tool ? 'tool_use' : 'end_turn',
         stop_sequence: null,
         usage: s.noUsage ? { input_tokens: 0, output_tokens: 0 } : usage,
@@ -677,6 +701,12 @@ export function buildServer(options: MockServerOptions = {}) {
       }
     }
     if (drop()) return res.destroy();
+    if (s.citations && !tool)
+      send('content_block_delta', {
+        type: 'content_block_delta',
+        index: 0,
+        delta: { type: 'citations_delta', citation: anthropicCitation() },
+      });
     send('content_block_stop', { type: 'content_block_stop', index: 0 });
     send('message_delta', {
       type: 'message_delta',
@@ -761,9 +791,24 @@ export function buildServer(options: MockServerOptions = {}) {
     if (action === 'generateContent') {
       record(req, 200);
       await sleep(s.ttftMs);
-      return reply.send(
-        frame(functionPart ? [functionPart] : [{ text: s.text }], 'STOP', usageMetadata),
+      const answer = frame(
+        functionPart ? [functionPart] : [{ text: s.text }],
+        'STOP',
+        usageMetadata,
       );
+      if (s.citations && !functionPart)
+        Object.assign(answer.candidates[0] ?? {}, {
+          groundingMetadata: {
+            groundingChunks: [{ web: { uri: MOCK_SOURCE.url, title: MOCK_SOURCE.title } }],
+            groundingSupports: [
+              {
+                segment: { startIndex: 0, endIndex: Buffer.byteLength(s.text), text: s.text },
+                groundingChunkIndices: [0],
+              },
+            ],
+          },
+        });
+      return reply.send(answer);
     }
 
     record(req, 200);

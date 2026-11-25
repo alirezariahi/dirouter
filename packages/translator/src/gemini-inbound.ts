@@ -19,6 +19,8 @@ import type {
   GeminiRequestPart,
 } from '@dirouter/contracts';
 
+import { geminiGroundingOut, geminiLogprobsOut } from './citations.js';
+import { geminiServerToolIn } from './server-tools.js';
 import { type DropReporter, emptyUsage, ignoreDrops, type TranslateOptions } from './common.js';
 import { decodeGeminiToolCallId, encodeGeminiToolCallId } from './gemini.js';
 import { encodeSse } from './sse.js';
@@ -211,6 +213,11 @@ export function geminiRequestToCanonical(
     })),
   );
 
+  // Card 31.7: tools Gemini runs itself (Google Search, code execution, URL context).
+  const serverTools = (req.tools ?? []).flatMap((group) => {
+    const tool = geminiServerToolIn(group);
+    return tool ? [tool] : [];
+  });
   const calling = req.toolConfig?.functionCallingConfig;
   const mode = calling?.mode;
   let toolChoice: CanonicalToolChoice | undefined;
@@ -263,8 +270,17 @@ export function geminiRequestToCanonical(
     ...(gen.topK !== undefined ? { topK: gen.topK } : {}),
     ...(gen.stopSequences?.length ? { stop: gen.stopSequences } : {}),
     ...(Object.keys(reasoning).length > 0 ? { reasoning } : {}),
+    ...(serverTools.length ? { serverTools } : {}),
+    ...(logprobsOf(gen) ?? {}),
     stream: req.stream === true,
   };
+}
+
+/** `generationConfig.responseLogprobs` / `logprobs` → canonical (card 31.7). */
+function logprobsOf(gen: object): Pick<CanonicalRequest, 'logprobs'> | undefined {
+  const g = gen as { responseLogprobs?: unknown; logprobs?: unknown };
+  if (g.responseLogprobs !== true) return undefined;
+  return { logprobs: typeof g.logprobs === 'number' ? { top: g.logprobs } : {} };
 }
 
 const FINISH_TO_GEMINI: Record<CanonicalFinishReason, string> = {
@@ -321,12 +337,15 @@ function partsOf(response: CanonicalResponse): Record<string, unknown>[] {
 }
 
 export function canonicalToGeminiResponse(response: CanonicalResponse, opts: GeminiInboundOptions) {
+  const grounding = geminiGroundingOut(response.content);
   return {
     candidates: [
       {
         content: { role: 'model', parts: partsOf(response) },
         finishReason: FINISH_TO_GEMINI[response.finishReason],
         index: 0,
+        ...(grounding ? { groundingMetadata: grounding } : {}),
+        ...(response.logprobs ? { logprobsResult: geminiLogprobsOut(response.logprobs) } : {}),
       },
     ],
     ...(response.usage ? { usageMetadata: geminiUsageToMetadata(response.usage) } : {}),

@@ -96,6 +96,10 @@ beforeAll(async () => {
       // Models that answer with a call to apply_patch carrying PATCH (card 31.2).
       provider('ap', 'anthropic', PATCH_DIRECTIVES),
       provider('gp', 'gemini', PATCH_DIRECTIVES),
+      // Models that cite a web source (card 31.7).
+      provider('ac', 'anthropic', 'mock:citations'),
+      provider('gc', 'gemini', 'mock:citations'),
+      provider('oc', 'openai-compatible', 'mock:citations'),
     ],
     models: [
       model('claude', 'an', 'claude-sonnet-4-5'),
@@ -103,6 +107,9 @@ beforeAll(async () => {
       model('gpt-broken', 'ob', 'mock-small'),
       model('claude-codex', 'ap', 'claude-sonnet-4-5'),
       model('gemini-codex', 'gp', 'gemini-2.5-pro'),
+      model('claude-cite', 'ac', 'claude-sonnet-4-5'),
+      model('gemini-cite', 'gc', 'gemini-2.5-pro'),
+      model('gpt-cite', 'oc', 'gpt-5-search-api'),
       model('claude-cached', 'an', 'claude-sonnet-4-5', { requestPolicy: { autoCache: true } }),
       model('gpt-policy', 'oa', 'mock-small', {
         requestPolicy: {
@@ -537,5 +544,54 @@ describe('card 31.2: Codex apply_patch with non-GPT models', () => {
         (e.item as { type?: string }).type === 'custom_tool_call',
     );
     expect(done?.item).toMatchObject({ name: 'apply_patch', input: PATCH });
+  });
+});
+
+describe('card 31.7: citations through the gateway', () => {
+  const SOURCE = 'https://example.org/mock-source';
+  const ask = [{ role: 'user', content: 'Weather?' }];
+
+  it('an OpenAI client gets url_citation annotations from Claude and Gemini', async () => {
+    for (const model of ['claude-cite', 'gemini-cite']) {
+      const res = await post('/v1/chat/completions', { model, messages: ask });
+      const body = (await res.json()) as {
+        choices: {
+          message: { content: string; annotations?: { url_citation: Record<string, unknown> }[] };
+        }[];
+      };
+      const message = body.choices[0]?.message;
+      expect(message?.annotations?.[0]?.url_citation).toMatchObject({
+        url: SOURCE,
+        start_index: 0,
+        end_index: message?.content.length,
+      });
+    }
+  });
+
+  it('an Anthropic client gets citations from an OpenAI search model and Gemini', async () => {
+    for (const model of ['gpt-cite', 'gemini-cite']) {
+      const res = await post('/v1/messages', { model, max_tokens: 50, messages: ask });
+      const body = (await res.json()) as { content: { citations?: Record<string, unknown>[] }[] };
+      expect(body.content[0]?.citations?.[0]).toMatchObject({
+        type: 'web_search_result_location',
+        url: SOURCE,
+      });
+    }
+  });
+
+  it('a Responses client gets annotations, streamed too', async () => {
+    const json = (await (
+      await post('/v1/responses', { model: 'claude-cite', input: 'Weather?' })
+    ).json()) as { output: { content: { annotations: Record<string, unknown>[] }[] }[] };
+    expect(json.output[0]?.content[0]?.annotations[0]).toMatchObject({
+      type: 'url_citation',
+      url: SOURCE,
+    });
+    const stream = await post('/v1/responses', {
+      model: 'claude-cite',
+      input: 'Weather?',
+      stream: true,
+    });
+    expect(await stream.text()).toContain('response.output_text.annotation.added');
   });
 });

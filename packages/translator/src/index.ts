@@ -11,3 +11,5 @@ export * from './repair.js';
 export * from './auto-cache.js';
 export * from './params.js';
 export * from './coding-tools.js';
+export * from './citations.js';
+export * from './server-tools.js';

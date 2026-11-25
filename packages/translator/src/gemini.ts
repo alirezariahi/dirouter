@@ -38,7 +38,9 @@ import {
   type TranslateOptions,
   UnsupportedContentError,
 } from './common.js';
+import { geminiCitationsIn, geminiLogprobsIn } from './citations.js';
 import { applyUpstreamFields, reportForeignPassthrough } from './params.js';
+import { geminiServerToolsOut, refuseForeignAnthropicTools } from './server-tools.js';
 
 type Json = Record<string, unknown>;
 
@@ -318,6 +320,11 @@ export function canonicalToGeminiRequest(
               : { mode: 'ANY', allowedFunctionNames: [choice.name] },
     };
   }
+  // Card 31.7: Google Search, code execution and URL context run by Gemini itself.
+  refuseForeignAnthropicTools(req, 'Gemini');
+  const serverTools = geminiServerToolsOut(req.serverTools);
+  if (serverTools.length > 0)
+    body.tools = [...((body.tools as unknown[] | undefined) ?? []), ...serverTools];
   if (req.parallelToolCalls === false)
     onDrop('parallel_tool_calls', 'Gemini cannot disable parallel function calls', 'parameter');
 
@@ -328,6 +335,10 @@ export function canonicalToGeminiRequest(
   if (req.topK !== undefined) generationConfig.topK = req.topK;
   if (req.stop?.length) generationConfig.stopSequences = req.stop.slice(0, 5);
   if (req.seed !== undefined) generationConfig.seed = req.seed;
+  if (req.logprobs) {
+    generationConfig.responseLogprobs = true;
+    if (req.logprobs.top !== undefined) generationConfig.logprobs = req.logprobs.top;
+  }
   const format = req.responseFormat;
   if (format?.type === 'json_object') generationConfig.responseMimeType = 'application/json';
   if (format?.type === 'json_schema') {
@@ -423,6 +434,9 @@ export function geminiResponseToCanonical(
     if (p.type === 'text' && last?.type === 'text') last.text += p.text;
     else content.push(p);
   }
+  // Card 31.7: grounding sources and token log probabilities.
+  geminiCitationsIn(content, candidate);
+  const logprobs = geminiLogprobsIn(candidate);
   const hasToolCalls = content.some((p) => p.type === 'tool_call');
   const blocked = !candidate && res.promptFeedback?.blockReason;
   const raw = blocked ? res.promptFeedback?.blockReason : candidate?.finishReason;
@@ -434,6 +448,7 @@ export function geminiResponseToCanonical(
     ...(raw ? { rawFinishReason: raw } : {}),
     ...(res.usageMetadata ? { usage: geminiUsageToCanonical(res.usageMetadata) } : {}),
     created: Math.floor(Date.now() / 1000),
+    ...(logprobs ? { logprobs } : {}),
   };
 }
 

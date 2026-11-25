@@ -35,7 +35,13 @@ import {
   type TranslateOptions,
   UnsupportedContentError,
 } from './common.js';
+import { anthropicCitationIn, anthropicCitationOut } from './citations.js';
 import { applyUpstreamFields, reportForeignPassthrough } from './params.js';
+import {
+  anthropicServerToolsIn,
+  anthropicServerToolsOut,
+  SERVER_TOOLS_KEY,
+} from './server-tools.js';
 import {
   claudeStructuredOutputMode,
   JSON_ONLY_INSTRUCTION,
@@ -62,7 +68,7 @@ const CONSUMED_REQUEST_FIELDS = new Set([
 ]);
 
 /** Passthrough key for Anthropic server tools (web_search, …). */
-export const SERVER_TOOLS_KEY = '__anthropic_server_tools';
+export { SERVER_TOOLS_KEY } from './server-tools.js';
 
 function imageIn(
   block: Extract<AnthropicInputContentBlock, { type: 'image' }>,
@@ -261,6 +267,7 @@ export function anthropicRequestToCanonical(
     }
   }
   if (serverTools.length > 0) passthrough[SERVER_TOOLS_KEY] = serverTools;
+  const portableServerTools = anthropicServerToolsIn(serverTools);
 
   let toolChoice: CanonicalToolChoice | undefined;
   let parallelToolCalls: boolean | undefined;
@@ -288,6 +295,7 @@ export function anthropicRequestToCanonical(
     ...(toolChoice !== undefined ? { toolChoice } : {}),
     ...(parallelToolCalls !== undefined ? { parallelToolCalls } : {}),
     ...(responseFormat ? { responseFormat } : {}),
+    ...(portableServerTools.length ? { serverTools: portableServerTools } : {}),
     maxOutputTokens: req.max_tokens,
     ...(req.temperature !== undefined ? { temperature: req.temperature } : {}),
     ...(req.top_p !== undefined ? { topP: req.top_p } : {}),
@@ -511,7 +519,9 @@ export function canonicalToAnthropicRequest(
     input_schema: t.parameters,
     ...cacheControlOut(t),
   }));
+  // The client's own Anthropic server tools as sent; from another API, the portable ones.
   if (Array.isArray(serverTools)) tools.push(...(serverTools as unknown[]));
+  else tools.push(...anthropicServerToolsOut(req.serverTools));
 
   const structured = structuredOutputFor(req, options, onDrop);
   if (structured.tool) tools.push(structured.tool);
@@ -553,6 +563,7 @@ export function canonicalToAnthropicRequest(
   if (req.topK !== undefined) body.top_k = req.topK;
   if (req.stop?.length) body.stop_sequences = req.stop;
   if (req.seed !== undefined) onDrop('seed', 'Anthropic has no seed', 'parameter');
+  if (req.logprobs) onDrop('logprobs', 'Anthropic returns no log probabilities', 'parameter');
   if (structured.format) {
     const current = body.output_config;
     body.output_config = {
@@ -669,8 +680,13 @@ export function anthropicBlockToCanonical(
 ): CanonicalPart | undefined {
   const b = block as Record<string, unknown> & { type: string };
   switch (b.type) {
-    case 'text':
-      return { type: 'text', text: str(b.text) };
+    case 'text': {
+      // Sources the text cites (card 31.7).
+      const citations = (Array.isArray(b.citations) ? b.citations : [])
+        .map(anthropicCitationIn)
+        .filter((c) => c !== undefined);
+      return { type: 'text', text: str(b.text), ...(citations.length ? { citations } : {}) };
+    }
     case 'tool_use':
       return {
         type: 'tool_call',
@@ -733,7 +749,12 @@ export function canonicalToAnthropicResponse(
   const onDrop = options.onDrop ?? ignoreDrops;
   const content: AnthropicOutputContentBlock[] = [];
   for (const part of res.content) {
-    if (part.type === 'text') content.push({ type: 'text', text: part.text });
+    if (part.type === 'text')
+      content.push({
+        type: 'text',
+        text: part.text,
+        ...(part.citations?.length ? { citations: part.citations.map(anthropicCitationOut) } : {}),
+      });
     else if (part.type === 'tool_call')
       content.push({
         type: 'tool_use',

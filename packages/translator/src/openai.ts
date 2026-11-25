@@ -37,7 +37,14 @@ import {
   type TranslateOptions,
   UnsupportedContentError,
 } from './common.js';
+import {
+  openAIAnnotationsIn,
+  openAIAnnotationsOut,
+  openAILogprobsIn,
+  openAILogprobsOut,
+} from './citations.js';
 import { applyUpstreamFields, reportForeignPassthrough } from './params.js';
+import { openAIServerToolsOut, refuseForeignAnthropicTools } from './server-tools.js';
 
 /** OpenAI request fields that are translated directly; the rest are passed through. */
 const CONSUMED_REQUEST_FIELDS = new Set([
@@ -59,6 +66,9 @@ const CONSUMED_REQUEST_FIELDS = new Set([
   'reasoning_effort',
   'metadata',
   'n',
+  'logprobs',
+  'top_logprobs',
+  'web_search_options',
   'service_tier',
 ]);
 
@@ -256,6 +266,13 @@ export function openAIRequestToCanonical(
     stream: req.stream === true,
     ...(req.user !== undefined ? { user: req.user } : {}),
     ...(req.metadata ? { metadata: req.metadata } : {}),
+    // Card 31.7: token log probabilities and the search model's web search.
+    ...(req.logprobs === true
+      ? { logprobs: typeof req.top_logprobs === 'number' ? { top: req.top_logprobs } : {} }
+      : {}),
+    ...(req.web_search_options && typeof req.web_search_options === 'object'
+      ? { serverTools: [{ type: 'web_search' as const }] }
+      : {}),
     ...(Object.keys(passthrough).length > 0 ? { passthrough } : {}),
   };
 }
@@ -450,6 +467,16 @@ export function canonicalToOpenAIRequest(
     body.stream = true;
     body.stream_options = { include_usage: true };
   }
+  if (req.logprobs) {
+    body.logprobs = true;
+    if (req.logprobs.top !== undefined) body.top_logprobs = req.logprobs.top;
+  }
+  refuseForeignAnthropicTools(req, 'OpenAI Chat');
+  const webSearch = openAIServerToolsOut(req.serverTools);
+  if (webSearch) {
+    const own = req.inboundApi === 'openai.chat' ? req.passthrough?.web_search_options : undefined;
+    body.web_search_options = own ?? webSearch;
+  }
   reportForeignPassthrough(req, req.inboundApi === 'openai.chat', 'OpenAI Chat', onDrop);
   return applyUpstreamFields(body, req);
 }
@@ -502,6 +529,10 @@ export function openAIResponseToCanonical(res: OpenAIChatCompletionResponse): Ca
       });
     }
   }
+  // Card 31.7: url citations of search models, and token log probabilities.
+  if (choice)
+    openAIAnnotationsIn(content, (choice.message as { annotations?: unknown }).annotations);
+  const logprobs = openAILogprobsIn(choice?.logprobs);
   return {
     id: res.id,
     model: res.model,
@@ -510,6 +541,7 @@ export function openAIResponseToCanonical(res: OpenAIChatCompletionResponse): Ca
     ...(choice?.finish_reason ? { rawFinishReason: choice.finish_reason } : {}),
     ...(res.usage ? { usage: openAIUsageToCanonical(res.usage) } : {}),
     created: res.created,
+    ...(logprobs ? { logprobs } : {}),
     ...(typeof res.service_tier === 'string' ? { serviceTier: res.service_tier } : {}),
   };
 }
@@ -552,6 +584,7 @@ export function canonicalToOpenAIResponse(
       });
   }
   const refusal = res.finishReason === 'refusal';
+  const annotations = openAIAnnotationsOut(res.content);
   return {
     id: res.id.startsWith('chatcmpl-') ? res.id : `chatcmpl-${res.id}`,
     object: 'chat.completion',
@@ -565,9 +598,10 @@ export function canonicalToOpenAIResponse(
           content: refusal ? null : text === '' && toolCalls.length > 0 ? null : text,
           refusal: refusal ? text : null,
           ...(toolCalls.length ? { tool_calls: toolCalls } : {}),
+          ...(annotations.length ? { annotations } : {}),
         },
         finish_reason: FINISH_TO_OPENAI[res.finishReason],
-        logprobs: null,
+        logprobs: res.logprobs ? { content: openAILogprobsOut(res.logprobs), refusal: null } : null,
       },
     ],
     usage: canonicalUsageToOpenAI(res.usage ?? emptyUsage()),

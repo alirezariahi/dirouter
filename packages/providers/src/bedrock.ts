@@ -36,6 +36,8 @@ import {
   structuredOutputTool,
   unwrapStructuredOutput,
   applyUpstreamFields,
+  refuseForeignAnthropicTools,
+  refuseServerTools,
   reportForeignPassthrough,
 } from '@dirouter/translator';
 
@@ -398,6 +400,10 @@ export function canonicalToConverseRequest(
   // Converse has no portable top_k or seed (card 31.4: dropped, or refused with drop_params off).
   if (request.topK !== undefined) onDrop('top_k', 'Converse has no top_k', 'parameter');
   if (request.seed !== undefined) onDrop('seed', 'Converse has no seed', 'parameter');
+  if (request.logprobs) onDrop('logprobs', 'Converse returns no log probabilities', 'parameter');
+  // Card 31.7: Converse runs no server tools; asking for one is a clear 400.
+  refuseServerTools(request, 'Bedrock');
+  refuseForeignAnthropicTools(request, 'Bedrock');
   const structured = converseStructuredOutput(request, modelId, options, onDrop);
   if (structured.instruction) system.push({ text: structured.instruction });
   if (structured.additional) body.additionalModelRequestFields = structured.additional;

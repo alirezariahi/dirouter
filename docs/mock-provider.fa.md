@@ -55,25 +55,26 @@ directiveها با `,` یا `;` جدا می‌شوند. منبع به ترتیب
 
 > گیت‌وی هدرهای کلاینت را به upstream نمی‌فرستد، پس برای تست از مسیر گیت‌وی سناریو را در **کلید credential** بگذارید (مثل `mock:status=503`). هدر `x-mock` برای تست مستقیم mock است.
 
-| directive                                 | اثر                                                                                                                   |
-| ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| `status=<code>`                           | همیشه همان status خطا (400، 401، 429، 500، 503، 529 …) با بدنهٔ خطای استاندارد هر API                                 |
-| `rate_limit`                              | 429                                                                                                                   |
-| `overloaded`                              | 529 (Anthropic overloaded)                                                                                            |
-| `auth`                                    | 401                                                                                                                   |
-| `context_length`                          | 400 با پیام «maximum context length»                                                                                  |
-| `retry_after=<s>`                         | هدر `Retry-After`                                                                                                     |
-| `error_rate=<0..1>`                       | احتمال 503 تصادفی                                                                                                     |
-| `latency=<min>-<max>`                     | تأخیر تصادفی (میلی‌ثانیه) قبل از پاسخ                                                                                 |
-| `ttft=<ms>`                               | تأخیر قبل از هدر و اولین chunk                                                                                        |
-| `chunk_delay=<ms>`                        | فاصلهٔ chunkهای stream                                                                                                |
-| `chunks=<n>`                              | تعداد chunk متن (پیش‌فرض ۵)                                                                                           |
-| `drop_after=<n>` (یا `stream_drop_after`) | قطع اتصال وسط stream بعد از n chunk                                                                                   |
-| `tool[=name]`                             | پاسخ با فراخوانی ابزار (پیش‌فرض `get_weather`)                                                                        |
-| `text=<str>`                              | متن پاسخ                                                                                                              |
-| `tool_input_b64=<base64url>`              | ورودی فراخوانی `tool` به‌صورت JSON در base64url (پیش‌فرض `{"city":"Tehran"}`)، مثلاً فراخوانی apply_patch (کارت ۳۱.۲) |
-| `text_b64=<base64url>`                    | متن پاسخ با هر محتوا (ویرگول هم)، base64url بدون padding؛ مثلاً JSON خراب برای کارت ۳۱.۱                              |
-| `no_usage`                                | بدون `usage` (برای تست تخمین توکن، کارت ۶.۲)                                                                          |
+| directive                                 | اثر                                                                                                                                                                                   |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `status=<code>`                           | همیشه همان status خطا (400، 401، 429، 500، 503، 529 …) با بدنهٔ خطای استاندارد هر API                                                                                                 |
+| `rate_limit`                              | 429                                                                                                                                                                                   |
+| `overloaded`                              | 529 (Anthropic overloaded)                                                                                                                                                            |
+| `auth`                                    | 401                                                                                                                                                                                   |
+| `context_length`                          | 400 با پیام «maximum context length»                                                                                                                                                  |
+| `retry_after=<s>`                         | هدر `Retry-After`                                                                                                                                                                     |
+| `error_rate=<0..1>`                       | احتمال 503 تصادفی                                                                                                                                                                     |
+| `latency=<min>-<max>`                     | تأخیر تصادفی (میلی‌ثانیه) قبل از پاسخ                                                                                                                                                 |
+| `ttft=<ms>`                               | تأخیر قبل از هدر و اولین chunk                                                                                                                                                        |
+| `chunk_delay=<ms>`                        | فاصلهٔ chunkهای stream                                                                                                                                                                |
+| `chunks=<n>`                              | تعداد chunk متن (پیش‌فرض ۵)                                                                                                                                                           |
+| `drop_after=<n>` (یا `stream_drop_after`) | قطع اتصال وسط stream بعد از n chunk                                                                                                                                                   |
+| `tool[=name]`                             | پاسخ با فراخوانی ابزار (پیش‌فرض `get_weather`)                                                                                                                                        |
+| `text=<str>`                              | متن پاسخ                                                                                                                                                                              |
+| `tool_input_b64=<base64url>`              | ورودی فراخوانی `tool` به‌صورت JSON در base64url (پیش‌فرض `{"city":"Tehran"}`)، مثلاً فراخوانی apply_patch (کارت ۳۱.۲)                                                                 |
+| `citations`                               | پاسخ به `https://example.org/mock-source` استناد می‌کند: `citations` در Anthropic (و `citations_delta` در stream)، `annotations` در OpenAI، `groundingMetadata` در Gemini (کارت ۳۱.۷) |
+| `text_b64=<base64url>`                    | متن پاسخ با هر محتوا (ویرگول هم)، base64url بدون padding؛ مثلاً JSON خراب برای کارت ۳۱.۱                                                                                              |
+| `no_usage`                                | بدون `usage` (برای تست تخمین توکن، کارت ۶.۲)                                                                                                                                          |
 
 Structured output (کارت ۲۷.۱): اگر درخواست Anthropic فیلد `output_config.format` (یا درخواست Bedrock فیلد `additionalModelRequestFields.output_config.format`) داشته باشد، متن پاسخ JSON ساخته‌شده از schema است؛ اگر ابزار `dirouter_structured_output` گیت‌وی را داشته باشد، پاسخ فراخوانی همان ابزار با ورودی ساخته‌شده از schema است. رشته‌ها `"mock"`، عددها `1` (یا `minimum`)، بولی‌ها `true` و آرایه‌ها به تعداد `minItems` عضو می‌گیرند.
 

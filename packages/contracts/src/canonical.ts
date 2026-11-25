@@ -21,9 +21,41 @@ const CacheMarker = {
   cacheTtl: z.string().optional(),
 };
 
+/**
+ * A source the answer cites (card 31.7). `url`: a web page (OpenAI `url_citation`, Anthropic
+ * web search results, Gemini grounding). `document`: a passage of a document the request carried
+ * (Anthropic citations: character, page or content-block location). `start`/`end` are the cited
+ * span inside the text part's own text; absent means the whole part.
+ */
+export const CanonicalCitation = z.discriminatedUnion('kind', [
+  z.object({
+    kind: z.literal('url'),
+    url: z.string(),
+    title: z.string().optional(),
+    citedText: z.string().optional(),
+    start: z.int().nonnegative().optional(),
+    end: z.int().nonnegative().optional(),
+  }),
+  z.object({
+    kind: z.literal('document'),
+    documentIndex: z.int().nonnegative(),
+    documentTitle: z.string().optional(),
+    citedText: z.string(),
+    location: z.enum(['char', 'page', 'block']),
+    /** Start and end (exclusive) characters, pages or content blocks of the document. */
+    from: z.int().nonnegative(),
+    to: z.int().nonnegative(),
+    start: z.int().nonnegative().optional(),
+    end: z.int().nonnegative().optional(),
+  }),
+]);
+export type CanonicalCitation = z.infer<typeof CanonicalCitation>;
+
 export const CanonicalTextPart = z.object({
   type: z.literal('text'),
   text: z.string(),
+  /** Sources this text cites (card 31.7); only on answers. */
+  citations: z.array(CanonicalCitation).optional(),
   ...CacheMarker,
 });
 
@@ -248,6 +280,22 @@ export const CanonicalRequest = z.object({
    * applied by the outbound translator last: `set` always, `defaults` only where the body has no
    * value, `drop` removed. Names are top-level keys or dotted paths (`generationConfig.topK`).
    */
+  /** Token log probabilities requested (card 31.7): `top` alternatives per token (0–20). */
+  logprobs: z.object({ top: z.int().min(0).max(20).optional() }).optional(),
+  /**
+   * Tools the provider runs itself (card 31.7): web search, code execution, fetching a URL. Each
+   * outbound translator maps them to its provider's own tool or refuses the request clearly.
+   */
+  serverTools: z
+    .array(
+      z.object({
+        type: z.enum(['web_search', 'code_execution', 'web_fetch']),
+        maxUses: z.int().positive().optional(),
+        allowedDomains: z.array(z.string()).optional(),
+        blockedDomains: z.array(z.string()).optional(),
+      }),
+    )
+    .optional(),
   upstreamFields: z
     .object({
       set: JsonObject.optional(),
@@ -293,6 +341,16 @@ export const CanonicalResponse = z.object({
   /** If absent, the provider returned no usage and the gateway must estimate it (card 6.2). */
   usage: CanonicalUsage.optional(),
   created: z.int(),
+  /** Log probability of each output token, with its top alternatives (card 31.7). */
+  logprobs: z
+    .array(
+      z.object({
+        token: z.string(),
+        logprob: z.number(),
+        top: z.array(z.object({ token: z.string(), logprob: z.number() })).optional(),
+      }),
+    )
+    .optional(),
   /** The service tier the provider actually used, when it says (card 31.5). */
   serviceTier: z.string().optional(),
 });
@@ -317,6 +375,8 @@ export const CanonicalStreamEvent = z.discriminatedUnion('type', [
   }),
   z.object({ type: z.literal('tool_call_delta'), index: z.int(), argumentsDelta: z.string() }),
   z.object({ type: z.literal('content_end'), index: z.int() }),
+  /** A source the text of block `index` cites (card 31.7). */
+  z.object({ type: z.literal('citation'), index: z.int(), citation: CanonicalCitation }),
   z.object({ type: z.literal('usage'), usage: CanonicalUsage }),
   z.object({
     type: z.literal('finish'),

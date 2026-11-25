@@ -39,6 +39,8 @@ import {
   codingToolIn,
   customInputOf,
 } from './coding-tools.js';
+import { openAILogprobsOut, responsesAnnotationsOut } from './citations.js';
+import { responsesServerToolIn } from './server-tools.js';
 import { encodeSse } from './sse.js';
 
 const FINISH_FROM_RESPONSES: Record<string, 'stop' | 'length' | 'tool_calls'> = {
@@ -285,12 +287,19 @@ export function responsesRequestToCanonical(
   }
 
   const tools: CanonicalTool[] = [];
+  const serverTools: NonNullable<CanonicalRequest['serverTools']> = [];
   for (const tool of req.tools ?? []) {
     // Responses tools are flat; the nested Chat Completions form is tolerated.
     const fn = tool.function ?? tool;
     const coding = codingToolIn(tool);
     if (coding) {
       tools.push(coding);
+      continue;
+    }
+    // Card 31.7: web search and the code interpreter run by the provider.
+    const server = responsesServerToolIn(tool);
+    if (server) {
+      serverTools.push(server);
       continue;
     }
     if (tool.type !== 'function' || !fn.name) {
@@ -360,7 +369,18 @@ export function responsesRequestToCanonical(
     stream: req.stream === true,
     ...(req.user ? { user: req.user } : {}),
     ...(req.metadata ? { metadata: req.metadata } : {}),
+    ...(serverTools.length ? { serverTools } : {}),
+    ...responsesLogprobs(req),
   };
+}
+
+/** `include: ["message.output_text.logprobs"]` and `top_logprobs` → canonical (card 31.7). */
+function responsesLogprobs(req: ResponsesRequest): Pick<CanonicalRequest, 'logprobs'> {
+  const r = req as { include?: unknown; top_logprobs?: unknown };
+  const top = typeof r.top_logprobs === 'number' ? r.top_logprobs : undefined;
+  const included = Array.isArray(r.include) && r.include.includes('message.output_text.logprobs');
+  if (!included && top === undefined) return {};
+  return { logprobs: top !== undefined ? { top } : {} };
 }
 
 type ResponseStatus = 'completed' | 'incomplete' | 'failed';
@@ -403,15 +423,26 @@ export function responsesUsage(usage: CanonicalUsage) {
 
 type OutputItem = Record<string, unknown>;
 
-const outputTextPart = (text: string) => ({ type: 'output_text', text, annotations: [] });
+const outputTextPart = (text: string, annotations: unknown[] = [], logprobs?: unknown[]) => ({
+  type: 'output_text',
+  text,
+  annotations,
+  ...(logprobs ? { logprobs } : {}),
+});
 
-function messageItem(id: string, text: string, status: string): OutputItem {
+function messageItem(
+  id: string,
+  text: string,
+  status: string,
+  annotations: unknown[] = [],
+  logprobs?: unknown[],
+): OutputItem {
   return {
     type: 'message',
     id,
     status,
     role: 'assistant',
-    content: status === 'in_progress' ? [] : [outputTextPart(text)],
+    content: status === 'in_progress' ? [] : [outputTextPart(text, annotations, logprobs)],
   };
 }
 
@@ -445,20 +476,30 @@ export function canonicalToResponsesResponse(
 ) {
   const output: OutputItem[] = [];
   const texts: string[] = [];
-  let openMessage: { index: number; text: string } | undefined;
+  let openMessage: { index: number; text: string; parts: CanonicalPart[] } | undefined;
+  const logprobs = response.logprobs ? openAILogprobsOut(response.logprobs) : undefined;
   const closeMessage = () => {
     if (!openMessage) return;
     const id = `msg_${response.id}_${String(openMessage.index)}`;
-    output[openMessage.index] = messageItem(id, openMessage.text, 'completed');
+    // Card 31.7: url citations as annotations; log probabilities on the answer's text.
+    output[openMessage.index] = messageItem(
+      id,
+      openMessage.text,
+      'completed',
+      responsesAnnotationsOut(openMessage.parts),
+      logprobs,
+    );
     openMessage = undefined;
   };
   for (const part of response.content) {
     if (part.type === 'text') {
       if (part.text === '') continue;
       texts.push(part.text);
-      if (openMessage) openMessage.text += part.text;
-      else {
-        openMessage = { index: output.length, text: part.text };
+      if (openMessage) {
+        openMessage.text += part.text;
+        openMessage.parts.push(part);
+      } else {
+        openMessage = { index: output.length, text: part.text, parts: [part] };
         output.push({});
       }
     } else if (part.type === 'reasoning') {
@@ -488,7 +529,16 @@ export function canonicalToResponsesResponse(
 }
 
 type OpenItem =
-  | { kind: 'message'; outputIndex: number; id: string; text: string }
+  | {
+      kind: 'message';
+      outputIndex: number;
+      id: string;
+      text: string;
+      /** Url citations as Responses annotations (card 31.7). */
+      annotations: Record<string, unknown>[];
+      /** Where each canonical text block began in `text`. */
+      blockStart: Map<number, number>;
+    }
   | { kind: 'reasoning'; outputIndex: number; id: string; text: string; canonical: number }
   | {
       kind: 'function_call';
@@ -554,6 +604,8 @@ export class ResponsesStreamEncoder {
             outputIndex,
             id: `msg_${this.#base}_${String(outputIndex)}`,
             text: '',
+            annotations: [],
+            blockStart: new Map(),
           };
           out += this.#add(item, messageItem(item.id, '', 'in_progress'));
           out += this.#emit('response.content_part.added', {
@@ -563,6 +615,7 @@ export class ResponsesStreamEncoder {
             part: outputTextPart(''),
           });
         }
+        if (!item.blockStart.has(event.index)) item.blockStart.set(event.index, item.text.length);
         item.text += event.text;
         this.#text += event.text;
         return (
@@ -665,6 +718,27 @@ export class ResponsesStreamEncoder {
           delta: event.argumentsDelta,
         });
       }
+      case 'citation': {
+        const item = this.#open.find((open) => open.kind === 'message');
+        if (item?.kind !== 'message' || event.citation.kind !== 'url') return '';
+        const start = item.blockStart.get(event.index) ?? item.text.length;
+        const annotation = {
+          type: 'url_citation',
+          url: event.citation.url,
+          title: event.citation.title ?? event.citation.url,
+          start_index: start + (event.citation.start ?? 0),
+          end_index:
+            event.citation.end !== undefined ? start + event.citation.end : item.text.length,
+        };
+        item.annotations.push(annotation);
+        return this.#emit('response.output_text.annotation.added', {
+          item_id: item.id,
+          output_index: item.outputIndex,
+          content_index: 0,
+          annotation_index: item.annotations.length - 1,
+          annotation,
+        });
+      }
       case 'content_end':
         // A message stays open until another item starts or the stream ends, because the gateway
         // may still append held-back text to it after the provider closed the block.
@@ -742,7 +816,7 @@ export class ResponsesStreamEncoder {
     let out = '';
     let wire: OutputItem;
     if (item.kind === 'message') {
-      wire = messageItem(item.id, item.text, 'completed');
+      wire = messageItem(item.id, item.text, 'completed', item.annotations);
       out += this.#emit('response.output_text.done', {
         ...at,
         content_index: 0,
@@ -752,7 +826,7 @@ export class ResponsesStreamEncoder {
       out += this.#emit('response.content_part.done', {
         ...at,
         content_index: 0,
-        part: outputTextPart(item.text),
+        part: outputTextPart(item.text, item.annotations),
       });
     } else if (item.kind === 'reasoning') {
       wire = reasoningItem(item.id, item.text, 'completed');

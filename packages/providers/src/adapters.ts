@@ -515,7 +515,18 @@ function allowedBetas(ctx: BuildContext): string | undefined {
   const passed = allowList.includes('*')
     ? requested
     : requested.filter((b) => allowList.includes(b));
-  const all = [...new Set([...fixed, ...passed])];
+  // Server tools translated from another API (card 31.7) need their beta flag.
+  const needed =
+    ctx.request.inboundApi === 'anthropic.messages'
+      ? []
+      : (ctx.request.serverTools ?? []).flatMap((tool) =>
+          tool.type === 'code_execution'
+            ? ['code-execution-2025-08-25']
+            : tool.type === 'web_fetch'
+              ? ['web-fetch-2025-09-10']
+              : [],
+        );
+  const all = [...new Set([...fixed, ...passed, ...needed])];
   return all.length ? all.join(',') : undefined;
 }
 

@@ -178,6 +178,33 @@ PATCH /api/v1/orgs/{org}/models/{id}
 
 تست‌ها: `packages/translator/src/repair.test.ts` (مجموعهٔ JSONهای خراب، دست‌نخوردن JSON معتبر، و یک تاریخچهٔ خراب golden که با قواعد جفت‌شدن Anthropic و OpenAI سنجیده می‌شود) و `apps/gateway/src/shaping.test.ts` (از راه گیت‌وی در برابر mock که تاریخچهٔ بی‌جفت را با همان 400 خود providerها جواب می‌دهد).
 
+## Citations، logprobs و ابزارهای سمت سرور
+
+> کارت ۳۱.۷. جزئیات پاسخ در ترجمه بین فرمت‌ها گم نمی‌شود. کد: `packages/translator/src/citations.ts` و `server-tools.ts`.
+
+**Citations** روی بخش‌های متنی canonical نگه داشته می‌شوند. منبع وب (`url`) به همهٔ فرمت‌ها می‌رسد؛ بخشی از یک سند درخواست (`document`: موقعیت کاراکتر، صفحه یا بلوک محتوا) فقط در API خود Anthropic معنا دارد و فقط به کلاینت Anthropic می‌رسد.
+
+| فرمت        | خواندن از provider                                                                    | نوشتن برای کلاینت                                                                               |
+| ----------- | ------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Anthropic   | `citations[]` روی بلوک‌های متن (همهٔ انواع موقعیت)، `citations_delta` در stream       | همان؛ منبعی از جای دیگر به `web_search_result_location` با `encrypted_index` خالی تبدیل می‌شود  |
+| OpenAI Chat | `message.annotations[].url_citation` (offset کاراکتری در پیام)                        | `message.annotations`؛ در stream یک chunk با `delta.annotations`                                |
+| Responses   | (فقط ورودی)                                                                           | `output_text.annotations[]` (`url_citation`)؛ در stream `response.output_text.annotation.added` |
+| Gemini      | `groundingMetadata` (supportها و chunkهای وب، offset بایتی UTF-8)، `citationMetadata` | `groundingMetadata` با یک chunk برای هر منبع و offset بایتی (پاسخ‌های غیر stream)               |
+
+**logprobs**: `logprobs`/`top_logprobs` (Chat)، `include: ["message.output_text.logprobs"]` و `top_logprobs` (Responses) و `responseLogprobs`/`logprobs` (Gemini) به OpenAI و Gemini می‌رسند و log probability توکن‌های پاسخشان به‌صورت `choice.logprobs.content`، `output_text.logprobs` یا `logprobsResult` به کلاینت برمی‌گردد. Anthropic و Bedrock چیزی برنمی‌گردانند: پارامتر حذف می‌شود، یا با `drop_params` خاموش رد. stream‌ها logprobs ندارند.
+
+**ابزارهای سمت سرور** (که خود provider اجرا می‌کند):
+
+| canonical        | Anthropic                 | OpenAI Chat          | Responses (از کلاینت)              | Gemini          |
+| ---------------- | ------------------------- | -------------------- | ---------------------------------- | --------------- |
+| `web_search`     | `web_search_20250305`     | `web_search_options` | `web_search`، `web_search_preview` | `googleSearch`  |
+| `code_execution` | `code_execution_20250825` | رد می‌شود            | `code_interpreter`                 | `codeExecution` |
+| `web_fetch`      | `web_fetch_20250910`      | رد می‌شود            | ندارد                              | `urlContext`    |
+
+Bedrock هیچ‌کدام را اجرا نمی‌کند و همه را رد می‌کند. تعریف ابزارهای خود کلاینت Anthropic همان‌طور که آمده به Anthropic می‌رود؛ ابزاری که فقط Anthropic دارد (computer use، text editor، memory، …) اگر به provider دیگری برود با 400 و نام ابزار رد می‌شود و هرگز بی‌صدا حذف نمی‌شود. code execution و web fetch که از API دیگری ترجمه شده‌اند flag `anthropic-beta` لازم را می‌گیرند. نتیجهٔ خود ابزارهای سرور provider (بلوک نتایج جستجو، خروجی کد) به فرمت‌های دیگر منتقل نمی‌شود؛ citationهایشان منتقل می‌شود.
+
+تست‌ها: `packages/translator/src/citations.test.ts` (پاسخ‌های golden با منبع از Anthropic، OpenAI و Gemini که برای همهٔ فرمت‌های کلاینت encode می‌شوند، یک stream Anthropic با `citations_delta`، logprobs و ابزارهای سرور در هر دو جهت) و `apps/gateway/src/shaping.test.ts` (از راه گیت‌وی در برابر دستور `citations` در mock).
+
 ## فیلدهای کنارگذاشته‌شده
 
 مترجم هر فیلد بی‌معادل را با `onDrop(field, reason, kind)` گزارش می‌کند و گیت‌وی آن را با سطح debug لاگ می‌کند؛ پارامتر درخواست (`kind: 'parameter'`) وقتی `drop_params` خاموش است به‌جای آن رد می‌شود (بالا را ببینید). فهرست: `n>1` و بخش `file` بدون داده و شناسه در OpenAI، تصویر `file` در Anthropic، ویدیو و بخش‌های ناشناختهٔ دیگر در Gemini و Responses، `top_k` به OpenAI، `seed` به Anthropic، `json_object` به مدل Claude با structured output بومی (به‌صورت دستور فرستاده می‌شود)، reasoning به OpenAI، thinking بدون امضا به Anthropic، تصویر در نتیجهٔ ابزار به OpenAI، دمای بالای ۱ به Anthropic.

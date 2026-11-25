@@ -532,6 +532,26 @@ describe('Anthropic prompt caching (card 31.3)', () => {
   });
 });
 
+describe('citations directive (card 31.7)', () => {
+  it('cites one web source on every route', async () => {
+    const headers = { 'x-mock': 'citations' };
+    const openai = (await (await post('/v1/chat/completions', oa, headers)).json()) as {
+      choices: { message: { annotations: unknown[] } }[];
+    };
+    expect(openai.choices[0]?.message.annotations).toHaveLength(1);
+    const anthropic = (await (await post('/v1/messages', an, headers)).json()) as {
+      content: { citations: unknown[] }[];
+    };
+    expect(anthropic.content[0]?.citations).toHaveLength(1);
+    const gemini = (await (
+      await post('/v1beta/models/g:generateContent', { contents: [] }, headers)
+    ).json()) as { candidates: { groundingMetadata: unknown }[] };
+    expect(gemini.candidates[0]?.groundingMetadata).toBeDefined();
+    const stream = await post('/v1/messages', { ...an, stream: true }, headers);
+    expect(await stream.text()).toContain('citations_delta');
+  });
+});
+
 describe('legacy completions (card 30.7)', () => {
   it('answers /v1/completions with usage, for pass-through tests', async () => {
     const res = await post('/v1/completions', { model: 'gpt-3.5-turbo-instruct', prompt: 'hi' });

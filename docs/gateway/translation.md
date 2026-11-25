@@ -170,6 +170,33 @@ Each repair is logged (`repaired before passing on`, with the list) and counted 
 
 Tests: `packages/translator/src/repair.test.ts` (a corpus of broken JSON, valid JSON left alone, and a golden broken history checked against Anthropic's and OpenAI's pairing rules) and `apps/gateway/src/shaping.test.ts` (through the gateway against the mock, which answers an unpaired history with the providers' own 400).
 
+## Citations, log probabilities and server-side tools
+
+> Card 31.7. Details of an answer survive translation between formats. Code: `packages/translator/src/citations.ts` and `server-tools.ts`.
+
+**Citations** live on canonical text parts. A web source (`url`) travels to every format; a passage of a document in the request (`document`: character, page or content-block location) exists only in Anthropic's API and reaches Anthropic clients only.
+
+| Format      | Read from the provider                                                                | Written for the client                                                                                 |
+| ----------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| Anthropic   | `citations[]` on text blocks (all location types), `citations_delta` in streams       | the same; a source from elsewhere becomes `web_search_result_location` with an empty `encrypted_index` |
+| OpenAI Chat | `message.annotations[].url_citation` (character offsets in the message)               | `message.annotations`; in streams a `delta.annotations` chunk                                          |
+| Responses   | (inbound only)                                                                        | `output_text.annotations[]` (`url_citation`); in streams `response.output_text.annotation.added`       |
+| Gemini      | `groundingMetadata` (supports and web chunks, UTF-8 byte offsets), `citationMetadata` | `groundingMetadata` with one chunk per source and byte offsets (non-streamed answers)                  |
+
+**Log probabilities**: `logprobs`/`top_logprobs` (Chat), `include: ["message.output_text.logprobs"]` and `top_logprobs` (Responses) and `responseLogprobs`/`logprobs` (Gemini) are carried to OpenAI and Gemini, and their answers' token log probabilities reach the client as `choice.logprobs.content`, `output_text.logprobs` or `logprobsResult`. Anthropic and Bedrock return none: the parameter is dropped, or refused with `drop_params` off. Streams carry no log probabilities.
+
+**Server-side tools** (run by the provider):
+
+| canonical        | Anthropic                 | OpenAI Chat          | Responses (from client)            | Gemini          |
+| ---------------- | ------------------------- | -------------------- | ---------------------------------- | --------------- |
+| `web_search`     | `web_search_20250305`     | `web_search_options` | `web_search`, `web_search_preview` | `googleSearch`  |
+| `code_execution` | `code_execution_20250825` | refused              | `code_interpreter`                 | `codeExecution` |
+| `web_fetch`      | `web_fetch_20250910`      | refused              | none                               | `urlContext`    |
+
+Bedrock runs none and refuses all. An Anthropic client's own tool definitions go to Anthropic exactly as sent; an Anthropic-only tool (computer use, text editor, memory, …) sent to another provider is refused with a 400 that names it, never dropped silently. Code execution and web fetch translated from another API get their `anthropic-beta` flags. The results of a provider's server tools (search result blocks, code output) are not carried into other formats; their citations are.
+
+Tests: `packages/translator/src/citations.test.ts` (golden answers with sources from Anthropic, OpenAI and Gemini encoded for every client format, an Anthropic stream with `citations_delta`, log probabilities and server tools both ways) and `apps/gateway/src/shaping.test.ts` (through the gateway against the mock's `citations` directive).
+
 ## Dropped fields
 
 The translator reports each field that has no equivalent through `onDrop(field, reason, kind)`, and the gateway logs it at debug level; a request parameter (`kind: 'parameter'`) is refused instead when `drop_params` is off (see above). The list: `n>1` and a `file` part with neither data nor id in OpenAI, image `file` in Anthropic, video and other unknown parts in Gemini and Responses, `top_k` to OpenAI, `seed` to Anthropic, `json_object` to a Claude model with native structured output (sent as an instruction), reasoning to OpenAI, thinking without a signature to Anthropic, images in tool results to OpenAI, and temperature above 1 to Anthropic.

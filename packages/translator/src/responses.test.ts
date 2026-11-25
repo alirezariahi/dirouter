@@ -279,7 +279,6 @@ describe('Responses request → canonical', () => {
     ]);
     expect(out.toolChoice).toBeUndefined();
     expect(drops).toEqual([
-      "tools[]: unsupported tool type 'web_search'",
       "tools[]: unsupported tool type 'local_shell'",
       "tool_choice: unsupported tool choice 'allowed_tools'",
     ]);
@@ -430,7 +429,6 @@ describe('Responses request → canonical', () => {
       "input[]: unsupported item 'web_search_call'",
       "input[]: unsupported item 'local_shell_call_output'",
       "input[]: unsupported item 'tool_search_call'",
-      "tools[]: unsupported tool type 'web_search'",
     ]);
   });
 
