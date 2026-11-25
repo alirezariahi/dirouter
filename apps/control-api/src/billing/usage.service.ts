@@ -78,7 +78,7 @@ export class UsageService {
     const rows = wallet
       ? await this.db.$queryRaw<Row[]>`
           SELECT e."created_at" AS "at", t."metadata"->>'requestId' AS "requestId",
-                 COALESCE(t."metadata"->>'model', r."model_id", 'unknown') AS "model",
+                 COALESCE(m."slug", r."requested_model", t."metadata"->>'model', r."model_id", 'unknown') AS "model",
                  COALESCE(t."metadata"->>'apiKeyId', r."api_key_id") AS "apiKeyId",
                  (-e."amount_usd")::text AS "cost",
                  r."input_tokens" AS "input", r."output_tokens" AS "output"
@@ -87,14 +87,18 @@ export class UsageService {
             LEFT JOIN "request_log" r ON r."id" = t."metadata"->>'requestId'
                  AND r."organization_id" = ${organizationId}
                  AND r."created_at" >= ${logFrom} AND r."created_at" < ${logTo}
+            -- The customer sees the model's name, not its internal id.
+            LEFT JOIN "models" m ON m."id" = COALESCE(t."metadata"->>'model', r."model_id")
+                 AND m."organization_id" = ${organizationId}
            WHERE e."wallet_id" = ${wallet.id} AND t."kind" = 'usage'
              AND e."created_at" >= ${start} AND e."created_at" < ${end}
            ORDER BY e."created_at" DESC, e."id" DESC`
       : await this.db.$queryRaw<Row[]>`
           SELECT r."created_at" AS "at", r."id" AS "requestId",
-                 COALESCE(r."model_id", r."requested_model") AS "model", r."api_key_id" AS "apiKeyId",
+                 COALESCE(m."slug", r."requested_model", r."model_id") AS "model", r."api_key_id" AS "apiKeyId",
                  r."charge_usd"::text AS "cost", r."input_tokens" AS "input", r."output_tokens" AS "output"
             FROM "request_log" r
+            LEFT JOIN "models" m ON m."id" = r."model_id" AND m."organization_id" = ${organizationId}
            WHERE r."organization_id" = ${organizationId}
              AND r."created_at" >= ${start} AND r."created_at" < ${end}
            ORDER BY r."created_at" DESC, r."id" DESC`;

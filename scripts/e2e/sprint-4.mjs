@@ -1424,8 +1424,12 @@ try {
       assert.match(testMail.Subject, /^\[DiRouter\] /);
 
       // 2. breaker_open: open the breaker of the always-failing mock provider.
-      const resetBreaker = () =>
-        org('POST', 'health/reset', { scope: 'provider', id: 'prv_mock-down' }, null);
+      // Both breakers of the mock-down target: a model breaker left open by an earlier run would
+      // short-circuit the requests before the provider is ever tried.
+      const resetBreaker = async () => {
+        await org('POST', 'health/reset', { scope: 'provider', id: 'prv_mock-down' }, null);
+        await org('POST', 'health/reset', { scope: 'model', id: 'mdl_dev_mock_down' }, null);
+      };
       await resetBreaker();
       cleanups.push(resetBreaker);
       const breakerRule = (
@@ -1451,7 +1455,9 @@ try {
           messages: [{ role: 'user', content: 'open the breaker' }],
         });
       const stored = await waitFor('breaker state in Valkey', async () => {
-        const raw = await valkey('HGET', 'dirouter:breakers', 'provider:prv_mock-down');
+        const raw =
+          (await valkey('HGET', 'dirouter:breakers', 'provider:prv_mock-down')) ||
+          (await valkey('HGET', 'dirouter:breakers', 'model:mdl_dev_mock_down'));
         return raw ? JSON.parse(raw) : undefined;
       });
       assert.ok(['open', 'half_open'].includes(stored.state), JSON.stringify(stored));
@@ -1461,14 +1467,20 @@ try {
         120_000,
       );
       assert.ok(
-        breakerEvent.details.breakers.some((b) => b.id === 'prv_mock-down'),
+        breakerEvent.details.breakers.some((b) =>
+          ['prv_mock-down', 'mdl_dev_mock_down'].includes(b.id),
+        ),
         JSON.stringify(breakerEvent.details),
       );
       const breakerMail = await mailTo(inbox, (m) => m.Subject.includes(`s4-breaker-${tag}`));
-      assert.match(breakerMail.Text, /provider prv_mock-down: (open|half_open)/);
+      assert.match(
+        breakerMail.Text,
+        /(provider prv_mock-down|model mdl_dev_mock_down): (open|half_open)/,
+      );
       // A manual reset closes the breaker and removes it from the shared state.
       await resetBreaker();
       assert.equal(await valkey('HGET', 'dirouter:breakers', 'provider:prv_mock-down'), '');
+      assert.equal(await valkey('HGET', 'dirouter:breakers', 'model:mdl_dev_mock_down'), '');
 
       // 3. queue_length: park delayed jobs in the usage queue until it is over the threshold.
       const queueRule = (
@@ -1844,7 +1856,7 @@ try {
       assert.equal(usage.totals.requests, statement.length);
       assert.deepEqual(usage.recent.map((r) => r.requestId).sort(), [...ids].sort());
       assert.equal(usage.byModel.length, 1);
-      assert.equal(usage.byModel[0].model.endsWith('usage'), true);
+      assert.ok(usage.byModel[0].model.endsWith('usage'), JSON.stringify(usage.byModel));
       assert.equal(usage.byKey[0].name, key.name);
       assert.equal(
         usage.byDay.reduce((s, d) => s + units(d.costUsd), 0n),
