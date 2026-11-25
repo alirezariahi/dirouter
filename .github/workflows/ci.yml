@@ -78,7 +78,20 @@ jobs:
           read -r -a list <<< "$TURBO_FILTER"
           filters=()
           for filter in "${list[@]}"; do filters+=("--filter=$filter"); done
-          pnpm exec turbo run lint typecheck test build "${filters[@]}"
+          log=$(mktemp)
+          if ! pnpm exec turbo run lint typecheck test build "${filters[@]}" 2>&1 | tee "$log"; then
+            # Job logs need a GitHub sign-in; annotations of a public run do not. One annotation per
+            # failed task, with the end of its output.
+            grep -m1 -E '^ *Failed: ' "$log" | sed -E 's/^ *Failed: *//' | tr ',' '\n' | tr -d ' ' |
+              while read -r task; do
+                [ -n "$task" ] || continue
+                prefix="${task%%#*}:${task##*#}:"
+                body=$(grep -F "$prefix" "$log" | tail -n 40 | cut -c1-300 |
+                  sed -e 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+                echo "::error title=Failed $task::$body"
+              done
+            exit 1
+          fi
       - name: Detect Vitest coverage reports
         id: coverage
         run: |
