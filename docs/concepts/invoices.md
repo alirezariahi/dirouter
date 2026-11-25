@@ -1,8 +1,8 @@
 [English](invoices.md) · [فارسی](invoices.fa.md)
 
-# Invoices, VAT and the Persian PDF
+# Invoices, VAT, the Persian PDF and the portal
 
-Code: `packages/db/src/invoices.ts`, `packages/db/src/tax.ts`, `apps/control-api/src/billing/invoices.*` and `apps/control-api/src/billing/pdf/` · cards 19.6 and 26.1
+Code: `packages/db/src/invoices.ts`, `packages/db/src/tax.ts`, `apps/control-api/src/billing/invoices.*` and `apps/control-api/src/billing/pdf/` · cards 19.6, 26.1 and 26.2
 
 ## What an invoice is
 
@@ -59,3 +59,21 @@ Numbers are `INV-<year>-<6 digits>`, sequential per year with no gap. The applic
 - Sections: seller and buyer, items (usage by model and plan fees, net of VAT, in USD and rials), net total, VAT on its own row with its rate, total with VAT, the rate and the total in tomans, and for prepaid customers the wallet movements of the month.
 
 The unit test (`invoice-pdf.unit.test.ts`) reads the PDF back as a viewer would: it maps every drawn glyph to text through the embedded ToUnicode map, checks the Persian lines read correctly right to left and numbers left to right, and compares the outlines of the drawn glyphs with the OpenType-shaped forms of the same word (and not the isolated letters).
+
+## In the customer portal (card 26.2)
+
+The portal (`apps/portal`) gives a customer its usage and invoices without asking support:
+
+- **Usage** (`/app/usage`): cost, requests and input/output tokens for the last 7, 30 or 90 days, a bar chart of cost and of tokens per day, tables by model and by key, and the latest 50 requests with the cost of each. Data: `GET /orgs/{orgId}/usage?from=YYYY-MM-DD&to=YYYY-MM-DD` (`billing:read`; `to` is exclusive, at most 93 days, default the last 30).
+- **Invoices** (`/app/invoices`): the month so far (`GET /orgs/{orgId}/invoices/preview`), every issued invoice with net, VAT and total, a **Download PDF** button, and the legal details printed on the next invoices (`billing-profile` above).
+
+The usage figures are the same rows as the customer's other billing pages, so they agree to the last unit:
+
+| Basis    | Cost of a request                                                  | Tokens          |
+| -------- | ------------------------------------------------------------------ | --------------- |
+| prepaid  | its `usage` debit in the wallet (the statement's usage line)       | the request log |
+| postpaid | its sale price in the request log (what the monthly invoice bills) | the request log |
+
+A request paid entirely from a plan's allowance takes nothing from the wallet and is not listed. Days are UTC days, keyed by when the wallet was debited.
+
+Isolation: every route sits behind `OrgGuard`, so only members of the organization reach it (others get 404), and every query is filtered by that organization and its wallet; a request log row is joined only when it belongs to the same organization. `usage.integration.test.ts` checks both, and that the totals and each day equal the wallet statement's usage lines and the change in balance.

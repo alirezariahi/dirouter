@@ -4475,6 +4475,15 @@ export type BillingProfileControllerPutBody = {
 
 export type BillingProfileControllerPut200 = {[key: string]: unknown};
 
+export type UsageControllerGetParams = {
+  /** @pattern ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))$ */
+  from?: string;
+  /** @pattern ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))$ */
+  to?: string;
+};
+
+export type UsageControllerGet200 = {[key: string]: unknown};
+
 export type PortalControllerConfig200 = {[key: string]: unknown};
 
 export type PortalControllerMarket200 = {[key: string]: unknown};
@@ -21315,6 +21324,95 @@ export function useBillingProfileControllerPut<TData = Awaited<ReturnType<typeof
 
 
 
+
+export type usageControllerGetResponse200 = {
+  data: UsageControllerGet200
+  status: 200
+}
+
+export type usageControllerGetResponseSuccess = (usageControllerGetResponse200) & {
+  headers: Headers;
+};
+;
+
+export type usageControllerGetResponse = (usageControllerGetResponseSuccess)
+
+export const getUsageControllerGetUrl = (orgId: string,
+    params?: UsageControllerGetParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/v1/orgs/${orgId}/usage?${stringifiedParams}` : `/api/v1/orgs/${orgId}/usage`
+}
+
+export const usageControllerGet = async (orgId: string,
+    params?: UsageControllerGetParams, options?: Parameters<typeof orvalFetch>[1]): Promise<usageControllerGetResponse> => {
+
+  return orvalFetch<usageControllerGetResponse>(getUsageControllerGetUrl(orgId,params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getUsageControllerGetMutationKey = () => ['usageControllerGet'] as const;
+
+export const getUsageControllerGetMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof usageControllerGet>>, TError,UsageControllerGetMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof usageControllerGet>>, TError,UsageControllerGetMutationVariables, TContext> => {
+
+const mutationKey = getUsageControllerGetMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof usageControllerGet>>, UsageControllerGetMutationVariables> = (props) => {
+          const {orgId,params} = props ?? {};
+
+          return  usageControllerGet(orgId,params,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UsageControllerGetMutationResult = NonNullable<Awaited<ReturnType<typeof usageControllerGet>>>
+
+    export type UsageControllerGetMutationError = unknown
+    export type UsageControllerGetMutationVariables = {orgId: string;params?: UsageControllerGetParams}
+
+    export const useUsageControllerGet = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof usageControllerGet>>, TError,UsageControllerGetMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof usageControllerGet>>,
+        TError,
+        UsageControllerGetMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUsageControllerGetMutationOptions(options), queryClient);
+    }
 
 export type portalControllerConfigResponse200 = {
   data: PortalControllerConfig200

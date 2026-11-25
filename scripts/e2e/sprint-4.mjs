@@ -1734,6 +1734,142 @@ try {
       console.log(`     ${invoice.number}: VAT ${invoice.vatUsd} of ${invoice.grossUsd} USD`);
     },
   );
+  await scenario(
+    '26.2 portal usage and invoices: own organization only, figures equal the wallet statement',
+    async () => {
+      // A prepaid customer the seed admin owns, with a mock-backed model, a key and some credit.
+      const me = (await api('GET', 'auth/me')).body;
+      const customer = `org_s4use${randomUUID().slice(0, 8)}`;
+      const stranger = `org_s4other${randomUUID().slice(0, 8)}`;
+      await sql(`INSERT INTO organizations (id, name, slug, updated_at) VALUES
+                   ('${customer}', 'S4 usage', '${customer.replaceAll('_', '-')}', now()),
+                   ('${stranger}', 'S4 other', '${stranger.replaceAll('_', '-')}', now());
+                 INSERT INTO memberships (id, user_id, organization_id, role)
+                 VALUES ('mem_${customer}', '${me.id}', '${customer}', 'OWNER')`);
+      cleanups.push(() =>
+        sql(
+          `UPDATE organizations SET deleted_at = now() WHERE id IN ('${customer}', '${stranger}')`,
+        ),
+      );
+      const cust = (method, path, body, expected) =>
+        api(method, `orgs/${customer}/${path}`, body, expected);
+      const provider = (
+        await cust(
+          'POST',
+          'providers',
+          {
+            name: 's4-usage',
+            slug: 's4-usage',
+            type: 'openai-compatible',
+            baseUrl: 'http://mock-provider:8090/v1',
+            credentials: [{ name: 'k', secret: 'sk-mock' }],
+          },
+          201,
+        )
+      ).body;
+      const model = (
+        await cust(
+          'POST',
+          'models',
+          {
+            providerId: provider.id,
+            upstreamModel: 'mock-small',
+            slug: 's4/usage',
+            pricing: { inputPerMTok: '100', outputPerMTok: '100' },
+          },
+          201,
+        )
+      ).body;
+      const project = (await cust('POST', 'projects', { name: 'S4', slug: 's4' }, 201)).body;
+      await published(() => org('PATCH', `billing/wallets/${customer}`, { prepaid: true }));
+      await org(
+        'POST',
+        `billing/wallets/${customer}/adjustments`,
+        { amountUsd: '5', reason: 'e2e 26.2 credit', idempotencyKey: randomUUID() },
+        201,
+      );
+      const key = (
+        await published(() =>
+          cust(
+            'POST',
+            'keys',
+            { name: `s4-usage-${randomUUID().slice(0, 6)}`, projectId: project.id },
+            201,
+          ),
+        )
+      ).body;
+      cleanups.push(() => cust('POST', `keys/${key.id}/revoke`, undefined, null));
+      await waitFor('gateway to know the key', async () => {
+        const probe = await fetch(`${urls.gateway}/v1/models`, {
+          headers: { authorization: `Bearer ${key.key}` },
+        });
+        return probe.status === 200;
+      });
+
+      // Three requests through Traefik and the gateway; the worker debits each from the wallet.
+      const ids = [];
+      for (let i = 0; i < 3; i++) {
+        const res = await chat(key.key, {
+          model: model.slug,
+          messages: [{ role: 'user', content: `usage ${String(i)}` }],
+        });
+        assert.equal(res.response.status, 200, res.text);
+        ids.push(res.response.headers.get('x-request-id'));
+      }
+      const statement = await waitFor(
+        'three usage lines in the statement',
+        async () => {
+          const lines = (await cust('GET', 'wallet/statement?limit=500')).body.filter(
+            (e) => e.kind === 'usage',
+          );
+          return lines.length >= 3 ? lines : undefined;
+        },
+        60_000,
+      );
+      const usage = await waitFor(
+        'the requests on the usage page',
+        async () => {
+          const u = (await cust('GET', 'usage')).body;
+          return u.totals.requests >= 3 && u.recent.every((r) => r.inputTokens !== null)
+            ? u
+            : undefined;
+        },
+        60_000,
+      );
+
+      // The usage page equals the statement: total, per request and per day.
+      const units = (v) => BigInt(Math.round(Number(v) * 1e8));
+      const debits = statement.reduce((s, e) => s - units(e.amountUsd), 0n);
+      assert.equal(units(usage.totals.costUsd), debits);
+      assert.equal(usage.totals.requests, statement.length);
+      assert.deepEqual(usage.recent.map((r) => r.requestId).sort(), [...ids].sort());
+      assert.equal(usage.byModel.length, 1);
+      assert.equal(usage.byModel[0].model.endsWith('usage'), true);
+      assert.equal(usage.byKey[0].name, key.name);
+      assert.equal(
+        usage.byDay.reduce((s, d) => s + units(d.costUsd), 0n),
+        units(usage.totals.costUsd),
+      );
+      const wallet = (await cust('GET', 'wallet')).body.wallet;
+      assert.equal(units(wallet.balanceUsd), units('5') - debits);
+
+      // Only the caller's organizations: another one is not found, for usage, statement and invoices.
+      for (const path of ['usage', 'wallet/statement', 'invoices'])
+        await api('GET', `orgs/${stranger}/${path}`, undefined, 404);
+
+      // The portal serves the pages (SPA routes) and the invoices list answers for the customer.
+      for (const route of ['/app/usage', '/app/invoices']) {
+        const page = await fetch(
+          `${process.env.E2E_PORTAL_URL ?? 'http://portal.localhost'}${route}`,
+        );
+        assert.equal(page.status, 200, route);
+      }
+      assert.ok(Array.isArray((await cust('GET', 'invoices')).body));
+      console.log(
+        `     ${String(usage.totals.requests)} requests, ${usage.totals.costUsd} USD = statement`,
+      );
+    },
+  );
 } catch (error) {
   crashed = true;
   console.error(error);

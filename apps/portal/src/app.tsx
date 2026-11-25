@@ -8,9 +8,11 @@ import { me, restore, signOut } from './lib/session';
 import { AuthPage, OAuthCallbackPage } from './pages/auth';
 import { BillingPage } from './pages/billing';
 import { HomePage } from './pages/home';
+import { InvoicesPage } from './pages/invoices';
 import { KeysPage } from './pages/keys';
 import { MarketPage } from './pages/market';
 import { VerifyEmailPage, VerifyNotice } from './pages/verify';
+import { UsagePage } from './pages/usage';
 
 export function App() {
   const { t, toggle } = useI18n();
@@ -36,7 +38,9 @@ export function App() {
     ? [
         ['/app', t.home],
         ['/app/keys', t.keys],
+        ['/app/usage', t.usage],
         ['/app/billing', t.billing],
+        ['/app/invoices', t.invoices],
         ['/', t.market],
       ]
     : [['/', t.market]];
@@ -56,6 +60,10 @@ export function App() {
             <KeysPage verified={user.emailVerified} />
           ) : path === '/app/billing' ? (
             <BillingPage />
+          ) : path === '/app/usage' ? (
+            <UsagePage />
+          ) : path === '/app/invoices' ? (
+            <InvoicesPage />
           ) : (
             <HomePage />
           )}

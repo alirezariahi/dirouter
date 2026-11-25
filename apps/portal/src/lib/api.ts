@@ -80,3 +80,24 @@ export async function api<T>(
   }
   return body as T;
 }
+
+/**
+ * Saves a file only signed-in users may fetch (an invoice PDF): fetched with the bearer token, then
+ * handed to the browser through a temporary object URL, since a plain link cannot send the token.
+ */
+export async function download(path: string, filename: string, retried = false): Promise<void> {
+  const res = await fetch(`${API_URL}${path}`, {
+    credentials: 'include',
+    headers: accessToken ? { authorization: `Bearer ${accessToken}` } : {},
+  });
+  if (res.status === 401 && !retried && (await refresh())) return download(path, filename, true);
+  if (!res.ok) throw new ApiError(res.status, undefined, `HTTP ${String(res.status)}`);
+  const url = URL.createObjectURL(await res.blob());
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}

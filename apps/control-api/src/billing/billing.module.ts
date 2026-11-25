@@ -18,6 +18,8 @@ import { InvoicesService } from './invoices.service.js';
 import { PlatformGuard } from './platform.guard.js';
 import { PricingAdminController, SubscriptionController } from './pricing.controller.js';
 import { PricingService } from './pricing.service.js';
+import { UsageController } from './usage.controller.js';
+import { UsageService } from './usage.service.js';
 import { BillingAdminController, WalletController } from './wallets.controller.js';
 import { WalletsService } from './wallets.service.js';
 
@@ -35,6 +37,7 @@ import { WalletsService } from './wallets.service.js';
     InvoicesController,
     InvoicesAdminController,
     BillingProfileController,
+    UsageController,
   ],
   providers: [
     WalletsService,
@@ -42,6 +45,7 @@ import { WalletsService } from './wallets.service.js';
     GiftCodesService,
     PricingService,
     InvoicesService,
+    UsageService,
     OrgGuard,
     PlatformGuard,
   ],

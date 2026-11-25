@@ -198,6 +198,138 @@ describe('portal', () => {
   });
 });
 
+describe('usage and invoices (card 26.2)', () => {
+  const signedIn = {
+    'POST /auth/refresh': () => ({ status: 200, body: { accessToken: 'token' } }),
+    'GET /auth/me': () => ({
+      status: 200,
+      body: {
+        id: 'u',
+        email: 'dev@example.com',
+        name: 'Dev',
+        organizations: [{ id: 'org1', name: 'W', role: 'OWNER' }],
+      },
+    }),
+  };
+  const bucket = (requests: number, cost: string) => ({
+    requests,
+    inputTokens: requests * 1000,
+    outputTokens: requests * 100,
+    costUsd: cost,
+  });
+
+  it('shows cost and tokens by day, model and key and the latest requests', async () => {
+    const calls = mockApi({
+      ...signedIn,
+      'GET /orgs/org1/usage': () => ({
+        status: 200,
+        body: {
+          from: '2026-10-26',
+          to: '2026-11-25',
+          basis: 'prepaid',
+          totals: bucket(3, '4.37500000'),
+          byDay: [
+            { day: '2026-11-23', ...bucket(1, '3.12500000') },
+            { day: '2026-11-24', ...bucket(2, '1.25000000') },
+          ],
+          byModel: [
+            { model: 'shop/smart', ...bucket(1, '3.12500000') },
+            { model: 'shop/fast', ...bucket(2, '1.25000000') },
+          ],
+          byKey: [{ apiKeyId: 'k1', name: 'ci key', prefix: 'p', ...bucket(3, '4.37500000') }],
+          recent: [
+            {
+              requestId: 'req_1',
+              createdAt: '2026-11-24T10:00:00Z',
+              model: 'shop/fast',
+              keyName: 'ci key',
+              inputTokens: 1500,
+              outputTokens: 300,
+              costUsd: '0.75000000',
+            },
+          ],
+        },
+      }),
+    });
+    navigate('/app/usage', true);
+    renderApp();
+    expect((await screen.findAllByText('$4.375')).length).toBeGreaterThan(0);
+    expect(screen.getByText(/match your statement/)).toBeTruthy();
+    expect(screen.getAllByText('shop/smart').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('ci key').length).toBe(2);
+    expect(screen.getByText('$0.75')).toBeTruthy();
+    expect(screen.getAllByText('3,000').length).toBeGreaterThan(0);
+    // Only the signed-in workspace's data is ever asked for.
+    const orgCalls = calls.filter((c) => c.includes('/orgs/'));
+    expect(orgCalls.length).toBeGreaterThan(0);
+    expect(orgCalls.every((c) => c.includes('/orgs/org1/'))).toBe(true);
+    fireEvent.click(screen.getByRole('button', { name: '7 days' }));
+    await waitFor(() => {
+      expect(calls.filter((c) => c === 'GET /orgs/org1/usage').length).toBe(2);
+    });
+  });
+
+  it('lists invoices with their VAT and downloads the PDF with the session token', async () => {
+    const created = vi.fn(() => 'blob:invoice');
+    URL.createObjectURL = created;
+    URL.revokeObjectURL = vi.fn();
+    const click = vi
+      .spyOn(HTMLAnchorElement.prototype, 'click')
+      .mockImplementation(() => undefined);
+    let auth: string | null = null;
+    const calls = mockApi({
+      ...signedIn,
+      'GET /orgs/org1/invoices': () => ({
+        status: 200,
+        body: [
+          {
+            id: 'inv1',
+            number: 'INV-2026-000007',
+            period: '2026-10',
+            basis: 'prepaid',
+            closingUsd: '17.62500000',
+            grossUsd: '6.37500000',
+            netUsd: '5.79545455',
+            vatUsd: '0.57954545',
+            vatPercent: '10.00',
+            createdAt: '2026-11-01T02:30:00Z',
+          },
+        ],
+      }),
+      'GET /orgs/org1/invoices/preview': () => ({
+        status: 200,
+        body: {
+          period: '2026-11',
+          basis: 'prepaid',
+          totals: { usage: '-1.5' },
+          closingUsd: '16.1',
+        },
+      }),
+      'GET /orgs/org1/billing-profile': () => ({ status: 200, body: {} }),
+      'GET /orgs/org1/invoices/inv1/pdf': (init) => {
+        auth = new Headers(init?.headers).get('authorization');
+        return { status: 200, body: '%PDF-' };
+      },
+    });
+    navigate('/app/invoices', true);
+    renderApp();
+    expect(await screen.findByText('INV-2026-000007')).toBeTruthy();
+    expect(screen.getByText('$0.57954545')).toBeTruthy();
+    expect(screen.getByText('$6.375')).toBeTruthy();
+    expect(screen.getByText('$1.50')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Download PDF' }));
+    await waitFor(() => {
+      expect(click).toHaveBeenCalled();
+    });
+    expect(auth).toBe('Bearer token');
+    expect(created).toHaveBeenCalledTimes(1);
+    expect(calls.filter((c) => c.includes('/orgs/')).every((c) => c.includes('/orgs/org1/'))).toBe(
+      true,
+    );
+    click.mockRestore();
+  });
+});
+
 describe('money format', () => {
   it('keeps the precision an amount needs', () => {
     expect(usd('2.50000000')).toBe('$2.50');
