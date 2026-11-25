@@ -6,16 +6,16 @@ Code: `packages/db` (Prisma 6, PostgreSQL 17) · cards 3.1 and 3.2
 
 ## Models
 
-| Domain              | Model (table)                                                                                                                               | Note                                                              |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| Identity and access | `Organization` (organizations), `User` (users), `Membership` (memberships, role), `Invitation`, `RefreshToken`                              | soft-delete for organization and user                             |
-| Structure           | `Team` (teams), `Project` (projects)                                                                                                        | a project is optionally under a team (SetNull)                    |
-| Virtual key         | `ApiKey` (api_keys): prefix, hash, allowedModels, ipAllowlist, expiresAt, status                                                            | `rotatedTo` for key rotation                                      |
-| Provider            | `Provider` (providers): type, baseUrl, proxyUrl, timeouts; `Credential` (credentials): secretEnc, keyVersion, weight, status, cooldownUntil | the secret is always encrypted (AES-256-GCM, AAD = credential ID) |
-| Catalog             | `Model` (models): contextWindow and prices; `ModelAlias`; `Combo` and `ComboTarget` (order, weight)                                         | prices are `Decimal(18,8)`                                        |
-| Limits              | `Budget`, `RateLimitPolicy`                                                                                                                 | at the key, project, or team level                                |
-| Usage               | `RequestLog` (request_log, monthly partition), `UsageLedger`, `UsageHourly`, `UsageDaily`                                                   | no FK on request_log (high volume and partitioning)               |
-| Config and audit    | `ConfigVersion` (config_versions), `AuditLog` (audit_logs)                                                                                  | versioned snapshot of the gateway                                 |
+| Domain              | Model (table)                                                                                                                                                        | Note                                                              |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| Identity and access | `Organization` (organizations), `User` (users), `Membership` (memberships, role), `Invitation`, `RefreshToken`, `EmailVerification` (email_verifications, card 23.4) | soft-delete for organization and user                             |
+| Structure           | `Team` (teams), `Project` (projects)                                                                                                                                 | a project is optionally under a team (SetNull)                    |
+| Virtual key         | `ApiKey` (api_keys): prefix, hash, allowedModels, ipAllowlist, expiresAt, status                                                                                     | `rotatedTo` for key rotation                                      |
+| Provider            | `Provider` (providers): type, baseUrl, proxyUrl, timeouts; `Credential` (credentials): secretEnc, keyVersion, weight, status, cooldownUntil                          | the secret is always encrypted (AES-256-GCM, AAD = credential ID) |
+| Catalog             | `Model` (models): contextWindow and prices; `ModelAlias`; `Combo` and `ComboTarget` (order, weight)                                                                  | prices are `Decimal(18,8)`                                        |
+| Limits              | `Budget`, `RateLimitPolicy`                                                                                                                                          | at the key, project, or team level                                |
+| Usage               | `RequestLog` (request_log, monthly partition), `UsageLedger`, `UsageHourly`, `UsageDaily`                                                                            | no FK on request_log (high volume and partitioning)               |
+| Config and audit    | `ConfigVersion` (config_versions), `AuditLog` (audit_logs)                                                                                                           | versioned snapshot of the gateway                                 |
 
 ## ER diagram
 
@@ -38,6 +38,7 @@ erDiagram
     string passwordHash
     bool isActive
     datetime lastLoginAt
+    datetime emailVerifiedAt
     datetime createdAt
     datetime updatedAt
     datetime deletedAt
@@ -47,6 +48,14 @@ erDiagram
     string userId FK
     string organizationId FK
     enum role
+    datetime createdAt
+  }
+  EmailVerification {
+    string id PK
+    string userId FK
+    string tokenHash UK
+    datetime expiresAt
+    datetime usedAt
     datetime createdAt
   }
   Invitation {
@@ -318,6 +327,7 @@ erDiagram
   Organization ||--o{ Invitation : "organization (Cascade)"
   User ||--o{ Invitation : "invitedBy (Cascade)"
   User ||--o{ RefreshToken : "user (Cascade)"
+  User ||--o{ EmailVerification : "user (Cascade)"
   Organization ||--o{ Team : "organization (Cascade)"
   Organization ||--o{ Project : "organization (Cascade)"
   Team |o--o{ Project : "team (SetNull)"

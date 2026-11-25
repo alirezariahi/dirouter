@@ -85,6 +85,9 @@ model User {
   passwordHash String    @map("password_hash")
   isActive     Boolean   @default(true) @map("is_active")
   lastLoginAt  DateTime? @map("last_login_at") @db.Timestamptz(3)
+  /// Null until the address is proven (card 23.4): only portal password sign-ups start unverified;
+  /// every other way an account is created (setup, invitation, SSO, SCIM, seed) counts as verified.
+  emailVerifiedAt DateTime? @default(now()) @map("email_verified_at") @db.Timestamptz(3)
   createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
   deletedAt    DateTime? @map("deleted_at") @db.Timestamptz(3)
@@ -99,8 +102,24 @@ model User {
   invitations   Invitation[]   @relation("InvitedBy")
   apiKeys       ApiKey[]       @relation("CreatedBy")
   auditLogs     AuditLog[]
+  emailVerifications EmailVerification[]
 
   @@map("users")
+}
+
+/// One-time email verification link of a portal sign-up (card 23.4); only the token's hash is stored.
+model EmailVerification {
+  id        String    @id
+  userId    String    @map("user_id")
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(3)
+  usedAt    DateTime? @map("used_at") @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("email_verifications")
 }
 
 enum Role {

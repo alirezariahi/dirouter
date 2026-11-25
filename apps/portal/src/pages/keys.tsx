@@ -17,7 +17,8 @@ interface Key {
   lastUsedAt: string | null;
 }
 
-export function KeysPage() {
+/** `verified` false: the API refuses new keys until the email is verified (card 23.4). */
+export function KeysPage({ verified = true }: { verified?: boolean }) {
   const { t, lang } = useI18n();
   const client = useQueryClient();
   const org = orgId();
@@ -67,10 +68,11 @@ export function KeysPage() {
               maxLength={100}
             />
           </div>
-          <Button type="submit" disabled={create.isPending}>
+          <Button type="submit" disabled={create.isPending || !verified}>
             {t.createKey}
           </Button>
         </form>
+        {!verified && <Notice>{t.verifyBeforeKeys}</Notice>}
         {create.error && <Notice tone="error">{create.error.message}</Notice>}
         {fresh && (
           <div className="mt-4 space-y-2">

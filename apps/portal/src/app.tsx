@@ -10,6 +10,7 @@ import { BillingPage } from './pages/billing';
 import { HomePage } from './pages/home';
 import { KeysPage } from './pages/keys';
 import { MarketPage } from './pages/market';
+import { VerifyEmailPage, VerifyNotice } from './pages/verify';
 
 export function App() {
   const { t, toggle } = useI18n();
@@ -44,14 +45,21 @@ export function App() {
   if (path === '/signin') page = <AuthPage mode="signin" onSignedIn={signedIn} />;
   else if (path === '/signup') page = <AuthPage mode="signup" onSignedIn={signedIn} />;
   else if (path === '/oauth/callback') page = <OAuthCallbackPage onSignedIn={signedIn} />;
+  else if (path === '/verify-email')
+    page = !ready ? null : <VerifyEmailPage onVerified={signedIn} />;
   else if (path.startsWith('/app'))
     page =
-      !ready || !user ? null : path === '/app/keys' ? (
-        <KeysPage />
-      ) : path === '/app/billing' ? (
-        <BillingPage />
-      ) : (
-        <HomePage />
+      !ready || !user ? null : (
+        <>
+          <VerifyNotice />
+          {path === '/app/keys' ? (
+            <KeysPage verified={user.emailVerified} />
+          ) : path === '/app/billing' ? (
+            <BillingPage />
+          ) : (
+            <HomePage />
+          )}
+        </>
       );
   else page = <MarketPage signedIn={Boolean(user)} />;
 

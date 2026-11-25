@@ -1,9 +1,21 @@
-import { Body, Controller, Get, HttpCode, Inject, Post, Query, Req, Res } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  Inject,
+  Post,
+  Query,
+  Req,
+  Res,
+  UseGuards,
+} from '@nestjs/common';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 
-import { REFRESH_TTL_SECONDS } from '../auth/crypto.js';
+import { AccessGuard, CurrentUser } from '../auth/auth.guard.js';
+import { type AccessClaims, REFRESH_TTL_SECONDS } from '../auth/crypto.js';
 import { Email, Password, REFRESH_COOKIE } from '../auth/auth.controller.js';
 import type { Session } from '../auth/auth.service.js';
 import { API_PREFIX } from '../bootstrap.js';
@@ -29,6 +41,12 @@ const SessionResponse = z.object({
   expiresIn: z.int(),
   user: z.object({ id: z.string(), email: z.string(), name: z.string() }),
 });
+/** A password sign-up starts unverified and is told whether the link went out (card 23.4). */
+const SignupResponse = SessionResponse.extend({
+  emailVerified: z.boolean(),
+  verificationEmailSent: z.boolean(),
+});
+export const VerifyBody = z.object({ token: z.string().min(16).max(256) });
 
 const client = (req: FastifyRequest) => ({
   ip: req.ip,
@@ -74,13 +92,37 @@ export class PortalController {
 
   @Post('signup')
   @ApiZodBody(SignupBody)
-  @ApiZodOk(SessionResponse)
+  @ApiZodOk(SignupResponse)
   async signup(
     @Body(new ZodPipe(SignupBody)) body: z.infer<typeof SignupBody>,
     @Req() req: FastifyRequest,
     @Res({ passthrough: true }) reply: FastifyReply,
   ) {
-    return this.#session(reply, await this.portal.signup(body, client(req)));
+    const session = await this.portal.signup(body, client(req));
+    return {
+      ...this.#session(reply, session),
+      emailVerified: session.emailVerified,
+      verificationEmailSent: session.verificationEmailSent,
+    };
+  }
+
+  /** Opens the one-time link from the verification email; no session needed. */
+  @Post('verify-email')
+  @HttpCode(200)
+  @ApiZodBody(VerifyBody)
+  @ApiZodOk(z.object({ verified: z.literal(true), email: z.string() }))
+  verifyEmail(@Body(new ZodPipe(VerifyBody)) body: z.infer<typeof VerifyBody>) {
+    return this.portal.verifyEmail(body.token);
+  }
+
+  /** Sends a new verification link to the signed-in user (rate limited). */
+  @Post('verify-email/resend')
+  @HttpCode(200)
+  @UseGuards(AccessGuard)
+  @ApiBearerAuth()
+  @ApiZodOk(z.object({ sent: z.boolean() }))
+  resendVerification(@CurrentUser() user: AccessClaims) {
+    return this.portal.resendVerification(user.sub);
   }
 
   @Post('oidc/start')

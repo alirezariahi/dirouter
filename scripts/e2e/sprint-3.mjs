@@ -512,6 +512,26 @@ try {
       cleanups.push(() => sql(`UPDATE organizations SET deleted_at = now() WHERE id = '${org}'`));
       const wallet = async () =>
         Number((await user('GET', `orgs/${org}/wallet`)).body.wallet.balanceUsd);
+      // Since card 23.4 the welcome credit and keys wait for the emailed link (Mailpit in dev).
+      assert.equal(await wallet(), 0);
+      const mail = process.env.E2E_MAIL_URL ?? 'http://mail.localhost';
+      const link = await waitFor('the verification email', async () => {
+        const found = (
+          await request(`${mail}/api/v1/search?query=${encodeURIComponent(`to:"${email}"`)}`)
+        ).body.messages?.[0];
+        if (!found) return undefined;
+        const text = (await request(`${mail}/api/v1/message/${found.ID}`, {}, 200)).body.Text;
+        return /verify-email\?token=([A-Za-z0-9_-]+)/.exec(text)?.[1];
+      });
+      await request(
+        `${urls.admin}/api/v1/portal/verify-email`,
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', origin: portal },
+          body: JSON.stringify({ token: link }),
+        },
+        200,
+      );
       assert.equal(await wallet(), 1);
       const project = (await user('GET', `orgs/${org}/projects`)).body.find(
         (p) => p.slug === 'default',

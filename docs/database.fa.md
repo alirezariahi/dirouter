@@ -8,16 +8,16 @@
 
 ## مدل‌ها
 
-| دامنه            | مدل (جدول)                                                                                                                                  | نکته                                                       |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| هویت و دسترسی    | `Organization` (organizations)، `User` (users)، `Membership` (memberships، نقش)، `Invitation`، `RefreshToken`                               | soft-delete برای سازمان و کاربر                            |
-| ساختار           | `Team` (teams)، `Project` (projects)                                                                                                        | پروژه اختیاراً زیر تیم است (SetNull)                       |
-| کلید مجازی       | `ApiKey` (api_keys): prefix، hash، allowedModels، ipAllowlist، expiresAt، status                                                            | `rotatedTo` برای چرخش کلید                                 |
-| provider         | `Provider` (providers): type، baseUrl، proxyUrl، timeouts؛ `Credential` (credentials): secretEnc، keyVersion، weight، status، cooldownUntil | secret همیشه رمزشده (AES-256-GCM، AAD = شناسهٔ credential) |
-| کاتالوگ          | `Model` (models): contextWindow و قیمت‌ها؛ `ModelAlias`؛ `Combo` و `ComboTarget` (order، weight)                                            | قیمت‌ها `Decimal(18,8)`                                    |
-| محدودیت          | `Budget`، `RateLimitPolicy`                                                                                                                 | سطح کلید، پروژه یا تیم                                     |
-| مصرف             | `RequestLog` (request_log، پارتیشن ماهانه)، `UsageLedger`، `UsageHourly`، `UsageDaily`                                                      | بدون FK روی request_log (حجم بالا و پارتیشن)               |
-| پیکربندی و ممیزی | `ConfigVersion` (config_versions)، `AuditLog` (audit_logs)                                                                                  | snapshot نسخه‌دار گیت‌وی                                   |
+| دامنه            | مدل (جدول)                                                                                                                                                          | نکته                                                       |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| هویت و دسترسی    | `Organization` (organizations)، `User` (users)، `Membership` (memberships، نقش)، `Invitation`، `RefreshToken`، `EmailVerification` (email_verifications، کارت ۲۳.۴) | soft-delete برای سازمان و کاربر                            |
+| ساختار           | `Team` (teams)، `Project` (projects)                                                                                                                                | پروژه اختیاراً زیر تیم است (SetNull)                       |
+| کلید مجازی       | `ApiKey` (api_keys): prefix، hash، allowedModels، ipAllowlist، expiresAt، status                                                                                    | `rotatedTo` برای چرخش کلید                                 |
+| provider         | `Provider` (providers): type، baseUrl، proxyUrl، timeouts؛ `Credential` (credentials): secretEnc، keyVersion، weight، status، cooldownUntil                         | secret همیشه رمزشده (AES-256-GCM، AAD = شناسهٔ credential) |
+| کاتالوگ          | `Model` (models): contextWindow و قیمت‌ها؛ `ModelAlias`؛ `Combo` و `ComboTarget` (order، weight)                                                                    | قیمت‌ها `Decimal(18,8)`                                    |
+| محدودیت          | `Budget`، `RateLimitPolicy`                                                                                                                                         | سطح کلید، پروژه یا تیم                                     |
+| مصرف             | `RequestLog` (request_log، پارتیشن ماهانه)، `UsageLedger`، `UsageHourly`، `UsageDaily`                                                                              | بدون FK روی request_log (حجم بالا و پارتیشن)               |
+| پیکربندی و ممیزی | `ConfigVersion` (config_versions)، `AuditLog` (audit_logs)                                                                                                          | snapshot نسخه‌دار گیت‌وی                                   |
 
 ## نمودار ER
 
@@ -40,6 +40,7 @@ erDiagram
     string passwordHash
     bool isActive
     datetime lastLoginAt
+    datetime emailVerifiedAt
     datetime createdAt
     datetime updatedAt
     datetime deletedAt
@@ -49,6 +50,14 @@ erDiagram
     string userId FK
     string organizationId FK
     enum role
+    datetime createdAt
+  }
+  EmailVerification {
+    string id PK
+    string userId FK
+    string tokenHash UK
+    datetime expiresAt
+    datetime usedAt
     datetime createdAt
   }
   Invitation {
@@ -320,6 +329,7 @@ erDiagram
   Organization ||--o{ Invitation : "organization (Cascade)"
   User ||--o{ Invitation : "invitedBy (Cascade)"
   User ||--o{ RefreshToken : "user (Cascade)"
+  User ||--o{ EmailVerification : "user (Cascade)"
   Organization ||--o{ Team : "organization (Cascade)"
   Organization ||--o{ Project : "organization (Cascade)"
   Team |o--o{ Project : "team (SetNull)"

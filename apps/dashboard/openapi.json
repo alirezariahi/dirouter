@@ -440,6 +440,9 @@
                     "name": {
                       "type": "string"
                     },
+                    "emailVerified": {
+                      "type": "boolean"
+                    },
                     "organizations": {
                       "type": "array",
                       "items": {
@@ -488,6 +491,7 @@
                     "id",
                     "email",
                     "name",
+                    "emailVerified",
                     "organizations"
                   ]
                 }
@@ -13116,18 +13120,116 @@
                         "email",
                         "name"
                       ]
+                    },
+                    "emailVerified": {
+                      "type": "boolean"
+                    },
+                    "verificationEmailSent": {
+                      "type": "boolean"
                     }
                   },
                   "required": [
                     "accessToken",
                     "expiresIn",
-                    "user"
+                    "user",
+                    "emailVerified",
+                    "verificationEmailSent"
                   ]
                 }
               }
             }
           }
         },
+        "tags": [
+          "portal"
+        ]
+      }
+    },
+    "/api/v1/portal/verify-email": {
+      "post": {
+        "operationId": "PortalController_verifyEmail",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "token": {
+                    "type": "string",
+                    "minLength": 16,
+                    "maxLength": 256
+                  }
+                },
+                "required": [
+                  "token"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "verified": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "email": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "verified",
+                    "email"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "portal"
+        ]
+      }
+    },
+    "/api/v1/portal/verify-email/resend": {
+      "post": {
+        "operationId": "PortalController_resendVerification",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "sent": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "sent"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
         "tags": [
           "portal"
         ]

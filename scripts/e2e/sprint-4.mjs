@@ -1500,6 +1500,140 @@ try {
       await usageQueueJobs('remove', tag, 50);
     },
   );
+
+  await scenario(
+    '23.4 portal sign-up: no keys or welcome credit until the emailed link is opened; used and expired links are refused',
+    async () => {
+      const portal = 'http://portal.localhost';
+      const tag = randomUUID().slice(0, 8);
+      // The operator (org_dev is the platform organization in dev) opens sign-up with a credit.
+      const original = (await org('GET', 'billing/settings')).body;
+      const restoreSettings = {
+        exchangeRates: original.exchangeRates,
+        topup: original.topup,
+        providers: original.providers,
+        portal: original.portal,
+      };
+      cleanups.push(() => org('PUT', 'billing/settings', restoreSettings));
+      await org('PUT', 'billing/settings', {
+        ...restoreSettings,
+        portal: { signupEnabled: true, welcomeCreditUsd: '1' },
+      });
+      await valkey(
+        'EVAL',
+        "for _, k in ipairs(redis.call('KEYS', 'portal:signups:*')) do redis.call('DEL', k) end",
+        '0',
+      );
+      const config = (await request(`${urls.admin}/api/v1/portal/config`, {}, 200)).body;
+      assert.equal(config.passwordSignup, true, 'dev has SMTP (Mailpit), so email sign-up is on');
+
+      const signUp = async (email) => {
+        const res = await request(
+          `${urls.admin}/api/v1/portal/signup`,
+          {
+            method: 'POST',
+            headers: { 'content-type': 'application/json', origin: portal },
+            body: JSON.stringify({ name: 'Verify Me', email, password: 'portal-e2e-password' }),
+          },
+          201,
+        );
+        const user = adminClient(res.body.accessToken);
+        const me = (await user('GET', 'auth/me')).body;
+        const id = me.organizations[0].id;
+        cleanups.push(() => sql(`UPDATE organizations SET deleted_at = now() WHERE id = '${id}'`));
+        const project = (await user('GET', `orgs/${id}/projects`)).body.find(
+          (p) => p.slug === 'default',
+        );
+        return {
+          res,
+          user,
+          me,
+          userId: me.id,
+          wallet: async () =>
+            Number((await user('GET', `orgs/${id}/wallet`)).body.wallet.balanceUsd),
+          createKey: (expected) =>
+            user('POST', `orgs/${id}/keys`, { name: 'first', projectId: project.id }, expected),
+        };
+      };
+      /** The newest verification link mailed to `email` (Mailpit), as its token. */
+      const linkFor = async (email, notToken) => {
+        let token;
+        await mailTo(email, (m) => m.Subject === 'Confirm your email address for DiRouter');
+        await waitFor(`a new verification link for ${email}`, async () => {
+          const { body } = await request(
+            `${MAIL_URL}/api/v1/search?query=${encodeURIComponent(`to:"${email}"`)}`,
+            {},
+            200,
+          );
+          // Mailpit lists newest first.
+          const full = (await request(`${MAIL_URL}/api/v1/message/${body.messages[0].ID}`, {}, 200))
+            .body;
+          assert.ok(full.Text.includes(`${portal}/verify-email?token=`), full.Text);
+          token = /verify-email\?token=([A-Za-z0-9_-]+)/.exec(full.Text)?.[1];
+          return token && token !== notToken ? token : undefined;
+        });
+        return token;
+      };
+      const verify = (token, expected) =>
+        request(
+          `${urls.admin}/api/v1/portal/verify-email`,
+          {
+            method: 'POST',
+            headers: { 'content-type': 'application/json', origin: portal },
+            body: JSON.stringify({ token }),
+          },
+          expected,
+        );
+
+      // 1. Unverified: a workspace, but no key and no welcome credit.
+      const email = `s4-verify-${tag}@e2e.test`;
+      const fresh = await signUp(email);
+      assert.equal(fresh.res.body.emailVerified, false);
+      assert.equal(fresh.res.body.verificationEmailSent, true);
+      assert.equal(fresh.me.emailVerified, false);
+      assert.equal(await fresh.wallet(), 0);
+      const refused = await fresh.createKey(403);
+      assert.equal(refused.body.code, 'email_not_verified');
+
+      // 2. The link arrives at the dev mail server, opens the portal page, and works once.
+      const token = await linkFor(email);
+      const page = await request(`${portal}/verify-email?token=${token}`, {}, 200);
+      assert.match(page.text, /<div id="root"><\/div>/);
+      assert.deepEqual((await verify(token, 200)).body, { verified: true, email });
+      assert.equal((await fresh.user('GET', 'auth/me')).body.emailVerified, true);
+      assert.equal(await fresh.wallet(), 1);
+      await published(() => fresh.createKey(201));
+      const reused = await verify(token, 400);
+      assert.equal(reused.body.code, 'verification_link_invalid');
+      assert.match(reused.body.detail, /already been used/);
+      assert.equal(await fresh.wallet(), 1, 'the welcome credit is granted once');
+
+      // 3. Resend is rate limited; an expired link is refused.
+      const late = await signUp(`s4-late-${tag}@e2e.test`);
+      const firstLink = await linkFor(`s4-late-${tag}@e2e.test`);
+      assert.deepEqual((await late.user('POST', 'portal/verify-email/resend')).body, {
+        sent: true,
+      });
+      assert.equal(
+        (await late.user('POST', 'portal/verify-email/resend', undefined, 429)).response.status,
+        429,
+      );
+      const secondLink = await linkFor(`s4-late-${tag}@e2e.test`, firstLink);
+      assert.match(
+        (await verify(firstLink, 400)).body.detail,
+        /expired/,
+        'a resend replaces the old link',
+      );
+      await sql(
+        `UPDATE email_verifications SET expires_at = now() - interval '1 minute' WHERE user_id = '${late.userId}'`,
+      );
+      assert.match((await verify(secondLink, 400)).body.detail, /expired/);
+      await late.createKey(403);
+      assert.equal(await late.wallet(), 0);
+      // OIDC sign-in with email_verified needs no link: the dev stack has no OIDC provider, so that
+      // path is covered by portal.integration.test.ts against an in-process provider.
+    },
+  );
 } catch (error) {
   crashed = true;
   console.error(error);

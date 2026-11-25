@@ -64,6 +64,19 @@ export const fa = {
   copied: 'کپی شد',
   language: 'English',
   error: 'خطا',
+  welcomeAfterVerify: 'پس از تأیید ایمیل',
+  passwordSignupOff: 'ثبت‌نام با ایمیل فعلاً ممکن نیست؛ از ورود با حساب خارجی استفاده کنید.',
+  verifyTitle: 'تأیید ایمیل',
+  verifyDone: 'ایمیل شما تأیید شد؛ حالا می‌توانید کلید بسازید و اعتبار هدیه به حسابتان اضافه شد.',
+  verifyInvalid: 'لینک تأیید معتبر نیست.',
+  verifyAgainHint: 'وارد حساب شوید و از صفحهٔ خانه لینک تازه بخواهید.',
+  verifyPending: 'ایمیل شما هنوز تأیید نشده است.',
+  verifyPendingHint:
+    'لینکی را که به ایمیلتان فرستادیم باز کنید. تا آن وقت ساخت کلید ممکن نیست و اعتبار هدیه اضافه نمی‌شود.',
+  verifyResend: 'ارسال دوبارهٔ لینک',
+  verifyResent: 'لینک تازه فرستاده شد.',
+  verifySendFailed: 'ارسال ایمیل ناموفق بود؛ کمی بعد دوباره امتحان کنید.',
+  verifyBeforeKeys: 'برای ساخت کلید، اول ایمیلتان را تأیید کنید.',
 };
 export type Dictionary = typeof fa;
 
@@ -130,6 +143,19 @@ export const en: Dictionary = {
   copied: 'Copied',
   language: 'فارسی',
   error: 'Error',
+  welcomeAfterVerify: 'after you verify your email',
+  passwordSignupOff: 'Email sign-up is not available right now; continue with an external account.',
+  verifyTitle: 'Email verification',
+  verifyDone: 'Your email is verified: you can create keys now, and the welcome credit was added.',
+  verifyInvalid: 'This verification link is not valid.',
+  verifyAgainHint: 'Sign in and ask for a new link from the home page.',
+  verifyPending: 'Your email address is not verified yet.',
+  verifyPendingHint:
+    'Open the link we emailed you. Until then you cannot create keys and the welcome credit is not added.',
+  verifyResend: 'Send the link again',
+  verifyResent: 'A new link is on its way.',
+  verifySendFailed: 'The email could not be sent; try again in a while.',
+  verifyBeforeKeys: 'Verify your email address before creating keys.',
 };
 
 export type Lang = 'fa' | 'en';

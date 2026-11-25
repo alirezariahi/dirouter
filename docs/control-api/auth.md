@@ -14,7 +14,7 @@ Code: `apps/control-api/src/auth` · tests: `auth.unit.test.ts` and `auth.integr
 | `POST /refresh`             | with the cookie: rotates the token and returns a fresh access token                                                                                                                        |
 | `POST /logout`              | revokes the session family and clears the cookie (204)                                                                                                                                     |
 | `POST /password`            | with Bearer: `{currentPassword, newPassword}`; all of the user's refresh tokens are revoked (204)                                                                                          |
-| `GET /me`                   | with Bearer: the user and their organizations with roles                                                                                                                                   |
+| `GET /me`                   | with Bearer: the user (with `emailVerified`) and their organizations with roles                                                                                                            |
 | `GET /sessions`             | with Bearer: the user's active sessions (see [Sessions](#sessions))                                                                                                                        |
 | `DELETE /sessions/{id}`     | with Bearer: ends one of the user's sessions (204; 404 when it is not theirs or already over)                                                                                              |
 | `POST /sessions/revoke-all` | with Bearer: `{includeCurrent?: false}`; signs out every other session, or every session including this one                                                                                |
@@ -192,6 +192,29 @@ optional allow-list, see the token once, and revoke tokens.
 
 - In one transaction with `pg_advisory_xact_lock`: count the users, create the organization (slug from the name; for a Persian name, `org-xxxxxxxx`), the user and the OWNER membership, and record `setup.completed` in the audit log.
 - Two simultaneous requests: exactly one gets 201 and the other gets 409 (integration test).
+
+## Portal sign-up and email verification (card 23.4)
+
+Code: `apps/control-api/src/portal` · tests: `portal.integration.test.ts` (against a real SMTP listener)
+
+A password sign-up in the self-service portal (`POST /api/v1/portal/signup`) creates the user, a prepaid workspace and its default project, and signs the user in, but the address is **not verified** yet:
+
+- `GET /auth/me` returns `emailVerified: false`;
+- creating an API key in any organization is refused with **403 `email_not_verified`**;
+- the welcome credit (`portal.welcomeCreditUsd`) is not granted.
+
+The sign-up emails a one-time link, `<PUBLIC_PORTAL_URL>/verify-email?token=…`, over SMTP (`SMTP_URL`, see [alerts](../alerts.md#channels)). The token is 32 random bytes; only its SHA-256 is stored, in `email_verifications`, with a 24-hour expiry. The response says `emailVerified: false` and whether the email went out (`verificationEmailSent`).
+
+| route                              | description                                                                                                                                                                                             |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /portal/verify-email`        | `{token}`, no session needed: marks the address verified and grants the welcome credit once (idempotency key `welcome:<org>`). The link is claimed with a conditional update, so it works exactly once. |
+| `POST /portal/verify-email/resend` | with Bearer: a new link; older unused links stop working. One per minute and three per hour per user (**429** beyond that); **409** when the address is already verified.                               |
+
+An unknown, used or expired link is refused with **400 `verification_link_invalid`**, and the `detail` says which. Without `SMTP_URL` the link could never arrive, so password sign-up is refused (403) and `GET /portal/config` reports `passwordSignup: false`; OIDC sign-up still works.
+
+**OIDC**: the portal's OIDC sign-in only accepts an ID token with `email_verified: true`, so an account it creates is verified at once (credit and keys immediately, no email). If a password sign-up that never opened its link later signs in through OIDC with the same verified address, the account becomes verified then.
+
+Every other way an account is created (setup wizard, invitation, SSO, SCIM, seed) counts as verified: the column defaults to the creation time, and the migration marks existing accounts verified. The portal shows a notice with a **Send the link again** button until the address is verified.
 
 ## Check in compose (2026-11-07, through Traefik at `https://admin.localhost`)
 

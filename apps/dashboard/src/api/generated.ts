@@ -193,6 +193,7 @@ export type AuthControllerMe200 = {
   id: string;
   email: string;
   name: string;
+  emailVerified: boolean;
   organizations: AuthControllerMe200OrganizationsItem[];
 };
 
@@ -4461,6 +4462,25 @@ export type PortalControllerSignup200 = {
      */
   expiresIn: number;
   user: PortalControllerSignup200User;
+  emailVerified: boolean;
+  verificationEmailSent: boolean;
+};
+
+export type PortalControllerVerifyEmailBody = {
+  /**
+     * @minLength 16
+     * @maxLength 256
+     */
+  token: string;
+};
+
+export type PortalControllerVerifyEmail200 = {
+  verified: true;
+  email: string;
+};
+
+export type PortalControllerResendVerification200 = {
+  sent: boolean;
 };
 
 export type PortalControllerOidcStart200 = {
@@ -21303,6 +21323,234 @@ export function usePortalControllerSignup<TData = Awaited<ReturnType<typeof port
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getPortalControllerSignupQueryOptions(portalControllerSignupBody,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export type portalControllerVerifyEmailResponse200 = {
+  data: PortalControllerVerifyEmail200
+  status: 200
+}
+
+export type portalControllerVerifyEmailResponseSuccess = (portalControllerVerifyEmailResponse200) & {
+  headers: Headers;
+};
+;
+
+export type portalControllerVerifyEmailResponse = (portalControllerVerifyEmailResponseSuccess)
+
+export const getPortalControllerVerifyEmailUrl = () => {
+
+
+
+
+  return `/api/v1/portal/verify-email`
+}
+
+export const portalControllerVerifyEmail = async (portalControllerVerifyEmailBody: PortalControllerVerifyEmailBody, options?: Parameters<typeof orvalFetch>[1]): Promise<portalControllerVerifyEmailResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return orvalFetch<portalControllerVerifyEmailResponse>(getPortalControllerVerifyEmailUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(portalControllerVerifyEmailBody)
+  }
+);}
+
+
+
+
+
+export const getPortalControllerVerifyEmailQueryKey = (portalControllerVerifyEmailBody?: PortalControllerVerifyEmailBody,) => {
+    return [
+    'POST', `/api/v1/portal/verify-email`, portalControllerVerifyEmailBody
+    ] as const;
+    }
+
+
+export const getPortalControllerVerifyEmailQueryOptions = <TData = Awaited<ReturnType<typeof portalControllerVerifyEmail>>, TError = unknown>(portalControllerVerifyEmailBody: PortalControllerVerifyEmailBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof portalControllerVerifyEmail>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getPortalControllerVerifyEmailQueryKey(portalControllerVerifyEmailBody);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof portalControllerVerifyEmail>>> = ({ signal }) => portalControllerVerifyEmail(portalControllerVerifyEmailBody, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof portalControllerVerifyEmail>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type PortalControllerVerifyEmailQueryResult = NonNullable<Awaited<ReturnType<typeof portalControllerVerifyEmail>>>
+export type PortalControllerVerifyEmailQueryError = unknown
+
+
+export function usePortalControllerVerifyEmail<TData = Awaited<ReturnType<typeof portalControllerVerifyEmail>>, TError = unknown>(
+ portalControllerVerifyEmailBody: PortalControllerVerifyEmailBody, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof portalControllerVerifyEmail>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof portalControllerVerifyEmail>>,
+          TError,
+          Awaited<ReturnType<typeof portalControllerVerifyEmail>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function usePortalControllerVerifyEmail<TData = Awaited<ReturnType<typeof portalControllerVerifyEmail>>, TError = unknown>(
+ portalControllerVerifyEmailBody: PortalControllerVerifyEmailBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof portalControllerVerifyEmail>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof portalControllerVerifyEmail>>,
+          TError,
+          Awaited<ReturnType<typeof portalControllerVerifyEmail>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function usePortalControllerVerifyEmail<TData = Awaited<ReturnType<typeof portalControllerVerifyEmail>>, TError = unknown>(
+ portalControllerVerifyEmailBody: PortalControllerVerifyEmailBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof portalControllerVerifyEmail>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function usePortalControllerVerifyEmail<TData = Awaited<ReturnType<typeof portalControllerVerifyEmail>>, TError = unknown>(
+ portalControllerVerifyEmailBody: PortalControllerVerifyEmailBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof portalControllerVerifyEmail>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getPortalControllerVerifyEmailQueryOptions(portalControllerVerifyEmailBody,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export type portalControllerResendVerificationResponse200 = {
+  data: PortalControllerResendVerification200
+  status: 200
+}
+
+export type portalControllerResendVerificationResponseSuccess = (portalControllerResendVerificationResponse200) & {
+  headers: Headers;
+};
+;
+
+export type portalControllerResendVerificationResponse = (portalControllerResendVerificationResponseSuccess)
+
+export const getPortalControllerResendVerificationUrl = () => {
+
+
+
+
+  return `/api/v1/portal/verify-email/resend`
+}
+
+export const portalControllerResendVerification = async ( options?: Parameters<typeof orvalFetch>[1]): Promise<portalControllerResendVerificationResponse> => {
+
+  return orvalFetch<portalControllerResendVerificationResponse>(getPortalControllerResendVerificationUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getPortalControllerResendVerificationQueryKey = () => {
+    return [
+    'POST', `/api/v1/portal/verify-email/resend`
+    ] as const;
+    }
+
+
+export const getPortalControllerResendVerificationQueryOptions = <TData = Awaited<ReturnType<typeof portalControllerResendVerification>>, TError = unknown>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof portalControllerResendVerification>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getPortalControllerResendVerificationQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof portalControllerResendVerification>>> = ({ signal }) => portalControllerResendVerification({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof portalControllerResendVerification>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type PortalControllerResendVerificationQueryResult = NonNullable<Awaited<ReturnType<typeof portalControllerResendVerification>>>
+export type PortalControllerResendVerificationQueryError = unknown
+
+
+export function usePortalControllerResendVerification<TData = Awaited<ReturnType<typeof portalControllerResendVerification>>, TError = unknown>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof portalControllerResendVerification>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof portalControllerResendVerification>>,
+          TError,
+          Awaited<ReturnType<typeof portalControllerResendVerification>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function usePortalControllerResendVerification<TData = Awaited<ReturnType<typeof portalControllerResendVerification>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof portalControllerResendVerification>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof portalControllerResendVerification>>,
+          TError,
+          Awaited<ReturnType<typeof portalControllerResendVerification>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function usePortalControllerResendVerification<TData = Awaited<ReturnType<typeof portalControllerResendVerification>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof portalControllerResendVerification>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function usePortalControllerResendVerification<TData = Awaited<ReturnType<typeof portalControllerResendVerification>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof portalControllerResendVerification>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getPortalControllerResendVerificationQueryOptions(options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 

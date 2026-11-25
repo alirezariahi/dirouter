@@ -310,6 +310,8 @@ export class AuthService {
       id: user.id,
       email: user.email,
       name: user.name,
+      // False only for a portal password sign-up that has not opened its link (card 23.4).
+      emailVerified: user.emailVerifiedAt !== null,
       organizations: user.memberships
         .filter((m) => onlyOrganizationId === undefined || m.organizationId === onlyOrganizationId)
         .map((m) => ({

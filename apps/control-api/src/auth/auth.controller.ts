@@ -63,6 +63,7 @@ const MeResponse = z.object({
   id: z.string(),
   email: z.string(),
   name: z.string(),
+  emailVerified: z.boolean(),
   organizations: z.array(
     z.object({
       id: z.string(),

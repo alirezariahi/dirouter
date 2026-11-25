@@ -133,6 +133,61 @@ describe('portal', () => {
     expect(calls).toContain('POST /portal/signup');
   });
 
+  it('an unverified account cannot create keys and can ask for a new link (23.4)', async () => {
+    const calls = mockApi({
+      'POST /auth/refresh': () => ({ status: 200, body: { accessToken: 'token' } }),
+      'GET /auth/me': () => ({
+        status: 200,
+        body: {
+          id: 'u',
+          email: 'dev@example.com',
+          name: 'Dev',
+          emailVerified: false,
+          organizations: [{ id: 'org1', name: 'W', role: 'OWNER' }],
+        },
+      }),
+      'GET /orgs/org1/keys': () => ({ status: 200, body: [] }),
+      'POST /portal/verify-email/resend': () => ({ status: 200, body: { sent: true } }),
+    });
+    navigate('/app/keys', true);
+    renderApp();
+    expect(await screen.findByText('Your email address is not verified yet.')).toBeTruthy();
+    expect(screen.getByText('Verify your email address before creating keys.')).toBeTruthy();
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Create key' }).disabled).toBe(
+      true,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Send the link again' }));
+    expect(await screen.findByText('A new link is on its way.')).toBeTruthy();
+    expect(calls).toContain('POST /portal/verify-email/resend');
+  });
+
+  it('opens the emailed link and reports a used one (23.4)', async () => {
+    let used = false;
+    mockApi({
+      'POST /auth/refresh': () => ({ status: 401 }),
+      'POST /portal/verify-email': (init) => {
+        const { token } = JSON.parse(init?.body as string) as { token: string };
+        if (token !== 'tok-123' || used)
+          return {
+            status: 400,
+            body: {
+              code: 'verification_link_invalid',
+              detail: 'This verification link has already been used',
+            },
+          };
+        used = true;
+        return { status: 200, body: { verified: true, email: 'dev@example.com' } };
+      },
+    });
+    navigate('/verify-email?token=tok-123', true);
+    renderApp();
+    expect(await screen.findByText(/Your email is verified/)).toBeTruthy();
+    cleanup();
+    navigate('/verify-email?token=tok-123', true);
+    renderApp();
+    expect(await screen.findByText('This verification link has already been used')).toBeTruthy();
+  });
+
   it('sends visitors of private pages to sign in', async () => {
     mockApi({ 'POST /auth/refresh': () => ({ status: 401 }) });
     navigate('/app/keys', true);

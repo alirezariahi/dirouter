@@ -12,6 +12,8 @@ import { Button, Card, Field, Notice } from '../lib/ui';
 
 interface PortalConfig {
   signupEnabled: boolean;
+  /** False when the server cannot send the verification email (no SMTP). */
+  passwordSignup?: boolean;
   oidc: { enabled: boolean; name?: string };
   welcomeCreditUsd: string;
 }
@@ -73,17 +75,21 @@ export function AuthPage({
   };
 
   const closed = mode === 'signup' && config.data && !config.data.signupEnabled;
+  const noPasswordSignup =
+    mode === 'signup' && config.data?.signupEnabled && config.data.passwordSignup === false;
   const welcome = config.data?.welcomeCreditUsd;
   return (
     <div className="mx-auto max-w-sm py-10">
       <Card title={mode === 'signup' ? t.signUp : t.signIn}>
         {closed ? (
           <Notice>{t.signupClosed}</Notice>
+        ) : noPasswordSignup ? (
+          <Notice>{t.passwordSignupOff}</Notice>
         ) : (
           <form className="space-y-3" onSubmit={(e) => void submit(e)}>
             {mode === 'signup' && welcome && Number(welcome) > 0 && (
               <Notice tone="success">
-                {t.welcomeCredit}: {usd(welcome)}
+                {t.welcomeCredit}: {usd(welcome)} — {t.welcomeAfterVerify}
               </Notice>
             )}
             {mode === 'signup' && (

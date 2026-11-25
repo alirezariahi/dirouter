@@ -8,6 +8,8 @@ export interface Me {
   id: string;
   email: string;
   name: string;
+  /** False until a password sign-up opens its verification link (card 23.4). */
+  emailVerified: boolean;
   organizations: { id: string; name: string; role: string }[];
 }
 

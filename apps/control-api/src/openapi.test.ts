@@ -24,6 +24,7 @@ const NO_BODY = [
   '/security/rotate-key',
   '/payments/reconcile',
   '/portal/oidc/start',
+  '/portal/verify-email/resend',
   '/invoices/generate',
 ];
 

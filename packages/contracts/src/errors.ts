@@ -134,6 +134,23 @@ export const ERROR_CODES = {
     anthropic: 'rate_limit_error',
     title: 'Too many failed login attempts',
   },
+  /**
+   * A portal sign-up whose email address is not verified yet (card 23.4): no API keys and no
+   * welcome credit until the link in the verification email is opened.
+   */
+  email_not_verified: {
+    status: 403,
+    openai: 'permission_error',
+    anthropic: 'permission_error',
+    title: 'Verify your email address first',
+  },
+  /** An email verification link that is unknown, already used or expired (card 23.4). */
+  verification_link_invalid: {
+    status: 400,
+    openai: 'invalid_request_error',
+    anthropic: 'invalid_request_error',
+    title: 'The verification link is invalid or has expired',
+  },
   setup_completed: {
     status: 409,
     openai: 'invalid_request_error',
