@@ -9759,6 +9759,41 @@
         ]
       }
     },
+    "/api/v1/orgs/{orgId}/stats/live/stream": {
+      "get": {
+        "operationId": "LiveController_stream",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "text/event-stream: `ready`, then one `request` event per finished request",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "stats & logs"
+        ]
+      }
+    },
     "/api/v1/orgs/{orgId}/guardrails": {
       "get": {
         "operationId": "GuardrailsController_list",

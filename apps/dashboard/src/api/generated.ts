@@ -15083,6 +15083,86 @@ export function useStatsControllerReset<TData = Awaited<ReturnType<typeof statsC
 
 
 
+export type liveControllerStreamResponse200 = {
+  data: string
+  status: 200
+}
+
+export type liveControllerStreamResponseSuccess = (liveControllerStreamResponse200) & {
+  headers: Headers;
+};
+;
+
+export type liveControllerStreamResponse = (liveControllerStreamResponseSuccess)
+
+export const getLiveControllerStreamUrl = (orgId: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/stats/live/stream`
+}
+
+export const liveControllerStream = async (orgId: string, options?: Parameters<typeof orvalFetch>[1]): Promise<liveControllerStreamResponse> => {
+
+  return orvalFetch<liveControllerStreamResponse>(getLiveControllerStreamUrl(orgId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getLiveControllerStreamMutationKey = () => ['liveControllerStream'] as const;
+
+export const getLiveControllerStreamMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof liveControllerStream>>, TError,LiveControllerStreamMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof liveControllerStream>>, TError,LiveControllerStreamMutationVariables, TContext> => {
+
+const mutationKey = getLiveControllerStreamMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof liveControllerStream>>, LiveControllerStreamMutationVariables> = (props) => {
+          const {orgId} = props ?? {};
+
+          return  liveControllerStream(orgId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type LiveControllerStreamMutationResult = NonNullable<Awaited<ReturnType<typeof liveControllerStream>>>
+
+    export type LiveControllerStreamMutationError = unknown
+    export type LiveControllerStreamMutationVariables = {orgId: string}
+
+    export const useLiveControllerStream = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof liveControllerStream>>, TError,LiveControllerStreamMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof liveControllerStream>>,
+        TError,
+        LiveControllerStreamMutationVariables,
+        TContext
+      > => {
+      return useMutation(getLiveControllerStreamMutationOptions(options), queryClient);
+    }
+
 export type guardrailsControllerListResponse200 = {
   data: GuardrailsControllerList200Item[]
   status: 200

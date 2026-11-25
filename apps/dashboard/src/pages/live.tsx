@@ -1,10 +1,12 @@
 /**
- * Live view (card 16.3): requests of the last 15 minutes, refreshed every second, plus provider
- * breaker state. The endpoint returns request metadata only (model, status, latency, tokens,
- * cost); prompt and response content never reach this page.
+ * Live view (cards 16.3 and 24.4): requests of the last 15 minutes plus provider breaker state.
+ * New requests arrive over Server-Sent Events as soon as the gateway finishes them; while the
+ * stream is down the page polls every second and keeps trying to reconnect. Both carry request
+ * metadata only (model, status, latency, tokens, cost); prompt and response content never reach
+ * this page.
  */
 import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { PageHeader, Section, Stat } from '../components/s2/common';
@@ -15,6 +17,14 @@ import { listOf, useFormat } from '../lib/s2-format';
 import { formatDate } from '../lib/date';
 import { currentOrg } from '../lib/session';
 import { LIVE_REFRESH_MS, liveCounts, median } from '../lib/s2-helpers';
+import { connectLive, type LiveRow, mergeLive } from '../lib/live-stream';
+import { liveMessages } from '../i18n/live-messages';
+import { useSettings } from '../settings';
+
+/** With the stream up, a slow poll still refreshes breaker state and catches anything missed. */
+const LIVE_STREAM_POLL_MS = 15_000;
+/** Reconnect delays after the stream drops (the page polls meanwhile). */
+const RECONNECT_MS = [1_000, 2_000, 5_000, 10_000, 30_000];
 
 interface LiveItem {
   id: string;
@@ -41,11 +51,55 @@ export default function LivePage() {
   const { n, usd, settings } = useFormat();
   const org = currentOrg();
   const [paused, setPaused] = useState(false);
+  const lm = liveMessages[useSettings().lang];
+  const [mode, setMode] = useState<'connecting' | 'stream' | 'polling'>('connecting');
+  const [pushed, setPushed] = useState<LiveRow[]>([]);
+  // The stream keeps the page current between polls, so counts are relative to a ticking clock.
+  const [clock, setClock] = useState(() => Date.now());
+  const orgId = org?.id;
+  useEffect(() => {
+    if (!orgId || paused) return;
+    const stop = new AbortController();
+    let attempt = 0;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const open = () => {
+      void connectLive(
+        orgId,
+        {
+          onOpen: () => {
+            attempt = 0;
+            setMode('stream');
+          },
+          onEvent: (row) => {
+            const now = Date.now();
+            setClock(now);
+            setPushed((rows) => mergeLive([], [row, ...rows], now));
+          },
+          onDrop: () => {
+            // Poll every second until the stream is back.
+            setMode('polling');
+            timer = setTimeout(open, RECONNECT_MS[Math.min(attempt, RECONNECT_MS.length - 1)]);
+            attempt += 1;
+          },
+        },
+        stop.signal,
+      );
+    };
+    open();
+    const tick = setInterval(() => {
+      setClock(Date.now());
+    }, 1_000);
+    return () => {
+      stop.abort();
+      clearInterval(tick);
+      if (timer) clearTimeout(timer);
+    };
+  }, [orgId, paused]);
   const query = useQuery({
     queryKey: ['live', org?.id],
     queryFn: () => api<LiveData>(`/orgs/${org?.id ?? ''}/stats/live`),
     enabled: Boolean(org),
-    refetchInterval: paused ? false : LIVE_REFRESH_MS,
+    refetchInterval: paused ? false : mode === 'stream' ? LIVE_STREAM_POLL_MS : LIVE_REFRESH_MS,
     // No polling while the tab is hidden; react-query refetches once when it becomes visible again.
     refetchIntervalInBackground: false,
     refetchOnWindowFocus: !paused,
@@ -54,8 +108,9 @@ export default function LivePage() {
     return <ErrorState error={query.error} onRetry={() => void query.refetch()} />;
   if (!query.data) return <Loading />;
   const data = query.data;
-  const items = listOf<LiveItem>(data.recent);
-  const generated = Date.parse(data.generatedAt);
+  const streaming = mode === 'stream' && !paused;
+  const generated = streaming ? clock : Date.parse(data.generatedAt);
+  const items: LiveItem[] = mergeLive(listOf<LiveItem>(data.recent), pushed, generated);
   // The endpoint returns the latest rows only (no server-side counters), so both numbers are
   // counts within that sample and are labelled as such.
   const counts = liveCounts(items, generated);
@@ -76,6 +131,13 @@ export default function LivePage() {
     <section className="enter flex flex-col gap-6">
       <PageHeader title={t('s2.live.title')} subtitle={t('s2.live.subtitle')}>
         <div className="flex items-center gap-2">
+          <span
+            className="text-xs text-muted"
+            data-testid="live-mode"
+            data-mode={paused ? 'paused' : mode}
+          >
+            {paused ? lm.paused : lm[mode]}
+          </span>
           <span className="text-xs text-muted">
             {t('s2.live.updated', { time: time(data.generatedAt) })}
           </span>

@@ -8,7 +8,7 @@
 | --------------------- | ------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------- |
 | Cost and budgets      | `/cost`       | 16.1, 13.2  | period cost next to the **ledger total** with a match indicator, cost per day, top models, budget bars for the current period, cache hit rate and savings, semantic cache, latest ledger entries | `GET stats/cost`, `GET stats/cache`, `cache/semantic` |
 | Analytics             | `/analytics`  | 16.4        | KPIs, trend chart (requests, cost, errors, tokens), breakdowns by model, key, project and provider                                                                                               | `GET stats/analytics`                                 |
-| Live view             | `/live`       | 16.3        | requests of the last 15 minutes and open breakers, polled every second, with pause                                                                                                               | `GET stats/live`                                      |
+| Live view             | `/live`       | 16.3, 24.4  | requests of the last 15 minutes and open breakers; new requests pushed over SSE, polled every second while the stream is down, with pause                                                        | `GET stats/live`, `GET stats/live/stream`             |
 | Routing simulator     | `/simulator`  | 12.5        | attempt order and the reason every skipped target was left out                                                                                                                                   | `POST routes/simulate`                                |
 | Playground            | `/playground` | 16.5        | one prompt on up to four models: answer, latency, tokens, estimated cost                                                                                                                         | `POST playground/compare`                             |
 | Guardrails            | `/guardrails` | 15.2        | policies, enable/disable, create with a live test                                                                                                                                                | `guardrails`, `POST guardrails/test`                  |
@@ -63,6 +63,20 @@ Write controls on the Security, Config and Guardrails pages use `can()` in `lib/
 - **Config**: reads return only the caller organization's slice with secrets as `***`. The gateway-wide settings are editable by an OWNER only. Rollback and import can answer 403 for non-owners (more than one organization on the instance, or a settings change); the page explains that instead of a generic error. An exported YAML can be imported again unchanged: the `***` placeholders keep the stored secrets.
 - **Guardrails**: creating, changing and testing a policy need `guardrails:write`; without it the list is read-only and the test panel is hidden. A regex the server refuses (nested quantifiers, backreferences, over 1000 characters) is reported next to the pattern field; the sample text is limited to 10 000 characters.
 - **Alerts**: channel secrets come back as `***` with `secretFields` and `hasSecret`. The edit form leaves them blank ("stored — leave blank to keep") and omits them from the update unless a new value is typed; the mask is never posted. New rules can only use `error_rate`, `latency`, `budget` (threshold required) and `invalid_credential`.
+
+## Live view over SSE (card 24.4)
+
+> Code: `apps/gateway/src/live.ts`, `packages/contracts/src/live.ts`, `apps/control-api/src/stats/live.{hub,controller}.ts`, `apps/dashboard/src/lib/live-stream.ts`.
+
+```
+gateway ──PUBLISH dirouter:live:<org>──▶ Valkey ──SUBSCRIBE──▶ control-api ──SSE──▶ Live page
+```
+
+- When a request finishes, the gateway publishes one event on its organization's channel `dirouter:live:<organizationId>`: the same metadata as a request log row (id, time, model, provider, status, tokens, cost, latency), never a prompt, answer, end user or credential. Fire and forget: with Valkey down the event is dropped.
+- control-api keeps one subscriber connection per process and subscribes to an organization's channel only while a page of that organization listens. Each event is validated against `LiveRequestEvent` before it is written, so only documented fields reach a browser.
+- `GET /orgs/:orgId/stats/live/stream` (`usage:read`) answers `text/event-stream`: `retry: 3000`, `event: ready` once the subscription is confirmed, then one `event: request` per finished request, and a `: keep-alive` comment every 15 seconds. At most 500 streams per control-api process; beyond that the route answers 503 and the page polls.
+- The page reads the stream with `fetch` (EventSource cannot send the bearer token). While the stream is up it still polls `stats/live` every 15 seconds for breaker state and anything missed; when the stream fails, ends or cannot be opened it shows "refreshing every second", polls every second and reconnects after 1, 2, 5, 10 and then 30 seconds. Pausing closes the stream.
+- A new request appears as soon as the gateway finishes it: the integration test measures the publish-to-browser time (well under two seconds; the requirement is two).
 
 ## After changing the API
 

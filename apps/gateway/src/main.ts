@@ -18,6 +18,7 @@ import { UsageSink } from './usage-sink.js';
 import { McpCallSink } from './mcp/call-sink.js';
 import { BodySink } from './body-capture.js';
 import { OtlpLogBuffer } from './otlp-export.js';
+import { LivePublisher } from './live.js';
 
 const quiet = (r: Redis) => {
   r.on('error', () => undefined);
@@ -84,6 +85,8 @@ const healthSync =
 const mcpCalls = env.VALKEY_URL ? new McpCallSink(env.VALKEY_URL, logger) : undefined;
 // Captured request bodies (card 24.1) have their own queue; they never ride on usage events.
 const bodies = env.VALKEY_URL ? new BodySink(env.VALKEY_URL, logger) : undefined;
+// Live view over SSE (card 24.4): each finished request is published for control-api.
+const live = env.VALKEY_URL ? new LivePublisher(env.VALKEY_URL) : undefined;
 
 const gateway = buildGateway({
   logger,
@@ -104,6 +107,7 @@ const gateway = buildGateway({
     : {}),
   ...(usageSink ? { outbox: usageSink } : {}),
   onRequestComplete: (event) => {
+    live?.publish(event);
     // Allowlist: no organization/project/key/endUser, text errors, prompt or secret.
     logger.info(
       {
@@ -233,6 +237,7 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) {
       .then(() => gateway.flushTraces())
       .then(() => usageSink?.close())
       .then(() => bodies?.close())
+      .then(() => live?.close())
       .then(() => process.exit(0));
   });
 }

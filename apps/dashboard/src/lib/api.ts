@@ -181,3 +181,30 @@ export async function orvalFetch<T>(url: string, init: RequestInit = {}): Promis
   });
   return { data, status: res.status, headers: res.headers } as T;
 }
+
+/**
+ * A streaming GET (Server-Sent Events, card 24.4) with the same bearer token and one refresh on
+ * 401 as `api`. Returns the open response; a failed one is thrown as ApiError.
+ */
+export async function apiStream(
+  path: string,
+  signal: AbortSignal,
+  fetchImpl: typeof fetch = fetch,
+): Promise<Response> {
+  const send = () =>
+    fetchImpl(`${API_URL}${path}`, {
+      credentials: 'include',
+      headers: {
+        accept: 'text/event-stream',
+        ...(accessToken ? { authorization: `Bearer ${accessToken}` } : {}),
+      },
+      signal,
+    });
+  let res = await send();
+  if (res.status === 401 && (await refresh(fetchImpl))) res = await send();
+  if (!res.ok) {
+    const problem = (await res.json().catch(() => undefined)) as Problem | undefined;
+    throw new ApiError(problem ?? { status: res.status });
+  }
+  return res;
+}

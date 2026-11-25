@@ -668,6 +668,72 @@ try {
         assert.ok(entries.metrics.includes(name), name);
     },
   );
+  await scenario(
+    '24.4 live view: a new request reaches the SSE stream in under 2 seconds, polling stays as fallback',
+    async () => {
+      const key = await createKey('live');
+      const token = await login(seedAdmin.SEED_ADMIN_EMAIL, seedAdmin.SEED_ADMIN_PASSWORD);
+      const stop = new AbortController();
+      cleanups.push(() => stop.abort());
+      const res = await fetch(`${urls.admin}/api/v1/orgs/${ORG}/stats/live/stream`, {
+        headers: { authorization: `Bearer ${token}`, accept: 'text/event-stream' },
+        signal: stop.signal,
+      });
+      assert.equal(res.status, 200);
+      assert.match(res.headers.get('content-type') ?? '', /text\/event-stream/);
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      const frames = [];
+      const next = async (match, timeoutMs) => {
+        const deadline = Date.now() + timeoutMs;
+        for (;;) {
+          const found = frames.find(match);
+          if (found) return found;
+          const left = deadline - Date.now();
+          if (left <= 0) throw new Error('no matching SSE event in time');
+          const chunk = await Promise.race([
+            reader.read(),
+            new Promise((done) => setTimeout(() => done({ timeout: true }), left)),
+          ]);
+          if (chunk.timeout) continue;
+          if (chunk.done) throw new Error('stream ended');
+          buffer += decoder.decode(chunk.value, { stream: true });
+          let end;
+          while ((end = buffer.indexOf('\n\n')) >= 0) {
+            const frame = buffer.slice(0, end);
+            buffer = buffer.slice(end + 2);
+            const event = /^event: (.*)$/m.exec(frame)?.[1];
+            const data = /^data: (.*)$/m.exec(frame)?.[1];
+            if (event && data) frames.push({ event, data: JSON.parse(data) });
+          }
+        }
+      };
+      await next((f) => f.event === 'ready', 5_000);
+
+      const samples = [];
+      for (let i = 0; i < 3; i++) {
+        const asked = await chat(key.key, {
+          model: 'mock/small',
+          messages: [{ role: 'user', content: `live ${i}` }],
+        });
+        assert.equal(asked.response.status, 200, asked.text);
+        const done = Date.now();
+        const id = asked.response.headers.get('x-request-id');
+        const frame = await next((f) => f.event === 'request' && f.data.id === id, 2_000);
+        samples.push(Date.now() - done);
+        assert.equal(frame.data.requestedModel, 'mock/small');
+        assert.ok(!JSON.stringify(frame.data).includes(`live ${i}`), 'no prompt in live events');
+      }
+      console.log(`     request finished → SSE event: ${samples.join(', ')} ms`);
+      assert.ok(Math.max(...samples) < 2_000);
+      stop.abort();
+
+      // The polling endpoint the page falls back to still answers with the same rows.
+      const polled = await org('GET', 'stats/live', undefined, 200);
+      assert.ok(Array.isArray(polled.body.recent.items));
+    },
+  );
 
   /** A guardrail policy on one key; removed at the end of the run. */
   const guardPolicy = async (body) => {
