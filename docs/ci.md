@@ -131,6 +131,47 @@ To prevent merging without review, enable the required check named `CI passed` f
 
 See [SECURITY.md](../SECURITY.md) for verifying a signature before deploying.
 
+## End-to-end suite on the dev stack (card 34.1)
+
+Workflow file: [`.github/workflows/e2e.yml`](../.github/workflows/e2e.yml), separate from `ci.yml`
+and not part of the `CI passed` check. It runs on every `pull_request`, on push to `main` and on
+manual runs; a new run for a PR cancels the previous one. One job, `Sprint 5 end-to-end on the
+dev stack`, on `ubuntu-24.04` with a 45 minute limit:
+
+1. Checkout and the shared setup action (the runner needs the workspace's `node_modules`: the
+   scenarios load the OpenAI, Anthropic and Cohere SDKs from `apps/gateway`).
+2. `api.localhost`, `admin.localhost`, `mock.localhost`, `app.localhost`, `portal.localhost` and
+   `mail.localhost` are added to `/etc/hosts` as `127.0.0.1`, so name resolution does not depend
+   on systemd-resolved's handling of `*.localhost`.
+3. `scripts/bootstrap.sh` writes `.env` with random development secrets, as before `make up`.
+4. A temporary Compose override replaces the last step of `dev-deps`: instead of `tsc --watch`
+   for every package it runs `pnpm -r --filter './packages/*' run build` once (dependency order),
+   then sleeps, and never restarts. Installation, `prisma migrate deploy` and `prisma generate`
+   are unchanged, and the apps still wait for its health check (every `dist/index.js` present).
+   A watcher or a restart of `dev-deps` can wipe `packages/*/dist` under running apps; a one-shot
+   build cannot.
+5. `docker compose -f compose.yaml -f compose.dev.yaml -f <override> up -d --build --wait` starts
+   Traefik, PostgreSQL, Valkey, Mailpit, the mock provider, `dev-deps`, control-api, gateway and
+   worker (the dashboard and portal are not needed by the scenarios).
+6. It waits until `http://admin.localhost/readyz` and `http://api.localhost/healthz` answer
+   through Traefik, runs `make seed`, makes `.data/seed-admin.env` (written by root in the
+   container, mode 600) readable by the runner, and waits for `http://api.localhost/readyz`
+   (the gateway has loaded a configuration snapshot).
+7. `node scripts/e2e/sprint-5.mjs`. Its JSON summary is turned into annotations by
+   [`scripts/ci/e2e-annotations.mjs`](../scripts/ci/e2e-annotations.mjs): one error per failed
+   scenario with its message and stack, one warning listing skipped scenarios, and an error with
+   the end of stderr when the runner fails outside a scenario. The result table goes to the step
+   summary. GitHub keeps at most 10 error annotations per step; past nine failures the last
+   annotation lists the remaining names.
+8. On failure, a diagnostics step annotates the service states and the last 60 log lines of
+   `dev-deps`, gateway, control-api and worker. Job logs need a GitHub sign-in; annotations of a
+   public run do not.
+9. `docker compose down -v --remove-orphans` always runs at the end.
+
+The stack uses the default `postgres:17-alpine` image (no pgvector), so the semantic cache is off;
+no sprint 5 scenario needs it. No secret is needed. Reproduce locally with `make up`, `make seed`
+and `node scripts/e2e/sprint-5.mjs` (or one card: `node scripts/e2e/sprint-5.mjs 30.1`).
+
 ## Acceptance status
 
 Local check on 2026-11-07: all 40 quality/build tasks succeeded; 62 existing unit tests, 9 package-selection tests (including real Git and Turbo), and 2 real service tests passed. ESLint for the CI tooling, Prettier, `actionlint`, and `git diff --check` also passed.

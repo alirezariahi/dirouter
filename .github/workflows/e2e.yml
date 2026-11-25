@@ -1,0 +1,120 @@
+name: E2E
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  CI: 'true'
+
+jobs:
+  sprint-5:
+    name: Sprint 5 end-to-end on the dev stack
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Host dependencies for the runner itself (the openai SDK, ws); the containers install their own.
+      - uses: ./.github/actions/setup
+      - name: Point the dev hostnames at Traefik
+        # Not left to systemd-resolved's *.localhost handling: /etc/hosts answers first and only IPv4.
+        run: |
+          echo '127.0.0.1 api.localhost admin.localhost mock.localhost app.localhost portal.localhost mail.localhost' |
+            sudo tee -a /etc/hosts
+          for host in api admin mock; do getent ahostsv4 "$host.localhost" | head -n1; done
+      - name: Create .env with random development secrets
+        run: ./scripts/bootstrap.sh
+      - name: Build the packages once instead of watching them
+        # dev-deps normally ends in `tsc --watch` for every package, and a restart wipes packages/*/dist
+        # under running apps. Here it builds once (in dependency order), stays up, and never restarts;
+        # its health check (all dist/index.js present) still gates the apps.
+        run: |
+          cat > "$RUNNER_TEMP/compose.e2e.yaml" <<'EOF'
+          services:
+            dev-deps:
+              restart: 'no'
+              command:
+                - sh
+                - -c
+                - >-
+                  pnpm install --frozen-lockfile &&
+                  pnpm --filter @dirouter/db exec prisma migrate deploy &&
+                  pnpm --filter @dirouter/db exec prisma generate &&
+                  rm -rf packages/*/dist /tmp/watching &&
+                  pnpm -r --filter './packages/*' run build &&
+                  touch /tmp/watching &&
+                  exec sleep infinity
+          EOF
+      - name: Start the dev stack
+        run: |
+          docker compose -f compose.yaml -f compose.dev.yaml -f "$RUNNER_TEMP/compose.e2e.yaml" \
+            up -d --build --wait --wait-timeout 1200 \
+            traefik postgres valkey mailpit mock-provider dev-deps control-api gateway worker
+          docker compose -f compose.yaml -f compose.dev.yaml ps
+      - name: Wait for the control-api and the gateway through Traefik
+        run: |
+          for i in $(seq 1 90); do
+            if curl -fsS -o /dev/null http://admin.localhost/readyz && curl -fsS -o /dev/null http://api.localhost/healthz; then
+              echo "reachable after $((i * 2)) s"
+              exit 0
+            fi
+            sleep 2
+          done
+          curl -sS http://admin.localhost/readyz || true
+          curl -sS http://api.localhost/healthz || true
+          exit 1
+      - name: Seed development data
+        run: |
+          make seed
+          # Written by root inside the container with mode 600; the runner reads it as its own user.
+          sudo chown "$(id -u):$(id -g)" .data/seed-admin.env
+          # The gateway is ready once it has loaded a configuration snapshot.
+          for i in $(seq 1 60); do
+            if curl -fsS http://api.localhost/readyz; then exit 0; fi
+            sleep 2
+          done
+          exit 1
+      - name: Sprint 5 scenarios
+        run: |
+          set +e
+          node scripts/e2e/sprint-5.mjs 2> "$RUNNER_TEMP/e2e.stderr" | tee "$RUNNER_TEMP/e2e.stdout"
+          status=${PIPESTATUS[0]}
+          set -e
+          cat "$RUNNER_TEMP/e2e.stderr" >&2
+          # One annotation per failed scenario, and a warning listing the skipped ones.
+          node scripts/ci/e2e-annotations.mjs "$RUNNER_TEMP/e2e.stdout" "$RUNNER_TEMP/e2e.stderr" "$status"
+          exit "$status"
+      - name: Diagnostics
+        if: failure()
+        run: |
+          dev() { docker compose -f compose.yaml -f compose.dev.yaml "$@"; }
+          {
+            echo '### Dev stack at the failure'
+            echo '```'
+            dev ps -a 2>&1
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          # Summaries and logs need a GitHub sign-in; annotations of a public run do not.
+          annotate() {
+            local body
+            body=$(tail -c 3500 | sed -e 's/%/%25/g' -e 's/\r/%0D/g' | awk '{printf "%s%%0A", $0}')
+            echo "::error title=$1::$body"
+          }
+          dev ps -a --format 'table {{.Service}}\t{{.State}}\t{{.Status}}' 2>&1 | annotate 'Dev stack services'
+          for service in dev-deps gateway control-api worker; do
+            dev logs --no-color --no-log-prefix --tail=60 "$service" 2>&1 | cut -c1-400 | annotate "Logs of $service"
+          done
+      - name: Stop the stack and remove its volumes
+        if: always()
+        run: docker compose -f compose.yaml -f compose.dev.yaml down -v --remove-orphans
