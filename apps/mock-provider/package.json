@@ -1,6 +1,6 @@
 {
   "name": "@dirouter/mock-provider",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "description": "provider ساختگی با تزریق خطا برای تست",
   "type": "module",
