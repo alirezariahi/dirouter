@@ -8,7 +8,7 @@
  */
 import assert from 'node:assert/strict';
 import { execFile, spawn } from 'node:child_process';
-import { randomUUID } from 'node:crypto';
+import { createHash, createPublicKey, randomUUID, verify } from 'node:crypto';
 import { readFile, rm } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { promisify } from 'node:util';
@@ -1357,6 +1357,97 @@ try {
         'linked',
       );
       assert.ok((await stats()).refresh_token > refreshes, 'the gateway used the refresh token');
+    },
+  );
+  await scenario(
+    '28.2 A2A: a client receives a task as a stream, a push notification arrives signed at a webhook',
+    async () => {
+      const key = await createKey('a2a');
+      await mockReset();
+      cleanups.push(() => mockReset());
+      const card = (await request(`${urls.gateway}/.well-known/agent-card.json`, {}, 200)).body;
+      assert.deepEqual(
+        { streaming: card.capabilities.streaming, push: card.capabilities.pushNotifications },
+        { streaming: true, push: true },
+      );
+      const a2aUrl = card.supportedInterfaces.find((i) => i.protocolVersion === '1.0').url;
+      const call = async (method, params, accept = 'application/json') => {
+        const res = await fetch(a2aUrl, {
+          method: 'POST',
+          headers: {
+            authorization: `Bearer ${key.key}`,
+            'content-type': 'application/json',
+            accept,
+            'a2a-version': '1.0',
+          },
+          body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+        });
+        return { res, text: await res.text() };
+      };
+      const message = (text, configuration) => ({
+        message: { messageId: randomUUID(), role: 'ROLE_USER', parts: [{ text }] },
+        metadata: { model: 'mock/small' },
+        ...(configuration ? { configuration } : {}),
+      });
+
+      // 1. SendStreamingMessage through Traefik: Task first, chunks, terminal status, stream closed.
+      await mockSays('alpha beta gamma delta', 4);
+      const streamed = await call('SendStreamingMessage', message('stream'), 'text/event-stream');
+      assert.match(streamed.res.headers.get('content-type'), /text\/event-stream/);
+      const events = sseEvents(streamed.text).map((e) => e.result);
+      assert.ok(events[0].task, `first event is the Task: ${streamed.text.slice(0, 300)}`);
+      const chunks = events.filter((e) => e.artifactUpdate).map((e) => e.artifactUpdate);
+      assert.ok(chunks.length >= 2, streamed.text);
+      assert.equal(chunks.at(-1).lastChunk, true);
+      assert.equal(chunks.map((c) => c.artifact.parts[0].text).join(''), 'alpha beta gamma delta');
+      assert.equal(events.at(-1).statusUpdate.status.state, 'TASK_STATE_COMPLETED');
+
+      // 2. A webhook (the mock's recorder, inside the stack) gets every status change, signed.
+      const hook = `s4-${randomUUID().slice(0, 8)}`;
+      const credentials = randomUUID();
+      const sent = JSON.parse(
+        (
+          await call(
+            'SendMessage',
+            message('push', {
+              returnImmediately: true,
+              taskPushNotificationConfig: {
+                url: `http://mock-provider:8090/__hooks/${hook}`,
+                token: 'e2e-token',
+                authentication: { scheme: 'Bearer', credentials },
+              },
+            }),
+          )
+        ).text,
+      ).result.task;
+      const received = await waitFor('the push notifications to arrive', async () => {
+        const list = (await request(`${urls.mock}/__hooks/${hook}`, {}, 200)).body;
+        return list.some((h) => h.body.includes('TASK_STATE_COMPLETED')) ? list : undefined;
+      });
+      const jwks = (await request(`${urls.gateway}/.well-known/jwks.json`, {}, 200)).body;
+      for (const hit of received) {
+        assert.equal(hit.headers.authorization, `Bearer ${credentials}`);
+        assert.equal(hit.headers['x-a2a-notification-token'], 'e2e-token');
+        assert.equal(hit.headers['content-type'], 'application/a2a+json');
+        const [h, p, s] = hit.headers['x-dirouter-push-signature'].split('.');
+        const header = JSON.parse(Buffer.from(h, 'base64url').toString());
+        const claims = JSON.parse(Buffer.from(p, 'base64url').toString());
+        const jwk = jwks.keys.find((k) => k.kid === header.kid);
+        const valid = verify(
+          'sha256',
+          Buffer.from(`${h}.${p}`),
+          { key: createPublicKey({ key: jwk, format: 'jwk' }), dsaEncoding: 'ieee-p1363' },
+          Buffer.from(s, 'base64url'),
+        );
+        assert.ok(valid, 'signature verifies with the published key');
+        assert.equal(
+          claims.request_body_sha256,
+          createHash('sha256').update(hit.body).digest('hex'),
+        );
+        assert.equal(claims.taskId, sent.id);
+      }
+      const last = JSON.parse(received.at(-1).body);
+      assert.equal(last.task.status.state, 'TASK_STATE_COMPLETED');
     },
   );
 

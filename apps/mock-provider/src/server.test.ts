@@ -62,6 +62,23 @@ describe('scenario parser', () => {
 });
 
 describe('mock provider', () => {
+  it('records webhook calls with the raw body (card 28.2)', async () => {
+    const body = '{"statusUpdate": {"taskId": "t"}}';
+    const post = await app.inject({
+      method: 'POST',
+      url: '/__hooks/test',
+      headers: { 'content-type': 'application/a2a+json', 'x-a2a-notification-token': 'tok' },
+      payload: body,
+    });
+    expect(post.statusCode).toBe(204);
+    const list = (await app.inject({ method: 'GET', url: '/__hooks/test' })).json<
+      { headers: Record<string, string>; body: string }[]
+    >();
+    expect(list).toHaveLength(1);
+    expect(list[0]?.body).toBe(body);
+    expect(list[0]?.headers['x-a2a-notification-token']).toBe('tok');
+  });
+
   it('answers OpenAI non-stream with usage', async () => {
     const body = (await (await post('/v1/chat/completions', oa)).json()) as {
       choices: { message: { content: string } }[];

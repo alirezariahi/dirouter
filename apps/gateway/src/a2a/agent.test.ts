@@ -242,7 +242,7 @@ describe('A2A', () => {
     expect((await rpc('dr-nope-000000000000', 'SendMessage', message('x'))).status).toBe(401);
     const v2 = await rpc(KEY, 'SendMessage', message('x'), '/a2a', { 'a2a-version': '2.0' });
     expect(v2.body.error?.code).toBe(-32009);
-    expect((await rpc(KEY, 'SendStreamingMessage', message('x'))).body.error?.code).toBe(-32601);
+    expect((await rpc(KEY, 'SendTelepathicMessage', message('x'))).body.error?.code).toBe(-32601);
   });
 
   it('proxies a registered external agent with its secret and the caller identity, and logs it', async () => {

@@ -143,8 +143,11 @@ export function configureUpstreamGuard(options: {
   guard.platformOrganizationId = options.platformOrganizationId;
 }
 
-const guarded = (provider: ProviderConfig) =>
-  guard.enabled && provider.organizationId !== guard.platformOrganizationId();
+/** Whether the SSRF guard applies to addresses this organization supplies. */
+export const guardedOrganization = (organizationId: string) =>
+  guard.enabled && organizationId !== guard.platformOrganizationId();
+
+const guarded = (provider: ProviderConfig) => guardedOrganization(provider.organizationId);
 
 export class UpstreamBlocked extends Error {
   readonly code = 'EBLOCKED';
@@ -189,7 +192,7 @@ let publicOnlyAgent: Agent | undefined;
 export function tenantFetch(
   organizationId: string,
 ): (url: string, init?: RequestInit) => Promise<Response> {
-  if (!guard.enabled || organizationId === guard.platformOrganizationId())
+  if (!guardedOrganization(organizationId))
     return (url, init) => globalThis.fetch(url, { ...init, redirect: 'manual' });
   const connect = { timeout: 10_000, lookup: publicOnlyLookup };
   publicOnlyAgent ??= new Agent({ connect });

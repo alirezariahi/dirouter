@@ -86,6 +86,8 @@ export interface GatewayOptions {
   plugins?: { dir: string; enabled: string };
   /** SSRF guard: customer providers reach public addresses only (production, card 22.3). */
   blockPrivateUpstreams?: boolean;
+  /** Tests only: delays between A2A push notification retries (card 28.2). */
+  a2aPushRetryDelaysMs?: readonly number[];
 }
 
 export function buildGateway(opts: GatewayOptions) {
@@ -421,8 +423,10 @@ export function buildGateway(opts: GatewayOptions) {
     pepper: opts.pepper,
     logger: opts.logger,
     instance: deps.instance,
+    keyring: opts.keyring,
     redis: opts.stateRedis ?? opts.limiterRedis,
     ...(opts.recordMcpCall ? { record: opts.recordMcpCall } : {}),
+    ...(opts.a2aPushRetryDelaysMs ? { pushRetryDelaysMs: opts.a2aPushRetryDelaysMs } : {}),
   });
   a2a.register();
 
@@ -600,6 +604,8 @@ export function buildGateway(opts: GatewayOptions) {
     metrics,
     limiter: deps.limiter,
     budgets: deps.budgets,
+    a2a,
+    mcp,
     async start() {
       if (opts.plugins) {
         const names = enabledPlugins(opts.plugins.enabled);

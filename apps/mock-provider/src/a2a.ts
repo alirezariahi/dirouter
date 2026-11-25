@@ -1,7 +1,9 @@
 /**
  * A fake external A2A agent (card 20.3): card at /a2a-agent/.well-known/agent-card.json and
  * JSON-RPC at POST /a2a-agent. It answers both protocol versions by echoing the message, and
- * reports the X-DiRouter-* headers it received in the task metadata.
+ * reports the X-DiRouter-* headers it received in the task metadata. `SendStreamingMessage`
+ * answers the echo as an SSE stream (card 28.2). POST /__hooks/:name records webhook calls (push
+ * notifications) and GET /__hooks/:name lists them.
  */
 import { randomUUID } from 'node:crypto';
 
@@ -15,6 +17,27 @@ interface Rpc {
 }
 
 export function registerA2a(app: FastifyInstance): void {
+  // Webhook sink for A2A push notifications (card 28.2): records each POST with its headers and
+  // the raw body (needed to check the signature); GET returns what arrived.
+  const hooks = new Map<string, { headers: Record<string, unknown>; body: string }[]>();
+  app.register((scope, _opts, done) => {
+    scope.removeAllContentTypeParsers();
+    scope.addContentTypeParser('*', { parseAs: 'string' }, (_req, body, next) => {
+      next(null, body);
+    });
+    scope.post<{ Params: { name: string }; Body: string }>('/__hooks/:name', (req, reply) => {
+      const list = hooks.get(req.params.name) ?? [];
+      list.push({ headers: req.headers, body: req.body });
+      hooks.set(req.params.name, list.slice(-50));
+      return reply.status(204).send();
+    });
+    done();
+  });
+  app.get<{ Params: { name: string } }>(
+    '/__hooks/:name',
+    (req) => hooks.get(req.params.name) ?? [],
+  );
+
   app.get('/a2a-agent/.well-known/agent-card.json', (req) => {
     const url = `http://${req.headers.host ?? 'localhost'}/a2a-agent`;
     return {
@@ -70,6 +93,31 @@ export function registerA2a(app: FastifyInstance): void {
           artifacts: [{ artifactId: 'a1', parts: [{ kind: 'text', text: `echo: ${text}` }] }],
         },
       };
+    if (method === 'SendStreamingMessage') {
+      // Card 28.2: the same echo as a v1.0 stream (Task, artifact, final status).
+      const taskId = randomUUID();
+      const contextId = params?.message?.contextId ?? randomUUID();
+      reply.hijack();
+      reply.raw.writeHead(200, {
+        'content-type': 'text/event-stream',
+        'cache-control': 'no-cache',
+      });
+      for (const result of [
+        { task: { id: taskId, contextId, status: { state: 'TASK_STATE_WORKING' } } },
+        {
+          artifactUpdate: {
+            taskId,
+            contextId,
+            artifact: { artifactId: 'a1', parts: [{ text: `echo: ${text}` }] },
+            lastChunk: true,
+          },
+        },
+        { statusUpdate: { taskId, contextId, status: { state: 'TASK_STATE_COMPLETED' } } },
+      ])
+        reply.raw.write(`data: ${JSON.stringify({ jsonrpc: '2.0', id, result })}\n\n`);
+      reply.raw.end();
+      return reply;
+    }
     return { jsonrpc: '2.0', id, error: { code: -32601, message: 'Method not found' } };
   });
 }
