@@ -126,6 +126,7 @@ const key = (over: Partial<VirtualKeyConfig> = {}): VirtualKeyConfig => ({
   budgets: [],
   mcpTools: [],
   passthroughProviders: [],
+  repair: [],
   ...over,
 });
 

@@ -29,7 +29,6 @@ import { ProvidersModule } from './providers/providers.module.js';
 import { SecurityModule } from './security/security.module.js';
 import { SemanticCacheModule } from './semantic-cache/semantic-cache.module.js';
 import { PlaygroundModule } from './playground/playground.module.js';
-import { RoutingPoliciesModule } from './routing-policies/routing-policies.module.js';
 
 @Module({})
 export class AppModule {

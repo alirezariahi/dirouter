@@ -69,6 +69,8 @@ const key: VirtualKeyConfig = {
   ipAllowlist: [],
   budgets: [],
   mcpTools: [],
+  repair: [],
+  passthroughProviders: [],
 };
 
 describe('explainPlan', () => {

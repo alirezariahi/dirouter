@@ -105,6 +105,8 @@ describe('suffixes in the planner', () => {
     ipAllowlist: [],
     budgets: [],
     mcpTools: [],
+    repair: [],
+    passthroughProviders: [],
   };
   const router = new Router(new RouteIndex(snapshot), new HealthRegistry());
   const order = (name: string) => {

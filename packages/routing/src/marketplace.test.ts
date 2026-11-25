@@ -70,6 +70,7 @@ const key = (organizationId: string): VirtualKeyConfig => ({
   budgets: [],
   mcpTools: [],
   passthroughProviders: [],
+  repair: [],
 });
 
 describe('marketplace', () => {

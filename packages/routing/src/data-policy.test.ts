@@ -86,6 +86,8 @@ const key: VirtualKeyConfig = {
   ipAllowlist: [],
   budgets: [],
   mcpTools: [],
+  repair: [],
+  passthroughProviders: [],
 };
 
 const router = new Router(new RouteIndex(snapshot), new HealthRegistry());

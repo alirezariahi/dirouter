@@ -44,6 +44,8 @@ const key = (over: Partial<VirtualKeyConfig> = {}): VirtualKeyConfig => ({
   ipAllowlist: [],
   budgets: [],
   mcpTools: [],
+  repair: [],
+  passthroughProviders: [],
   ...over,
 });
 let seq = 0;

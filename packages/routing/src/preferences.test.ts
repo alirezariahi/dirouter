@@ -83,6 +83,8 @@ const key = (extra: Partial<VirtualKeyConfig> = {}): VirtualKeyConfig => ({
   ipAllowlist: [],
   budgets: [],
   mcpTools: [],
+  repair: [],
+  passthroughProviders: [],
   ...extra,
 });
 
