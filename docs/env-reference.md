@@ -215,12 +215,14 @@ These names are documented for automatic and local CI runs so that the env refer
 
 ### End-to-end test addresses
 
-| Variable          | Consumer                   | Default                  | Description                                                                       |
-| ----------------- | -------------------------- | ------------------------ | --------------------------------------------------------------------------------- |
-| `E2E_GATEWAY_URL` | `scripts/e2e/sprint-1.mjs` | `http://api.localhost`   | The gateway entry behind Traefik in an isolated test environment.                 |
-| `E2E_ADMIN_URL`   | `scripts/e2e/sprint-1.mjs` | `http://admin.localhost` | The control-api entry, for building fixtures and checking status.                 |
-| `E2E_MOCK_URL`    | `scripts/e2e/sprint-1.mjs` | `http://mock.localhost`  | The mock-provider entry, for injecting errors.                                    |
-| `E2E_SSO_URL`     | `scripts/e2e/sprint-3.mjs` | `http://sso.localhost`   | The local Keycloak, for the SAML scenario (skipped when Keycloak is not running). |
+| Variable          | Consumer                   | Default                   | Description                                                                        |
+| ----------------- | -------------------------- | ------------------------- | ---------------------------------------------------------------------------------- |
+| `E2E_GATEWAY_URL` | `scripts/e2e/sprint-1.mjs` | `http://api.localhost`    | The gateway entry behind Traefik in an isolated test environment.                  |
+| `E2E_ADMIN_URL`   | `scripts/e2e/sprint-1.mjs` | `http://admin.localhost`  | The control-api entry, for building fixtures and checking status.                  |
+| `E2E_MOCK_URL`    | `scripts/e2e/sprint-1.mjs` | `http://mock.localhost`   | The mock-provider entry, for injecting errors.                                     |
+| `E2E_SSO_URL`     | `scripts/e2e/sprint-3.mjs` | `http://sso.localhost`    | The local Keycloak, for the SAML scenario (skipped when Keycloak is not running).  |
+| `E2E_MAIL_URL`    | `scripts/e2e/sprint-4.mjs` | `http://mail.localhost`   | Mailpit's HTTP API, to read the email the stack sent (alerts, verification links). |
+| `E2E_PORTAL_URL`  | `scripts/e2e/sprint-4.mjs` | `http://portal.localhost` | The customer portal, to check that its pages are served.                           |
 
 This suite deliberately stops services. Run it only on a dedicated development or test environment, never in production.
 

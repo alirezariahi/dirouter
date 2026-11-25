@@ -217,12 +217,14 @@
 
 ### آدرس‌های تست end-to-end
 
-| متغیر             | مصرف‌کننده                 | پیش‌فرض                  | توضیح                                                                |
-| ----------------- | -------------------------- | ------------------------ | -------------------------------------------------------------------- |
-| `E2E_GATEWAY_URL` | `scripts/e2e/sprint-1.mjs` | `http://api.localhost`   | ورودی گیت‌وی پشت Traefik در محیط ایزولهٔ تست.                        |
-| `E2E_ADMIN_URL`   | `scripts/e2e/sprint-1.mjs` | `http://admin.localhost` | ورودی control-api برای ساخت fixture و بررسی وضعیت.                   |
-| `E2E_MOCK_URL`    | `scripts/e2e/sprint-1.mjs` | `http://mock.localhost`  | ورودی mock provider برای تزریق خطا.                                  |
-| `E2E_SSO_URL`     | `scripts/e2e/sprint-3.mjs` | `http://sso.localhost`   | Keycloak محلی برای سناریوی SAML (اگر Keycloak اجرا نباشد رد می‌شود). |
+| متغیر             | مصرف‌کننده                 | پیش‌فرض                   | توضیح                                                                      |
+| ----------------- | -------------------------- | ------------------------- | -------------------------------------------------------------------------- |
+| `E2E_GATEWAY_URL` | `scripts/e2e/sprint-1.mjs` | `http://api.localhost`    | ورودی گیت‌وی پشت Traefik در محیط ایزولهٔ تست.                              |
+| `E2E_ADMIN_URL`   | `scripts/e2e/sprint-1.mjs` | `http://admin.localhost`  | ورودی control-api برای ساخت fixture و بررسی وضعیت.                         |
+| `E2E_MOCK_URL`    | `scripts/e2e/sprint-1.mjs` | `http://mock.localhost`   | ورودی mock provider برای تزریق خطا.                                        |
+| `E2E_SSO_URL`     | `scripts/e2e/sprint-3.mjs` | `http://sso.localhost`    | Keycloak محلی برای سناریوی SAML (اگر Keycloak اجرا نباشد رد می‌شود).       |
+| `E2E_MAIL_URL`    | `scripts/e2e/sprint-4.mjs` | `http://mail.localhost`   | API وب Mailpit برای خواندن ایمیل‌هایی که محیط فرستاده (هشدار، لینک تأیید). |
+| `E2E_PORTAL_URL`  | `scripts/e2e/sprint-4.mjs` | `http://portal.localhost` | پرتال مشتری، برای بررسی اینکه صفحه‌هایش سرو می‌شوند.                       |
 
 این suite عمداً سرویس‌ها را متوقف می‌کند؛ فقط روی محیط اختصاصی توسعه/تست اجرا شود، نه production.
 
