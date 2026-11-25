@@ -149,9 +149,9 @@ The simulator accepts suffixed names and answers with `suffixes`, `reasoningEffo
 }
 ```
 
-The bundled catalog has the prices OpenAI publishes for `gpt-4.1`, `gpt-4.1-mini`, `gpt-4o`, `gpt-4o-mini` and `o3` (OpenAI now calls priority processing Fast mode; flex is published only for `o3`), and catalog sync reads LiteLLM's `*_flex` and `*_priority` prices. Models that follow the catalog get them automatically; on `POST`/`PATCH /orgs/:orgId/models` they can be set under `pricing.serviceTiers`.
+The bundled catalog has the prices OpenAI publishes for `gpt-4.1`, `gpt-4.1-mini`, `gpt-4o`, `gpt-4o-mini` and `o3` (OpenAI now calls priority processing Fast mode; flex is published only for `o3`), and catalog sync reads LiteLLM's `*_flex` and `*_priority` prices. Models on an `openai` provider that follow the catalog get them automatically; models on any other provider type (Azure OpenAI, OpenAI-compatible and the rest do not honour `service_tier`) never take the catalog's tier prices, on create, on follow-catalog or on a catalog sync. On `POST`/`PATCH /orgs/:orgId/models` they can be set by hand under `pricing.serviceTiers`.
 
-A `flex` or `priority` request is priced at the tier's rates: the cost, the sale price, the wallet reservation, the usage event (`serviceTier`) and so the ledger. The tier comes from the provider's answer when it reports one (OpenAI does, and may serve `priority` as `default`), else from the request (streams). A model without tier prices is priced at its standard rate. The request log shows the tier in the details.
+A `flex` or `priority` request is priced at the tier's rates only when the provider reports that it served that tier: the cost, the sale price, the usage event (`serviceTier`) and so the ledger. The tier is read from the provider's answer, or from the `service_tier` field of the stream chunks (OpenAI sends it on every chunk), and OpenAI may serve `priority` as `default`. A provider that does not report a tier (most OpenAI-compatible ones ignore `service_tier`) is billed at the standard price whatever was requested. The wallet reservation holds the higher of the tier and the standard price. A model without tier prices is priced at its standard rate. The request log shows the tier in the details.
 
 ## Explaining the routing decision (card 32.7)
 

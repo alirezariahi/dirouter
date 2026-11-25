@@ -344,7 +344,7 @@ export function buildServer(options: MockServerOptions = {}) {
           },
         ],
         ...(s.noUsage ? {} : { usage }),
-        service_tier: serviceTier,
+        ...(s.noServiceTier ? {} : { service_tier: serviceTier }),
       });
     }
 
@@ -364,7 +364,7 @@ export function buildServer(options: MockServerOptions = {}) {
       created,
       model,
       choices: [{ index: 0, delta, logprobs: null, finish_reason: finish }],
-      service_tier: serviceTier,
+      ...(s.noServiceTier ? {} : { service_tier: serviceTier }),
     });
     let sent = 0;
     const drop = () => s.dropAfter !== undefined && sent >= s.dropAfter;

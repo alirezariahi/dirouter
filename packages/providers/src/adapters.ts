@@ -83,6 +83,11 @@ export interface StreamDecoder {
    * frame that was still incomplete as an `error` event.
    */
   flushChunks?(): CanonicalStreamEvent[];
+  /**
+   * The service tier the provider says it used (OpenAI's `service_tier` on the stream chunks,
+   * card 31.5); undefined when the provider did not report one.
+   */
+  readonly serviceTier?: string | undefined;
 }
 
 // ───────────── Embeddings (card 11.4) ─────────────
@@ -237,10 +242,16 @@ function parseOpenAIModels(json: unknown): string[] {
 
 class OpenAIDecoder implements StreamDecoder {
   readonly #inner = new OpenAIStreamDecoder();
+  #serviceTier: string | undefined;
+
+  get serviceTier(): string | undefined {
+    return this.#serviceTier;
+  }
 
   push(event: SseEvent): CanonicalStreamEvent[] {
     if (event.data === '[DONE]' || event.data === '') return [];
     const json = JSON.parse(event.data) as Record<string, unknown>;
+    if (typeof json.service_tier === 'string') this.#serviceTier = json.service_tier;
     if (json.error) {
       const err = json.error as { message?: unknown; code?: unknown; type?: unknown };
       const str = (v: unknown) => (typeof v === 'string' && v !== '' ? v : undefined);

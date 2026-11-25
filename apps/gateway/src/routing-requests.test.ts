@@ -74,6 +74,8 @@ function snapshotFor(mockRoot: string, keyring: ReturnType<typeof parseKeyring>)
       }),
       provider('gamma', 'sk-gamma'),
       provider('down', 'mock:status=503', { dataPolicy: { region: 'eu', zdr: true } }),
+      // An OpenAI-compatible provider that ignores service_tier and never reports one.
+      provider('notier', 'mock:no_service_tier'),
     ],
     models: [
       model('m-alpha', 'alpha', '3', '12'),
@@ -92,6 +94,14 @@ function snapshotFor(mockRoot: string, keyring: ReturnType<typeof parseKeyring>)
             flex: { inputPerMTok: '1', outputPerMTok: '4' },
             priority: { inputPerMTok: '3.5', outputPerMTok: '14' },
           },
+        },
+      },
+      {
+        ...model('m-tier-ignored', 'notier', '2', '8'),
+        pricing: {
+          inputPerMTok: '2',
+          outputPerMTok: '8',
+          serviceTiers: { flex: { inputPerMTok: '1', outputPerMTok: '4' } },
         },
       },
     ],
@@ -575,7 +585,7 @@ describe('request routing', () => {
         expect(event?.costUsd).toBe(cost(event, input, output));
         expect(event?.chargeUsd).toBe(event?.costUsd);
       }
-      // A stream is priced at the requested tier.
+      // A stream is priced at the tier the provider reports on its chunks.
       const stream = await chat(OPEN, {
         model: 'm-tier',
         service_tier: 'flex',
@@ -586,6 +596,26 @@ describe('request routing', () => {
       const event = usage.at(-1);
       expect(event?.serviceTier).toBe('flex');
       expect(event?.costUsd).toBe(cost(event, 1, 4));
+    });
+
+    it('a provider that does not report the tier is billed at the standard price', async () => {
+      const cost = (event: UsageEvent | undefined) =>
+        (
+          ((event?.usage.inputTokens ?? 0) * 2 + (event?.usage.outputTokens ?? 0) * 8) /
+          1e6
+        ).toFixed(8);
+      for (const stream of [false, true]) {
+        const res = await chat(OPEN, {
+          model: 'm-tier-ignored',
+          service_tier: 'flex',
+          ...(stream ? { stream: true, stream_options: { include_usage: true } } : {}),
+        });
+        expect(res.status).toBe(200);
+        await res.text();
+        const event = usage.at(-1);
+        expect(event?.serviceTier).toBeUndefined();
+        expect(event?.costUsd).toBe(cost(event));
+      }
     });
   });
 

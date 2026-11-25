@@ -219,6 +219,8 @@ interface StreamOutcome {
   conversation?: CanonicalResponse | undefined;
   /** The whole answer as the provider streamed it, before stream guardrails (body capture). */
   assembled?: CanonicalResponse | undefined;
+  /** The service tier the provider reported on the stream (card 31.5). */
+  serviceTier?: string | undefined;
 }
 
 type Outcome =
@@ -1104,13 +1106,17 @@ async function proxyRequest(
       walletId,
       requestId,
       worstCaseChargeUsd(
-        // A service tier (card 31.5) is reserved at its own price.
-        route.candidates.map((c) => ({
-          model: {
-            ...c.model,
-            pricing: pricingForServiceTier(c.model.pricing, canonical.serviceTier),
+        // A service tier (card 31.5) is reserved at its own price, or at the standard price when
+        // that is higher: the provider may not honour the tier, and then bills the standard one.
+        route.candidates.flatMap((c) => [
+          { model: c.model },
+          {
+            model: {
+              ...c.model,
+              pricing: pricingForServiceTier(c.model.pricing, canonical.serviceTier),
+            },
           },
-        })),
+        ]),
         estimatedInputTokens,
         canonical.maxOutputTokens,
         key.priceMultiplier,
@@ -2039,10 +2045,13 @@ async function runRoute(
     ...(ctx.routing ? { routing: ctx.routing } : {}),
     ...(ctx.policy ? { policy: ctx.policy } : {}),
     ...(ctx.routeDecision ? { routeDecision: ctx.routeDecision } : {}),
-    // The tier the provider says it used, else the one requested (streams, card 31.5).
-    serviceTier:
-      (result.ok && result.value.kind === 'json' ? result.value.response.serviceTier : undefined) ??
-      canonical.serviceTier,
+    // Only the tier the provider says it used (card 31.5): one that ignores `service_tier` (most
+    // OpenAI-compatible providers) is billed at the standard price, never at the requested tier.
+    serviceTier: result.ok
+      ? result.value.kind === 'json'
+        ? result.value.response.serviceTier
+        : result.value.result.serviceTier
+      : undefined,
     hedgeAttempts: result.ok ? ((result as { hedgeAttempts?: number }).hedgeAttempts ?? 0) : 0,
   });
   return {
@@ -2336,6 +2345,7 @@ async function pipeStream(
           ...(streamGuard.active ? {} : { response: assembled }),
           ...(api === 'openai.responses' ? { conversation: assembled } : {}),
           assembled,
+          ...(decoder.serviceTier ? { serviceTier: decoder.serviceTier } : {}),
         },
       },
     };

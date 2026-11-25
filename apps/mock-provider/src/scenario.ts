@@ -30,6 +30,8 @@ export interface Scenario {
   noUsage: boolean;
   /** Answer with a web source cited for the whole text (card 31.7). */
   citations?: boolean;
+  /** No `service_tier` in the answer: an OpenAI-compatible provider that ignores the tier. */
+  noServiceTier?: boolean;
 }
 
 /** The source the mock cites with the `citations` directive. */
@@ -126,6 +128,9 @@ export function parseScenario(
         break;
       case 'citations':
         s.citations = true;
+        break;
+      case 'no_service_tier':
+        s.noServiceTier = true;
         break;
       case '':
         break;
