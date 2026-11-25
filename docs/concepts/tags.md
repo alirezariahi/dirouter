@@ -1,5 +1,3 @@
-[English](tags.md) · [فارسی](tags.fa.md)
-
 # Tags and cost centers (card 33.4)
 
 Tags and cost centers attribute spend to a department, a product, a feature or a customer: every

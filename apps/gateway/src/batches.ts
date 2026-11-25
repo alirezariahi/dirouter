@@ -49,7 +49,7 @@ import {
 import { admitJob, releaseJob } from './jobs/admission.js';
 import { checkJobWebhookUrl, enqueueWebhook } from './jobs/webhooks.js';
 import { chargeUnits } from './pricing.js';
-import { budgetScopes } from './proxy.js';
+import { budgetScopes } from './spend-guard.js';
 
 /** OpenAI's limits: 50,000 requests per batch, a 24 hour completion window. */
 export const MAX_BATCH_LINES = 50_000;

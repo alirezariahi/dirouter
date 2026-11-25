@@ -5797,6 +5797,16 @@
                         "minimum": -9007199254740991,
                         "maximum": 9007199254740991
                       },
+                      "tags": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "costCenter": {
+                        "nullable": true,
+                        "type": "string"
+                      },
                       "modelLimits": {
                         "type": "array",
                         "items": {
@@ -5974,6 +5984,8 @@
                       "inputTpm",
                       "outputTpm",
                       "maxConcurrency",
+                      "tags",
+                      "costCenter",
                       "modelLimits",
                       "expiresAt",
                       "revokedAt",
@@ -6157,6 +6169,19 @@
                         "period"
                       ]
                     }
+                  },
+                  "tags": {
+                    "maxItems": 10,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]{0,63}$"
+                    }
+                  },
+                  "costCenter": {
+                    "nullable": true,
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]{0,63}$"
                   },
                   "modelLimits": {
                     "maxItems": 50,
@@ -6361,6 +6386,16 @@
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991
                     },
+                    "tags": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "costCenter": {
+                      "nullable": true,
+                      "type": "string"
+                    },
                     "modelLimits": {
                       "type": "array",
                       "items": {
@@ -6542,6 +6577,8 @@
                     "inputTpm",
                     "outputTpm",
                     "maxConcurrency",
+                    "tags",
+                    "costCenter",
                     "modelLimits",
                     "expiresAt",
                     "revokedAt",
@@ -6687,6 +6724,16 @@
                       "type": "integer",
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991
+                    },
+                    "tags": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "costCenter": {
+                      "nullable": true,
+                      "type": "string"
                     },
                     "modelLimits": {
                       "type": "array",
@@ -6865,6 +6912,8 @@
                     "inputTpm",
                     "outputTpm",
                     "maxConcurrency",
+                    "tags",
+                    "costCenter",
                     "modelLimits",
                     "expiresAt",
                     "revokedAt",
@@ -7051,6 +7100,19 @@
                         "period"
                       ]
                     }
+                  },
+                  "tags": {
+                    "maxItems": 10,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]{0,63}$"
+                    }
+                  },
+                  "costCenter": {
+                    "nullable": true,
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]{0,63}$"
                   },
                   "modelLimits": {
                     "maxItems": 50,
@@ -7251,6 +7313,16 @@
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991
                     },
+                    "tags": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "costCenter": {
+                      "nullable": true,
+                      "type": "string"
+                    },
                     "modelLimits": {
                       "type": "array",
                       "items": {
@@ -7428,6 +7500,8 @@
                     "inputTpm",
                     "outputTpm",
                     "maxConcurrency",
+                    "tags",
+                    "costCenter",
                     "modelLimits",
                     "expiresAt",
                     "revokedAt",
@@ -7573,6 +7647,16 @@
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991
                     },
+                    "tags": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "costCenter": {
+                      "nullable": true,
+                      "type": "string"
+                    },
                     "modelLimits": {
                       "type": "array",
                       "items": {
@@ -7750,6 +7834,8 @@
                     "inputTpm",
                     "outputTpm",
                     "maxConcurrency",
+                    "tags",
+                    "costCenter",
                     "modelLimits",
                     "expiresAt",
                     "revokedAt",
@@ -7912,6 +7998,16 @@
                       "type": "integer",
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991
+                    },
+                    "tags": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "costCenter": {
+                      "nullable": true,
+                      "type": "string"
                     },
                     "modelLimits": {
                       "type": "array",
@@ -8172,6 +8268,16 @@
                           "minimum": -9007199254740991,
                           "maximum": 9007199254740991
                         },
+                        "tags": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "costCenter": {
+                          "nullable": true,
+                          "type": "string"
+                        },
                         "modelLimits": {
                           "type": "array",
                           "items": {
@@ -8349,6 +8455,8 @@
                         "inputTpm",
                         "outputTpm",
                         "maxConcurrency",
+                        "tags",
+                        "costCenter",
                         "modelLimits",
                         "expiresAt",
                         "revokedAt",
@@ -8376,6 +8484,8 @@
                     "inputTpm",
                     "outputTpm",
                     "maxConcurrency",
+                    "tags",
+                    "costCenter",
                     "modelLimits",
                     "expiresAt",
                     "revokedAt",
@@ -13001,6 +13111,17 @@
                       "nullable": true,
                       "type": "string"
                     },
+                    "tags": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "tags of the request (card 33.4)"
+                    },
+                    "costCenter": {
+                      "nullable": true,
+                      "type": "string"
+                    },
                     "credentialId": {
                       "nullable": true,
                       "type": "string"
@@ -13067,6 +13188,8 @@
                     "attemptCount",
                     "inboundApi",
                     "endUser",
+                    "tags",
+                    "costCenter",
                     "credentialId",
                     "cacheReadTokens",
                     "cacheWriteTokens",
@@ -13258,6 +13381,210 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": {}
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "stats & logs"
+        ]
+      }
+    },
+    "/api/v1/orgs/{orgId}/stats/dimensions": {
+      "get": {
+        "operationId": "StatsController_dimensions",
+        "parameters": [
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "description": "Default: 24 hours ago (logs: 7 days ago)",
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+            }
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "description": "Default: now",
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+            }
+          },
+          {
+            "name": "projectId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "apiKeyId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "model",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "description": "Requested name (model, alias or combo)",
+              "type": "string"
+            }
+          },
+          {
+            "name": "dimension",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "end_user",
+                "tag",
+                "cost_center"
+              ],
+              "description": "end_user, tag or cost_center"
+            }
+          },
+          {
+            "name": "value",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "description": "only this value of the dimension",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          },
+          {
+            "name": "groupBy",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": "value",
+              "description": "value (default) or, usually with `value`, model, key, project or provider",
+              "type": "string",
+              "enum": [
+                "value",
+                "model",
+                "key",
+                "project",
+                "provider"
+              ]
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": 100,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000
+            }
+          },
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Usage per value of an attribution dimension, from its rollups",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "dimension": {
+                      "type": "string"
+                    },
+                    "groupBy": {
+                      "type": "string"
+                    },
+                    "value": {
+                      "type": "string"
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "description": "the value (`__other__` sums the values past the cap) or the group"
+                          },
+                          "requests": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "errors": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "inputTokens": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "outputTokens": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "tokens": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "costUsd": {
+                            "type": "string"
+                          },
+                          "chargeUsd": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "requests",
+                          "errors",
+                          "inputTokens",
+                          "outputTokens",
+                          "tokens",
+                          "costUsd",
+                          "chargeUsd"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "dimension",
+                    "groupBy",
+                    "items"
+                  ]
                 }
               }
             }
@@ -22700,7 +23027,10 @@
                           "project",
                           "user",
                           "model",
-                          "provider"
+                          "provider",
+                          "end_user",
+                          "tag",
+                          "cost_center"
                         ],
                         "description": "organization (scope id = the organization id), team, project, user, model or provider"
                       },
@@ -22860,7 +23190,10 @@
                               "project",
                               "user",
                               "model",
-                              "provider"
+                              "provider",
+                              "end_user",
+                              "tag",
+                              "cost_center"
                             ],
                             "description": "organization (scope id = the organization id), team, project, user, model or provider"
                           },
@@ -23128,7 +23461,10 @@
                         "project",
                         "user",
                         "model",
-                        "provider"
+                        "provider",
+                        "end_user",
+                        "tag",
+                        "cost_center"
                       ],
                       "description": "organization (scope id = the organization id), team, project, user, model or provider"
                     },
@@ -23372,7 +23708,10 @@
                         "project",
                         "user",
                         "model",
-                        "provider"
+                        "provider",
+                        "end_user",
+                        "tag",
+                        "cost_center"
                       ],
                       "description": "organization (scope id = the organization id), team, project, user, model or provider"
                     },
@@ -23528,7 +23867,10 @@
                         "project",
                         "user",
                         "model",
-                        "provider"
+                        "provider",
+                        "end_user",
+                        "tag",
+                        "cost_center"
                       ],
                       "description": "organization (scope id = the organization id), team, project, user, model or provider"
                     },
@@ -23638,6 +23980,564 @@
         ],
         "tags": [
           "limits"
+        ]
+      }
+    },
+    "/api/v1/orgs/{orgId}/end-users": {
+      "get": {
+        "operationId": "EndUsersController_list",
+        "parameters": [
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "description": "part of the end-user id",
+              "type": "string",
+              "maxLength": 256
+            }
+          },
+          {
+            "name": "blocked",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": 50,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            }
+          },
+          {
+            "name": "offset",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": 0,
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000
+            }
+          },
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "End users seen most recently first, with this month’s usage",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "blocked": {
+                            "type": "boolean"
+                          },
+                          "firstSeenAt": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "lastSeenAt": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "hasLimits": {
+                            "type": "boolean"
+                          },
+                          "month": {
+                            "type": "object",
+                            "properties": {
+                              "requests": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "costUsd": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "requests",
+                              "costUsd"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "blocked",
+                          "firstSeenAt",
+                          "lastSeenAt",
+                          "hasLimits",
+                          "month"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "items"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "end users"
+        ]
+      }
+    },
+    "/api/v1/orgs/{orgId}/end-users/{endUser}": {
+      "get": {
+        "operationId": "EndUsersController_get",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "endUser",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One end user with its limits and the last 30 days of usage",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "blocked": {
+                      "type": "boolean"
+                    },
+                    "firstSeenAt": {
+                      "nullable": true,
+                      "type": "string"
+                    },
+                    "lastSeenAt": {
+                      "nullable": true,
+                      "type": "string"
+                    },
+                    "month": {
+                      "type": "object",
+                      "properties": {
+                        "requests": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "costUsd": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "requests",
+                        "costUsd"
+                      ]
+                    },
+                    "limits": {
+                      "type": "object",
+                      "properties": {
+                        "scope": {
+                          "type": "string"
+                        },
+                        "scopeId": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "rpm": {
+                          "nullable": true,
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "tpm": {
+                          "nullable": true,
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "maxConcurrency": {
+                          "nullable": true,
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "budgets": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "period": {
+                                "type": "string"
+                              },
+                              "limitUsd": {
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "limitTokens": {
+                                "nullable": true,
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "alertThresholds": {
+                                "type": "array",
+                                "items": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                }
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "period",
+                              "limitUsd",
+                              "limitTokens",
+                              "alertThresholds"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "scope",
+                        "scopeId",
+                        "name",
+                        "rpm",
+                        "tpm",
+                        "maxConcurrency",
+                        "budgets"
+                      ]
+                    },
+                    "days": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "day": {
+                            "type": "string"
+                          },
+                          "requests": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "errors": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "tokens": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "costUsd": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "day",
+                          "requests",
+                          "errors",
+                          "tokens",
+                          "costUsd"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "blocked",
+                    "firstSeenAt",
+                    "lastSeenAt",
+                    "month",
+                    "limits",
+                    "days"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "end users"
+        ]
+      },
+      "put": {
+        "operationId": "EndUsersController_set",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "endUser",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "blocked": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "blocked"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Blocks or unblocks the end user (it need not have been seen yet)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "blocked": {
+                      "type": "boolean"
+                    },
+                    "firstSeenAt": {
+                      "nullable": true,
+                      "type": "string"
+                    },
+                    "lastSeenAt": {
+                      "nullable": true,
+                      "type": "string"
+                    },
+                    "month": {
+                      "type": "object",
+                      "properties": {
+                        "requests": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "costUsd": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "requests",
+                        "costUsd"
+                      ]
+                    },
+                    "limits": {
+                      "type": "object",
+                      "properties": {
+                        "scope": {
+                          "type": "string"
+                        },
+                        "scopeId": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "rpm": {
+                          "nullable": true,
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "tpm": {
+                          "nullable": true,
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "maxConcurrency": {
+                          "nullable": true,
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "budgets": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "period": {
+                                "type": "string"
+                              },
+                              "limitUsd": {
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "limitTokens": {
+                                "nullable": true,
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "alertThresholds": {
+                                "type": "array",
+                                "items": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                }
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "period",
+                              "limitUsd",
+                              "limitTokens",
+                              "alertThresholds"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "scope",
+                        "scopeId",
+                        "name",
+                        "rpm",
+                        "tpm",
+                        "maxConcurrency",
+                        "budgets"
+                      ]
+                    },
+                    "days": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "day": {
+                            "type": "string"
+                          },
+                          "requests": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "errors": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "tokens": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "costUsd": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "day",
+                          "requests",
+                          "errors",
+                          "tokens",
+                          "costUsd"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "blocked",
+                    "firstSeenAt",
+                    "lastSeenAt",
+                    "month",
+                    "limits",
+                    "days"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "end users"
         ]
       }
     },

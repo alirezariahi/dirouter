@@ -138,6 +138,8 @@ describe('scope resolution', () => {
       ipAllowlist: [],
       budgets: [],
       mcpTools: [],
+      repair: [],
+      passthroughProviders: [],
       ...(userId ? { userId } : {}),
     } as const);
   const candidate = (modelId: string, providerId: string) =>

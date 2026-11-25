@@ -7,7 +7,7 @@ import type { VirtualKeyConfig } from '@dirouter/contracts';
 import { DiRouterError } from '@dirouter/shared';
 
 import type { LoadedConfig } from '../config-store.js';
-import { budgetScopes, limitScopes } from '../proxy.js';
+import { budgetScopes, limitScopes } from '../spend-guard.js';
 import type { JobsDeps } from './context.js';
 
 export async function admitJob(

@@ -97,7 +97,7 @@ import type { BudgetGuard } from './budget-guard.js';
 import { chargeUsd } from './pricing.js';
 import { type WalletGuard, worstCaseChargeUsd } from './wallet-guard.js';
 import type { RateLimiter } from './rate-limiter.js';
-import { admitRequest, type Spent } from './spend-guard.js';
+import { admitRequest, budgetScopes, type Spent } from './spend-guard.js';
 import { type Attribution, attributionFields, requestAttribution } from './attribution.js';
 import {
   cacheKeyFor,

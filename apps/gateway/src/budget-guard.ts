@@ -101,7 +101,7 @@ export interface BudgetUsage {
   key: number;
   project: number;
   team: number;
-  /** The highest of the three. */
+  /** The highest of every budget that covers the request, these three included. */
   max: number;
 }
 
@@ -333,7 +333,8 @@ export class BudgetGuard {
     }
     for (const b of budgets) {
       const percent = this.#usageCache.get(b.budget.id)?.percent ?? 0;
-      out[b.scope] = Math.max(out[b.scope], percent);
+      if (b.scope === 'key' || b.scope === 'project' || b.scope === 'team')
+        out[b.scope] = Math.max(out[b.scope], percent);
       out.max = Math.max(out.max, percent);
     }
     return out;

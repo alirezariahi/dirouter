@@ -1941,6 +1941,405 @@ export type ProvidersControllerDiscover200 = {
   models: ProvidersControllerDiscover200ModelsItem[];
 };
 
+export type ProviderSpendControllerGet200CredentialStrategy = typeof ProviderSpendControllerGet200CredentialStrategy[keyof typeof ProviderSpendControllerGet200CredentialStrategy];
+
+
+export const ProviderSpendControllerGet200CredentialStrategy = {
+  weighted: 'weighted',
+  'fill-first': 'fill-first',
+  'reset-aware': 'reset-aware',
+} as const;
+
+export type ProviderSpendControllerGet200BudgetsItemPeriod = typeof ProviderSpendControllerGet200BudgetsItemPeriod[keyof typeof ProviderSpendControllerGet200BudgetsItemPeriod];
+
+
+export const ProviderSpendControllerGet200BudgetsItemPeriod = {
+  daily: 'daily',
+  weekly: 'weekly',
+  monthly: 'monthly',
+  yearly: 'yearly',
+} as const;
+
+export type ProviderSpendControllerGet200BudgetsItem = {
+  id: string;
+  period: ProviderSpendControllerGet200BudgetsItemPeriod;
+  /** @nullable */
+  limitUsd: string | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  limitTokens: number | null;
+  /**
+     * @items.minimum -9007199254740991
+     * @items.maximum 9007199254740991
+     */
+  alertThresholds: number[];
+};
+
+export type ProviderSpendControllerGet200CredentialsItemBudgetsItemPeriod = typeof ProviderSpendControllerGet200CredentialsItemBudgetsItemPeriod[keyof typeof ProviderSpendControllerGet200CredentialsItemBudgetsItemPeriod];
+
+
+export const ProviderSpendControllerGet200CredentialsItemBudgetsItemPeriod = {
+  daily: 'daily',
+  weekly: 'weekly',
+  monthly: 'monthly',
+  yearly: 'yearly',
+} as const;
+
+export type ProviderSpendControllerGet200CredentialsItemBudgetsItem = {
+  id: string;
+  period: ProviderSpendControllerGet200CredentialsItemBudgetsItemPeriod;
+  /** @nullable */
+  limitUsd: string | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  limitTokens: number | null;
+  /**
+     * @items.minimum -9007199254740991
+     * @items.maximum 9007199254740991
+     */
+  alertThresholds: number[];
+};
+
+export type ProviderSpendControllerGet200CredentialsItemQuotaWindowsItem = {
+  id: string;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     */
+  hours: number;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     */
+  limitRequests?: number;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     */
+  limitTokens?: number;
+  limitUsd?: string;
+};
+
+export type ProviderSpendControllerGet200CredentialsItem = {
+  id: string;
+  name: string;
+  budgets: ProviderSpendControllerGet200CredentialsItemBudgetsItem[];
+  quotaWindows: ProviderSpendControllerGet200CredentialsItemQuotaWindowsItem[];
+};
+
+export type ProviderSpendControllerGet200 = {
+  providerId: string;
+  credentialStrategy: ProviderSpendControllerGet200CredentialStrategy;
+  budgets: ProviderSpendControllerGet200BudgetsItem[];
+  credentials: ProviderSpendControllerGet200CredentialsItem[];
+};
+
+/**
+ * weighted (random by weight), fill-first, or reset-aware
+ */
+export type ProviderSpendControllerSetProviderBodyCredentialStrategy = typeof ProviderSpendControllerSetProviderBodyCredentialStrategy[keyof typeof ProviderSpendControllerSetProviderBodyCredentialStrategy];
+
+
+export const ProviderSpendControllerSetProviderBodyCredentialStrategy = {
+  weighted: 'weighted',
+  'fill-first': 'fill-first',
+  'reset-aware': 'reset-aware',
+} as const;
+
+export type ProviderSpendControllerSetProviderBodyBudgetsItemPeriod = typeof ProviderSpendControllerSetProviderBodyBudgetsItemPeriod[keyof typeof ProviderSpendControllerSetProviderBodyBudgetsItemPeriod];
+
+
+export const ProviderSpendControllerSetProviderBodyBudgetsItemPeriod = {
+  daily: 'daily',
+  weekly: 'weekly',
+  monthly: 'monthly',
+  yearly: 'yearly',
+} as const;
+
+export type ProviderSpendControllerSetProviderBodyBudgetsItem = {
+  period: ProviderSpendControllerSetProviderBodyBudgetsItemPeriod;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  limitUsd?: string;
+  /**
+     * @maximum 9007199254740991
+     * @exclusiveMinimum 0
+     */
+  limitTokens?: number;
+  /**
+     * @maxItems 10
+     * @items.minimum 1
+     * @items.maximum 100
+     */
+  alertThresholds?: number[];
+};
+
+export type ProviderSpendControllerSetProviderBody = {
+  /** weighted (random by weight), fill-first, or reset-aware */
+  credentialStrategy?: ProviderSpendControllerSetProviderBodyCredentialStrategy;
+  /** @maxItems 4 */
+  budgets?: ProviderSpendControllerSetProviderBodyBudgetsItem[];
+};
+
+export type ProviderSpendControllerSetProvider200CredentialStrategy = typeof ProviderSpendControllerSetProvider200CredentialStrategy[keyof typeof ProviderSpendControllerSetProvider200CredentialStrategy];
+
+
+export const ProviderSpendControllerSetProvider200CredentialStrategy = {
+  weighted: 'weighted',
+  'fill-first': 'fill-first',
+  'reset-aware': 'reset-aware',
+} as const;
+
+export type ProviderSpendControllerSetProvider200BudgetsItemPeriod = typeof ProviderSpendControllerSetProvider200BudgetsItemPeriod[keyof typeof ProviderSpendControllerSetProvider200BudgetsItemPeriod];
+
+
+export const ProviderSpendControllerSetProvider200BudgetsItemPeriod = {
+  daily: 'daily',
+  weekly: 'weekly',
+  monthly: 'monthly',
+  yearly: 'yearly',
+} as const;
+
+export type ProviderSpendControllerSetProvider200BudgetsItem = {
+  id: string;
+  period: ProviderSpendControllerSetProvider200BudgetsItemPeriod;
+  /** @nullable */
+  limitUsd: string | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  limitTokens: number | null;
+  /**
+     * @items.minimum -9007199254740991
+     * @items.maximum 9007199254740991
+     */
+  alertThresholds: number[];
+};
+
+export type ProviderSpendControllerSetProvider200CredentialsItemBudgetsItemPeriod = typeof ProviderSpendControllerSetProvider200CredentialsItemBudgetsItemPeriod[keyof typeof ProviderSpendControllerSetProvider200CredentialsItemBudgetsItemPeriod];
+
+
+export const ProviderSpendControllerSetProvider200CredentialsItemBudgetsItemPeriod = {
+  daily: 'daily',
+  weekly: 'weekly',
+  monthly: 'monthly',
+  yearly: 'yearly',
+} as const;
+
+export type ProviderSpendControllerSetProvider200CredentialsItemBudgetsItem = {
+  id: string;
+  period: ProviderSpendControllerSetProvider200CredentialsItemBudgetsItemPeriod;
+  /** @nullable */
+  limitUsd: string | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  limitTokens: number | null;
+  /**
+     * @items.minimum -9007199254740991
+     * @items.maximum 9007199254740991
+     */
+  alertThresholds: number[];
+};
+
+export type ProviderSpendControllerSetProvider200CredentialsItemQuotaWindowsItem = {
+  id: string;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     */
+  hours: number;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     */
+  limitRequests?: number;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     */
+  limitTokens?: number;
+  limitUsd?: string;
+};
+
+export type ProviderSpendControllerSetProvider200CredentialsItem = {
+  id: string;
+  name: string;
+  budgets: ProviderSpendControllerSetProvider200CredentialsItemBudgetsItem[];
+  quotaWindows: ProviderSpendControllerSetProvider200CredentialsItemQuotaWindowsItem[];
+};
+
+export type ProviderSpendControllerSetProvider200 = {
+  providerId: string;
+  credentialStrategy: ProviderSpendControllerSetProvider200CredentialStrategy;
+  budgets: ProviderSpendControllerSetProvider200BudgetsItem[];
+  credentials: ProviderSpendControllerSetProvider200CredentialsItem[];
+};
+
+export type ProviderSpendControllerSetCredentialBodyBudgetsItemPeriod = typeof ProviderSpendControllerSetCredentialBodyBudgetsItemPeriod[keyof typeof ProviderSpendControllerSetCredentialBodyBudgetsItemPeriod];
+
+
+export const ProviderSpendControllerSetCredentialBodyBudgetsItemPeriod = {
+  daily: 'daily',
+  weekly: 'weekly',
+  monthly: 'monthly',
+  yearly: 'yearly',
+} as const;
+
+export type ProviderSpendControllerSetCredentialBodyBudgetsItem = {
+  period: ProviderSpendControllerSetCredentialBodyBudgetsItemPeriod;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  limitUsd?: string;
+  /**
+     * @maximum 9007199254740991
+     * @exclusiveMinimum 0
+     */
+  limitTokens?: number;
+  /**
+     * @maxItems 10
+     * @items.minimum 1
+     * @items.maximum 100
+     */
+  alertThresholds?: number[];
+};
+
+export type ProviderSpendControllerSetCredentialBodyQuotaWindowsItem = {
+  /** @pattern ^[a-z0-9][a-z0-9-]{0,31}$ */
+  id: string;
+  /**
+     * @minimum 1
+     * @maximum 744
+     */
+  hours: number;
+  /**
+     * @maximum 9007199254740991
+     * @exclusiveMinimum 0
+     */
+  limitRequests?: number;
+  /**
+     * @maximum 9007199254740991
+     * @exclusiveMinimum 0
+     */
+  limitTokens?: number;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  limitUsd?: string;
+};
+
+export type ProviderSpendControllerSetCredentialBody = {
+  /** @maxItems 4 */
+  budgets?: ProviderSpendControllerSetCredentialBodyBudgetsItem[];
+  /** @maxItems 5 */
+  quotaWindows?: ProviderSpendControllerSetCredentialBodyQuotaWindowsItem[];
+};
+
+export type ProviderSpendControllerSetCredential200CredentialStrategy = typeof ProviderSpendControllerSetCredential200CredentialStrategy[keyof typeof ProviderSpendControllerSetCredential200CredentialStrategy];
+
+
+export const ProviderSpendControllerSetCredential200CredentialStrategy = {
+  weighted: 'weighted',
+  'fill-first': 'fill-first',
+  'reset-aware': 'reset-aware',
+} as const;
+
+export type ProviderSpendControllerSetCredential200BudgetsItemPeriod = typeof ProviderSpendControllerSetCredential200BudgetsItemPeriod[keyof typeof ProviderSpendControllerSetCredential200BudgetsItemPeriod];
+
+
+export const ProviderSpendControllerSetCredential200BudgetsItemPeriod = {
+  daily: 'daily',
+  weekly: 'weekly',
+  monthly: 'monthly',
+  yearly: 'yearly',
+} as const;
+
+export type ProviderSpendControllerSetCredential200BudgetsItem = {
+  id: string;
+  period: ProviderSpendControllerSetCredential200BudgetsItemPeriod;
+  /** @nullable */
+  limitUsd: string | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  limitTokens: number | null;
+  /**
+     * @items.minimum -9007199254740991
+     * @items.maximum 9007199254740991
+     */
+  alertThresholds: number[];
+};
+
+export type ProviderSpendControllerSetCredential200CredentialsItemBudgetsItemPeriod = typeof ProviderSpendControllerSetCredential200CredentialsItemBudgetsItemPeriod[keyof typeof ProviderSpendControllerSetCredential200CredentialsItemBudgetsItemPeriod];
+
+
+export const ProviderSpendControllerSetCredential200CredentialsItemBudgetsItemPeriod = {
+  daily: 'daily',
+  weekly: 'weekly',
+  monthly: 'monthly',
+  yearly: 'yearly',
+} as const;
+
+export type ProviderSpendControllerSetCredential200CredentialsItemBudgetsItem = {
+  id: string;
+  period: ProviderSpendControllerSetCredential200CredentialsItemBudgetsItemPeriod;
+  /** @nullable */
+  limitUsd: string | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  limitTokens: number | null;
+  /**
+     * @items.minimum -9007199254740991
+     * @items.maximum 9007199254740991
+     */
+  alertThresholds: number[];
+};
+
+export type ProviderSpendControllerSetCredential200CredentialsItemQuotaWindowsItem = {
+  id: string;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     */
+  hours: number;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     */
+  limitRequests?: number;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     */
+  limitTokens?: number;
+  limitUsd?: string;
+};
+
+export type ProviderSpendControllerSetCredential200CredentialsItem = {
+  id: string;
+  name: string;
+  budgets: ProviderSpendControllerSetCredential200CredentialsItemBudgetsItem[];
+  quotaWindows: ProviderSpendControllerSetCredential200CredentialsItemQuotaWindowsItem[];
+};
+
+export type ProviderSpendControllerSetCredential200 = {
+  providerId: string;
+  credentialStrategy: ProviderSpendControllerSetCredential200CredentialStrategy;
+  budgets: ProviderSpendControllerSetCredential200BudgetsItem[];
+  credentials: ProviderSpendControllerSetCredential200CredentialsItem[];
+};
+
 export type KeysControllerListParams = {
   projectId?: string;
 };
@@ -1971,6 +2370,69 @@ export const KeysControllerList200ItemRepairItem = {
   json: 'json',
   tools: 'tools',
 } as const;
+
+export type KeysControllerList200ItemModelLimitsItemBudgetsItemPeriod = typeof KeysControllerList200ItemModelLimitsItemBudgetsItemPeriod[keyof typeof KeysControllerList200ItemModelLimitsItemBudgetsItemPeriod];
+
+
+export const KeysControllerList200ItemModelLimitsItemBudgetsItemPeriod = {
+  daily: 'daily',
+  weekly: 'weekly',
+  monthly: 'monthly',
+  yearly: 'yearly',
+} as const;
+
+export type KeysControllerList200ItemModelLimitsItemBudgetsItem = {
+  id: string;
+  period: KeysControllerList200ItemModelLimitsItemBudgetsItemPeriod;
+  /** @nullable */
+  limitUsd: string | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  limitTokens: number | null;
+  /**
+     * @items.minimum -9007199254740991
+     * @items.maximum 9007199254740991
+     */
+  alertThresholds: number[];
+};
+
+export type KeysControllerList200ItemModelLimitsItem = {
+  model: string;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  rpm: number | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  tpm: number | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  inputTpm: number | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  outputTpm: number | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  maxConcurrency: number | null;
+  budgets: KeysControllerList200ItemModelLimitsItemBudgetsItem[];
+};
 
 export type KeysControllerList200ItemBudgetsItemPeriod = typeof KeysControllerList200ItemBudgetsItemPeriod[keyof typeof KeysControllerList200ItemBudgetsItemPeriod];
 
@@ -2029,7 +2491,23 @@ export type KeysControllerList200Item = {
      * @maximum 9007199254740991
      * @nullable
      */
+  inputTpm: number | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  outputTpm: number | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
   maxConcurrency: number | null;
+  tags: string[];
+  /** @nullable */
+  costCenter: string | null;
+  modelLimits: KeysControllerList200ItemModelLimitsItem[];
   /** @nullable */
   expiresAt: string | null;
   /** @nullable */
@@ -2086,6 +2564,74 @@ export type KeysControllerCreateBodyBudgetsItem = {
   alertThresholds?: number[];
 };
 
+export type KeysControllerCreateBodyModelLimitsItemBudgetsItemPeriod = typeof KeysControllerCreateBodyModelLimitsItemBudgetsItemPeriod[keyof typeof KeysControllerCreateBodyModelLimitsItemBudgetsItemPeriod];
+
+
+export const KeysControllerCreateBodyModelLimitsItemBudgetsItemPeriod = {
+  daily: 'daily',
+  weekly: 'weekly',
+  monthly: 'monthly',
+  yearly: 'yearly',
+} as const;
+
+export type KeysControllerCreateBodyModelLimitsItemBudgetsItem = {
+  period: KeysControllerCreateBodyModelLimitsItemBudgetsItemPeriod;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  limitUsd?: string;
+  /**
+     * @maximum 9007199254740991
+     * @exclusiveMinimum 0
+     */
+  limitTokens?: number;
+  /**
+     * @maxItems 10
+     * @items.minimum 1
+     * @items.maximum 100
+     */
+  alertThresholds?: number[];
+};
+
+export type KeysControllerCreateBodyModelLimitsItem = {
+  /**
+     * @minLength 1
+     * @maxLength 128
+     * @pattern ^[a-zA-Z0-9][a-zA-Z0-9._:/-]*$
+     */
+  model: string;
+  /**
+     * @maximum 9007199254740991
+     * @exclusiveMinimum 0
+     * @nullable
+     */
+  rpm?: number | null;
+  /**
+     * @maximum 9007199254740991
+     * @exclusiveMinimum 0
+     * @nullable
+     */
+  tpm?: number | null;
+  /**
+     * @maximum 9007199254740991
+     * @exclusiveMinimum 0
+     * @nullable
+     */
+  inputTpm?: number | null;
+  /**
+     * @maximum 9007199254740991
+     * @exclusiveMinimum 0
+     * @nullable
+     */
+  outputTpm?: number | null;
+  /**
+     * @maximum 9007199254740991
+     * @exclusiveMinimum 0
+     * @nullable
+     */
+  maxConcurrency?: number | null;
+  /** @maxItems 4 */
+  budgets?: KeysControllerCreateBodyModelLimitsItemBudgetsItem[];
+};
+
 export type KeysControllerCreateBody = {
   /**
      * @minLength 1
@@ -2135,6 +2681,18 @@ export type KeysControllerCreateBody = {
      * @exclusiveMinimum 0
      * @nullable
      */
+  inputTpm?: number | null;
+  /**
+     * @maximum 9007199254740991
+     * @exclusiveMinimum 0
+     * @nullable
+     */
+  outputTpm?: number | null;
+  /**
+     * @maximum 9007199254740991
+     * @exclusiveMinimum 0
+     * @nullable
+     */
   maxConcurrency?: number | null;
   /**
      * @nullable
@@ -2143,6 +2701,18 @@ export type KeysControllerCreateBody = {
   expiresAt?: string | null;
   /** @maxItems 4 */
   budgets?: KeysControllerCreateBodyBudgetsItem[];
+  /**
+     * @maxItems 10
+     * @items.pattern ^[A-Za-z0-9][A-Za-z0-9._:/-]{0,63}$
+     */
+  tags?: string[];
+  /**
+     * @nullable
+     * @pattern ^[A-Za-z0-9][A-Za-z0-9._:/-]{0,63}$
+     */
+  costCenter?: string | null;
+  /** @maxItems 50 */
+  modelLimits?: KeysControllerCreateBodyModelLimitsItem[];
 };
 
 export type KeysControllerCreate200State = typeof KeysControllerCreate200State[keyof typeof KeysControllerCreate200State];
@@ -2171,6 +2741,69 @@ export const KeysControllerCreate200RepairItem = {
   json: 'json',
   tools: 'tools',
 } as const;
+
+export type KeysControllerCreate200ModelLimitsItemBudgetsItemPeriod = typeof KeysControllerCreate200ModelLimitsItemBudgetsItemPeriod[keyof typeof KeysControllerCreate200ModelLimitsItemBudgetsItemPeriod];
+
+
+export const KeysControllerCreate200ModelLimitsItemBudgetsItemPeriod = {
+  daily: 'daily',
+  weekly: 'weekly',
+  monthly: 'monthly',
+  yearly: 'yearly',
+} as const;
+
+export type KeysControllerCreate200ModelLimitsItemBudgetsItem = {
+  id: string;
+  period: KeysControllerCreate200ModelLimitsItemBudgetsItemPeriod;
+  /** @nullable */
+  limitUsd: string | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  limitTokens: number | null;
+  /**
+     * @items.minimum -9007199254740991
+     * @items.maximum 9007199254740991
+     */
+  alertThresholds: number[];
+};
+
+export type KeysControllerCreate200ModelLimitsItem = {
+  model: string;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  rpm: number | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  tpm: number | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  inputTpm: number | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  outputTpm: number | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  maxConcurrency: number | null;
+  budgets: KeysControllerCreate200ModelLimitsItemBudgetsItem[];
+};
 
 export type KeysControllerCreate200BudgetsItemPeriod = typeof KeysControllerCreate200BudgetsItemPeriod[keyof typeof KeysControllerCreate200BudgetsItemPeriod];
 
@@ -2229,7 +2862,23 @@ export type KeysControllerCreate200 = {
      * @maximum 9007199254740991
      * @nullable
      */
+  inputTpm: number | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  outputTpm: number | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
   maxConcurrency: number | null;
+  tags: string[];
+  /** @nullable */
+  costCenter: string | null;
+  modelLimits: KeysControllerCreate200ModelLimitsItem[];
   /** @nullable */
   expiresAt: string | null;
   /** @nullable */
@@ -2270,6 +2919,69 @@ export const KeysControllerGet200RepairItem = {
   json: 'json',
   tools: 'tools',
 } as const;
+
+export type KeysControllerGet200ModelLimitsItemBudgetsItemPeriod = typeof KeysControllerGet200ModelLimitsItemBudgetsItemPeriod[keyof typeof KeysControllerGet200ModelLimitsItemBudgetsItemPeriod];
+
+
+export const KeysControllerGet200ModelLimitsItemBudgetsItemPeriod = {
+  daily: 'daily',
+  weekly: 'weekly',
+  monthly: 'monthly',
+  yearly: 'yearly',
+} as const;
+
+export type KeysControllerGet200ModelLimitsItemBudgetsItem = {
+  id: string;
+  period: KeysControllerGet200ModelLimitsItemBudgetsItemPeriod;
+  /** @nullable */
+  limitUsd: string | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  limitTokens: number | null;
+  /**
+     * @items.minimum -9007199254740991
+     * @items.maximum 9007199254740991
+     */
+  alertThresholds: number[];
+};
+
+export type KeysControllerGet200ModelLimitsItem = {
+  model: string;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  rpm: number | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  tpm: number | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  inputTpm: number | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  outputTpm: number | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  maxConcurrency: number | null;
+  budgets: KeysControllerGet200ModelLimitsItemBudgetsItem[];
+};
 
 export type KeysControllerGet200BudgetsItemPeriod = typeof KeysControllerGet200BudgetsItemPeriod[keyof typeof KeysControllerGet200BudgetsItemPeriod];
 
@@ -2328,7 +3040,23 @@ export type KeysControllerGet200 = {
      * @maximum 9007199254740991
      * @nullable
      */
+  inputTpm: number | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  outputTpm: number | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
   maxConcurrency: number | null;
+  tags: string[];
+  /** @nullable */
+  costCenter: string | null;
+  modelLimits: KeysControllerGet200ModelLimitsItem[];
   /** @nullable */
   expiresAt: string | null;
   /** @nullable */
@@ -2385,6 +3113,74 @@ export type KeysControllerUpdateBodyBudgetsItem = {
   alertThresholds?: number[];
 };
 
+export type KeysControllerUpdateBodyModelLimitsItemBudgetsItemPeriod = typeof KeysControllerUpdateBodyModelLimitsItemBudgetsItemPeriod[keyof typeof KeysControllerUpdateBodyModelLimitsItemBudgetsItemPeriod];
+
+
+export const KeysControllerUpdateBodyModelLimitsItemBudgetsItemPeriod = {
+  daily: 'daily',
+  weekly: 'weekly',
+  monthly: 'monthly',
+  yearly: 'yearly',
+} as const;
+
+export type KeysControllerUpdateBodyModelLimitsItemBudgetsItem = {
+  period: KeysControllerUpdateBodyModelLimitsItemBudgetsItemPeriod;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  limitUsd?: string;
+  /**
+     * @maximum 9007199254740991
+     * @exclusiveMinimum 0
+     */
+  limitTokens?: number;
+  /**
+     * @maxItems 10
+     * @items.minimum 1
+     * @items.maximum 100
+     */
+  alertThresholds?: number[];
+};
+
+export type KeysControllerUpdateBodyModelLimitsItem = {
+  /**
+     * @minLength 1
+     * @maxLength 128
+     * @pattern ^[a-zA-Z0-9][a-zA-Z0-9._:/-]*$
+     */
+  model: string;
+  /**
+     * @maximum 9007199254740991
+     * @exclusiveMinimum 0
+     * @nullable
+     */
+  rpm?: number | null;
+  /**
+     * @maximum 9007199254740991
+     * @exclusiveMinimum 0
+     * @nullable
+     */
+  tpm?: number | null;
+  /**
+     * @maximum 9007199254740991
+     * @exclusiveMinimum 0
+     * @nullable
+     */
+  inputTpm?: number | null;
+  /**
+     * @maximum 9007199254740991
+     * @exclusiveMinimum 0
+     * @nullable
+     */
+  outputTpm?: number | null;
+  /**
+     * @maximum 9007199254740991
+     * @exclusiveMinimum 0
+     * @nullable
+     */
+  maxConcurrency?: number | null;
+  /** @maxItems 4 */
+  budgets?: KeysControllerUpdateBodyModelLimitsItemBudgetsItem[];
+};
+
 export type KeysControllerUpdateBody = {
   /**
      * @minLength 1
@@ -2432,6 +3228,18 @@ export type KeysControllerUpdateBody = {
      * @exclusiveMinimum 0
      * @nullable
      */
+  inputTpm?: number | null;
+  /**
+     * @maximum 9007199254740991
+     * @exclusiveMinimum 0
+     * @nullable
+     */
+  outputTpm?: number | null;
+  /**
+     * @maximum 9007199254740991
+     * @exclusiveMinimum 0
+     * @nullable
+     */
   maxConcurrency?: number | null;
   /**
      * @nullable
@@ -2440,6 +3248,18 @@ export type KeysControllerUpdateBody = {
   expiresAt?: string | null;
   /** @maxItems 4 */
   budgets?: KeysControllerUpdateBodyBudgetsItem[];
+  /**
+     * @maxItems 10
+     * @items.pattern ^[A-Za-z0-9][A-Za-z0-9._:/-]{0,63}$
+     */
+  tags?: string[];
+  /**
+     * @nullable
+     * @pattern ^[A-Za-z0-9][A-Za-z0-9._:/-]{0,63}$
+     */
+  costCenter?: string | null;
+  /** @maxItems 50 */
+  modelLimits?: KeysControllerUpdateBodyModelLimitsItem[];
 };
 
 export type KeysControllerUpdate200State = typeof KeysControllerUpdate200State[keyof typeof KeysControllerUpdate200State];
@@ -2468,6 +3288,69 @@ export const KeysControllerUpdate200RepairItem = {
   json: 'json',
   tools: 'tools',
 } as const;
+
+export type KeysControllerUpdate200ModelLimitsItemBudgetsItemPeriod = typeof KeysControllerUpdate200ModelLimitsItemBudgetsItemPeriod[keyof typeof KeysControllerUpdate200ModelLimitsItemBudgetsItemPeriod];
+
+
+export const KeysControllerUpdate200ModelLimitsItemBudgetsItemPeriod = {
+  daily: 'daily',
+  weekly: 'weekly',
+  monthly: 'monthly',
+  yearly: 'yearly',
+} as const;
+
+export type KeysControllerUpdate200ModelLimitsItemBudgetsItem = {
+  id: string;
+  period: KeysControllerUpdate200ModelLimitsItemBudgetsItemPeriod;
+  /** @nullable */
+  limitUsd: string | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  limitTokens: number | null;
+  /**
+     * @items.minimum -9007199254740991
+     * @items.maximum 9007199254740991
+     */
+  alertThresholds: number[];
+};
+
+export type KeysControllerUpdate200ModelLimitsItem = {
+  model: string;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  rpm: number | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  tpm: number | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  inputTpm: number | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  outputTpm: number | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  maxConcurrency: number | null;
+  budgets: KeysControllerUpdate200ModelLimitsItemBudgetsItem[];
+};
 
 export type KeysControllerUpdate200BudgetsItemPeriod = typeof KeysControllerUpdate200BudgetsItemPeriod[keyof typeof KeysControllerUpdate200BudgetsItemPeriod];
 
@@ -2526,7 +3409,23 @@ export type KeysControllerUpdate200 = {
      * @maximum 9007199254740991
      * @nullable
      */
+  inputTpm: number | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  outputTpm: number | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
   maxConcurrency: number | null;
+  tags: string[];
+  /** @nullable */
+  costCenter: string | null;
+  modelLimits: KeysControllerUpdate200ModelLimitsItem[];
   /** @nullable */
   expiresAt: string | null;
   /** @nullable */
@@ -2565,6 +3464,69 @@ export const KeysControllerRevoke200RepairItem = {
   json: 'json',
   tools: 'tools',
 } as const;
+
+export type KeysControllerRevoke200ModelLimitsItemBudgetsItemPeriod = typeof KeysControllerRevoke200ModelLimitsItemBudgetsItemPeriod[keyof typeof KeysControllerRevoke200ModelLimitsItemBudgetsItemPeriod];
+
+
+export const KeysControllerRevoke200ModelLimitsItemBudgetsItemPeriod = {
+  daily: 'daily',
+  weekly: 'weekly',
+  monthly: 'monthly',
+  yearly: 'yearly',
+} as const;
+
+export type KeysControllerRevoke200ModelLimitsItemBudgetsItem = {
+  id: string;
+  period: KeysControllerRevoke200ModelLimitsItemBudgetsItemPeriod;
+  /** @nullable */
+  limitUsd: string | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  limitTokens: number | null;
+  /**
+     * @items.minimum -9007199254740991
+     * @items.maximum 9007199254740991
+     */
+  alertThresholds: number[];
+};
+
+export type KeysControllerRevoke200ModelLimitsItem = {
+  model: string;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  rpm: number | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  tpm: number | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  inputTpm: number | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  outputTpm: number | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  maxConcurrency: number | null;
+  budgets: KeysControllerRevoke200ModelLimitsItemBudgetsItem[];
+};
 
 export type KeysControllerRevoke200BudgetsItemPeriod = typeof KeysControllerRevoke200BudgetsItemPeriod[keyof typeof KeysControllerRevoke200BudgetsItemPeriod];
 
@@ -2623,7 +3585,23 @@ export type KeysControllerRevoke200 = {
      * @maximum 9007199254740991
      * @nullable
      */
+  inputTpm: number | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  outputTpm: number | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
   maxConcurrency: number | null;
+  tags: string[];
+  /** @nullable */
+  costCenter: string | null;
+  modelLimits: KeysControllerRevoke200ModelLimitsItem[];
   /** @nullable */
   expiresAt: string | null;
   /** @nullable */
@@ -2670,6 +3648,69 @@ export const KeysControllerRotate200RepairItem = {
   json: 'json',
   tools: 'tools',
 } as const;
+
+export type KeysControllerRotate200ModelLimitsItemBudgetsItemPeriod = typeof KeysControllerRotate200ModelLimitsItemBudgetsItemPeriod[keyof typeof KeysControllerRotate200ModelLimitsItemBudgetsItemPeriod];
+
+
+export const KeysControllerRotate200ModelLimitsItemBudgetsItemPeriod = {
+  daily: 'daily',
+  weekly: 'weekly',
+  monthly: 'monthly',
+  yearly: 'yearly',
+} as const;
+
+export type KeysControllerRotate200ModelLimitsItemBudgetsItem = {
+  id: string;
+  period: KeysControllerRotate200ModelLimitsItemBudgetsItemPeriod;
+  /** @nullable */
+  limitUsd: string | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  limitTokens: number | null;
+  /**
+     * @items.minimum -9007199254740991
+     * @items.maximum 9007199254740991
+     */
+  alertThresholds: number[];
+};
+
+export type KeysControllerRotate200ModelLimitsItem = {
+  model: string;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  rpm: number | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  tpm: number | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  inputTpm: number | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  outputTpm: number | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  maxConcurrency: number | null;
+  budgets: KeysControllerRotate200ModelLimitsItemBudgetsItem[];
+};
 
 export type KeysControllerRotate200BudgetsItemPeriod = typeof KeysControllerRotate200BudgetsItemPeriod[keyof typeof KeysControllerRotate200BudgetsItemPeriod];
 
@@ -2725,6 +3766,69 @@ export const KeysControllerRotate200PreviousRepairItem = {
   json: 'json',
   tools: 'tools',
 } as const;
+
+export type KeysControllerRotate200PreviousModelLimitsItemBudgetsItemPeriod = typeof KeysControllerRotate200PreviousModelLimitsItemBudgetsItemPeriod[keyof typeof KeysControllerRotate200PreviousModelLimitsItemBudgetsItemPeriod];
+
+
+export const KeysControllerRotate200PreviousModelLimitsItemBudgetsItemPeriod = {
+  daily: 'daily',
+  weekly: 'weekly',
+  monthly: 'monthly',
+  yearly: 'yearly',
+} as const;
+
+export type KeysControllerRotate200PreviousModelLimitsItemBudgetsItem = {
+  id: string;
+  period: KeysControllerRotate200PreviousModelLimitsItemBudgetsItemPeriod;
+  /** @nullable */
+  limitUsd: string | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  limitTokens: number | null;
+  /**
+     * @items.minimum -9007199254740991
+     * @items.maximum 9007199254740991
+     */
+  alertThresholds: number[];
+};
+
+export type KeysControllerRotate200PreviousModelLimitsItem = {
+  model: string;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  rpm: number | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  tpm: number | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  inputTpm: number | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  outputTpm: number | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  maxConcurrency: number | null;
+  budgets: KeysControllerRotate200PreviousModelLimitsItemBudgetsItem[];
+};
 
 export type KeysControllerRotate200PreviousBudgetsItemPeriod = typeof KeysControllerRotate200PreviousBudgetsItemPeriod[keyof typeof KeysControllerRotate200PreviousBudgetsItemPeriod];
 
@@ -2783,7 +3887,23 @@ export type KeysControllerRotate200Previous = {
      * @maximum 9007199254740991
      * @nullable
      */
+  inputTpm: number | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  outputTpm: number | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
   maxConcurrency: number | null;
+  tags: string[];
+  /** @nullable */
+  costCenter: string | null;
+  modelLimits: KeysControllerRotate200PreviousModelLimitsItem[];
   /** @nullable */
   expiresAt: string | null;
   /** @nullable */
@@ -2825,7 +3945,23 @@ export type KeysControllerRotate200 = {
      * @maximum 9007199254740991
      * @nullable
      */
+  inputTpm: number | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  outputTpm: number | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
   maxConcurrency: number | null;
+  tags: string[];
+  /** @nullable */
+  costCenter: string | null;
+  modelLimits: KeysControllerRotate200ModelLimitsItem[];
   /** @nullable */
   expiresAt: string | null;
   /** @nullable */
@@ -4903,6 +6039,10 @@ export type StatsControllerLog200 = {
   inboundApi: string;
   /** @nullable */
   endUser: string | null;
+  /** tags of the request (card 33.4) */
+  tags: string[];
+  /** @nullable */
+  costCenter: string | null;
   /** @nullable */
   credentialId: string | null;
   /**
@@ -4987,6 +6127,97 @@ export const StatsControllerAnalyticsGranularity = {
 
 export type StatsControllerAnalytics200 = {[key: string]: unknown};
 
+export type StatsControllerDimensionsParams = {
+  /**
+   * Default: 24 hours ago (logs: 7 days ago)
+   * @pattern ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d+)?(?:Z))$
+   */
+  from?: string;
+  /**
+   * Default: now
+   * @pattern ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d+)?(?:Z))$
+   */
+  to?: string;
+  projectId?: string;
+  apiKeyId?: string;
+  /** Requested name (model, alias or combo) */
+  model?: string;
+  /** end_user, tag or cost_center */
+  dimension: StatsControllerDimensionsDimension;
+  /**
+   * only this value of the dimension
+   * @minLength 1
+   * @maxLength 256
+   */
+  value?: string;
+  /** value (default) or, usually with `value`, model, key, project or provider */
+  groupBy?: StatsControllerDimensionsGroupBy;
+  /**
+   * @minimum 1
+   * @maximum 1000
+   */
+  limit?: number;
+};
+
+export type StatsControllerDimensionsDimension = typeof StatsControllerDimensionsDimension[keyof typeof StatsControllerDimensionsDimension];
+
+
+export const StatsControllerDimensionsDimension = {
+  end_user: 'end_user',
+  tag: 'tag',
+  cost_center: 'cost_center',
+} as const;
+
+export type StatsControllerDimensionsGroupBy = typeof StatsControllerDimensionsGroupBy[keyof typeof StatsControllerDimensionsGroupBy];
+
+
+export const StatsControllerDimensionsGroupBy = {
+  value: 'value',
+  model: 'model',
+  key: 'key',
+  project: 'project',
+  provider: 'provider',
+} as const;
+
+export type StatsControllerDimensions200ItemsItem = {
+  /** the value (`__other__` sums the values past the cap) or the group */
+  id: string;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     */
+  requests: number;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     */
+  errors: number;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     */
+  inputTokens: number;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     */
+  outputTokens: number;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     */
+  tokens: number;
+  costUsd: string;
+  chargeUsd: string;
+};
+
+export type StatsControllerDimensions200 = {
+  dimension: string;
+  groupBy: string;
+  value?: string;
+  items: StatsControllerDimensions200ItemsItem[];
+};
+
 export type StatsControllerLive200 = {[key: string]: unknown};
 
 export type StatsControllerLedgerParams = {
@@ -5045,6 +6276,50 @@ export type StatsControllerHealth200ProvidersItemCredentialsItemLockoutsItem = {
   until: string | null;
 };
 
+export type StatsControllerHealth200ProvidersItemCredentialsItemQuotasItemUsed = {
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     */
+  requests: number;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     */
+  tokens: number;
+  usd: string;
+};
+
+export type StatsControllerHealth200ProvidersItemCredentialsItemQuotasItem = {
+  id: string;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     */
+  hours: number;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  limitRequests: number | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  limitTokens: number | null;
+  /** @nullable */
+  limitUsd: string | null;
+  used: StatsControllerHealth200ProvidersItemCredentialsItemQuotasItemUsed;
+  /**
+     * null until the window has a request
+     * @nullable
+     */
+  resetAt: string | null;
+  exhausted: boolean;
+};
+
 export type StatsControllerHealth200ProvidersItemCredentialsItem = {
   id: string;
   name: string;
@@ -5056,6 +6331,7 @@ export type StatsControllerHealth200ProvidersItemCredentialsItem = {
   /** @nullable */
   disabledReason: string | null;
   lockouts: StatsControllerHealth200ProvidersItemCredentialsItemLockoutsItem[];
+  quotas: StatsControllerHealth200ProvidersItemCredentialsItemQuotasItem[];
 };
 
 export type StatsControllerHealth200ProvidersItem = {
@@ -7528,6 +8804,9 @@ export const LimitsControllerList200ItemScope = {
   user: 'user',
   model: 'model',
   provider: 'provider',
+  end_user: 'end_user',
+  tag: 'tag',
+  cost_center: 'cost_center',
 } as const;
 
 /**
@@ -7584,6 +8863,18 @@ export type LimitsControllerList200Item = {
      * @maximum 9007199254740991
      * @nullable
      */
+  inputTpm: number | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  outputTpm: number | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
   maxConcurrency: number | null;
   budgets: LimitsControllerList200ItemBudgetsItem[];
 };
@@ -7601,6 +8892,9 @@ export const LimitsControllerUsage200ScopesItemScope = {
   user: 'user',
   model: 'model',
   provider: 'provider',
+  end_user: 'end_user',
+  tag: 'tag',
+  cost_center: 'cost_center',
 } as const;
 
 export type LimitsControllerUsage200ScopesItemToday = {
@@ -7655,6 +8949,18 @@ export type LimitsControllerUsage200ScopesItemRateLimit = {
      * @nullable
      */
   tpm: number | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  inputTpm: number | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  outputTpm: number | null;
   /**
      * @minimum -9007199254740991
      * @maximum 9007199254740991
@@ -7740,6 +9046,9 @@ export const LimitsControllerGet200Scope = {
   user: 'user',
   model: 'model',
   provider: 'provider',
+  end_user: 'end_user',
+  tag: 'tag',
+  cost_center: 'cost_center',
 } as const;
 
 /**
@@ -7791,6 +9100,18 @@ export type LimitsControllerGet200 = {
      * @nullable
      */
   tpm: number | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  inputTpm: number | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  outputTpm: number | null;
   /**
      * @minimum -9007199254740991
      * @maximum 9007199254740991
@@ -7849,6 +9170,18 @@ export type LimitsControllerSetBody = {
      * @exclusiveMinimum 0
      * @nullable
      */
+  inputTpm?: number | null;
+  /**
+     * @maximum 9007199254740991
+     * @exclusiveMinimum 0
+     * @nullable
+     */
+  outputTpm?: number | null;
+  /**
+     * @maximum 9007199254740991
+     * @exclusiveMinimum 0
+     * @nullable
+     */
   maxConcurrency?: number | null;
   /** @maxItems 4 */
   budgets?: LimitsControllerSetBodyBudgetsItem[];
@@ -7867,6 +9200,9 @@ export const LimitsControllerSet200Scope = {
   user: 'user',
   model: 'model',
   provider: 'provider',
+  end_user: 'end_user',
+  tag: 'tag',
+  cost_center: 'cost_center',
 } as const;
 
 /**
@@ -7923,6 +9259,18 @@ export type LimitsControllerSet200 = {
      * @maximum 9007199254740991
      * @nullable
      */
+  inputTpm: number | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  outputTpm: number | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
   maxConcurrency: number | null;
   budgets: LimitsControllerSet200BudgetsItem[];
 };
@@ -7940,6 +9288,9 @@ export const LimitsControllerRemove200Scope = {
   user: 'user',
   model: 'model',
   provider: 'provider',
+  end_user: 'end_user',
+  tag: 'tag',
+  cost_center: 'cost_center',
 } as const;
 
 /**
@@ -7996,8 +9347,248 @@ export type LimitsControllerRemove200 = {
      * @maximum 9007199254740991
      * @nullable
      */
+  inputTpm: number | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  outputTpm: number | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
   maxConcurrency: number | null;
   budgets: LimitsControllerRemove200BudgetsItem[];
+};
+
+export type EndUsersControllerListParams = {
+  /**
+   * part of the end-user id
+   * @maxLength 256
+   */
+  search?: string;
+  blocked?: EndUsersControllerListBlocked;
+  /**
+   * @minimum 1
+   * @maximum 200
+   */
+  limit?: number;
+  /**
+   * @minimum 0
+   * @maximum 1000000
+   */
+  offset?: number;
+};
+
+export type EndUsersControllerListBlocked = typeof EndUsersControllerListBlocked[keyof typeof EndUsersControllerListBlocked];
+
+
+export const EndUsersControllerListBlocked = {
+  true: 'true',
+  false: 'false',
+} as const;
+
+export type EndUsersControllerList200ItemsItemMonth = {
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     */
+  requests: number;
+  costUsd: string;
+};
+
+export type EndUsersControllerList200ItemsItem = {
+  id: string;
+  blocked: boolean;
+  /** @nullable */
+  firstSeenAt: string | null;
+  /** @nullable */
+  lastSeenAt: string | null;
+  hasLimits: boolean;
+  month: EndUsersControllerList200ItemsItemMonth;
+};
+
+export type EndUsersControllerList200 = {
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     */
+  total: number;
+  items: EndUsersControllerList200ItemsItem[];
+};
+
+export type EndUsersControllerGet200Month = {
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     */
+  requests: number;
+  costUsd: string;
+};
+
+export type EndUsersControllerGet200LimitsBudgetsItem = {
+  id: string;
+  period: string;
+  /** @nullable */
+  limitUsd: string | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  limitTokens: number | null;
+  /**
+     * @items.minimum -9007199254740991
+     * @items.maximum 9007199254740991
+     */
+  alertThresholds: number[];
+};
+
+export type EndUsersControllerGet200Limits = {
+  scope: string;
+  scopeId: string;
+  name: string;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  rpm: number | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  tpm: number | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  maxConcurrency: number | null;
+  budgets: EndUsersControllerGet200LimitsBudgetsItem[];
+};
+
+export type EndUsersControllerGet200DaysItem = {
+  day: string;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     */
+  requests: number;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     */
+  errors: number;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     */
+  tokens: number;
+  costUsd: string;
+};
+
+export type EndUsersControllerGet200 = {
+  id: string;
+  blocked: boolean;
+  /** @nullable */
+  firstSeenAt: string | null;
+  /** @nullable */
+  lastSeenAt: string | null;
+  month: EndUsersControllerGet200Month;
+  limits: EndUsersControllerGet200Limits;
+  days: EndUsersControllerGet200DaysItem[];
+};
+
+export type EndUsersControllerSetBody = {
+  blocked: boolean;
+};
+
+export type EndUsersControllerSet200Month = {
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     */
+  requests: number;
+  costUsd: string;
+};
+
+export type EndUsersControllerSet200LimitsBudgetsItem = {
+  id: string;
+  period: string;
+  /** @nullable */
+  limitUsd: string | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  limitTokens: number | null;
+  /**
+     * @items.minimum -9007199254740991
+     * @items.maximum 9007199254740991
+     */
+  alertThresholds: number[];
+};
+
+export type EndUsersControllerSet200Limits = {
+  scope: string;
+  scopeId: string;
+  name: string;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  rpm: number | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  tpm: number | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  maxConcurrency: number | null;
+  budgets: EndUsersControllerSet200LimitsBudgetsItem[];
+};
+
+export type EndUsersControllerSet200DaysItem = {
+  day: string;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     */
+  requests: number;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     */
+  errors: number;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     */
+  tokens: number;
+  costUsd: string;
+};
+
+export type EndUsersControllerSet200 = {
+  id: string;
+  blocked: boolean;
+  /** @nullable */
+  firstSeenAt: string | null;
+  /** @nullable */
+  lastSeenAt: string | null;
+  month: EndUsersControllerSet200Month;
+  limits: EndUsersControllerSet200Limits;
+  days: EndUsersControllerSet200DaysItem[];
 };
 
 export type RoutingPoliciesControllerList200PoliciesItemPolicyProviderSort = typeof RoutingPoliciesControllerList200PoliciesItemPolicyProviderSort[keyof typeof RoutingPoliciesControllerList200PoliciesItemPolicyProviderSort];
@@ -15139,6 +16730,368 @@ export function useProvidersControllerDiscover<TData = Awaited<ReturnType<typeof
 
 
 
+export type providerSpendControllerGetResponse200 = {
+  data: ProviderSpendControllerGet200
+  status: 200
+}
+
+export type providerSpendControllerGetResponseSuccess = (providerSpendControllerGetResponse200) & {
+  headers: Headers;
+};
+;
+
+export type providerSpendControllerGetResponse = (providerSpendControllerGetResponseSuccess)
+
+export const getProviderSpendControllerGetUrl = (orgId: string,
+    id: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/providers/${id}/spend`
+}
+
+export const providerSpendControllerGet = async (orgId: string,
+    id: string, options?: Parameters<typeof orvalFetch>[1]): Promise<providerSpendControllerGetResponse> => {
+
+  return orvalFetch<providerSpendControllerGetResponse>(getProviderSpendControllerGetUrl(orgId,id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getProviderSpendControllerGetMutationKey = () => ['providerSpendControllerGet'] as const;
+
+export const getProviderSpendControllerGetMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof providerSpendControllerGet>>, TError,ProviderSpendControllerGetMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof providerSpendControllerGet>>, TError,ProviderSpendControllerGetMutationVariables, TContext> => {
+
+const mutationKey = getProviderSpendControllerGetMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof providerSpendControllerGet>>, ProviderSpendControllerGetMutationVariables> = (props) => {
+          const {orgId,id} = props ?? {};
+
+          return  providerSpendControllerGet(orgId,id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ProviderSpendControllerGetMutationResult = NonNullable<Awaited<ReturnType<typeof providerSpendControllerGet>>>
+
+    export type ProviderSpendControllerGetMutationError = unknown
+    export type ProviderSpendControllerGetMutationVariables = {orgId: string;id: string}
+
+    export const useProviderSpendControllerGet = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof providerSpendControllerGet>>, TError,ProviderSpendControllerGetMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof providerSpendControllerGet>>,
+        TError,
+        ProviderSpendControllerGetMutationVariables,
+        TContext
+      > => {
+      return useMutation(getProviderSpendControllerGetMutationOptions(options), queryClient);
+    }
+
+export type providerSpendControllerSetProviderResponse200 = {
+  data: ProviderSpendControllerSetProvider200
+  status: 200
+}
+
+export type providerSpendControllerSetProviderResponseSuccess = (providerSpendControllerSetProviderResponse200) & {
+  headers: Headers;
+};
+;
+
+export type providerSpendControllerSetProviderResponse = (providerSpendControllerSetProviderResponseSuccess)
+
+export const getProviderSpendControllerSetProviderUrl = (orgId: string,
+    id: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/providers/${id}/spend`
+}
+
+export const providerSpendControllerSetProvider = async (orgId: string,
+    id: string,
+    providerSpendControllerSetProviderBody: ProviderSpendControllerSetProviderBody, options?: Parameters<typeof orvalFetch>[1]): Promise<providerSpendControllerSetProviderResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return orvalFetch<providerSpendControllerSetProviderResponse>(getProviderSpendControllerSetProviderUrl(orgId,id),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(providerSpendControllerSetProviderBody)
+  }
+);}
+
+
+
+
+
+export const getProviderSpendControllerSetProviderQueryKey = (orgId: string,
+    id: string,
+    providerSpendControllerSetProviderBody?: ProviderSpendControllerSetProviderBody,) => {
+    return [
+    'PUT', `/api/v1/orgs/${orgId}/providers/${id}/spend`, providerSpendControllerSetProviderBody
+    ] as const;
+    }
+
+
+export const getProviderSpendControllerSetProviderQueryOptions = <TData = Awaited<ReturnType<typeof providerSpendControllerSetProvider>>, TError = unknown>(orgId: string,
+    id: string,
+    providerSpendControllerSetProviderBody: ProviderSpendControllerSetProviderBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof providerSpendControllerSetProvider>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getProviderSpendControllerSetProviderQueryKey(orgId,id,providerSpendControllerSetProviderBody);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof providerSpendControllerSetProvider>>> = ({ signal }) => providerSpendControllerSetProvider(orgId,id,providerSpendControllerSetProviderBody, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: orgId !== null && orgId !== undefined && id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof providerSpendControllerSetProvider>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type ProviderSpendControllerSetProviderQueryResult = NonNullable<Awaited<ReturnType<typeof providerSpendControllerSetProvider>>>
+export type ProviderSpendControllerSetProviderQueryError = unknown
+
+
+export function useProviderSpendControllerSetProvider<TData = Awaited<ReturnType<typeof providerSpendControllerSetProvider>>, TError = unknown>(
+ orgId: string,
+    id: string,
+    providerSpendControllerSetProviderBody: ProviderSpendControllerSetProviderBody, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof providerSpendControllerSetProvider>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof providerSpendControllerSetProvider>>,
+          TError,
+          Awaited<ReturnType<typeof providerSpendControllerSetProvider>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useProviderSpendControllerSetProvider<TData = Awaited<ReturnType<typeof providerSpendControllerSetProvider>>, TError = unknown>(
+ orgId: string,
+    id: string,
+    providerSpendControllerSetProviderBody: ProviderSpendControllerSetProviderBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof providerSpendControllerSetProvider>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof providerSpendControllerSetProvider>>,
+          TError,
+          Awaited<ReturnType<typeof providerSpendControllerSetProvider>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useProviderSpendControllerSetProvider<TData = Awaited<ReturnType<typeof providerSpendControllerSetProvider>>, TError = unknown>(
+ orgId: string,
+    id: string,
+    providerSpendControllerSetProviderBody: ProviderSpendControllerSetProviderBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof providerSpendControllerSetProvider>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useProviderSpendControllerSetProvider<TData = Awaited<ReturnType<typeof providerSpendControllerSetProvider>>, TError = unknown>(
+ orgId: string,
+    id: string,
+    providerSpendControllerSetProviderBody: ProviderSpendControllerSetProviderBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof providerSpendControllerSetProvider>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getProviderSpendControllerSetProviderQueryOptions(orgId,id,providerSpendControllerSetProviderBody,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export type providerSpendControllerSetCredentialResponse200 = {
+  data: ProviderSpendControllerSetCredential200
+  status: 200
+}
+
+export type providerSpendControllerSetCredentialResponseSuccess = (providerSpendControllerSetCredentialResponse200) & {
+  headers: Headers;
+};
+;
+
+export type providerSpendControllerSetCredentialResponse = (providerSpendControllerSetCredentialResponseSuccess)
+
+export const getProviderSpendControllerSetCredentialUrl = (orgId: string,
+    id: string,
+    credentialId: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/providers/${id}/credentials/${credentialId}/spend`
+}
+
+export const providerSpendControllerSetCredential = async (orgId: string,
+    id: string,
+    credentialId: string,
+    providerSpendControllerSetCredentialBody: ProviderSpendControllerSetCredentialBody, options?: Parameters<typeof orvalFetch>[1]): Promise<providerSpendControllerSetCredentialResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return orvalFetch<providerSpendControllerSetCredentialResponse>(getProviderSpendControllerSetCredentialUrl(orgId,id,credentialId),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(providerSpendControllerSetCredentialBody)
+  }
+);}
+
+
+
+
+
+export const getProviderSpendControllerSetCredentialQueryKey = (orgId: string,
+    id: string,
+    credentialId: string,
+    providerSpendControllerSetCredentialBody?: ProviderSpendControllerSetCredentialBody,) => {
+    return [
+    'PUT', `/api/v1/orgs/${orgId}/providers/${id}/credentials/${credentialId}/spend`, providerSpendControllerSetCredentialBody
+    ] as const;
+    }
+
+
+export const getProviderSpendControllerSetCredentialQueryOptions = <TData = Awaited<ReturnType<typeof providerSpendControllerSetCredential>>, TError = unknown>(orgId: string,
+    id: string,
+    credentialId: string,
+    providerSpendControllerSetCredentialBody: ProviderSpendControllerSetCredentialBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof providerSpendControllerSetCredential>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getProviderSpendControllerSetCredentialQueryKey(orgId,id,credentialId,providerSpendControllerSetCredentialBody);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof providerSpendControllerSetCredential>>> = ({ signal }) => providerSpendControllerSetCredential(orgId,id,credentialId,providerSpendControllerSetCredentialBody, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: orgId !== null && orgId !== undefined && id !== null && id !== undefined && credentialId !== null && credentialId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof providerSpendControllerSetCredential>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type ProviderSpendControllerSetCredentialQueryResult = NonNullable<Awaited<ReturnType<typeof providerSpendControllerSetCredential>>>
+export type ProviderSpendControllerSetCredentialQueryError = unknown
+
+
+export function useProviderSpendControllerSetCredential<TData = Awaited<ReturnType<typeof providerSpendControllerSetCredential>>, TError = unknown>(
+ orgId: string,
+    id: string,
+    credentialId: string,
+    providerSpendControllerSetCredentialBody: ProviderSpendControllerSetCredentialBody, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof providerSpendControllerSetCredential>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof providerSpendControllerSetCredential>>,
+          TError,
+          Awaited<ReturnType<typeof providerSpendControllerSetCredential>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useProviderSpendControllerSetCredential<TData = Awaited<ReturnType<typeof providerSpendControllerSetCredential>>, TError = unknown>(
+ orgId: string,
+    id: string,
+    credentialId: string,
+    providerSpendControllerSetCredentialBody: ProviderSpendControllerSetCredentialBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof providerSpendControllerSetCredential>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof providerSpendControllerSetCredential>>,
+          TError,
+          Awaited<ReturnType<typeof providerSpendControllerSetCredential>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useProviderSpendControllerSetCredential<TData = Awaited<ReturnType<typeof providerSpendControllerSetCredential>>, TError = unknown>(
+ orgId: string,
+    id: string,
+    credentialId: string,
+    providerSpendControllerSetCredentialBody: ProviderSpendControllerSetCredentialBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof providerSpendControllerSetCredential>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useProviderSpendControllerSetCredential<TData = Awaited<ReturnType<typeof providerSpendControllerSetCredential>>, TError = unknown>(
+ orgId: string,
+    id: string,
+    credentialId: string,
+    providerSpendControllerSetCredentialBody: ProviderSpendControllerSetCredentialBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof providerSpendControllerSetCredential>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getProviderSpendControllerSetCredentialQueryOptions(orgId,id,credentialId,providerSpendControllerSetCredentialBody,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
 export type keysControllerListResponse200 = {
   data: KeysControllerList200Item[]
   status: 200
@@ -18792,6 +20745,95 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
         TContext
       > => {
       return useMutation(getStatsControllerAnalyticsMutationOptions(options), queryClient);
+    }
+
+export type statsControllerDimensionsResponse200 = {
+  data: StatsControllerDimensions200
+  status: 200
+}
+
+export type statsControllerDimensionsResponseSuccess = (statsControllerDimensionsResponse200) & {
+  headers: Headers;
+};
+;
+
+export type statsControllerDimensionsResponse = (statsControllerDimensionsResponseSuccess)
+
+export const getStatsControllerDimensionsUrl = (orgId: string,
+    params: StatsControllerDimensionsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/v1/orgs/${orgId}/stats/dimensions?${stringifiedParams}` : `/api/v1/orgs/${orgId}/stats/dimensions`
+}
+
+export const statsControllerDimensions = async (orgId: string,
+    params: StatsControllerDimensionsParams, options?: Parameters<typeof orvalFetch>[1]): Promise<statsControllerDimensionsResponse> => {
+
+  return orvalFetch<statsControllerDimensionsResponse>(getStatsControllerDimensionsUrl(orgId,params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getStatsControllerDimensionsMutationKey = () => ['statsControllerDimensions'] as const;
+
+export const getStatsControllerDimensionsMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof statsControllerDimensions>>, TError,StatsControllerDimensionsMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof statsControllerDimensions>>, TError,StatsControllerDimensionsMutationVariables, TContext> => {
+
+const mutationKey = getStatsControllerDimensionsMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof statsControllerDimensions>>, StatsControllerDimensionsMutationVariables> = (props) => {
+          const {orgId,params} = props ?? {};
+
+          return  statsControllerDimensions(orgId,params,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type StatsControllerDimensionsMutationResult = NonNullable<Awaited<ReturnType<typeof statsControllerDimensions>>>
+
+    export type StatsControllerDimensionsMutationError = unknown
+    export type StatsControllerDimensionsMutationVariables = {orgId: string;params: StatsControllerDimensionsParams}
+
+    export const useStatsControllerDimensions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof statsControllerDimensions>>, TError,StatsControllerDimensionsMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof statsControllerDimensions>>,
+        TError,
+        StatsControllerDimensionsMutationVariables,
+        TContext
+      > => {
+      return useMutation(getStatsControllerDimensionsMutationOptions(options), queryClient);
     }
 
 export type statsControllerLiveResponse200 = {
@@ -33618,6 +35660,313 @@ export function useLimitsControllerRemove<TData = Awaited<ReturnType<typeof limi
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getLimitsControllerRemoveQueryOptions(orgId,scope,scopeId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export type endUsersControllerListResponse200 = {
+  data: EndUsersControllerList200
+  status: 200
+}
+
+export type endUsersControllerListResponseSuccess = (endUsersControllerListResponse200) & {
+  headers: Headers;
+};
+;
+
+export type endUsersControllerListResponse = (endUsersControllerListResponseSuccess)
+
+export const getEndUsersControllerListUrl = (orgId: string,
+    params?: EndUsersControllerListParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/v1/orgs/${orgId}/end-users?${stringifiedParams}` : `/api/v1/orgs/${orgId}/end-users`
+}
+
+export const endUsersControllerList = async (orgId: string,
+    params?: EndUsersControllerListParams, options?: Parameters<typeof orvalFetch>[1]): Promise<endUsersControllerListResponse> => {
+
+  return orvalFetch<endUsersControllerListResponse>(getEndUsersControllerListUrl(orgId,params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getEndUsersControllerListMutationKey = () => ['endUsersControllerList'] as const;
+
+export const getEndUsersControllerListMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof endUsersControllerList>>, TError,EndUsersControllerListMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof endUsersControllerList>>, TError,EndUsersControllerListMutationVariables, TContext> => {
+
+const mutationKey = getEndUsersControllerListMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof endUsersControllerList>>, EndUsersControllerListMutationVariables> = (props) => {
+          const {orgId,params} = props ?? {};
+
+          return  endUsersControllerList(orgId,params,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type EndUsersControllerListMutationResult = NonNullable<Awaited<ReturnType<typeof endUsersControllerList>>>
+
+    export type EndUsersControllerListMutationError = unknown
+    export type EndUsersControllerListMutationVariables = {orgId: string;params?: EndUsersControllerListParams}
+
+    export const useEndUsersControllerList = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof endUsersControllerList>>, TError,EndUsersControllerListMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof endUsersControllerList>>,
+        TError,
+        EndUsersControllerListMutationVariables,
+        TContext
+      > => {
+      return useMutation(getEndUsersControllerListMutationOptions(options), queryClient);
+    }
+
+export type endUsersControllerGetResponse200 = {
+  data: EndUsersControllerGet200
+  status: 200
+}
+
+export type endUsersControllerGetResponseSuccess = (endUsersControllerGetResponse200) & {
+  headers: Headers;
+};
+;
+
+export type endUsersControllerGetResponse = (endUsersControllerGetResponseSuccess)
+
+export const getEndUsersControllerGetUrl = (orgId: string,
+    endUser: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/end-users/${endUser}`
+}
+
+export const endUsersControllerGet = async (orgId: string,
+    endUser: string, options?: Parameters<typeof orvalFetch>[1]): Promise<endUsersControllerGetResponse> => {
+
+  return orvalFetch<endUsersControllerGetResponse>(getEndUsersControllerGetUrl(orgId,endUser),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getEndUsersControllerGetMutationKey = () => ['endUsersControllerGet'] as const;
+
+export const getEndUsersControllerGetMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof endUsersControllerGet>>, TError,EndUsersControllerGetMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof endUsersControllerGet>>, TError,EndUsersControllerGetMutationVariables, TContext> => {
+
+const mutationKey = getEndUsersControllerGetMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof endUsersControllerGet>>, EndUsersControllerGetMutationVariables> = (props) => {
+          const {orgId,endUser} = props ?? {};
+
+          return  endUsersControllerGet(orgId,endUser,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type EndUsersControllerGetMutationResult = NonNullable<Awaited<ReturnType<typeof endUsersControllerGet>>>
+
+    export type EndUsersControllerGetMutationError = unknown
+    export type EndUsersControllerGetMutationVariables = {orgId: string;endUser: string}
+
+    export const useEndUsersControllerGet = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof endUsersControllerGet>>, TError,EndUsersControllerGetMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof endUsersControllerGet>>,
+        TError,
+        EndUsersControllerGetMutationVariables,
+        TContext
+      > => {
+      return useMutation(getEndUsersControllerGetMutationOptions(options), queryClient);
+    }
+
+export type endUsersControllerSetResponse200 = {
+  data: EndUsersControllerSet200
+  status: 200
+}
+
+export type endUsersControllerSetResponseSuccess = (endUsersControllerSetResponse200) & {
+  headers: Headers;
+};
+;
+
+export type endUsersControllerSetResponse = (endUsersControllerSetResponseSuccess)
+
+export const getEndUsersControllerSetUrl = (orgId: string,
+    endUser: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/end-users/${endUser}`
+}
+
+export const endUsersControllerSet = async (orgId: string,
+    endUser: string,
+    endUsersControllerSetBody: EndUsersControllerSetBody, options?: Parameters<typeof orvalFetch>[1]): Promise<endUsersControllerSetResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return orvalFetch<endUsersControllerSetResponse>(getEndUsersControllerSetUrl(orgId,endUser),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(endUsersControllerSetBody)
+  }
+);}
+
+
+
+
+
+export const getEndUsersControllerSetQueryKey = (orgId: string,
+    endUser: string,
+    endUsersControllerSetBody?: EndUsersControllerSetBody,) => {
+    return [
+    'PUT', `/api/v1/orgs/${orgId}/end-users/${endUser}`, endUsersControllerSetBody
+    ] as const;
+    }
+
+
+export const getEndUsersControllerSetQueryOptions = <TData = Awaited<ReturnType<typeof endUsersControllerSet>>, TError = unknown>(orgId: string,
+    endUser: string,
+    endUsersControllerSetBody: EndUsersControllerSetBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof endUsersControllerSet>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getEndUsersControllerSetQueryKey(orgId,endUser,endUsersControllerSetBody);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof endUsersControllerSet>>> = ({ signal }) => endUsersControllerSet(orgId,endUser,endUsersControllerSetBody, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: orgId !== null && orgId !== undefined && endUser !== null && endUser !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof endUsersControllerSet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type EndUsersControllerSetQueryResult = NonNullable<Awaited<ReturnType<typeof endUsersControllerSet>>>
+export type EndUsersControllerSetQueryError = unknown
+
+
+export function useEndUsersControllerSet<TData = Awaited<ReturnType<typeof endUsersControllerSet>>, TError = unknown>(
+ orgId: string,
+    endUser: string,
+    endUsersControllerSetBody: EndUsersControllerSetBody, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof endUsersControllerSet>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof endUsersControllerSet>>,
+          TError,
+          Awaited<ReturnType<typeof endUsersControllerSet>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useEndUsersControllerSet<TData = Awaited<ReturnType<typeof endUsersControllerSet>>, TError = unknown>(
+ orgId: string,
+    endUser: string,
+    endUsersControllerSetBody: EndUsersControllerSetBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof endUsersControllerSet>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof endUsersControllerSet>>,
+          TError,
+          Awaited<ReturnType<typeof endUsersControllerSet>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useEndUsersControllerSet<TData = Awaited<ReturnType<typeof endUsersControllerSet>>, TError = unknown>(
+ orgId: string,
+    endUser: string,
+    endUsersControllerSetBody: EndUsersControllerSetBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof endUsersControllerSet>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useEndUsersControllerSet<TData = Awaited<ReturnType<typeof endUsersControllerSet>>, TError = unknown>(
+ orgId: string,
+    endUser: string,
+    endUsersControllerSetBody: EndUsersControllerSetBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof endUsersControllerSet>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getEndUsersControllerSetQueryOptions(orgId,endUser,endUsersControllerSetBody,options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 

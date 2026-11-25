@@ -47,7 +47,7 @@ import {
 import { checkJobWebhookUrl, enqueueWebhook, webhookSecret } from './jobs/webhooks.js';
 import { parseMultipart } from './media.js';
 import { chargeUnits } from './pricing.js';
-import { budgetScopes } from './proxy.js';
+import { budgetScopes } from './spend-guard.js';
 import { callUpstream, mergeTimeouts, readErrorBody } from './upstream.js';
 
 /** A task record is kept a week; the provider may drop the video itself sooner. */

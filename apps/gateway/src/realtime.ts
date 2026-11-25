@@ -64,7 +64,8 @@ import { authenticate, extractApiKey } from './auth.js';
 import type { LoadedConfig } from './config-store.js';
 import { resolveCredentialKey, tokenFailure } from './credential-tokens.js';
 import { chargeUnits, chargeUsd } from './pricing.js';
-import { budgetScopes, limitScopes, type ProxyDeps, toClientError } from './proxy.js';
+import { type ProxyDeps, toClientError } from './proxy.js';
+import { budgetScopes, limitScopes } from './spend-guard.js';
 import { MAX_REALTIME_MESSAGE_BYTES, openUpstream } from './realtime-upstream.js';
 import {
   type ClientSecretClaims,

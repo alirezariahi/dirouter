@@ -30,7 +30,8 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 
 import { authenticate, extractApiKey } from '../auth.js';
-import { budgetScopes, errorPayload, handleProxy, limitScopes, type ProxyDeps } from '../proxy.js';
+import { errorPayload, handleProxy, type ProxyDeps } from '../proxy.js';
+import { budgetScopes, limitScopes } from '../spend-guard.js';
 import type { WebSearchExtension } from '../web-search.js';
 import { FetchRefused, type FetchedPage, fetchPage } from './fetch.js';
 import {

@@ -1,5 +1,3 @@
-[English](end-users.md) · [فارسی](end-users.fa.md)
-
 # End users (card 33.2)
 
 A product built on DiRouter usually has users of its own. DiRouter calls them **end users**: it

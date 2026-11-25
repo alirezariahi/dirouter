@@ -8,7 +8,6 @@ import { envSchema } from '../env.js';
 import { SnapshotService } from '../snapshot/snapshot.service.js';
 import { PrismaService } from '../infra/prisma.service.js';
 import { ValkeyService } from '../infra/valkey.service.js';
-import { SnapshotService } from '../snapshot/snapshot.service.js';
 
 const DATABASE_URL = process.env.INTEGRATION_DATABASE_URL;
 const VALKEY_URL = process.env.INTEGRATION_VALKEY_URL;

@@ -47,7 +47,8 @@ import { authenticate, extractApiKey } from './auth.js';
 import { resolveCredentialKey } from './credential-tokens.js';
 import { evaluateGuardrails, policiesFor } from './guardrails.js';
 import { chargeUsd } from './pricing.js';
-import { budgetScopes, errorPayload, limitScopes, type ProxyDeps } from './proxy.js';
+import { errorPayload, type ProxyDeps } from './proxy.js';
+import { budgetScopes, limitScopes } from './spend-guard.js';
 import { callUpstream, mergeTimeouts, UpstreamTimeout } from './upstream.js';
 
 export const PASSTHROUGH_PREFIX = '/passthrough/';
