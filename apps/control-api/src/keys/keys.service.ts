@@ -7,6 +7,7 @@ import { randomBytes } from 'node:crypto';
 import { isIP } from 'node:net';
 
 import type { RepairKind } from '@dirouter/contracts';
+import type { Prisma } from '@dirouter/db';
 import { DiRouterError, ForbiddenError, hashApiKey, prefixedId } from '@dirouter/shared';
 import { Inject, Injectable } from '@nestjs/common';
 
@@ -57,10 +58,48 @@ export interface KeyInput {
   repair?: RepairKind[] | undefined;
   rpm?: number | null | undefined;
   tpm?: number | null | undefined;
+  inputTpm?: number | null | undefined;
+  outputTpm?: number | null | undefined;
   maxConcurrency?: number | null | undefined;
   expiresAt?: string | null | undefined;
   budgets?: BudgetInput[] | undefined;
+  /** Limits on one model each (card 33.3); replaces every entry, absent keeps them. */
+  modelLimits?: ModelLimitInput[] | undefined;
 }
+
+export interface ModelLimitInput {
+  /** Model, alias or combo slug, as clients name it. */
+  model: string;
+  rpm?: number | null | undefined;
+  tpm?: number | null | undefined;
+  inputTpm?: number | null | undefined;
+  outputTpm?: number | null | undefined;
+  maxConcurrency?: number | null | undefined;
+  budgets?: BudgetInput[] | undefined;
+}
+
+/** Rate limits of one model entry as stored in `api_keys.model_limits`. */
+interface StoredModelLimit {
+  model: string;
+  rpm?: number;
+  tpm?: number;
+  inputTpm?: number;
+  outputTpm?: number;
+  maxConcurrency?: number;
+}
+
+export const storedModelLimits = (value: unknown): StoredModelLimit[] =>
+  Array.isArray(value)
+    ? value.filter(
+        (v): v is StoredModelLimit =>
+          typeof v === 'object' &&
+          v !== null &&
+          typeof (v as { model?: unknown }).model === 'string',
+      )
+    : [];
+
+/** Scope id of a key's budget on one model (card 33.3). */
+export const keyModelScopeId = (keyId: string, model: string) => `${keyId}|${model}`;
 
 const notFound = () => new DiRouterError('not_found');
 const MAX_GRACE_S = 30 * 24 * 3600;
@@ -78,17 +117,37 @@ export class KeysService {
 
   async #budgets(keyIds: string[]) {
     const rows = await this.db.budget.findMany({
-      where: { scope: 'API_KEY', scopeId: { in: keyIds } },
+      where: {
+        OR: [
+          { scope: 'API_KEY', scopeId: { in: keyIds } },
+          ...keyIds.map((id) => ({
+            scope: 'API_KEY_MODEL' as const,
+            scopeId: { startsWith: `${id}|` },
+          })),
+        ],
+      },
+      orderBy: { period: 'asc' },
     });
     const by = new Map<string, typeof rows>();
-    for (const b of rows) by.set(b.scopeId, [...(by.get(b.scopeId) ?? []), b]);
+    for (const b of rows) {
+      const keyId = b.scope === 'API_KEY' ? b.scopeId : b.scopeId.slice(0, b.scopeId.indexOf('|'));
+      by.set(keyId, [...(by.get(keyId) ?? []), b]);
+    }
     return by;
   }
 
   #view(
     k: Awaited<ReturnType<KeysService['load']>>,
-    budgets: Awaited<ReturnType<KeysService['budgetRows']>>,
+    all: Awaited<ReturnType<KeysService['budgetRows']>>,
   ) {
+    const budgets = all.filter((b) => b.scope === 'API_KEY');
+    const budgetView = (b: (typeof all)[number]) => ({
+      id: b.id,
+      period: fromDbPeriod(b.period),
+      limitUsd: b.limitUsd?.toFixed(8).replace(/\.?0+$/, '') ?? null,
+      limitTokens: b.limitTokens === null ? null : Number(b.limitTokens),
+      alertThresholds: b.alertThresholds,
+    });
     const now = Date.now();
     const state =
       k.status === 'REVOKED'
@@ -112,27 +171,52 @@ export class KeysService {
       repair: k.repair.filter((r): r is RepairKind => r === 'json' || r === 'tools'),
       rpm: k.rpm,
       tpm: k.tpm,
+      inputTpm: k.inputTpm,
+      outputTpm: k.outputTpm,
       maxConcurrency: k.maxConcurrency,
+      modelLimits: storedModelLimits(k.modelLimits).map((m) => ({
+        model: m.model,
+        rpm: m.rpm ?? null,
+        tpm: m.tpm ?? null,
+        inputTpm: m.inputTpm ?? null,
+        outputTpm: m.outputTpm ?? null,
+        maxConcurrency: m.maxConcurrency ?? null,
+        budgets: all
+          .filter(
+            (b) => b.scope === 'API_KEY_MODEL' && b.scopeId === keyModelScopeId(k.id, m.model),
+          )
+          .map(budgetView),
+      })),
       expiresAt: k.expiresAt?.toISOString() ?? null,
       revokedAt: k.revokedAt?.toISOString() ?? null,
       rotatedToId: k.rotatedToId,
       lastUsedAt: k.lastUsedAt?.toISOString() ?? null,
       createdAt: k.createdAt.toISOString(),
-      budgets: budgets.map((b) => ({
-        id: b.id,
-        period: fromDbPeriod(b.period),
-        limitUsd: b.limitUsd?.toFixed(8).replace(/\.?0+$/, '') ?? null,
-        limitTokens: b.limitTokens === null ? null : Number(b.limitTokens),
-        alertThresholds: b.alertThresholds,
-      })),
+      budgets: budgets.map(budgetView),
     };
   }
 
   budgetRows(keyId: string) {
     return this.db.budget.findMany({
-      where: { scope: 'API_KEY', scopeId: keyId },
+      where: {
+        OR: [
+          { scope: 'API_KEY', scopeId: keyId },
+          { scope: 'API_KEY_MODEL', scopeId: { startsWith: `${keyId}|` } },
+        ],
+      },
       orderBy: { period: 'asc' },
     });
+  }
+
+  /** Whether a patch changes the key's budgets on its models (four-eyes, card 22.2). */
+  async changesModelBudgets(
+    ctx: OrgContext,
+    id: string,
+    input: { modelLimits?: ModelLimitInput[] | undefined },
+  ) {
+    if (input.modelLimits === undefined) return false;
+    if (input.modelLimits.some((m) => (m.budgets ?? []).length > 0)) return true;
+    return (await this.get(ctx, id)).modelLimits.some((m) => m.budgets.length > 0);
   }
 
   async load(ctx: OrgContext, id: string) {
@@ -217,12 +301,15 @@ export class KeysService {
           repair: [...new Set(input.repair ?? [])],
           rpm: input.rpm ?? null,
           tpm: input.tpm ?? null,
+          inputTpm: input.inputTpm ?? null,
+          outputTpm: input.outputTpm ?? null,
           maxConcurrency: input.maxConcurrency ?? null,
           expiresAt: input.expiresAt ? new Date(input.expiresAt) : null,
           createdById: ctx.userId,
         },
       });
       await this.#replaceBudgets(tx, ctx, id, input.budgets ?? []);
+      if (input.modelLimits) await this.#replaceModelLimits(tx, ctx, id, input.modelLimits);
       await this.#audit(tx, ctx, 'key.created', id, {
         name: input.name,
         prefix,
@@ -251,6 +338,8 @@ export class KeysService {
           ...(input.repair !== undefined ? { repair: [...new Set(input.repair)] } : {}),
           ...(input.rpm !== undefined ? { rpm: input.rpm } : {}),
           ...(input.tpm !== undefined ? { tpm: input.tpm } : {}),
+          ...(input.inputTpm !== undefined ? { inputTpm: input.inputTpm } : {}),
+          ...(input.outputTpm !== undefined ? { outputTpm: input.outputTpm } : {}),
           ...(input.maxConcurrency !== undefined ? { maxConcurrency: input.maxConcurrency } : {}),
           ...(input.expiresAt !== undefined
             ? { expiresAt: input.expiresAt ? new Date(input.expiresAt) : null }
@@ -258,6 +347,8 @@ export class KeysService {
         },
       });
       if (input.budgets !== undefined) await this.#replaceBudgets(tx, ctx, id, input.budgets);
+      if (input.modelLimits !== undefined)
+        await this.#replaceModelLimits(tx, ctx, id, input.modelLimits);
       await this.#audit(tx, ctx, 'key.updated', id, input);
     });
     return this.get(ctx, id);
@@ -310,11 +401,32 @@ export class KeysService {
           repair: old.repair,
           rpm: old.rpm,
           tpm: old.tpm,
+          inputTpm: old.inputTpm,
+          outputTpm: old.outputTpm,
           maxConcurrency: old.maxConcurrency,
           expiresAt: old.expiresAt,
           createdById: ctx.userId,
         },
       });
+      // The key's model limits and their budgets move to the new key (card 33.3).
+      await this.#replaceModelLimits(
+        tx,
+        ctx,
+        nextId,
+        storedModelLimits(old.modelLimits).map((m) => ({
+          ...m,
+          budgets: budgets
+            .filter(
+              (b) => b.scope === 'API_KEY_MODEL' && b.scopeId === keyModelScopeId(id, m.model),
+            )
+            .map((b) => ({
+              period: fromDbPeriod(b.period),
+              ...(b.limitUsd ? { limitUsd: b.limitUsd.toString() } : {}),
+              ...(b.limitTokens !== null ? { limitTokens: Number(b.limitTokens) } : {}),
+              alertThresholds: b.alertThresholds,
+            })),
+        })),
+      );
       await tx.apiKey.update({
         where: { id },
         data: {
@@ -326,12 +438,14 @@ export class KeysService {
         tx,
         ctx,
         nextId,
-        budgets.map((b) => ({
-          period: fromDbPeriod(b.period),
-          ...(b.limitUsd ? { limitUsd: b.limitUsd.toString() } : {}),
-          ...(b.limitTokens !== null ? { limitTokens: Number(b.limitTokens) } : {}),
-          alertThresholds: b.alertThresholds,
-        })),
+        budgets
+          .filter((b) => b.scope === 'API_KEY')
+          .map((b) => ({
+            period: fromDbPeriod(b.period),
+            ...(b.limitUsd ? { limitUsd: b.limitUsd.toString() } : {}),
+            ...(b.limitTokens !== null ? { limitTokens: Number(b.limitTokens) } : {}),
+            alertThresholds: b.alertThresholds,
+          })),
       );
       await this.#audit(tx, ctx, 'key.rotated', id, { to: nextId, graceSeconds: grace });
     });
@@ -366,6 +480,79 @@ export class KeysService {
         },
       });
     }
+  }
+
+  /**
+   * Replaces the key's limits on single models (card 33.3). A budget keeps its id while its model
+   * and period stay, so the gateway keeps counting the current period on the same counter.
+   */
+  async #replaceModelLimits(
+    tx: Pick<PrismaService['client'], 'budget' | 'apiKey'>,
+    ctx: OrgContext,
+    keyId: string,
+    entries: ModelLimitInput[],
+  ) {
+    const models = new Set(entries.map((e) => e.model));
+    if (models.size !== entries.length)
+      throw new DiRouterError('validation_failed', { message: 'one entry per model' });
+    const stored: StoredModelLimit[] = entries.map((e) => ({
+      model: e.model,
+      ...(e.rpm ? { rpm: e.rpm } : {}),
+      ...(e.tpm ? { tpm: e.tpm } : {}),
+      ...(e.inputTpm ? { inputTpm: e.inputTpm } : {}),
+      ...(e.outputTpm ? { outputTpm: e.outputTpm } : {}),
+      ...(e.maxConcurrency ? { maxConcurrency: e.maxConcurrency } : {}),
+    }));
+    await tx.apiKey.update({
+      where: { id: keyId },
+      data: { modelLimits: JSON.parse(JSON.stringify(stored)) as Prisma.InputJsonValue },
+    });
+    const keep: string[] = [];
+    for (const e of entries) {
+      const budgets = e.budgets ?? [];
+      if (new Set(budgets.map((b) => b.period)).size !== budgets.length)
+        throw new DiRouterError('validation_failed', { message: 'one budget per period' });
+      const scopeId = keyModelScopeId(keyId, e.model);
+      for (const b of budgets) {
+        if (b.limitUsd === undefined && b.limitTokens === undefined)
+          throw new DiRouterError('validation_failed', {
+            message: 'budget needs limitUsd or limitTokens',
+          });
+        const period = toDbPeriod(b.period);
+        const data = {
+          limitUsd: b.limitUsd ?? null,
+          limitTokens: b.limitTokens ?? null,
+          alertThresholds: b.alertThresholds ?? [50, 80, 100],
+        };
+        const row = await tx.budget.upsert({
+          where: {
+            organizationId_scope_scopeId_period: {
+              organizationId: ctx.organizationId,
+              scope: 'API_KEY_MODEL',
+              scopeId,
+              period,
+            },
+          },
+          update: data,
+          create: {
+            id: prefixedId('bud'),
+            organizationId: ctx.organizationId,
+            scope: 'API_KEY_MODEL',
+            scopeId,
+            period,
+            ...data,
+          },
+        });
+        keep.push(row.id);
+      }
+    }
+    await tx.budget.deleteMany({
+      where: {
+        scope: 'API_KEY_MODEL',
+        scopeId: { startsWith: `${keyId}|` },
+        id: { notIn: keep },
+      },
+    });
   }
 
   #auditData(ctx: OrgContext, action: string, targetId: string, diff?: object) {

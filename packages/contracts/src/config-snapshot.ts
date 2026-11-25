@@ -370,7 +370,11 @@ export type AliasConfig = z.infer<typeof AliasConfig>;
 
 export const RateLimitConfig = z.object({
   requestsPerMinute: z.int().positive().optional(),
+  /** Input + output tokens. */
   tokensPerMinute: z.int().positive().optional(),
+  /** Input and output tokens counted apart (card 33.3). */
+  inputTokensPerMinute: z.int().positive().optional(),
+  outputTokensPerMinute: z.int().positive().optional(),
   maxConcurrency: z.int().positive().optional(),
 });
 export type RateLimitConfig = z.infer<typeof RateLimitConfig>;
@@ -416,6 +420,20 @@ export const VirtualKeyConfig = z.object({
   ipAllowlist: z.array(z.string()).default([]),
   rateLimit: RateLimitConfig.optional(),
   budgets: z.array(BudgetConfig).default([]),
+  /**
+   * Limits of this key on one model (card 33.3), by the name a client uses (model, alias or combo
+   * slug, like `allowedModels`). An entry naming a model covers every request that model serves;
+   * one naming an alias or combo covers the requests for that name.
+   */
+  modelLimits: z
+    .array(
+      z.object({
+        model: z.string().min(1).max(128),
+        rateLimit: RateLimitConfig.optional(),
+        budgets: z.array(BudgetConfig).default([]),
+      }),
+    )
+    .optional(),
   /** Prepaid organizations: the wallet the gateway reserves credit from (card 19.1). */
   walletId: z.string().optional(),
   /** Customer group multiplier applied to sale prices (card 19.4); absent means 1. */

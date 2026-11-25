@@ -4,7 +4,8 @@
  * Three kinds of cap for each scope (key, project, team):
  * - RPM: exact sliding window (sliding log in a ZSET). At most `rpm` requests in any 60-second span.
  * - TPM: one-second buckets in a HASH. Before the request the estimate is reserved, and after the actual usage
- *   the difference is settled.
+ *   the difference is settled. Input and output TPM (card 33.3) do the same for each side alone:
+ *   the input estimate and the output cap are reserved, the actual input and output settled.
  * - Concurrency: a semaphore in a ZSET with a TTL, so a dead node's request does not hold a slot forever.
  *
  * All scopes are checked and then applied by a single atomic Lua script (or none are), and
@@ -23,7 +24,14 @@ export interface LimitScope {
   limit: RateLimitConfig;
 }
 
-export type LimitKind = 'requests' | 'tokens' | 'concurrency';
+export type LimitKind = 'requests' | 'tokens' | 'input_tokens' | 'output_tokens' | 'concurrency';
+
+/** Tokens of a request: a total (all input) or the input and output sides apart. */
+export type TokenCount = number | { input: number; output: number };
+const sides = (t: TokenCount) =>
+  typeof t === 'number'
+    ? { input: Math.max(0, Math.round(t)), output: 0 }
+    : { input: Math.max(0, Math.round(t.input)), output: Math.max(0, Math.round(t.output)) };
 
 export interface LimitHeaders {
   [name: string]: string;
@@ -33,8 +41,8 @@ export type Admission =
   | {
       ok: true;
       headers: LimitHeaders;
-      /** Settles TPM with actual usage (input + output). */
-      settle: (actualTokens: number) => void;
+      /** Settles the token windows with actual usage (a total, or input and output apart). */
+      settle: (actual: TokenCount) => void;
       /** Releases the concurrency slot. */
       release: () => void;
     }
@@ -64,9 +72,12 @@ export interface RateLimiterOptions {
 const PREFIX = 'dirouter:rl';
 
 /**
- * KEYS: three keys per scope [rpm, tpm, conc]
- * ARGV: windowMs, bucketMs, requestId, estimate, concTtlMs, then [rpm, tpm, conc] for each scope
+ * KEYS: five keys per scope [rpm, tpm, conc, itpm, otpm]
+ * ARGV: windowMs, bucketMs, requestId, inputEstimate, concTtlMs, outputEstimate, then
+ *       [rpm, tpm, conc, itpm, otpm] for each scope
  * Output: {ok, failIndex, failKind, retryAfterMs, nowMs, ...[rpmUsed, rpmResetMs, tpmUsed] for each scope}
+ *
+ * TPM counts input + output; input and output TPM (card 33.3) count each side on its own window.
  */
 const ACQUIRE = `
 local t = redis.call('TIME')
@@ -74,17 +85,32 @@ local now = tonumber(t[1]) * 1000 + math.floor(tonumber(t[2]) / 1000)
 local window = tonumber(ARGV[1])
 local bucketMs = tonumber(ARGV[2])
 local id = ARGV[3]
-local est = tonumber(ARGV[4])
+local estIn = tonumber(ARGV[4])
 local ttl = tonumber(ARGV[5])
-local n = #KEYS / 3
+local estOut = tonumber(ARGV[6])
+local est = estIn + estOut
+local n = #KEYS / 5
 local bucket = math.floor(now / bucketMs)
 local buckets = math.floor(window / bucketMs)
+local function used(key)
+  local total = 0
+  local all = redis.call('HGETALL', key)
+  for j = 1, #all, 2 do
+    local b = tonumber(all[j])
+    if b <= bucket - buckets then redis.call('HDEL', key, all[j])
+    else total = total + tonumber(all[j+1]) end
+  end
+  return total
+end
 local info = {}
 for i = 1, n do
-  local rpmKey, tpmKey, concKey = KEYS[i*3-2], KEYS[i*3-1], KEYS[i*3]
-  local rpm = tonumber(ARGV[5 + i*3 - 2])
-  local tpm = tonumber(ARGV[5 + i*3 - 1])
-  local conc = tonumber(ARGV[5 + i*3])
+  local k = (i - 1) * 5
+  local rpmKey, tpmKey, concKey, itpmKey, otpmKey = KEYS[k+1], KEYS[k+2], KEYS[k+3], KEYS[k+4], KEYS[k+5]
+  local rpm = tonumber(ARGV[6 + k + 1])
+  local tpm = tonumber(ARGV[6 + k + 2])
+  local conc = tonumber(ARGV[6 + k + 3])
+  local itpm = tonumber(ARGV[6 + k + 4])
+  local otpm = tonumber(ARGV[6 + k + 5])
   local rpmUsed, rpmReset, tpmUsed = 0, 0, 0
   if rpm > 0 then
     redis.call('ZREMRANGEBYSCORE', rpmKey, '-inf', now - window)
@@ -97,17 +123,18 @@ for i = 1, n do
     local first = redis.call('ZRANGE', rpmKey, 0, 0, 'WITHSCORES')
     if #first > 0 then rpmReset = tonumber(first[2]) + window - now end
   end
+  -- a request larger than the whole cap is only rejected when the window is empty.
   if tpm > 0 then
-    local all = redis.call('HGETALL', tpmKey)
-    for j = 1, #all, 2 do
-      local b = tonumber(all[j])
-      if b <= bucket - buckets then redis.call('HDEL', tpmKey, all[j])
-      else tpmUsed = tpmUsed + tonumber(all[j+1]) end
-    end
-    -- a request larger than the whole cap is only rejected when the window is empty.
-    if tpmUsed > 0 and tpmUsed + est > tpm then
-      return {0, i, 'tokens', bucketMs, now}
-    end
+    tpmUsed = used(tpmKey)
+    if tpmUsed > 0 and tpmUsed + est > tpm then return {0, i, 'tokens', bucketMs, now} end
+  end
+  if itpm > 0 then
+    local u = used(itpmKey)
+    if u > 0 and u + estIn > itpm then return {0, i, 'input_tokens', bucketMs, now} end
+  end
+  if otpm > 0 then
+    local u = used(otpmKey)
+    if u > 0 and u + estOut > otpm then return {0, i, 'output_tokens', bucketMs, now} end
   end
   if conc > 0 then
     redis.call('ZREMRANGEBYSCORE', concKey, '-inf', now)
@@ -119,31 +146,37 @@ for i = 1, n do
   info[#info+1] = rpmReset
   info[#info+1] = tpmUsed
 end
+local function add(key, amount)
+  if amount > 0 then
+    redis.call('HINCRBY', key, bucket, amount)
+    redis.call('PEXPIRE', key, window + 2000)
+  end
+end
 for i = 1, n do
-  local rpmKey, tpmKey, concKey = KEYS[i*3-2], KEYS[i*3-1], KEYS[i*3]
-  if tonumber(ARGV[5 + i*3 - 2]) > 0 then
-    redis.call('ZADD', rpmKey, now, id)
-    redis.call('PEXPIRE', rpmKey, window + 1000)
+  local k = (i - 1) * 5
+  if tonumber(ARGV[6 + k + 1]) > 0 then
+    redis.call('ZADD', KEYS[k+1], now, id)
+    redis.call('PEXPIRE', KEYS[k+1], window + 1000)
   end
-  if tonumber(ARGV[5 + i*3 - 1]) > 0 and est > 0 then
-    redis.call('HINCRBY', tpmKey, bucket, est)
-    redis.call('PEXPIRE', tpmKey, window + 2000)
+  if tonumber(ARGV[6 + k + 2]) > 0 then add(KEYS[k+2], est) end
+  if tonumber(ARGV[6 + k + 3]) > 0 then
+    redis.call('ZADD', KEYS[k+3], now + ttl, id)
+    redis.call('PEXPIRE', KEYS[k+3], ttl + 1000)
   end
-  if tonumber(ARGV[5 + i*3]) > 0 then
-    redis.call('ZADD', concKey, now + ttl, id)
-    redis.call('PEXPIRE', concKey, ttl + 1000)
-  end
+  if tonumber(ARGV[6 + k + 4]) > 0 then add(KEYS[k+4], estIn) end
+  if tonumber(ARGV[6 + k + 5]) > 0 then add(KEYS[k+5], estOut) end
 end
 local out = {1, 0, '', 0, now}
 for j = 1, #info do out[#out+1] = info[j] end
 return out
 `;
 
-/** KEYS: tpm keys; ARGV: bucket, delta, windowMs */
+/** KEYS: token window keys; ARGV: bucket, then the delta of each key */
 const SETTLE = `
 for i = 1, #KEYS do
-  if redis.call('EXISTS', KEYS[i]) == 1 then
-    redis.call('HINCRBY', KEYS[i], ARGV[1], ARGV[2])
+  local delta = tonumber(ARGV[i + 1])
+  if delta ~= 0 and redis.call('EXISTS', KEYS[i]) == 1 then
+    redis.call('HINCRBY', KEYS[i], ARGV[1], delta)
   end
 end
 return 1
@@ -162,6 +195,8 @@ const formatReset = (ms: number) =>
 interface LocalScope {
   requests: number[];
   tokens: Map<number, number>;
+  input: Map<number, number>;
+  output: Map<number, number>;
   inFlight: number;
 }
 
@@ -175,22 +210,47 @@ export class LocalLimiter {
     private readonly clock: () => number = Date.now,
   ) {}
 
-  acquire(scopes: LimitScope[], estimate: number, share: number): Admission {
+  acquire(scopes: LimitScope[], estimate: TokenCount, share: number): Admission {
     const now = this.clock();
     const bucket = Math.floor(now / this.bucketMs);
     const buckets = Math.floor(this.windowMs / this.bucketMs);
+    const est = sides(estimate);
+    const total = est.input + est.output;
     const part = (limit: number | undefined) => (limit ? Math.max(1, Math.ceil(limit / share)) : 0);
-    const states: { s: LocalScope; rpm: number; tpm: number; conc: number }[] = [];
+    const usedIn = (window: Map<number, number>) => {
+      let used = 0;
+      for (const [b, v] of window) {
+        if (b <= bucket - buckets) window.delete(b);
+        else used += v;
+      }
+      return used;
+    };
+    const over = (window: Map<number, number>, cap: number, amount: number) => {
+      const used = usedIn(window);
+      return cap > 0 && used > 0 && used + amount > cap;
+    };
+    const states: {
+      s: LocalScope;
+      rpm: number;
+      tpm: number;
+      itpm: number;
+      otpm: number;
+      conc: number;
+    }[] = [];
     let tightest: { limit: number; used: number; reset: number } | undefined;
     for (const scope of scopes) {
       const s = this.#scopes.get(scope.name) ?? {
         requests: [],
         tokens: new Map<number, number>(),
+        input: new Map<number, number>(),
+        output: new Map<number, number>(),
         inFlight: 0,
       };
       this.#scopes.set(scope.name, s);
       const rpm = part(scope.limit.requestsPerMinute);
       const tpm = part(scope.limit.tokensPerMinute);
+      const itpm = part(scope.limit.inputTokensPerMinute);
+      const otpm = part(scope.limit.outputTokensPerMinute);
       const conc = part(scope.limit.maxConcurrency);
       while (s.requests.length > 0 && (s.requests[0] ?? 0) <= now - this.windowMs)
         s.requests.shift();
@@ -198,13 +258,10 @@ export class LocalLimiter {
         const at = s.requests[s.requests.length - rpm] ?? now;
         return reject(scope.name, 'requests', at + this.windowMs - now);
       }
-      let tokensUsed = 0;
-      for (const [b, v] of s.tokens) {
-        if (b <= bucket - buckets) s.tokens.delete(b);
-        else tokensUsed += v;
-      }
-      if (tpm > 0 && tokensUsed > 0 && tokensUsed + estimate > tpm)
-        return reject(scope.name, 'tokens', this.bucketMs);
+      if (over(s.tokens, tpm, total)) return reject(scope.name, 'tokens', this.bucketMs);
+      if (over(s.input, itpm, est.input)) return reject(scope.name, 'input_tokens', this.bucketMs);
+      if (over(s.output, otpm, est.output))
+        return reject(scope.name, 'output_tokens', this.bucketMs);
       if (conc > 0 && s.inFlight >= conc) return reject(scope.name, 'concurrency', 1000);
       if (rpm > 0 && (!tightest || rpm - s.requests.length < tightest.limit - tightest.used))
         tightest = {
@@ -212,25 +269,29 @@ export class LocalLimiter {
           used: s.requests.length,
           reset: s.requests[0] !== undefined ? s.requests[0] + this.windowMs - now : 0,
         };
-      states.push({ s, rpm, tpm, conc });
+      states.push({ s, rpm, tpm, itpm, otpm, conc });
     }
+    const add = (window: Map<number, number>, amount: number) => {
+      if (amount !== 0) window.set(bucket, Math.max(0, (window.get(bucket) ?? 0) + amount));
+    };
     for (const st of states) {
       if (st.rpm > 0) st.s.requests.push(now);
-      if (st.tpm > 0 && estimate > 0)
-        st.s.tokens.set(bucket, (st.s.tokens.get(bucket) ?? 0) + estimate);
+      if (st.tpm > 0) add(st.s.tokens, total);
+      if (st.itpm > 0) add(st.s.input, est.input);
+      if (st.otpm > 0) add(st.s.output, est.output);
       if (st.conc > 0) st.s.inFlight++;
     }
     let released = false;
     return {
       ok: true,
       headers: tightest ? requestHeaders(tightest.limit, tightest.used + 1, tightest.reset) : {},
-      settle: (actual) => {
-        for (const st of states)
-          if (st.tpm > 0)
-            st.s.tokens.set(
-              bucket,
-              Math.max(0, (st.s.tokens.get(bucket) ?? 0) + actual - estimate),
-            );
+      settle: (actualTokens) => {
+        const actual = sides(actualTokens);
+        for (const st of states) {
+          if (st.tpm > 0) add(st.s.tokens, actual.input + actual.output - total);
+          if (st.itpm > 0) add(st.s.input, actual.input - est.input);
+          if (st.otpm > 0) add(st.s.output, actual.output - est.output);
+        }
       },
       release: () => {
         if (released) return;
@@ -325,12 +386,21 @@ export class RateLimiter {
     return this.#nodes;
   }
 
-  async acquire(scopes: LimitScope[], estimate: number, requestId: string): Promise<Admission> {
+  /**
+   * `estimate` is the input estimate and the output cap apart (input and output TPM need both),
+   * or a single total that counts as input.
+   */
+  async acquire(scopes: LimitScope[], estimate: TokenCount, requestId: string): Promise<Admission> {
     const limited = scopes.filter(
-      (s) => s.limit.requestsPerMinute || s.limit.tokensPerMinute || s.limit.maxConcurrency,
+      (s) =>
+        s.limit.requestsPerMinute ||
+        s.limit.tokensPerMinute ||
+        s.limit.inputTokensPerMinute ||
+        s.limit.outputTokensPerMinute ||
+        s.limit.maxConcurrency,
     );
     if (limited.length === 0) return { ok: true, headers: {}, settle: noop, release: noop };
-    const est = Math.max(0, Math.round(estimate));
+    const est = sides(estimate);
 
     if (this.#redis && Date.now() >= this.#degradedUntil) {
       try {
@@ -368,27 +438,37 @@ export class RateLimiter {
     return result;
   }
 
-  async #remote(scopes: LimitScope[], est: number, requestId: string): Promise<Admission> {
+  async #remote(
+    scopes: LimitScope[],
+    est: { input: number; output: number },
+    requestId: string,
+  ): Promise<Admission> {
     const redis = this.#redis;
     if (!redis) throw new Error('no redis');
+    const total = est.input + est.output;
     const keys: string[] = [];
     const args: (string | number)[] = [
       this.#windowMs,
       this.#bucketMs,
       requestId,
-      est,
+      est.input,
       this.#concTtlMs,
+      est.output,
     ];
     for (const s of scopes) {
       keys.push(
         `${this.#prefix}:rpm:${s.name}`,
         `${this.#prefix}:tpm:${s.name}`,
         `${this.#prefix}:conc:${s.name}`,
+        `${this.#prefix}:itpm:${s.name}`,
+        `${this.#prefix}:otpm:${s.name}`,
       );
       args.push(
         s.limit.requestsPerMinute ?? 0,
         s.limit.tokensPerMinute ?? 0,
         s.limit.maxConcurrency ?? 0,
+        s.limit.inputTokensPerMinute ?? 0,
+        s.limit.outputTokensPerMinute ?? 0,
       );
     }
     const raw: (number | string)[] = await withTimeout(
@@ -407,7 +487,7 @@ export class RateLimiter {
       const rpm = s.limit.requestsPerMinute;
       const used = Number(raw[5 + i * 3] ?? 0) + 1;
       const reset = Number(raw[6 + i * 3] ?? 0);
-      const tpmUsed = Number(raw[7 + i * 3] ?? 0) + est;
+      const tpmUsed = Number(raw[7 + i * 3] ?? 0) + total;
       if (rpm && rpm - used < bestRemaining) {
         bestRemaining = rpm - used;
         headers = { ...requestHeaders(rpm, used, reset || this.#windowMs) };
@@ -421,9 +501,18 @@ export class RateLimiter {
       }
     });
     const bucket = Math.floor(Number(now) / this.#bucketMs);
-    const tpmKeys = scopes
-      .filter((s) => s.limit.tokensPerMinute)
-      .map((s) => `${this.#prefix}:tpm:${s.name}`);
+    // Token windows to settle, each with the side it counts.
+    const windows: { key: string; side: 'total' | 'input' | 'output' }[] = scopes.flatMap((s) => [
+      ...(s.limit.tokensPerMinute
+        ? [{ key: `${this.#prefix}:tpm:${s.name}`, side: 'total' as const }]
+        : []),
+      ...(s.limit.inputTokensPerMinute
+        ? [{ key: `${this.#prefix}:itpm:${s.name}`, side: 'input' as const }]
+        : []),
+      ...(s.limit.outputTokensPerMinute
+        ? [{ key: `${this.#prefix}:otpm:${s.name}`, side: 'output' as const }]
+        : []),
+    ]);
     const concKeys = scopes
       .filter((s) => s.limit.maxConcurrency)
       .map((s) => `${this.#prefix}:conc:${s.name}`);
@@ -431,10 +520,23 @@ export class RateLimiter {
     return {
       ok: true,
       headers,
-      settle: (actual) => {
-        const delta = Math.round(actual) - est;
-        if (tpmKeys.length === 0 || delta === 0) return;
-        void redis.rlSettle(tpmKeys.length, ...tpmKeys, bucket, delta).catch(() => undefined);
+      settle: (actualTokens) => {
+        const actual = sides(actualTokens);
+        const delta = {
+          total: actual.input + actual.output - total,
+          input: actual.input - est.input,
+          output: actual.output - est.output,
+        };
+        const changed = windows.filter((w) => delta[w.side] !== 0);
+        if (changed.length === 0) return;
+        void redis
+          .rlSettle(
+            changed.length,
+            ...changed.map((w) => w.key),
+            bucket,
+            ...changed.map((w) => delta[w.side]),
+          )
+          .catch(() => undefined);
       },
       release: () => {
         if (released || concKeys.length === 0) return;

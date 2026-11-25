@@ -85,7 +85,16 @@ export const unitsToUsd = (units: number): string => (units / BUDGET_UNITS_PER_U
  * keys, a model or a provider of the organization (card 33.1), an end user (card 33.2).
  */
 export type BudgetScope =
-  'key' | 'project' | 'team' | 'organization' | 'user' | 'model' | 'provider' | 'end_user';
+  | 'key'
+  | 'project'
+  | 'team'
+  | 'organization'
+  | 'user'
+  | 'model'
+  | 'provider'
+  | 'end_user'
+  /** One model of one key (card 33.3). */
+  | 'key_model';
 
 /** Scope id of the limits every end user of an organization gets by default (card 33.2). */
 export const END_USER_DEFAULT = '*';

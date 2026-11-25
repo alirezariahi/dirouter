@@ -8,6 +8,9 @@
  * - the end user the request names (card 33.2): its own limits and budgets, or else the
  *   organization's defaults for every end user (scope id `*`) on counters of its own; a blocked
  *   end user is refused with 403 before anything is counted;
+ * - limits of the key on one model (card 33.3): an entry naming a candidate's model behaves like
+ *   a model scope of that key; an entry naming the alias or combo the client asked for covers the
+ *   whole request;
  * - models and providers of the organization (card 33.1): their budgets only take the matching
  *   candidates out of the route, so a combo falls back to its other targets, and only a route with
  *   no candidate left is rejected. Their rate limits count the target the request goes to first.
@@ -19,8 +22,11 @@
  * answers 429.
  */
 import {
+  type BudgetConfig,
   budgetPeriodLabel,
+  type BudgetScope,
   type ConfigSnapshot,
+  type RateLimitConfig,
   END_USER_DEFAULT,
   endUserCounterId,
   type LimitScopeKind,
@@ -57,8 +63,41 @@ const lookup = (
 ): ScopeLimitConfig | undefined =>
   scopeId ? scopeIndex(snapshot).get(`${organizationId}|${scope}|${scopeId}`) : undefined;
 
+/** A limit as the guard uses it: a shared scope of the snapshot, or one model of a key. */
+interface Scope {
+  organizationId: string;
+  scope: BudgetScope;
+  scopeId: string;
+  rateLimit?: RateLimitConfig | undefined;
+  budgets: BudgetConfig[];
+  blocked?: boolean | undefined;
+  /** Counter id of each budget, when one budget counts many subjects apart. */
+  counterOf?: (budgetId: string) => string;
+  /** Rate-limit counter name, when it is not derived from the scope. */
+  name?: string;
+}
+
+/** What the request is for, beyond the key. */
+interface RequestContext {
+  attribution: Attribution;
+  /** The name the client asked for (model, alias or combo). */
+  requested?: string | undefined;
+  candidates: readonly Candidate[];
+}
+
+type ModelLimit = NonNullable<VirtualKeyConfig['modelLimits']>[number];
+const keyModelScope = (key: VirtualKeyConfig, entry: ModelLimit): Scope => ({
+  organizationId: key.organizationId,
+  scope: 'key_model',
+  scopeId: `${key.id}|${entry.model}`,
+  rateLimit: entry.rateLimit,
+  budgets: entry.budgets,
+  name: `kmodel:${key.id}:${entry.model}`,
+});
+
 /** Rate-limit counter name of a scope; the organization is part of every shared scope. */
-function limitName(l: ScopeLimitConfig): string {
+function limitName(l: Scope): string {
+  if (l.name) return l.name;
   switch (l.scope) {
     // team and project ids are unique across organizations, and these names predate card 33.1.
     case 'team':
@@ -99,19 +138,29 @@ function endUserScope(
   };
 }
 
-/** The scopes that reject a request: organization, team, project, member and end user. */
+/**
+ * The scopes that reject a request: organization, team, project, member, end user, and a key's
+ * limits on the alias or combo name the client asked for.
+ */
 function requestScopes(
   snapshot: ConfigSnapshot,
   key: VirtualKeyConfig,
-  attribution: Attribution = {},
-): (ScopeLimitConfig & { counterOf?: (budgetId: string) => string })[] {
+  ctx: RequestContext,
+): Scope[] {
   const org = key.organizationId;
   return [
     lookup(snapshot, org, 'organization', org),
     lookup(snapshot, org, 'team', key.teamId),
     lookup(snapshot, org, 'project', key.projectId),
     lookup(snapshot, org, 'user', key.userId),
-    endUserScope(snapshot, org, attribution.endUser),
+    endUserScope(snapshot, org, ctx.attribution.endUser),
+    ...(key.modelLimits ?? [])
+      .filter(
+        (entry) =>
+          entry.model === ctx.requested &&
+          !ctx.candidates.some((c) => c.model.slug === entry.model),
+      )
+      .map((entry) => keyModelScope(key, entry)),
   ].filter((l) => l !== undefined);
 }
 
@@ -120,9 +169,13 @@ function candidateScopes(
   snapshot: ConfigSnapshot,
   key: VirtualKeyConfig,
   c: Candidate,
-): { limit: ScopeLimitConfig; target: BudgetTarget }[] {
+): { limit: Scope; target: BudgetTarget }[] {
   const org = key.organizationId;
-  const out: { limit: ScopeLimitConfig; target: BudgetTarget }[] = [];
+  const out: { limit: Scope; target: BudgetTarget }[] = [];
+  // The key's own limits on this candidate's model (card 33.3).
+  for (const entry of key.modelLimits ?? [])
+    if (entry.model === c.model.slug)
+      out.push({ limit: keyModelScope(key, entry), target: { modelId: c.model.id } });
   const model = lookup(snapshot, org, 'model', c.model.id);
   if (model) out.push({ limit: model, target: { modelId: c.model.id } });
   const provider = lookup(snapshot, org, 'provider', c.provider.id);
@@ -130,10 +183,7 @@ function candidateScopes(
   return out;
 }
 
-const scoped = (
-  l: ScopeLimitConfig & { counterOf?: (budgetId: string) => string },
-  target?: BudgetTarget,
-): ScopedBudget[] =>
+const scoped = (l: Scope, target?: BudgetTarget): ScopedBudget[] =>
   l.budgets.map((budget) => ({
     budget,
     scope: l.scope,
@@ -149,6 +199,7 @@ export function budgetScopes(
   key: VirtualKeyConfig,
   candidates: readonly Candidate[] = [],
   attribution: Attribution = {},
+  requested?: string,
 ): ScopedBudget[] {
   const out: ScopedBudget[] = key.budgets.map((budget) => ({
     budget,
@@ -156,7 +207,8 @@ export function budgetScopes(
     scopeId: key.id,
     organizationId: key.organizationId,
   }));
-  for (const l of requestScopes(config.snapshot, key, attribution)) out.push(...scoped(l));
+  for (const l of requestScopes(config.snapshot, key, { attribution, requested, candidates }))
+    out.push(...scoped(l));
   const seen = new Set<string>();
   for (const c of candidates)
     for (const { limit, target } of candidateScopes(config.snapshot, key, c)) {
@@ -174,22 +226,31 @@ export function limitScopes(
   key: VirtualKeyConfig,
   first?: Candidate,
   attribution: Attribution = {},
+  requested?: string,
+  candidates: readonly Candidate[] = first ? [first] : [],
 ): LimitScope[] {
   const scopes: LimitScope[] = [];
   if (key.rateLimit) scopes.push({ name: `key:${key.id}`, limit: key.rateLimit });
   const shared = [
-    ...requestScopes(config.snapshot, key, attribution),
+    ...requestScopes(config.snapshot, key, { attribution, requested, candidates }),
     ...(first ? candidateScopes(config.snapshot, key, first).map((s) => s.limit) : []),
   ];
   for (const l of shared) if (l.rateLimit) scopes.push({ name: limitName(l), limit: l.rateLimit });
   return scopes;
 }
 
-const SCOPE_LABEL: Record<string, string> = { org: 'organization', end_user: 'end user' };
+const SCOPE_LABEL: Record<string, string> = {
+  org: 'organization',
+  end_user: 'end user',
+  kmodel: 'this key on this model',
+};
 
 /** What a finished request used, for settling rate windows and counting budgets. */
 export interface Spent {
   tokens: number;
+  /** Input and output apart, for input and output TPM (card 33.3); `tokens` counts as input when absent. */
+  inputTokens?: number;
+  outputTokens?: number;
   costUsd: string;
   /** The candidate that answered; undefined for cache hits and failures. */
   candidate?: Candidate | undefined;
@@ -219,8 +280,11 @@ export interface AdmitInput {
   candidates: readonly Candidate[];
   /** The name the client asked for, for error messages. */
   requested: string;
-  /** Tokens reserved in the TPM windows (input estimate plus output cap). */
-  estimatedTokens: number;
+  /**
+   * Tokens reserved in the TPM windows: the input estimate and the output cap apart (input and
+   * output TPM, card 33.3), or one total that counts as input.
+   */
+  estimatedTokens: number | { input: number; output: number };
   requestId: string;
   /** The end user the request names (card 33.2). */
   attribution?: Attribution;
@@ -244,7 +308,7 @@ export async function admitRequest(
       }),
       metric: { guard: 'end_user', reason: 'blocked' },
     };
-  const budgets = budgetScopes(config, key, input.candidates, attribution);
+  const budgets = budgetScopes(config, key, input.candidates, attribution, input.requested);
   const check: BudgetCheck = deps.budgets ? await deps.budgets.check(budgets) : { ok: true };
   if (!check.ok) {
     const what = check.kind === 'usd' ? `USD ${check.limit}` : `${check.limit} tokens`;
@@ -281,7 +345,7 @@ export async function admitRequest(
         ok: false,
         headers: { 'retry-after': retryAfter(first.resetAt) },
         error: new DiRouterError('budget_exceeded', {
-          message: `${budgetPeriodLabel(first.budget.budget.period)} ${first.budget.scope} budget exceeded for every target of '${input.requested}'`,
+          message: `${budgetPeriodLabel(first.budget.budget.period)} ${first.budget.scope.replace('_', ' ')} budget exceeded for every target of '${input.requested}'`,
         }),
         metric: { guard: 'budget', reason: 'target' },
       };
@@ -290,7 +354,7 @@ export async function admitRequest(
 
   const limiter = deps.limiter
     ? await deps.limiter.acquire(
-        limitScopes(config, key, candidates[0], attribution),
+        limitScopes(config, key, candidates[0], attribution, input.requested, input.candidates),
         input.estimatedTokens,
         input.requestId,
       )
@@ -318,7 +382,11 @@ export async function admitRequest(
     finish: (spent) => {
       if (done) return;
       done = true;
-      limiter?.settle(spent.tokens);
+      limiter?.settle(
+        spent.inputTokens !== undefined || spent.outputTokens !== undefined
+          ? { input: spent.inputTokens ?? 0, output: spent.outputTokens ?? 0 }
+          : spent.tokens,
+      );
       limiter?.release();
       const served = spent.candidate;
       deps.budgets?.record(

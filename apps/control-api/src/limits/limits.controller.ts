@@ -29,6 +29,9 @@ const Budget = z.object({
 export const LimitBody = z.object({
   rpm: z.int().positive().nullable().optional(),
   tpm: z.int().positive().nullable().optional(),
+  /** Input and output tokens per minute apart (card 33.3). */
+  inputTpm: z.int().positive().nullable().optional(),
+  outputTpm: z.int().positive().nullable().optional(),
   maxConcurrency: z.int().positive().nullable().optional(),
   /** Replaces every budget of the scope (at most one per period); absent keeps them. */
   budgets: z.array(Budget).max(4).optional(),
@@ -46,6 +49,8 @@ const LimitView = z.object({
   name: z.string(),
   rpm: z.int().nullable(),
   tpm: z.int().nullable(),
+  inputTpm: z.int().nullable(),
+  outputTpm: z.int().nullable(),
   maxConcurrency: z.int().nullable(),
   budgets: z.array(BudgetView),
 });
@@ -69,6 +74,8 @@ const UsageView = z.object({
         .object({
           rpm: z.int().nullable(),
           tpm: z.int().nullable(),
+          inputTpm: z.int().nullable(),
+          outputTpm: z.int().nullable(),
           maxConcurrency: z.int().nullable(),
         })
         .nullable(),
@@ -83,7 +90,14 @@ const UsageView = z.object({
   ),
 });
 const ScopeParam = new ZodPipe(Scope);
-const CLEAR: LimitInput = { rpm: null, tpm: null, maxConcurrency: null, budgets: [] };
+const CLEAR: LimitInput = {
+  rpm: null,
+  tpm: null,
+  inputTpm: null,
+  outputTpm: null,
+  maxConcurrency: null,
+  budgets: [],
+};
 
 interface Payload {
   scope: LimitScope;

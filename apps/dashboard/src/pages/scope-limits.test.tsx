@@ -179,6 +179,8 @@ describe('limit form helpers', () => {
       body: {
         rpm: 600,
         tpm: null,
+        inputTpm: null,
+        outputTpm: null,
         maxConcurrency: 20,
         budgets: [{ period: 'daily', limitUsd: '40', alertThresholds: [80, 100] }],
       },
@@ -197,6 +199,8 @@ describe('limit form helpers', () => {
       limitBody({
         rpm: '',
         tpm: '',
+        inputTpm: '',
+        outputTpm: '',
         maxConcurrency: '',
         dailyUsd: '',
         dailyTokens: '',
@@ -208,7 +212,17 @@ describe('limit form helpers', () => {
         yearlyTokens: '',
         thresholds: '',
       }),
-    ).toEqual({ ok: true, body: { rpm: null, tpm: null, maxConcurrency: null, budgets: [] } });
+    ).toEqual({
+      ok: true,
+      body: {
+        rpm: null,
+        tpm: null,
+        inputTpm: null,
+        outputTpm: null,
+        maxConcurrency: null,
+        budgets: [],
+      },
+    });
   });
 });
 
@@ -248,6 +262,8 @@ describe('team and project limits on the organization page (card 25.5)', () => {
       expect(put?.body).toEqual({
         rpm: 120,
         tpm: 50000,
+        inputTpm: null,
+        outputTpm: null,
         maxConcurrency: null,
         budgets: [{ period: 'monthly', limitUsd: '25.50', alertThresholds: [50, 90] }],
       });

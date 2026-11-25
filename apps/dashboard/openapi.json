@@ -5007,11 +5007,118 @@
                         "minimum": -9007199254740991,
                         "maximum": 9007199254740991
                       },
+                      "inputTpm": {
+                        "nullable": true,
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "outputTpm": {
+                        "nullable": true,
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
                       "maxConcurrency": {
                         "nullable": true,
                         "type": "integer",
                         "minimum": -9007199254740991,
                         "maximum": 9007199254740991
+                      },
+                      "modelLimits": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "model": {
+                              "type": "string"
+                            },
+                            "rpm": {
+                              "nullable": true,
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "tpm": {
+                              "nullable": true,
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "inputTpm": {
+                              "nullable": true,
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "outputTpm": {
+                              "nullable": true,
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "maxConcurrency": {
+                              "nullable": true,
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "budgets": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "period": {
+                                    "type": "string",
+                                    "enum": [
+                                      "daily",
+                                      "weekly",
+                                      "monthly",
+                                      "yearly"
+                                    ]
+                                  },
+                                  "limitUsd": {
+                                    "nullable": true,
+                                    "type": "string"
+                                  },
+                                  "limitTokens": {
+                                    "nullable": true,
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "alertThresholds": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991
+                                    }
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "period",
+                                  "limitUsd",
+                                  "limitTokens",
+                                  "alertThresholds"
+                                ]
+                              }
+                            }
+                          },
+                          "required": [
+                            "model",
+                            "rpm",
+                            "tpm",
+                            "inputTpm",
+                            "outputTpm",
+                            "maxConcurrency",
+                            "budgets"
+                          ]
+                        }
                       },
                       "expiresAt": {
                         "nullable": true,
@@ -5092,7 +5199,10 @@
                       "repair",
                       "rpm",
                       "tpm",
+                      "inputTpm",
+                      "outputTpm",
                       "maxConcurrency",
+                      "modelLimits",
                       "expiresAt",
                       "revokedAt",
                       "rotatedToId",
@@ -5209,6 +5319,20 @@
                     "exclusiveMinimum": true,
                     "maximum": 9007199254740991
                   },
+                  "inputTpm": {
+                    "nullable": true,
+                    "type": "integer",
+                    "minimum": 0,
+                    "exclusiveMinimum": true,
+                    "maximum": 9007199254740991
+                  },
+                  "outputTpm": {
+                    "nullable": true,
+                    "type": "integer",
+                    "minimum": 0,
+                    "exclusiveMinimum": true,
+                    "maximum": 9007199254740991
+                  },
                   "maxConcurrency": {
                     "nullable": true,
                     "type": "integer",
@@ -5259,6 +5383,99 @@
                       },
                       "required": [
                         "period"
+                      ]
+                    }
+                  },
+                  "modelLimits": {
+                    "maxItems": 50,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "model": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128,
+                          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:/-]*$"
+                        },
+                        "rpm": {
+                          "nullable": true,
+                          "type": "integer",
+                          "minimum": 0,
+                          "exclusiveMinimum": true,
+                          "maximum": 9007199254740991
+                        },
+                        "tpm": {
+                          "nullable": true,
+                          "type": "integer",
+                          "minimum": 0,
+                          "exclusiveMinimum": true,
+                          "maximum": 9007199254740991
+                        },
+                        "inputTpm": {
+                          "nullable": true,
+                          "type": "integer",
+                          "minimum": 0,
+                          "exclusiveMinimum": true,
+                          "maximum": 9007199254740991
+                        },
+                        "outputTpm": {
+                          "nullable": true,
+                          "type": "integer",
+                          "minimum": 0,
+                          "exclusiveMinimum": true,
+                          "maximum": 9007199254740991
+                        },
+                        "maxConcurrency": {
+                          "nullable": true,
+                          "type": "integer",
+                          "minimum": 0,
+                          "exclusiveMinimum": true,
+                          "maximum": 9007199254740991
+                        },
+                        "budgets": {
+                          "maxItems": 4,
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "period": {
+                                "type": "string",
+                                "enum": [
+                                  "daily",
+                                  "weekly",
+                                  "monthly",
+                                  "yearly"
+                                ]
+                              },
+                              "limitUsd": {
+                                "type": "string",
+                                "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
+                              },
+                              "limitTokens": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "exclusiveMinimum": true,
+                                "maximum": 9007199254740991
+                              },
+                              "alertThresholds": {
+                                "maxItems": 10,
+                                "type": "array",
+                                "items": {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 100
+                                }
+                              }
+                            },
+                            "required": [
+                              "period"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "model"
                       ]
                     }
                   }
@@ -5354,11 +5571,118 @@
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991
                     },
+                    "inputTpm": {
+                      "nullable": true,
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "outputTpm": {
+                      "nullable": true,
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
                     "maxConcurrency": {
                       "nullable": true,
                       "type": "integer",
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991
+                    },
+                    "modelLimits": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "model": {
+                            "type": "string"
+                          },
+                          "rpm": {
+                            "nullable": true,
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "tpm": {
+                            "nullable": true,
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "inputTpm": {
+                            "nullable": true,
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "outputTpm": {
+                            "nullable": true,
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "maxConcurrency": {
+                            "nullable": true,
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "budgets": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "period": {
+                                  "type": "string",
+                                  "enum": [
+                                    "daily",
+                                    "weekly",
+                                    "monthly",
+                                    "yearly"
+                                  ]
+                                },
+                                "limitUsd": {
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "limitTokens": {
+                                  "nullable": true,
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "alertThresholds": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  }
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "period",
+                                "limitUsd",
+                                "limitTokens",
+                                "alertThresholds"
+                              ]
+                            }
+                          }
+                        },
+                        "required": [
+                          "model",
+                          "rpm",
+                          "tpm",
+                          "inputTpm",
+                          "outputTpm",
+                          "maxConcurrency",
+                          "budgets"
+                        ]
+                      }
                     },
                     "expiresAt": {
                       "nullable": true,
@@ -5443,7 +5767,10 @@
                     "repair",
                     "rpm",
                     "tpm",
+                    "inputTpm",
+                    "outputTpm",
                     "maxConcurrency",
+                    "modelLimits",
                     "expiresAt",
                     "revokedAt",
                     "rotatedToId",
@@ -5571,11 +5898,118 @@
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991
                     },
+                    "inputTpm": {
+                      "nullable": true,
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "outputTpm": {
+                      "nullable": true,
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
                     "maxConcurrency": {
                       "nullable": true,
                       "type": "integer",
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991
+                    },
+                    "modelLimits": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "model": {
+                            "type": "string"
+                          },
+                          "rpm": {
+                            "nullable": true,
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "tpm": {
+                            "nullable": true,
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "inputTpm": {
+                            "nullable": true,
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "outputTpm": {
+                            "nullable": true,
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "maxConcurrency": {
+                            "nullable": true,
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "budgets": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "period": {
+                                  "type": "string",
+                                  "enum": [
+                                    "daily",
+                                    "weekly",
+                                    "monthly",
+                                    "yearly"
+                                  ]
+                                },
+                                "limitUsd": {
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "limitTokens": {
+                                  "nullable": true,
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "alertThresholds": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  }
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "period",
+                                "limitUsd",
+                                "limitTokens",
+                                "alertThresholds"
+                              ]
+                            }
+                          }
+                        },
+                        "required": [
+                          "model",
+                          "rpm",
+                          "tpm",
+                          "inputTpm",
+                          "outputTpm",
+                          "maxConcurrency",
+                          "budgets"
+                        ]
+                      }
                     },
                     "expiresAt": {
                       "nullable": true,
@@ -5656,7 +6090,10 @@
                     "repair",
                     "rpm",
                     "tpm",
+                    "inputTpm",
+                    "outputTpm",
                     "maxConcurrency",
+                    "modelLimits",
                     "expiresAt",
                     "revokedAt",
                     "rotatedToId",
@@ -5776,6 +6213,20 @@
                     "exclusiveMinimum": true,
                     "maximum": 9007199254740991
                   },
+                  "inputTpm": {
+                    "nullable": true,
+                    "type": "integer",
+                    "minimum": 0,
+                    "exclusiveMinimum": true,
+                    "maximum": 9007199254740991
+                  },
+                  "outputTpm": {
+                    "nullable": true,
+                    "type": "integer",
+                    "minimum": 0,
+                    "exclusiveMinimum": true,
+                    "maximum": 9007199254740991
+                  },
                   "maxConcurrency": {
                     "nullable": true,
                     "type": "integer",
@@ -5826,6 +6277,99 @@
                       },
                       "required": [
                         "period"
+                      ]
+                    }
+                  },
+                  "modelLimits": {
+                    "maxItems": 50,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "model": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128,
+                          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:/-]*$"
+                        },
+                        "rpm": {
+                          "nullable": true,
+                          "type": "integer",
+                          "minimum": 0,
+                          "exclusiveMinimum": true,
+                          "maximum": 9007199254740991
+                        },
+                        "tpm": {
+                          "nullable": true,
+                          "type": "integer",
+                          "minimum": 0,
+                          "exclusiveMinimum": true,
+                          "maximum": 9007199254740991
+                        },
+                        "inputTpm": {
+                          "nullable": true,
+                          "type": "integer",
+                          "minimum": 0,
+                          "exclusiveMinimum": true,
+                          "maximum": 9007199254740991
+                        },
+                        "outputTpm": {
+                          "nullable": true,
+                          "type": "integer",
+                          "minimum": 0,
+                          "exclusiveMinimum": true,
+                          "maximum": 9007199254740991
+                        },
+                        "maxConcurrency": {
+                          "nullable": true,
+                          "type": "integer",
+                          "minimum": 0,
+                          "exclusiveMinimum": true,
+                          "maximum": 9007199254740991
+                        },
+                        "budgets": {
+                          "maxItems": 4,
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "period": {
+                                "type": "string",
+                                "enum": [
+                                  "daily",
+                                  "weekly",
+                                  "monthly",
+                                  "yearly"
+                                ]
+                              },
+                              "limitUsd": {
+                                "type": "string",
+                                "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
+                              },
+                              "limitTokens": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "exclusiveMinimum": true,
+                                "maximum": 9007199254740991
+                              },
+                              "alertThresholds": {
+                                "maxItems": 10,
+                                "type": "array",
+                                "items": {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 100
+                                }
+                              }
+                            },
+                            "required": [
+                              "period"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "model"
                       ]
                     }
                   }
@@ -5917,11 +6461,118 @@
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991
                     },
+                    "inputTpm": {
+                      "nullable": true,
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "outputTpm": {
+                      "nullable": true,
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
                     "maxConcurrency": {
                       "nullable": true,
                       "type": "integer",
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991
+                    },
+                    "modelLimits": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "model": {
+                            "type": "string"
+                          },
+                          "rpm": {
+                            "nullable": true,
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "tpm": {
+                            "nullable": true,
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "inputTpm": {
+                            "nullable": true,
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "outputTpm": {
+                            "nullable": true,
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "maxConcurrency": {
+                            "nullable": true,
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "budgets": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "period": {
+                                  "type": "string",
+                                  "enum": [
+                                    "daily",
+                                    "weekly",
+                                    "monthly",
+                                    "yearly"
+                                  ]
+                                },
+                                "limitUsd": {
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "limitTokens": {
+                                  "nullable": true,
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "alertThresholds": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  }
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "period",
+                                "limitUsd",
+                                "limitTokens",
+                                "alertThresholds"
+                              ]
+                            }
+                          }
+                        },
+                        "required": [
+                          "model",
+                          "rpm",
+                          "tpm",
+                          "inputTpm",
+                          "outputTpm",
+                          "maxConcurrency",
+                          "budgets"
+                        ]
+                      }
                     },
                     "expiresAt": {
                       "nullable": true,
@@ -6002,7 +6653,10 @@
                     "repair",
                     "rpm",
                     "tpm",
+                    "inputTpm",
+                    "outputTpm",
                     "maxConcurrency",
+                    "modelLimits",
                     "expiresAt",
                     "revokedAt",
                     "rotatedToId",
@@ -6129,11 +6783,118 @@
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991
                     },
+                    "inputTpm": {
+                      "nullable": true,
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "outputTpm": {
+                      "nullable": true,
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
                     "maxConcurrency": {
                       "nullable": true,
                       "type": "integer",
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991
+                    },
+                    "modelLimits": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "model": {
+                            "type": "string"
+                          },
+                          "rpm": {
+                            "nullable": true,
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "tpm": {
+                            "nullable": true,
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "inputTpm": {
+                            "nullable": true,
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "outputTpm": {
+                            "nullable": true,
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "maxConcurrency": {
+                            "nullable": true,
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "budgets": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "period": {
+                                  "type": "string",
+                                  "enum": [
+                                    "daily",
+                                    "weekly",
+                                    "monthly",
+                                    "yearly"
+                                  ]
+                                },
+                                "limitUsd": {
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "limitTokens": {
+                                  "nullable": true,
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "alertThresholds": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  }
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "period",
+                                "limitUsd",
+                                "limitTokens",
+                                "alertThresholds"
+                              ]
+                            }
+                          }
+                        },
+                        "required": [
+                          "model",
+                          "rpm",
+                          "tpm",
+                          "inputTpm",
+                          "outputTpm",
+                          "maxConcurrency",
+                          "budgets"
+                        ]
+                      }
                     },
                     "expiresAt": {
                       "nullable": true,
@@ -6214,7 +6975,10 @@
                     "repair",
                     "rpm",
                     "tpm",
+                    "inputTpm",
+                    "outputTpm",
                     "maxConcurrency",
+                    "modelLimits",
                     "expiresAt",
                     "revokedAt",
                     "rotatedToId",
@@ -6359,11 +7123,118 @@
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991
                     },
+                    "inputTpm": {
+                      "nullable": true,
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "outputTpm": {
+                      "nullable": true,
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
                     "maxConcurrency": {
                       "nullable": true,
                       "type": "integer",
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991
+                    },
+                    "modelLimits": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "model": {
+                            "type": "string"
+                          },
+                          "rpm": {
+                            "nullable": true,
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "tpm": {
+                            "nullable": true,
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "inputTpm": {
+                            "nullable": true,
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "outputTpm": {
+                            "nullable": true,
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "maxConcurrency": {
+                            "nullable": true,
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "budgets": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "period": {
+                                  "type": "string",
+                                  "enum": [
+                                    "daily",
+                                    "weekly",
+                                    "monthly",
+                                    "yearly"
+                                  ]
+                                },
+                                "limitUsd": {
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "limitTokens": {
+                                  "nullable": true,
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "alertThresholds": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  }
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "period",
+                                "limitUsd",
+                                "limitTokens",
+                                "alertThresholds"
+                              ]
+                            }
+                          }
+                        },
+                        "required": [
+                          "model",
+                          "rpm",
+                          "tpm",
+                          "inputTpm",
+                          "outputTpm",
+                          "maxConcurrency",
+                          "budgets"
+                        ]
+                      }
                     },
                     "expiresAt": {
                       "nullable": true,
@@ -6511,11 +7382,118 @@
                           "minimum": -9007199254740991,
                           "maximum": 9007199254740991
                         },
+                        "inputTpm": {
+                          "nullable": true,
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "outputTpm": {
+                          "nullable": true,
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
                         "maxConcurrency": {
                           "nullable": true,
                           "type": "integer",
                           "minimum": -9007199254740991,
                           "maximum": 9007199254740991
+                        },
+                        "modelLimits": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "model": {
+                                "type": "string"
+                              },
+                              "rpm": {
+                                "nullable": true,
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "tpm": {
+                                "nullable": true,
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "inputTpm": {
+                                "nullable": true,
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "outputTpm": {
+                                "nullable": true,
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "maxConcurrency": {
+                                "nullable": true,
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "budgets": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string"
+                                    },
+                                    "period": {
+                                      "type": "string",
+                                      "enum": [
+                                        "daily",
+                                        "weekly",
+                                        "monthly",
+                                        "yearly"
+                                      ]
+                                    },
+                                    "limitUsd": {
+                                      "nullable": true,
+                                      "type": "string"
+                                    },
+                                    "limitTokens": {
+                                      "nullable": true,
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991
+                                    },
+                                    "alertThresholds": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "integer",
+                                        "minimum": -9007199254740991,
+                                        "maximum": 9007199254740991
+                                      }
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "period",
+                                    "limitUsd",
+                                    "limitTokens",
+                                    "alertThresholds"
+                                  ]
+                                }
+                              }
+                            },
+                            "required": [
+                              "model",
+                              "rpm",
+                              "tpm",
+                              "inputTpm",
+                              "outputTpm",
+                              "maxConcurrency",
+                              "budgets"
+                            ]
+                          }
                         },
                         "expiresAt": {
                           "nullable": true,
@@ -6596,7 +7574,10 @@
                         "repair",
                         "rpm",
                         "tpm",
+                        "inputTpm",
+                        "outputTpm",
                         "maxConcurrency",
+                        "modelLimits",
                         "expiresAt",
                         "revokedAt",
                         "rotatedToId",
@@ -6620,7 +7601,10 @@
                     "repair",
                     "rpm",
                     "tpm",
+                    "inputTpm",
+                    "outputTpm",
                     "maxConcurrency",
+                    "modelLimits",
                     "expiresAt",
                     "revokedAt",
                     "rotatedToId",
@@ -20892,6 +21876,18 @@
                         "minimum": -9007199254740991,
                         "maximum": 9007199254740991
                       },
+                      "inputTpm": {
+                        "nullable": true,
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "outputTpm": {
+                        "nullable": true,
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
                       "maxConcurrency": {
                         "nullable": true,
                         "type": "integer",
@@ -20951,6 +21947,8 @@
                       "name",
                       "rpm",
                       "tpm",
+                      "inputTpm",
+                      "outputTpm",
                       "maxConcurrency",
                       "budgets"
                     ]
@@ -21114,6 +22112,18 @@
                                 "minimum": -9007199254740991,
                                 "maximum": 9007199254740991
                               },
+                              "inputTpm": {
+                                "nullable": true,
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "outputTpm": {
+                                "nullable": true,
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
                               "maxConcurrency": {
                                 "nullable": true,
                                 "type": "integer",
@@ -21124,6 +22134,8 @@
                             "required": [
                               "rpm",
                               "tpm",
+                              "inputTpm",
+                              "outputTpm",
                               "maxConcurrency"
                             ]
                           },
@@ -21292,6 +22304,18 @@
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991
                     },
+                    "inputTpm": {
+                      "nullable": true,
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "outputTpm": {
+                      "nullable": true,
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
                     "maxConcurrency": {
                       "nullable": true,
                       "type": "integer",
@@ -21351,6 +22375,8 @@
                     "name",
                     "rpm",
                     "tpm",
+                    "inputTpm",
+                    "outputTpm",
                     "maxConcurrency",
                     "budgets"
                   ]
@@ -21411,6 +22437,20 @@
                     "maximum": 9007199254740991
                   },
                   "tpm": {
+                    "nullable": true,
+                    "type": "integer",
+                    "minimum": 0,
+                    "exclusiveMinimum": true,
+                    "maximum": 9007199254740991
+                  },
+                  "inputTpm": {
+                    "nullable": true,
+                    "type": "integer",
+                    "minimum": 0,
+                    "exclusiveMinimum": true,
+                    "maximum": 9007199254740991
+                  },
+                  "outputTpm": {
                     "nullable": true,
                     "type": "integer",
                     "minimum": 0,
@@ -21508,6 +22548,18 @@
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991
                     },
+                    "inputTpm": {
+                      "nullable": true,
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "outputTpm": {
+                      "nullable": true,
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
                     "maxConcurrency": {
                       "nullable": true,
                       "type": "integer",
@@ -21567,6 +22619,8 @@
                     "name",
                     "rpm",
                     "tpm",
+                    "inputTpm",
+                    "outputTpm",
                     "maxConcurrency",
                     "budgets"
                   ]
@@ -21650,6 +22704,18 @@
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991
                     },
+                    "inputTpm": {
+                      "nullable": true,
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "outputTpm": {
+                      "nullable": true,
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
                     "maxConcurrency": {
                       "nullable": true,
                       "type": "integer",
@@ -21709,6 +22775,8 @@
                     "name",
                     "rpm",
                     "tpm",
+                    "inputTpm",
+                    "outputTpm",
                     "maxConcurrency",
                     "budgets"
                   ]

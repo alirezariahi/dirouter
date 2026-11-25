@@ -379,6 +379,8 @@ export async function runMetered<T>(
       });
     spent = {
       tokens: usage.inputTokens + usage.outputTokens,
+      inputTokens: usage.inputTokens,
+      outputTokens: usage.outputTokens,
       costUsd,
       candidate: result.ok ? result.candidate : undefined,
     };

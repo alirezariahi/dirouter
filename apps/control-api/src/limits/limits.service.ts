@@ -54,6 +54,8 @@ export interface LimitBudgetInput {
 export interface LimitInput {
   rpm?: number | null | undefined;
   tpm?: number | null | undefined;
+  inputTpm?: number | null | undefined;
+  outputTpm?: number | null | undefined;
   maxConcurrency?: number | null | undefined;
   /** Replaces every budget of the scope; absent keeps them. */
   budgets?: LimitBudgetInput[] | undefined;
@@ -236,6 +238,8 @@ export class LimitsService {
           name: names.get(key) ?? scopeId,
           rpm: policy?.rpm ?? null,
           tpm: policy?.tpm ?? null,
+          inputTpm: policy?.inputTpm ?? null,
+          outputTpm: policy?.outputTpm ?? null,
           maxConcurrency: policy?.maxConcurrency ?? null,
           budgets: budgets
             .filter((b) => `${b.scope}|${b.scopeId}` === key)
@@ -259,6 +263,8 @@ export class LimitsService {
       name: target.name,
       rpm: policy?.rpm ?? null,
       tpm: policy?.tpm ?? null,
+      inputTpm: policy?.inputTpm ?? null,
+      outputTpm: policy?.outputTpm ?? null,
       maxConcurrency: policy?.maxConcurrency ?? null,
       budgets: budgets.sort((a, b) => periodRank(a.period) - periodRank(b.period)).map(budgetView),
     };
@@ -292,12 +298,20 @@ export class LimitsService {
       const next = {
         rpm: input.rpm !== undefined ? input.rpm : (current?.rpm ?? null),
         tpm: input.tpm !== undefined ? input.tpm : (current?.tpm ?? null),
+        inputTpm: input.inputTpm !== undefined ? input.inputTpm : (current?.inputTpm ?? null),
+        outputTpm: input.outputTpm !== undefined ? input.outputTpm : (current?.outputTpm ?? null),
         maxConcurrency:
           input.maxConcurrency !== undefined
             ? input.maxConcurrency
             : (current?.maxConcurrency ?? null),
       };
-      if (next.rpm === null && next.tpm === null && next.maxConcurrency === null) {
+      if (
+        next.rpm === null &&
+        next.tpm === null &&
+        next.inputTpm === null &&
+        next.outputTpm === null &&
+        next.maxConcurrency === null
+      ) {
         if (current) await tx.rateLimitPolicy.delete({ where: { id: current.id } });
       } else if (current) {
         await tx.rateLimitPolicy.update({ where: { id: current.id }, data: next });
@@ -450,8 +464,16 @@ export class LimitsService {
         ...(scope === 'project' ? { teamId: target.teamId ?? null } : {}),
         ...used,
         rateLimit:
-          limit && (limit.rpm ?? limit.tpm ?? limit.maxConcurrency) !== null
-            ? { rpm: limit.rpm, tpm: limit.tpm, maxConcurrency: limit.maxConcurrency }
+          limit &&
+          (limit.rpm ?? limit.tpm ?? limit.inputTpm ?? limit.outputTpm ?? limit.maxConcurrency) !==
+            null
+            ? {
+                rpm: limit.rpm,
+                tpm: limit.tpm,
+                inputTpm: limit.inputTpm,
+                outputTpm: limit.outputTpm,
+                maxConcurrency: limit.maxConcurrency,
+              }
             : null,
         budgets: (limit?.budgets ?? []).map((b) => {
           const spent = used[SPENT[b.period]];

@@ -57,9 +57,34 @@ export const KeyBody = z.object({
   mcpAdmin: z.enum(['none', 'read', 'write']).optional(),
   rpm: z.int().positive().nullable().optional(),
   tpm: z.int().positive().nullable().optional(),
+  /** Input and output tokens per minute apart (card 33.3). */
+  inputTpm: z.int().positive().nullable().optional(),
+  outputTpm: z.int().positive().nullable().optional(),
   maxConcurrency: z.int().positive().nullable().optional(),
   expiresAt: z.iso.datetime().nullable().optional(),
   budgets: z.array(Budget).max(4).optional(),
+  /**
+   * Limits of this key on single models (card 33.3), by the name clients use (model, alias or
+   * combo slug). Replaces every entry; absent keeps them.
+   */
+  modelLimits: z
+    .array(
+      z.object({
+        model: z
+          .string()
+          .min(1)
+          .max(128)
+          .regex(/^[a-zA-Z0-9][a-zA-Z0-9._:/-]*$/),
+        rpm: z.int().positive().nullable().optional(),
+        tpm: z.int().positive().nullable().optional(),
+        inputTpm: z.int().positive().nullable().optional(),
+        outputTpm: z.int().positive().nullable().optional(),
+        maxConcurrency: z.int().positive().nullable().optional(),
+        budgets: z.array(Budget).max(4).optional(),
+      }),
+    )
+    .max(50)
+    .optional(),
 });
 export const KeyPatch = KeyBody.omit({ projectId: true }).partial();
 export const RotateBody = z.object({
@@ -85,7 +110,28 @@ const KeyView = z.object({
   repair: z.array(RepairKind),
   rpm: z.int().nullable(),
   tpm: z.int().nullable(),
+  inputTpm: z.int().nullable(),
+  outputTpm: z.int().nullable(),
   maxConcurrency: z.int().nullable(),
+  modelLimits: z.array(
+    z.object({
+      model: z.string(),
+      rpm: z.int().nullable(),
+      tpm: z.int().nullable(),
+      inputTpm: z.int().nullable(),
+      outputTpm: z.int().nullable(),
+      maxConcurrency: z.int().nullable(),
+      budgets: z.array(
+        z.object({
+          id: z.string(),
+          period: z.enum(BUDGET_PERIODS),
+          limitUsd: z.string().nullable(),
+          limitTokens: z.int().nullable(),
+          alertThresholds: z.array(z.int()),
+        }),
+      ),
+    }),
+  ),
   expiresAt: z.string().nullable(),
   revokedAt: z.string().nullable(),
   rotatedToId: z.string().nullable(),
@@ -157,7 +203,7 @@ export class KeysController {
   ) {
     await this.keys.get(org, id);
     const gate =
-      body.budgets !== undefined
+      body.budgets !== undefined || (await this.keys.changesModelBudgets(org, id, body))
         ? await this.changes.gate(org, 'key.budgets', { keyId: id, patch: body })
         : {};
     return sendGated(reply, gate, () => this.keys.update(org, id, body));

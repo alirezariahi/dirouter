@@ -29,6 +29,7 @@ import { PrismaService } from '../infra/prisma.service.js';
 import { ValkeyService } from '../infra/valkey.service.js';
 import { LOGGER } from '../infra/tokens.js';
 
+import { keyModelScopeId, storedModelLimits } from '../keys/keys.service.js';
 import { fromDbPeriod } from '../limits/periods.js';
 import { CONFIG_CHANNEL, REBUILD_CHANNEL } from './channels.js';
 
@@ -289,15 +290,20 @@ export class SnapshotService implements OnModuleInit, OnModuleDestroy {
           alertThresholds: b.alertThresholds,
         }));
     const rateLimit = (r: {
-      rpm: number | null;
-      tpm: number | null;
-      maxConcurrency: number | null;
+      rpm?: number | null | undefined;
+      tpm?: number | null | undefined;
+      inputTpm?: number | null | undefined;
+      outputTpm?: number | null | undefined;
+      maxConcurrency?: number | null | undefined;
     }) =>
-      r.rpm || r.tpm || r.maxConcurrency
+      r.rpm || r.tpm || r.inputTpm || r.outputTpm || r.maxConcurrency
         ? {
             rateLimit: {
               ...(r.rpm ? { requestsPerMinute: r.rpm } : {}),
               ...(r.tpm ? { tokensPerMinute: r.tpm } : {}),
+              // Card 33.3: input and output tokens apart.
+              ...(r.inputTpm ? { inputTokensPerMinute: r.inputTpm } : {}),
+              ...(r.outputTpm ? { outputTokensPerMinute: r.outputTpm } : {}),
               ...(r.maxConcurrency ? { maxConcurrency: r.maxConcurrency } : {}),
             },
           }
@@ -425,6 +431,16 @@ export class SnapshotService implements OnModuleInit, OnModuleDestroy {
           ...(strictParams.has(k.organizationId) ? { dropParams: false } : {}),
           ...rateLimit(k),
           budgets: budgetsFor('API_KEY', k.id),
+          // Limits of the key on single models (card 33.3).
+          ...(storedModelLimits(k.modelLimits).length > 0
+            ? {
+                modelLimits: storedModelLimits(k.modelLimits).map((m) => ({
+                  model: m.model,
+                  ...rateLimit(m),
+                  budgets: budgetsFor('API_KEY_MODEL', keyModelScopeId(k.id, m.model)),
+                })),
+              }
+            : {}),
           ...(walletId ? { walletId } : {}),
           ...(multiplierOf.has(k.organizationId)
             ? { priceMultiplier: multiplierOf.get(k.organizationId) ?? '1' }

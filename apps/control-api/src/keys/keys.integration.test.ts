@@ -5,6 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { createApp } from '../bootstrap.js';
 import { envSchema } from '../env.js';
+import { SnapshotService } from '../snapshot/snapshot.service.js';
 import { PrismaService } from '../infra/prisma.service.js';
 import { ValkeyService } from '../infra/valkey.service.js';
 import { SnapshotService } from '../snapshot/snapshot.service.js';
@@ -248,5 +249,82 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('virtual keys over HTTP', () => {
         .statusCode,
     ).toBe(403);
     expect((await call('POST', `orgs/${org}/keys/${key.id}/revoke`, viewer)).statusCode).toBe(403);
+  });
+
+  it('limits on single models and input and output TPM (card 33.3)', async () => {
+    const created = await call('POST', `orgs/${org}/keys`, token, {
+      name: 'per-model',
+      projectId: project,
+      inputTpm: 100_000,
+      outputTpm: 20_000,
+      modelLimits: [
+        {
+          model: 'openai/gpt-5',
+          rpm: 10,
+          outputTpm: 5_000,
+          budgets: [{ period: 'daily', limitUsd: '5' }],
+        },
+        { model: 'cheap', inputTpm: 50_000 },
+      ],
+    });
+    expect(created.statusCode).toBe(201);
+    const k = created.json<{
+      id: string;
+      inputTpm: number;
+      modelLimits: { model: string; rpm: number | null; budgets: { id: string }[] }[];
+    }>();
+    expect(k).toMatchObject({ inputTpm: 100_000, outputTpm: 20_000 });
+    expect(k.modelLimits).toEqual([
+      expect.objectContaining({
+        model: 'openai/gpt-5',
+        rpm: 10,
+        outputTpm: 5_000,
+        inputTpm: null,
+        budgets: [expect.objectContaining({ period: 'daily', limitUsd: '5' })],
+      }),
+      expect.objectContaining({ model: 'cheap', inputTpm: 50_000, budgets: [] }),
+    ]);
+    const budgetId = k.modelLimits[0]?.budgets[0]?.id;
+
+    const snapshot = await app.get(SnapshotService).build();
+    const vk = snapshot.virtualKeys.find((v) => v.id === k.id);
+    expect(vk?.rateLimit).toEqual({ inputTokensPerMinute: 100_000, outputTokensPerMinute: 20_000 });
+    expect(vk?.modelLimits).toEqual([
+      {
+        model: 'openai/gpt-5',
+        rateLimit: { requestsPerMinute: 10, outputTokensPerMinute: 5_000 },
+        budgets: [expect.objectContaining({ id: budgetId, period: 'daily', limitUsd: '5' })],
+      },
+      { model: 'cheap', rateLimit: { inputTokensPerMinute: 50_000 }, budgets: [] },
+    ]);
+
+    // Changing the amount keeps the budget (and its running counter); removing an entry drops it.
+    const patched = await call('PATCH', `orgs/${org}/keys/${k.id}`, token, {
+      modelLimits: [{ model: 'openai/gpt-5', budgets: [{ period: 'daily', limitUsd: '7' }] }],
+    });
+    expect(patched.statusCode).toBe(200);
+    expect(patched.json<typeof k>().modelLimits).toEqual([
+      expect.objectContaining({
+        model: 'openai/gpt-5',
+        rpm: null,
+        budgets: [expect.objectContaining({ id: budgetId, limitUsd: '7' })],
+      }),
+    ]);
+    expect(
+      (
+        await call('PATCH', `orgs/${org}/keys/${k.id}`, token, {
+          modelLimits: [{ model: 'a' }, { model: 'a' }],
+        })
+      ).statusCode,
+    ).toBe(422);
+
+    // Rotation moves the model limits and their budgets to the new key.
+    const rotated = await call('POST', `orgs/${org}/keys/${k.id}/rotate`, token, {});
+    expect(rotated.json<typeof k>().modelLimits).toEqual([
+      expect.objectContaining({
+        model: 'openai/gpt-5',
+        budgets: [expect.objectContaining({ limitUsd: '7' })],
+      }),
+    ]);
   });
 });

@@ -16,6 +16,8 @@ export type Period = (typeof PERIODS)[number];
 export interface LimitDraft {
   rpm: string;
   tpm: string;
+  inputTpm: string;
+  outputTpm: string;
   maxConcurrency: string;
   dailyUsd: string;
   dailyTokens: string;
@@ -37,6 +39,8 @@ export function limitDraft(limit: ScopeLimit | undefined): LimitDraft {
   return {
     rpm: value(limit?.rpm),
     tpm: value(limit?.tpm),
+    inputTpm: value(limit?.inputTpm),
+    outputTpm: value(limit?.outputTpm),
     maxConcurrency: value(limit?.maxConcurrency),
     dailyUsd: of('daily')?.limitUsd ?? '',
     dailyTokens: value(of('daily')?.limitTokens),
@@ -59,6 +63,8 @@ export function limitBody(
   for (const field of [
     'rpm',
     'tpm',
+    'inputTpm',
+    'outputTpm',
     'maxConcurrency',
     'dailyTokens',
     'weeklyTokens',
@@ -97,6 +103,8 @@ export function limitBody(
     body: {
       rpm: int(draft.rpm),
       tpm: int(draft.tpm),
+      inputTpm: int(draft.inputTpm),
+      outputTpm: int(draft.outputTpm),
       maxConcurrency: int(draft.maxConcurrency),
       budgets,
     },

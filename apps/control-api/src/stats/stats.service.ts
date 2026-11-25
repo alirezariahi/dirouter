@@ -463,6 +463,11 @@ export class StatsService {
                   (SELECT k."id" FROM "api_keys" k WHERE k."created_by_id" = b."scope_id")
                 WHEN 'model' THEN l."model_id" = b."scope_id"
                 WHEN 'provider' THEN l."provider_id" = b."scope_id"
+                WHEN 'end_user' THEN l."end_user" = b."scope_id"
+                WHEN 'api_key_model' THEN l."api_key_id" = split_part(b."scope_id", '|', 1)
+                  AND (l."requested_model" = split_part(b."scope_id", '|', 2)
+                       OR l."model_id" IN (SELECT m."id" FROM "models" m
+                                           WHERE m."slug" = split_part(b."scope_id", '|', 2)))
                 ELSE false END
       ) s
       WHERE b."organization_id" = ${ctx.organizationId}

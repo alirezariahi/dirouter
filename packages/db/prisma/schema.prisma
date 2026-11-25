@@ -265,7 +265,13 @@ model ApiKey {
   ipAllowlist    String[]     @default([]) @map("ip_allowlist")
   rpm            Int?
   tpm            Int?
+  /// Input and output tokens per minute apart (card 33.3).
+  inputTpm       Int?         @map("input_tpm")
+  outputTpm      Int?         @map("output_tpm")
   maxConcurrency Int?         @map("max_concurrency")
+  /// Limits on one model (card 33.3): [{ model, rpm?, tpm?, inputTpm?, outputTpm?, maxConcurrency? }];
+  /// their budgets are `budgets` rows with scope API_KEY_MODEL and scope id `<key id>|<model>`.
+  modelLimits    Json         @default("[]") @map("model_limits")
   expiresAt      DateTime?    @map("expires_at") @db.Timestamptz(3)
   revokedAt      DateTime?    @map("revoked_at") @db.Timestamptz(3)
   /// The key that replaced this key during rotation.
@@ -537,6 +543,8 @@ enum LimitScope {
   PROVIDER     @map("provider")
   /// Card 33.2: one end user of the organization's own product; scope id `*` holds the defaults.
   END_USER     @map("end_user")
+  /// Card 33.3: one model of one key; scope id `<key id>|<model>`.
+  API_KEY_MODEL @map("api_key_model")
 }
 
 enum BudgetPeriod {
@@ -576,6 +584,8 @@ model RateLimitPolicy {
   scopeId        String     @map("scope_id")
   rpm            Int?
   tpm            Int?
+  inputTpm       Int?       @map("input_tpm")
+  outputTpm      Int?       @map("output_tpm")
   maxConcurrency Int?       @map("max_concurrency")
   createdAt      DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt      DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
@@ -658,6 +668,8 @@ model UsageLedger {
   providerId     String?  @map("provider_id")
   /// End user named by the request (card 33.2), for end-user budgets.
   endUser        String?  @map("end_user")
+  /// The name the client asked for (card 33.3), for a key's budgets on an alias or combo.
+  requestedModel String?  @map("requested_model")
   costUsd        Decimal  @map("cost_usd") @db.Decimal(18, 8)
   tokens         Int
   occurredAt     DateTime @map("occurred_at") @db.Timestamptz(3)

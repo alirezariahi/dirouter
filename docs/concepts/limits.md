@@ -300,3 +300,73 @@ upgrade.
   never another tenant's.
 - `packages/contracts/src/budget.test.ts`: week and year boundaries, including a week across New
   Year.
+
+# Limits of a key on one model; input and output TPM (card 33.3)
+
+## Input and output tokens per minute
+
+Every rate limit (a key, a shared scope, or a key's model entry) can cap input and output tokens
+apart, next to the total TPM:
+
+| field (API) | snapshot                | counts                                                   |
+| ----------- | ----------------------- | -------------------------------------------------------- |
+| `tpm`       | `tokensPerMinute`       | input + output                                           |
+| `inputTpm`  | `inputTokensPerMinute`  | input tokens (the fast-tokenizer estimate)               |
+| `outputTpm` | `outputTokensPerMinute` | output tokens (`min(max_tokens ?? 1024, 8192)` reserved) |
+
+Each side has its own one-second buckets (`dirouter:rl:itpm:<scope>`, `dirouter:rl:otpm:<scope>`),
+checked and applied in the same Lua script as RPM, TPM and concurrency. After the response each
+side is settled with the actual input and output tokens. A rejection names the side:
+`Rate limit exceeded for key (input_tokens)` or `(output_tokens)`. The local fallback limiter
+counts both sides the same way.
+
+## A key's limits on one model
+
+`POST/PATCH /orgs/:org/keys` take `modelLimits` (up to 50 entries, replacing all of them):
+
+```json
+{
+  "modelLimits": [
+    {
+      "model": "openai/gpt-5",
+      "rpm": 10,
+      "outputTpm": 20000,
+      "budgets": [{ "period": "daily", "limitUsd": "5" }]
+    },
+    { "model": "smart", "rpm": 30 }
+  ]
+}
+```
+
+`model` is a name as clients use it, like `allowedModels`:
+
+- **A model slug** limits that model wherever it serves the key: a direct request, an alias, or a
+  combo target. Its budget works like a model budget (card 33.1): when it is used up the model is
+  taken out of the route, so a combo moves on and a request for the model itself gets
+  `429 Daily key model budget exceeded for every target of 'openai/gpt-5'`. Its rate limit counts
+  the request when the model is the first target.
+- **An alias or combo name** limits the requests for that name as a whole.
+- Every other model of the key stays free (only the key's own limits apply).
+
+A budget keeps its id while its model and period stay the same, so the running counter survives an
+edit; rotation moves the entries and their budgets to the new key. Budget changes in `modelLimits`
+need four-eyes approval like other key budgets. The budgets are `budgets` rows with scope
+`api_key_model` and scope id `<key id>|<model>`; the worker reconciles them from the ledger rows of
+the key whose `requested_model` is the name or whose model has that slug (`usage_ledger` keeps the
+requested name since this card).
+
+In the dashboard, the key form has **Limits on single models**: one row per name with RPM, TPM,
+input and output TPM and one budget (period and dollars; budgets set through the API on other
+periods are kept).
+
+## Verification
+
+- `apps/gateway/src/model-limits.test.ts`: input and output windows in the local limiter and on
+  Valkey (each side rejects alone and settles with the actual usage); through the gateway, a key
+  with a cap on the expensive model is limited there and free on the cheap one, another key on the
+  same model is not affected, a used-up per-model budget stops the model while a combo falls back,
+  and an entry naming a combo limits that name.
+- `apps/control-api/src/keys/keys.integration.test.ts`: entries and input and output TPM over HTTP,
+  the snapshot, budget ids kept on edit, duplicate entries refused, rotation.
+- `apps/worker/src/budgets.integration.test.ts`: reconcile of a key's model budget.
+- `apps/dashboard/src/pages/model-limits.test.tsx`: the form rows.

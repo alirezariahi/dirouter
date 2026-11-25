@@ -257,3 +257,93 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)(
     });
   },
 );
+
+describe.skipIf(!DATABASE_URL || !VALKEY_URL)(
+  "reconcile of a key's budget on one model (card 33.3)",
+  () => {
+    const db = createPrismaClient({ databaseUrl: DATABASE_URL ?? '', maxConnections: 2 });
+    const redis = new Redis(VALKEY_URL ?? '', { maxRetriesPerRequest: null });
+    const ORG3 = `org_kmodel_it_${RUN}`;
+    const now = new Date();
+    const id = `bdg_kmodel_${RUN}`;
+
+    beforeAll(async () => {
+      await db.organization.create({
+        data: { id: ORG3, name: ORG3, slug: `kmodel-it-${RUN}` },
+      });
+      await db.provider.create({
+        data: {
+          id: `prv_k_${RUN}`,
+          organizationId: ORG3,
+          slug: 'p',
+          name: 'p',
+          type: 'OPENAI',
+          baseUrl: 'https://x.test/v1',
+        },
+      });
+      await db.model.create({
+        data: {
+          id: `mdl_pricey_${RUN}`,
+          organizationId: ORG3,
+          providerId: `prv_k_${RUN}`,
+          slug: `pricey-${RUN}`,
+          upstreamModel: 'x',
+          inputPrice: '1',
+          outputPrice: '1',
+        },
+      });
+      await db.budget.create({
+        data: {
+          id,
+          organizationId: ORG3,
+          scope: 'API_KEY_MODEL',
+          scopeId: `key_k_${RUN}|pricey-${RUN}`,
+          period: 'DAILY',
+          limitUsd: '100',
+        },
+      });
+      const row = (n: string, extra: Record<string, unknown>) => ({
+        id: `led_k_${n}_${RUN}`,
+        requestId: `req_k_${n}_${RUN}`,
+        organizationId: ORG3,
+        projectId: 'prj',
+        apiKeyId: `key_k_${RUN}`,
+        costUsd: '1',
+        tokens: 1,
+        occurredAt: now,
+        ...extra,
+      });
+      await db.usageLedger.createMany({
+        data: [
+          // asked for the model itself
+          row('a', { requestedModel: `pricey-${RUN}`, modelId: `mdl_pricey_${RUN}` }),
+          // asked for a combo that the model served
+          row('b', { requestedModel: 'smart', modelId: `mdl_pricey_${RUN}` }),
+          // another model of the same key
+          row('c', { requestedModel: 'cheap', modelId: 'mdl_cheap' }),
+          // another key on the same model
+          row('d', {
+            apiKeyId: 'key_other',
+            requestedModel: `pricey-${RUN}`,
+            modelId: `mdl_pricey_${RUN}`,
+          }),
+        ],
+      });
+    });
+
+    afterAll(async () => {
+      await db.usageLedger.deleteMany({ where: { organizationId: ORG3 } });
+      await db.budget.deleteMany({ where: { organizationId: ORG3 } });
+      await db.model.deleteMany({ where: { organizationId: ORG3 } });
+      await db.provider.deleteMany({ where: { organizationId: ORG3 } });
+      await db.$disconnect();
+      redis.disconnect();
+    });
+
+    it("counts the key's requests that the model served or that named it", async () => {
+      await reconcileBudgets(db as unknown as BudgetDb, redis, logger, { now });
+      const usd = await redis.hget(budgetCounterKey(id, budgetPeriodKey('daily', now)), 'usd');
+      expect(Number(usd) / 100_000_000).toBe(2);
+    });
+  },
+);

@@ -13,6 +13,7 @@ import type {
   KeysControllerUpdateBody,
   OrgsControllerProjects200Item as Project,
 } from '../api/generated';
+import { ModelLimitsField } from '../components/model-limits-field';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
 import { Field, FormError } from '../components/ui/field';
@@ -21,6 +22,7 @@ import { api } from '../lib/api';
 import { formatDate, formatNumber } from '../lib/date';
 import { errorMessage, fieldError } from '../lib/errors';
 import { text, type SubmitEvent } from '../lib/form';
+import { modelLimitsFrom } from '../lib/model-limits';
 import { rangeBounds, useRange } from '../lib/range';
 import { currentOrg, useSession } from '../lib/session';
 import { type Period, PERIODS } from '../lib/scope-limits';
@@ -96,7 +98,7 @@ function KeyFields({ initial, error }: { initial?: VirtualKey; error?: unknown }
       />
       <p className="-mt-2 text-xs text-muted">{t('keys.listHint')}</p>
       <div className="grid gap-3 sm:grid-cols-3">
-        {(['rpm', 'tpm', 'maxConcurrency'] as const).map((name) => (
+        {(['rpm', 'tpm', 'inputTpm', 'outputTpm', 'maxConcurrency'] as const).map((name) => (
           <Field
             key={name}
             label={t(`keys.${name}`)}
@@ -176,6 +178,7 @@ function KeyFields({ initial, error }: { initial?: VirtualKey; error?: unknown }
           ))}
         </div>
       </fieldset>
+      <ModelLimitsField initial={initial?.modelLimits} />
     </>
   );
 }
@@ -208,7 +211,10 @@ function bodyFrom(form: FormData, initial?: VirtualKey): KeyBody {
       .filter((value): value is 'json' | 'tools' => value === 'json' || value === 'tools'),
     rpm: optionalInteger(text(form, 'rpm')),
     tpm: optionalInteger(text(form, 'tpm')),
+    inputTpm: optionalInteger(text(form, 'inputTpm')),
+    outputTpm: optionalInteger(text(form, 'outputTpm')),
     maxConcurrency: optionalInteger(text(form, 'maxConcurrency')),
+    modelLimits: modelLimitsFrom(form),
     expiresAt: expiresAt ? new Date(expiresAt).toISOString() : null,
     budgets,
   };

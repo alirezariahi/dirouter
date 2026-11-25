@@ -1074,7 +1074,10 @@ async function proxyRequest(
     key,
     candidates: route.candidates,
     requested: canonical.model,
-    estimatedTokens: estimatedInputTokens + Math.min(canonical.maxOutputTokens ?? 1_024, 8_192),
+    estimatedTokens: {
+      input: estimatedInputTokens,
+      output: Math.min(canonical.maxOutputTokens ?? 1_024, 8_192),
+    },
     requestId,
   });
   for (const [name, value] of Object.entries(admission.headers)) void reply.header(name, value);
@@ -2041,6 +2044,8 @@ async function runRoute(
   });
   return {
     tokens: usage ? usage.inputTokens + usage.outputTokens : 0,
+    inputTokens: usage?.inputTokens ?? 0,
+    outputTokens: usage?.outputTokens ?? 0,
     costUsd,
     chargeUsd,
     candidate: result.ok ? result.candidate : undefined,

@@ -88,6 +88,7 @@ export function toLedgerRow(e: UsageEvent) {
     modelId: e.resolvedModelId,
     providerId: e.providerId,
     endUser: e.endUser ?? null,
+    requestedModel: e.requestedModel,
     costUsd: e.costUsd,
     tokens: e.usage.inputTokens + e.usage.outputTokens,
     occurredAt: new Date(e.occurredAt),

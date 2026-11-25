@@ -299,7 +299,10 @@ describe('virtual key management', () => {
       repair: ['json'],
       rpm: 120,
       tpm: 200000,
+      inputTpm: null,
+      outputTpm: null,
       maxConcurrency: 8,
+      modelLimits: [],
       expiresAt: new Date('2030-01-02T03:04').toISOString(),
       budgets: [
         { period: 'daily', limitUsd: '12.50' },

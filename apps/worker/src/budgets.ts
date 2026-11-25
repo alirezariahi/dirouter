@@ -44,6 +44,10 @@ const SCOPE_FILTER: Record<string, string> = {
   provider: 'provider_id = $1',
   // Card 33.2: one end user; the `*` defaults are counted per end user below.
   end_user: 'end_user = $1',
+  // Card 33.3: `<key id>|<model>`; the name the client asked for, or the model that served it.
+  api_key_model: `api_key_id = split_part($1, '|', 1)
+    AND (requested_model = split_part($1, '|', 2)
+         OR model_id IN (SELECT id FROM models WHERE slug = split_part($1, '|', 2)))`,
 };
 
 /** KEYS[1]: counter; ARGV: ledgerUsd, ledgerTokens, nowMs, quietMs, expireAtMs */

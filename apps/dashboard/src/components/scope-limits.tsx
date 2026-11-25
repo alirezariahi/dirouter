@@ -34,6 +34,8 @@ export interface Target {
 const FIELDS: { key: keyof LimitDraft; label: string; dir?: 'ltr'; inputMode?: 'decimal' }[] = [
   { key: 'rpm', label: 'scopeLimits.rpm' },
   { key: 'tpm', label: 'scopeLimits.tpm' },
+  { key: 'inputTpm', label: 'scopeLimits.inputTpm' },
+  { key: 'outputTpm', label: 'scopeLimits.outputTpm' },
   { key: 'maxConcurrency', label: 'scopeLimits.concurrency' },
   { key: 'thresholds', label: 'scopeLimits.thresholds' },
   ...PERIODS.flatMap((period) => [
@@ -172,6 +174,8 @@ export function ScopeLimitsCard({
     const parts = [
       limit.rpm !== null ? t('scopeLimits.summary.rpm', { n: n(limit.rpm) }) : null,
       limit.tpm !== null ? t('scopeLimits.summary.tpm', { n: n(limit.tpm) }) : null,
+      limit.inputTpm ? t('scopeLimits.summary.inputTpm', { n: n(limit.inputTpm) }) : null,
+      limit.outputTpm ? t('scopeLimits.summary.outputTpm', { n: n(limit.outputTpm) }) : null,
       limit.maxConcurrency !== null
         ? t('scopeLimits.summary.concurrency', { n: n(limit.maxConcurrency) })
         : null,
