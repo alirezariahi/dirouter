@@ -11,7 +11,7 @@ import {
   type ModelPricing,
   RequestPolicy,
 } from '@dirouter/contracts';
-import { modelPriceColumns, Prisma } from '@dirouter/db';
+import { catalogPricingFor, modelPriceColumns, Prisma, type ProviderType } from '@dirouter/db';
 import { catalog } from '@dirouter/model-catalog/catalog';
 import { DiRouterError, prefixedId } from '@dirouter/shared';
 import { Inject, Injectable } from '@nestjs/common';
@@ -223,20 +223,32 @@ export class ModelsService {
       });
   }
 
-  async #fromCatalog(catalogKey: string | null | undefined) {
+  /**
+   * The catalog entry as it applies to a model on a provider of `providerType`: its service tier
+   * prices only on providers that honour `service_tier` (card 31.5).
+   */
+  async #fromCatalog(catalogKey: string | null | undefined, providerType: ProviderType) {
     if (!catalogKey) return undefined;
     const entry = await this.catalogs.find(catalogKey);
     if (!entry) throw invalid(`unknown catalog key ${catalogKey}`);
-    return entry;
+    return { ...entry, pricing: catalogPricingFor(providerType, entry.pricing) };
+  }
+
+  async #providerType(providerId: string): Promise<ProviderType> {
+    const provider = await this.db.provider.findUniqueOrThrow({
+      where: { id: providerId },
+      select: { type: true },
+    });
+    return provider.type;
   }
 
   async createModel(ctx: OrgContext, input: ModelInput) {
     const provider = await this.db.provider.findFirst({
       where: { id: input.providerId, organizationId: ctx.organizationId, deletedAt: null },
-      select: { id: true, slug: true },
+      select: { id: true, slug: true, type: true },
     });
     if (!provider) throw notFound('Provider');
-    const entry = await this.#fromCatalog(input.catalogKey);
+    const entry = await this.#fromCatalog(input.catalogKey, provider.type);
     const pricing = { ...entry?.pricing, ...input.pricing };
     // Explicit prices on a catalog model are the organization's own: syncs leave them alone.
     const priceOverride =
@@ -309,7 +321,7 @@ export class ModelsService {
     // Back to the catalog price: the organization's own price is dropped.
     const follow =
       input.followCatalog === true && !manualPrice
-        ? await this.#fromCatalog(catalogKey)
+        ? await this.#fromCatalog(catalogKey, await this.#providerType(m.providerId))
         : undefined;
     if (input.followCatalog === true && !follow)
       throw invalid('followCatalog needs a catalogKey and no explicit pricing');
@@ -404,12 +416,14 @@ export class ModelsService {
         catalogKey: { not: null },
         priceOverride: false,
       },
+      include: { provider: { select: { type: true } } },
     });
     const entries = new Map((await this.catalogs.entries()).map((e) => [e.key, e]));
     let updated = 0;
-    for (const m of rows) {
-      const entry = entries.get(m.catalogKey ?? '');
-      if (!entry) continue;
+    for (const { provider, ...m } of rows) {
+      const found = entries.get(m.catalogKey ?? '');
+      if (!found) continue;
+      const entry = { ...found, pricing: catalogPricingFor(provider.type, found.pricing) };
       const before = this.modelView(m);
       const deprecationDate = entry.deprecationDate ?? null;
       const changed =

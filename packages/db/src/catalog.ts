@@ -4,7 +4,7 @@
  * organization models that point at the catalog key: those rows are repriced here, except the
  * ones an organization priced by hand (`price_override`).
  */
-import { Prisma, type PrismaClient } from '../generated/client/index.js';
+import { Prisma, type PrismaClient, type ProviderType } from '../generated/client/index.js';
 
 /** ModelPricing as stored in catalog_models.pricing and proposals (decimal strings). */
 export interface CatalogPricing {
@@ -27,6 +27,24 @@ export interface CatalogPricing {
 }
 
 type Tx = Pick<PrismaClient, 'model' | 'catalogModel' | 'catalogPriceProposal'>;
+
+/**
+ * Provider types that send `service_tier` upstream and report the tier they used (card 31.5).
+ * Only their models take the catalog's flex and priority prices: on any other provider the tier is
+ * not honoured, and a copied tier price would only mislead.
+ */
+export const SERVICE_TIER_PROVIDER_TYPES: readonly ProviderType[] = ['OPENAI'];
+
+/** The catalog price as it applies to a model on a provider of `providerType` (a Prisma enum value). */
+export function catalogPricingFor<T extends { serviceTiers?: unknown }>(
+  providerType: ProviderType,
+  pricing: T,
+): T {
+  if (SERVICE_TIER_PROVIDER_TYPES.includes(providerType) || pricing.serviceTiers === undefined)
+    return pricing;
+  const { serviceTiers: _tiers, ...rest } = pricing;
+  return rest as T;
+}
 
 /** Model columns for a catalog price. */
 export function modelPriceColumns(pricing: CatalogPricing) {
@@ -61,11 +79,16 @@ export async function repriceCatalogModels(
   catalogKey: string,
   pricing: CatalogPricing,
 ): Promise<number> {
-  const result = await tx.model.updateMany({
-    where: { catalogKey, priceOverride: false, deletedAt: null },
+  const where = { catalogKey, priceOverride: false, deletedAt: null };
+  const tiered = await tx.model.updateMany({
+    where: { ...where, provider: { type: { in: [...SERVICE_TIER_PROVIDER_TYPES] } } },
     data: modelPriceColumns(pricing),
   });
-  return result.count;
+  const plain = await tx.model.updateMany({
+    where: { ...where, provider: { type: { notIn: [...SERVICE_TIER_PROVIDER_TYPES] } } },
+    data: modelPriceColumns({ ...pricing, serviceTiers: undefined }),
+  });
+  return tiered.count + plain.count;
 }
 
 /**

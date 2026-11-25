@@ -207,6 +207,34 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('catalog sync over HTTP', () => {
     });
   });
 
+  it('keeps the catalog tier prices off providers that ignore service_tier (card 31.5)', async () => {
+    const compatible = (
+      await call('POST', 'providers', {
+        name: 'Compatible',
+        type: 'openai-compatible',
+        baseUrl: 'https://compatible.example.test/v1',
+        credentials: [{ name: 'k', secret: 'sk-compatible' }],
+      })
+    ).json<{ id: string }>().id;
+    const created = await call('POST', 'models', {
+      providerId: compatible,
+      upstreamModel: 'o3',
+      slug: 'compat/o3',
+      catalogKey: 'openai/o3',
+    });
+    expect(created.statusCode).toBe(201);
+    const id = created.json<{ id: string }>().id;
+    const pricing = (await snapshotModel(id))?.pricing;
+    expect(pricing?.inputPerMTok).toBeDefined();
+    expect(pricing?.serviceTiers).toBeUndefined();
+    // Following the catalog again and a catalog sync do not bring them back either.
+    const followed = await call('PATCH', `models/${id}`, { followCatalog: true });
+    expect(followed.statusCode).toBe(200);
+    const synced = await call('POST', 'models/sync-catalog');
+    expect(synced.statusCode).toBe(200);
+    expect((await snapshotModel(id))?.pricing.serviceTiers).toBeUndefined();
+  });
+
   it('in manual mode a price change does not reach request costs until an admin approves it', async () => {
     const follow = (
       await call('POST', 'models', {
