@@ -166,6 +166,11 @@ export const RoutingPolicy = z.object({
    * client can make it stricter, never weaker, whether or not the preferences are locked.
    */
   dataPolicy: DataPolicy.optional(),
+  /**
+   * Routing explanation (card 32.7): requests that send `x-dirouter-explain: 1` get the routing
+   * decision back in the `x-dirouter-routing` header. The most specific scope that sets it wins.
+   */
+  explain: z.boolean().optional(),
 });
 export type RoutingPolicy = z.infer<typeof RoutingPolicy>;
 

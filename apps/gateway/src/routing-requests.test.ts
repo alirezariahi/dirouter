@@ -18,6 +18,7 @@ const INTERNAL = 'internal-token-for-tests-000000001';
 const OPEN = 'dr-route-open-000001';
 const LOCKED = 'dr-route-lock-000001';
 const ZDR = 'dr-route-zdr-0000001';
+const EXPLAIN = 'dr-route-explain-001';
 
 type Snapshot = ConfigSnapshotInput;
 
@@ -141,8 +142,15 @@ function snapshotFor(mockRoot: string, keyring: ReturnType<typeof parseKeyring>)
       },
     ],
     aliases: [],
-    virtualKeys: [key(OPEN, 'vk-open'), key(LOCKED, 'vk-locked'), key(ZDR, 'vk-zdr', 'prj-zdr')],
+    virtualKeys: [
+      key(OPEN, 'vk-open'),
+      key(LOCKED, 'vk-locked'),
+      key(ZDR, 'vk-zdr', 'prj-zdr'),
+      key(EXPLAIN, 'vk-explain'),
+    ],
     routingPolicies: [
+      // Card 32.7: only this key may ask for the routing explanation.
+      { organizationId: 'org', scope: 'key', scopeId: 'vk-explain', explain: true },
       // The project requires zero data retention; the key's own rule tries to relax it.
       {
         organizationId: 'org',
@@ -578,6 +586,97 @@ describe('request routing', () => {
       const event = usage.at(-1);
       expect(event?.serviceTier).toBe('flex');
       expect(event?.costUsd).toBe(cost(event, 1, 4));
+    });
+  });
+
+  describe('routing explanation in the response (card 32.7)', () => {
+    const decode = (res: Response) => {
+      const header = res.headers.get('x-dirouter-routing');
+      return header
+        ? (JSON.parse(Buffer.from(header, 'base64url').toString('utf8')) as Record<string, unknown>)
+        : undefined;
+    };
+    const ASK = { 'x-dirouter-explain': '1' };
+
+    it('matches the simulator for the same request, with the attempts added', async () => {
+      const res = await chat(
+        EXPLAIN,
+        { model: 'm-down', models: ['m-gamma'], provider: { ignore: ['beta'] } },
+        ASK,
+      );
+      expect(res.status).toBe(200);
+      const live = decode(res);
+      expect(live).toBeDefined();
+      const { attempts, ...plan } = live ?? {};
+      expect(attempts).toMatchObject([
+        { modelId: 'm-down', providerId: 'down', outcome: 'error', status: 503 },
+        { modelId: 'm-gamma', providerId: 'gamma', outcome: 'success' },
+      ]);
+      const estimate = plan.estimate as { inputTokens: number };
+      const sim = await simulate({
+        model: 'm-down',
+        models: ['m-gamma'],
+        provider: { ignore: ['beta'] },
+        virtualKeyId: 'vk-explain',
+        estimatedInputTokens: estimate.inputTokens,
+      });
+      expect(plan).toEqual(sim.body.explanation);
+      expect(plan).toMatchObject({
+        requested: 'm-down',
+        models: ['m-down', 'm-gamma'],
+        preferences: { ignore: ['beta'] },
+        candidates: [
+          { modelId: 'm-down', provider: 'down', credentialId: 'down-k' },
+          { modelId: 'm-gamma', provider: 'gamma', credentialId: 'gamma-k' },
+        ],
+      });
+      expect(typeof plan.estimatedCostUsd).toBe('string');
+      // The request log keeps the same decision.
+      expect(usage.at(-1)?.routeDecision).toMatchObject({
+        models: ['m-down', 'm-gamma'],
+        preferences: { ignore: ['beta'] },
+        candidates: [
+          { modelId: 'm-down', providerId: 'down', credentialId: 'down-k' },
+          { modelId: 'm-gamma', providerId: 'gamma', credentialId: 'gamma-k' },
+        ],
+        estimatedCostUsd: plan.estimatedCostUsd,
+      });
+    });
+
+    it('a stream carries the explanation in its headers', async () => {
+      const res = await chat(EXPLAIN, { model: 'chat', stream: true }, ASK);
+      expect(res.status).toBe(200);
+      await res.text();
+      expect(decode(res)?.attempts).toMatchObject([{ modelId: 'm-alpha', outcome: 'streaming' }]);
+    });
+
+    it('a failed plan explains why nothing was left', async () => {
+      const res = await chat(EXPLAIN, { model: 'chat', provider: { only: ['nobody'] } }, ASK);
+      expect(res.status).toBe(400);
+      expect(decode(res)).toMatchObject({
+        requested: 'chat',
+        error: 'no_provider_matches_preferences',
+      });
+    });
+
+    it('without the permission, or without asking, nothing internal comes back', async () => {
+      for (const [key, headers] of [
+        [OPEN, ASK],
+        [EXPLAIN, {}],
+      ] as const) {
+        for (const body of [
+          { model: 'm-down', models: ['m-gamma'] },
+          { model: 'chat', provider: { only: ['nobody'] } },
+        ]) {
+          const res = await chat(key, body, headers);
+          const text = await res.text();
+          expect(res.headers.get('x-dirouter-routing')).toBeNull();
+          for (const secret of ['down-k', 'gamma-k', 'credentialId', 'candidates'])
+            expect(text).not.toContain(secret);
+          for (const [name, value] of res.headers)
+            expect(`${name}: ${value}`).not.toMatch(/credential|-k\b/);
+        }
+      }
     });
   });
 });

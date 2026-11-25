@@ -53,6 +53,10 @@ export const routingRequestsFa = {
   webSearch: 'جستجوی وب',
   webSearchState: { available: 'فعال', unavailable: 'در این گیت‌وی فعال نیست' },
   serviceTier: 'Service tier',
+  rule: 'قانون منطبق',
+  candidatesTitle: 'کاندیداها به ترتیب تلاش',
+  estimatedCost: 'هزینهٔ برآوردی',
+  modelChain: 'مدل‌ها',
 } as const;
 
 export const routingRequestsEn: Widen<typeof routingRequestsFa> = {
@@ -104,4 +108,8 @@ export const routingRequestsEn: Widen<typeof routingRequestsFa> = {
   webSearch: 'Web search',
   webSearchState: { available: 'available', unavailable: 'not enabled on this gateway' },
   serviceTier: 'Service tier',
+  rule: 'Matched rule',
+  candidatesTitle: 'Candidates in attempt order',
+  estimatedCost: 'Estimated cost',
+  modelChain: 'Models',
 };

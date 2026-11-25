@@ -19,6 +19,8 @@ export interface EffectivePolicy {
   lockProvider: boolean;
   /** Data policy of the three scopes, combined to the strictest (card 32.5). */
   dataPolicy?: DataPolicy;
+  /** The key may ask for the routing explanation (card 32.7); most specific scope wins. */
+  explain: boolean;
   /** The rules that applied, broadest first (for the simulator). */
   sources: { scope: RoutingPolicyRule['scope']; scopeId: string }[];
 }
@@ -47,10 +49,13 @@ export function effectivePolicy(
   let provider: ProviderPreferences | undefined;
   for (const rule of applied) if (rule.provider) provider = { ...provider, ...rule.provider };
   const dataPolicy = mergeDataPolicies(...applied.map((r) => r.dataPolicy));
+  let explain = false;
+  for (const rule of applied) if (rule.explain !== undefined) explain = rule.explain;
   return {
     ...(isDataPolicyEmpty(dataPolicy) ? {} : { dataPolicy }),
     ...(provider && Object.keys(provider).length > 0 ? { provider } : {}),
     lockProvider: applied.some((r) => r.lockProvider === true),
+    explain,
     sources: applied.map((r) => ({ scope: r.scope, scopeId: r.scopeId })),
   };
 }

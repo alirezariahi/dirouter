@@ -254,6 +254,7 @@ describe('routing policy on the key (admin lock)', () => {
     expect(policy).toEqual({
       provider: { sort: 'price', ignore: ['alpha'], only: ['beta', 'gamma'] },
       lockProvider: true,
+      explain: false,
       sources: [
         { scope: 'organization', scopeId: 'org' },
         { scope: 'key', scopeId: 'vk' },

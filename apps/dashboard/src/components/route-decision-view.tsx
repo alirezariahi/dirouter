@@ -6,6 +6,11 @@ import { type DataPolicyView, dataPolicyText, reasonText } from '../lib/route-de
 export interface RouteDecisionData {
   dataPolicy?: DataPolicyView;
   suffixes?: string[];
+  /** Card 32.7. */
+  models?: string[];
+  rule?: { id: string; name?: string };
+  candidates?: { modelId: string; providerId: string; estimatedCostUsd: string }[];
+  estimatedCostUsd?: string;
   skipped?: { modelId: string; credentialId?: string; reason: string }[];
 }
 
@@ -35,6 +40,36 @@ export function RouteDecisionView({
           <span className="text-muted">{t('routingRequests.suffixes')}:</span>{' '}
           <span dir="ltr">{d.suffixes.map((s) => `:${s}`).join(' ')}</span>
         </p>
+      ) : null}
+      {d.rule ? (
+        <p className="text-sm">
+          <span className="text-muted">{t('routingRequests.rule')}:</span>{' '}
+          <span dir="ltr">{d.rule.name ?? d.rule.id}</span>
+        </p>
+      ) : null}
+      {d.models?.length ? (
+        <p className="text-sm">
+          <span className="text-muted">{t('routingRequests.modelChain')}:</span>{' '}
+          <span dir="ltr">{d.models.join(' → ')}</span>
+        </p>
+      ) : null}
+      {d.estimatedCostUsd ? (
+        <p className="text-sm">
+          <span className="text-muted">{t('routingRequests.estimatedCost')}:</span>{' '}
+          <span dir="ltr">${d.estimatedCostUsd}</span>
+        </p>
+      ) : null}
+      {d.candidates?.length ? (
+        <>
+          <h4 className="mt-2 text-sm text-muted">{t('routingRequests.candidatesTitle')}</h4>
+          <ol className="text-sm" data-testid="log-route-candidates">
+            {d.candidates.map((c, index) => (
+              <li key={`${c.modelId}:${String(index)}`} dir="ltr">
+                {c.modelId} @ {c.providerId} · ${c.estimatedCostUsd}
+              </li>
+            ))}
+          </ol>
+        </>
       ) : null}
       {d.dataPolicy ? (
         <p className="text-sm">

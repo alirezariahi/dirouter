@@ -154,3 +154,34 @@ The simulator accepts suffixed names and answers with `suffixes`, `reasoningEffo
 The bundled catalog has them for OpenAI's `gpt-4.1` family, `gpt-4o`, `gpt-4o-mini`, `o3` and `o4-mini`, and catalog sync reads LiteLLM's `*_flex` and `*_priority` prices. Models that follow the catalog get them automatically; on `POST`/`PATCH /orgs/:orgId/models` they can be set under `pricing.serviceTiers`.
 
 A `flex` or `priority` request is priced at the tier's rates: the cost, the sale price, the wallet reservation, the usage event (`serviceTier`) and so the ledger. The tier comes from the provider's answer when it reports one (OpenAI does, and may serve `priority` as `default`), else from the request (streams). A model without tier prices is priced at its standard rate. The request log shows the tier in the details.
+
+## Explaining the routing decision (card 32.7)
+
+A key whose routing policy has `explain: true` (set on the organization, a project or the key; the most specific scope that sets it wins) can ask why a request went where it went:
+
+```bash
+curl -i "$GATEWAY/v1/chat/completions" -H "authorization: Bearer $KEY" \
+  -H 'x-dirouter-explain: 1' -H 'content-type: application/json' \
+  -d '{"model":"chat","messages":[{"role":"user","content":"Hi"}]}'
+```
+
+The response then carries `x-dirouter-routing`: base64url-encoded JSON with
+
+| Field                                   | Content                                                                                                                                                                        |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `requested`, `models`, `kind`, `combo`  | what was asked for and the model names the candidates came from                                                                                                                |
+| `rule`                                  | the routing rule that chose the target (an `auto*` alias decision appears as `auto:<alias>`; a rules stage that runs before planning passes its rule to `planRoute` as `rule`) |
+| `suffixes`, `dataPolicy`, `preferences` | what shaped the plan                                                                                                                                                           |
+| `candidates`                            | every candidate in attempt order: model, provider, credential and `estimatedCostUsd`                                                                                           |
+| `skipped`                               | every target removed, with its reason                                                                                                                                          |
+| `estimatedCostUsd`, `estimate`          | the estimate on the first candidate and the token counts it is based on                                                                                                        |
+| `attempts`                              | each upstream attempt: model, provider, credential, outcome, status, error class, latency (a stream reports the attempts before it started and itself as `streaming`)          |
+
+A failed plan returns `requested`, `error` and `skipped` instead. Everything except `attempts` is built by the same function (`explainPlan`) as the simulator's `explanation` field, so for the same request and the same estimate (`estimate.inputTokens` as `estimatedInputTokens`) the two are identical.
+
+Without the permission, or without the request header, nothing of this is returned: no header, no field in the body. The same decision (models, rule, preferences, data policy, candidates with estimated prices, removed targets and suffixes) is always kept with the request log entry (`route_decision`) and shown in the request details next to the attempts.
+
+```bash
+curl -X PUT "$ADMIN/orgs/$ORG/routing-policies" -H "authorization: Bearer $TOKEN" \
+  -H 'content-type: application/json' -d '{"scope":"key","scopeId":"key_…","policy":{"explain":true}}'
+```

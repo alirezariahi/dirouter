@@ -32,6 +32,11 @@ export interface PlanInput {
   preferences?: ProviderPreferences | undefined;
   /** Effective data policy (organization, project, key and request, strictest). */
   dataPolicy?: DataPolicy | undefined;
+  /**
+   * The routing rule that chose `model`, from a rules stage that ran before planning; carried
+   * through to the explanation (card 32.7).
+   */
+  rule?: { id: string; name?: string } | undefined;
   /** The `:free` suffix (card 31.5): only targets whose price is zero. */
   freeOnly?: boolean | undefined;
   resolve?: ResolveOptions;
@@ -42,6 +47,7 @@ export interface RoutePlan extends ResolvedRoute {
   models: string[];
   preferences?: ProviderPreferences;
   dataPolicy?: DataPolicy;
+  rule?: { id: string; name?: string };
 }
 
 export type PlanError = RouteError | PreferenceError | DataPolicyError;
@@ -124,5 +130,6 @@ export function planRoute(router: Router, input: PlanInput): RoutePlan | PlanErr
       ? { preferences: input.preferences }
       : {}),
     ...(dataPolicy ? { dataPolicy } : {}),
+    ...(input.rule ? { rule: input.rule } : {}),
   };
 }

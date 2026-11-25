@@ -45,12 +45,16 @@ import {
   executeWithHedging,
   HedgeBudget,
   isAutoAlias,
+  encodeExplanation,
+  type ExplainAttempt,
+  explainPlan,
   isPlanError,
   parseModelSuffixes,
   planRoute,
   type ResolvedRoute,
   type RetryBudget,
-  type RoutePlan,
+  type RouteExplanation,
+  withAttempts,
   type TaskType,
 } from '@dirouter/routing';
 import {
@@ -790,6 +794,8 @@ async function proxyRequest(
   }
   // The alias was checked against the key above; the target is the gateway's choice, not the client's.
   if (requestRouting.clientIgnored) void reply.header('x-dirouter-preferences', 'locked');
+  // Routing explanation (card 32.7): only for keys whose policy allows it, and only on request.
+  const explainAllowed = requestRouting.policy.explain && wantsExplanation(req.headers);
   // Same planner as the routing simulator (cards 12.5 and 32.1): resolve, fallback models, then
   // provider preferences.
   const route = planRoute(config.router, {
@@ -817,6 +823,17 @@ async function proxyRequest(
         'no provider satisfies the data policy',
       );
     else deps.logger.debug({ requestId, skipped: route.skipped }, 'route failed');
+    if (explainAllowed)
+      void reply.header(
+        EXPLAIN_HEADER,
+        Buffer.from(
+          JSON.stringify({
+            requested: canonical.model,
+            error: route.error,
+            skipped: route.skipped,
+          }),
+        ).toString('base64url'),
+      );
     sendError(reply, api, error, requestId);
     finishSpan('error', { 'gateway.error': route.error });
     observeEarly(reply.statusCode);
@@ -850,6 +867,25 @@ async function proxyRequest(
     }
     route.candidates.splice(0, route.candidates.length, ...fits);
   }
+
+  // The routing decision (card 32.7): the same view as the simulator's, kept with the request log
+  // and, when allowed and asked for, returned in the x-dirouter-routing header.
+  const explanation = explainPlan(route, {
+    estimatedInputTokens,
+    maxOutputTokens: canonical.maxOutputTokens,
+    priceMultiplier: key.priceMultiplier,
+    priced: (m) => ({ ...m, pricing: pricingForServiceTier(m.pricing, canonical.serviceTier) }),
+    suffixes: suffix.suffixes,
+    ...(routing
+      ? {
+          rule: {
+            id: `auto:${routing.alias}`,
+            name: `${routing.alias} → ${routing.target}${routing.taskType ? ` (${routing.taskType})` : ''}`,
+          },
+        }
+      : {}),
+  });
+  if (explainAllowed) void reply.header(EXPLAIN_HEADER, encodeExplanation(explanation));
 
   // Web search for the `:online` suffix (card 31.5): the extension (card 30.8) adds the results to
   // the request once the route is known, so a request that cannot be routed is never searched.
@@ -1178,9 +1214,8 @@ async function proxyRequest(
           ? { savedInputTokens: Math.round(savedCompressedChars / 4) }
           : {}),
         ...(routing ? { routing } : {}),
-        ...(routeDecisionOf(route, suffix.suffixes)
-          ? { routeDecision: routeDecisionOf(route, suffix.suffixes) }
-          : {}),
+        routeDecision: routeDecisionOf(explanation),
+        ...(explainAllowed ? { explanation } : {}),
         finishSpan,
         ...(span ? { span } : {}),
         ...(capture ? { capture } : {}),
@@ -1204,16 +1239,31 @@ async function proxyRequest(
  * What the request log keeps of a route plan (card 32.5): the data policy and every target removed
  * while planning. Undefined when there is nothing to tell.
  */
-function routeDecisionOf(
-  route: RoutePlan,
-  suffixes: readonly string[] = [],
-): RouteDecision | undefined {
-  if (!route.dataPolicy && route.skipped.length === 0 && suffixes.length === 0) return undefined;
+function routeDecisionOf(e: RouteExplanation): RouteDecision {
   return {
-    ...(suffixes.length > 0 ? { suffixes: [...suffixes] } : {}),
-    ...(route.dataPolicy ? { dataPolicy: route.dataPolicy } : {}),
-    ...(route.skipped.length > 0 ? { skipped: route.skipped.slice(0, 100) } : {}),
+    ...(e.suffixes ? { suffixes: e.suffixes } : {}),
+    ...(e.models.length > 1 || e.models[0] !== e.requested ? { models: e.models } : {}),
+    ...(e.rule ? { rule: e.rule } : {}),
+    ...(e.dataPolicy ? { dataPolicy: e.dataPolicy } : {}),
+    ...(e.preferences ? { preferences: e.preferences } : {}),
+    candidates: e.candidates.map((c) => ({
+      modelId: c.modelId,
+      providerId: c.providerId,
+      credentialId: c.credentialId,
+      estimatedCostUsd: c.estimatedCostUsd,
+    })),
+    ...(e.skipped.length > 0 ? { skipped: e.skipped } : {}),
+    ...(e.estimatedCostUsd ? { estimatedCostUsd: e.estimatedCostUsd } : {}),
   };
+}
+
+/** Response header with the routing explanation (card 32.7). */
+const EXPLAIN_HEADER = 'x-dirouter-routing';
+
+/** The client asks for the explanation with `x-dirouter-explain: 1` (or `true`). */
+function wantsExplanation(headers: FastifyRequest['headers']): boolean {
+  const value = headers['x-dirouter-explain'];
+  return typeof value === 'string' && ['1', 'true', 'yes'].includes(value.trim().toLowerCase());
 }
 
 /**
@@ -1296,8 +1346,10 @@ async function runRoute(
     cacheBypass?: boolean;
     /** How an `auto*` alias was resolved (card 20.4). */
     routing?: UsageEvent['routing'];
-    /** How the route was planned (card 32.5), for the request log. */
+    /** How the route was planned (cards 32.5 and 32.7), for the request log. */
     routeDecision?: RouteDecision | undefined;
+    /** Set when the client may and did ask for the routing explanation (card 32.7). */
+    explanation?: RouteExplanation;
     finishSpan: (status: 'ok' | 'error', extra?: Attributes) => void;
     /** Request span; every upstream attempt becomes a child of it. */
     span?: TraceSpan;
@@ -1314,6 +1366,27 @@ async function runRoute(
     api === 'anthropic.messages' ||
     (req.body as { stream_options?: { include_usage?: boolean } } | undefined)?.stream_options
       ?.include_usage === true;
+
+  // Attempts finished so far, for the explanation header of a stream (card 32.7): a stream sends
+  // its headers when it starts, before the executor's own record is complete.
+  const tried: ExplainAttempt[] = [];
+  const explainHeaders = (candidate: Candidate): Record<string, string> =>
+    ctx.explanation
+      ? {
+          [EXPLAIN_HEADER]: encodeExplanation(
+            withAttempts(ctx.explanation, [
+              ...tried,
+              {
+                modelId: candidate.model.id,
+                providerId: candidate.provider.id,
+                credentialId: candidate.credential.id,
+                outcome: 'streaming',
+                latencyMs: Date.now() - started,
+              },
+            ]),
+          ),
+        }
+      : {};
 
   // One client span per upstream attempt (retry, fallback or hedge), with its own traceparent.
   const attempt = async (
@@ -1336,8 +1409,21 @@ async function runRoute(
       },
       `${genAiOperation(api)} ${candidate.model.upstreamModel}`,
     );
+    const attemptStarted = Date.now();
     try {
       const result = await attemptOnce(candidate, signal, attemptSpan?.traceparent, claim);
+      if (ctx.explanation)
+        tried.push({
+          modelId: candidate.model.id,
+          providerId: candidate.provider.id,
+          credentialId: candidate.credential.id,
+          outcome: result.ok ? 'success' : 'error',
+          ...(!result.ok && result.error.status !== undefined
+            ? { status: result.error.status }
+            : {}),
+          ...(!result.ok ? { errorClass: result.error.class } : {}),
+          latencyMs: Date.now() - attemptStarted,
+        });
       attemptSpan?.end(
         result.ok ? 'ok' : 'error',
         result.ok
@@ -1501,6 +1587,7 @@ async function runRoute(
             reportGuardrails(deps, requestId, 'response', result);
           },
           ...(claim ? { claim } : {}),
+          ...(ctx.explanation ? { extraHeaders: () => explainHeaders(candidate) } : {}),
         },
       );
     } catch (error) {
@@ -1627,6 +1714,14 @@ async function runRoute(
       outputTokens: usage?.outputTokens,
     });
   }
+
+  // The explanation with every attempt (card 32.7), for JSON answers and errors; a stream already
+  // sent its own when it started.
+  if (ctx.explanation && !reply.raw.headersSent)
+    void reply.header(
+      EXPLAIN_HEADER,
+      encodeExplanation(withAttempts(ctx.explanation, result.attempts)),
+    );
 
   const rememberResponse = (response: CanonicalResponse) => {
     storeResponseState(deps, api, key, canonical, response);
@@ -1877,6 +1972,8 @@ async function pipeStream(
     heartbeatMs: number;
     draining: () => boolean;
     shuttingDown: () => boolean;
+    /** Headers added when the stream starts (the routing explanation, card 32.7). */
+    extraHeaders?: () => Record<string, string>;
     guardrails?: readonly GuardrailPolicy[];
     /** Makes the model calls of moderation and classifier policies on the held answer. */
     judge?: (
@@ -1938,6 +2035,7 @@ async function pipeStream(
       'x-request-id': opts.requestId,
       'x-dirouter-model': candidate.model.slug,
       'x-dirouter-provider': candidate.provider.slug,
+      ...opts.extraHeaders?.(),
     });
     heartbeat = setInterval(() => {
       void write(encoder instanceof AnthropicStreamEncoder ? encoder.ping() : SSE_HEARTBEAT);

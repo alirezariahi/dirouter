@@ -41,4 +41,27 @@ describe('routing decision in the log details', () => {
     expect(section.textContent).toContain('Service tier: flex');
     expect(section.textContent).toContain('Model suffixes: :floor :online');
   });
+
+  it('shows the matched rule, candidates and estimated cost (card 32.7)', () => {
+    render(
+      <RouteDecisionView
+        decision={{
+          rule: { id: 'auto:auto', name: 'auto → coder (coding)' },
+          models: ['m-down', 'm-gamma'],
+          candidates: [
+            { modelId: 'm-down', providerId: 'down', estimatedCostUsd: '0.00100000' },
+            { modelId: 'm-gamma', providerId: 'gamma', estimatedCostUsd: '0.00200000' },
+          ],
+          estimatedCostUsd: '0.00100000',
+        }}
+      />,
+    );
+    const section = screen.getByTestId('log-route-decision');
+    expect(section.textContent).toContain('Matched rule: auto → coder (coding)');
+    expect(section.textContent).toContain('Models: m-down → m-gamma');
+    expect(section.textContent).toContain('Estimated cost: $0.00100000');
+    expect(screen.getByTestId('log-route-candidates').textContent).toContain(
+      'm-gamma @ gamma · $0.00200000',
+    );
+  });
 });

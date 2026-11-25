@@ -11,3 +11,4 @@ export * from './policy.js';
 export * from './plan.js';
 export * from './data-policy.js';
 export * from './suffixes.js';
+export * from './explain.js';

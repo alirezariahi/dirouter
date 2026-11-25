@@ -63,6 +63,26 @@ export const RouteDecision = z.object({
     .optional(),
   /** Model suffixes the client used, e.g. `floor` or `online` (card 31.5). */
   suffixes: z.array(z.string()).max(10).optional(),
+  /** Card 32.7: the model names the candidates came from (requested, then `models` fallbacks). */
+  models: z.array(z.string()).max(10).optional(),
+  /** The provider preferences applied (card 32.1). */
+  preferences: z.record(z.string(), z.unknown()).optional(),
+  /** The routing rule that chose the target, when a rules stage matched one. */
+  rule: z.object({ id: z.string(), name: z.string().optional() }).optional(),
+  /** Candidates in attempt order with the estimated price of this request on each. */
+  candidates: z
+    .array(
+      z.object({
+        modelId: z.string(),
+        providerId: z.string(),
+        credentialId: z.string(),
+        estimatedCostUsd: z.string(),
+      }),
+    )
+    .max(50)
+    .optional(),
+  /** Estimated price on the first candidate (input estimate + output cap). */
+  estimatedCostUsd: z.string().optional(),
 });
 export type RouteDecision = z.infer<typeof RouteDecision>;
 

@@ -172,4 +172,22 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('routing policies over HTTP', () =
       ).statusCode,
     ).toBe(404);
   });
+
+  it('carries the data policy and the explanation permission to the snapshot (cards 32.5, 32.7)', async () => {
+    const policy = { dataPolicy: { requireZdr: true, allowedRegions: ['eu'] }, explain: true };
+    const set = await call('PUT', 'routing-policies', owner, {
+      scope: 'organization',
+      scopeId: org,
+      policy,
+    });
+    expect(set.statusCode).toBe(200);
+    expect((await app.get(SnapshotService).build()).routingPolicies).toEqual([
+      { organizationId: org, scope: 'organization', scopeId: org, ...policy },
+    ]);
+    await call('PUT', 'routing-policies', owner, {
+      scope: 'organization',
+      scopeId: org,
+      policy: null,
+    });
+  });
 });

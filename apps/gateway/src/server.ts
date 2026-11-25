@@ -19,6 +19,7 @@ import {
   type HealthChange,
   HealthRegistry,
   headroom,
+  explainPlan,
   isAutoAlias,
   isPlanError,
   parseModelSuffixes,
@@ -75,7 +76,7 @@ import { Tracer } from './tracing.js';
 import type { RecordBody } from './body-capture.js';
 import { type OtlpLogBuffer, OtlpExporter } from './otlp-export.js';
 import { geminiRequestToCanonical } from '@dirouter/translator';
-import { estimateRequestTokens } from '@dirouter/model-catalog';
+import { estimateRequestTokens, pricingForServiceTier } from '@dirouter/model-catalog';
 import { enabledPlugins, loadPlugins } from '@dirouter/providers';
 
 export interface GatewayOptions {
@@ -718,7 +719,17 @@ export function buildGateway(opts: GatewayOptions) {
         ...routingView,
       });
     }
+    // The routing explanation (card 32.7), built exactly like the x-dirouter-routing header.
+    const tier = typeof body.serviceTier === 'string' ? body.serviceTier : undefined;
+    const explanation = explainPlan(result, {
+      estimatedInputTokens: inputTokens,
+      maxOutputTokens: outputTokens,
+      priceMultiplier: key.priceMultiplier,
+      priced: (m) => ({ ...m, pricing: pricingForServiceTier(m.pricing, tier) }),
+      suffixes: suffix.suffixes,
+    });
     return {
+      explanation,
       requested: result.requested,
       models: result.models,
       ...routingView,
