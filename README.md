@@ -370,7 +370,7 @@ flowchart LR
 
 - [Documentation index](DOCUMENTATION.md) and the [contributing guide](CONTRIBUTING.md)
 - [Production deployment](docs/deploy-production.md), [environment reference](docs/env-reference.md), and [runbook](docs/runbook.md)
-- [Changelog](CHANGELOG.md) and upgrade notes [to v1.0](docs/upgrade-v1.md) and [to v1.1](docs/upgrade-v1.1.md)
+- [Changelog](CHANGELOG.md) and upgrade notes [to v1.0](docs/upgrade-v1.md) and [to v1.1](docs/upgrade-v1-1.md)
 - [Sprint 2 feature guide](docs/sprint-2.md), [HA deployment](docs/deploy-ha.md), [security](docs/security.md) and [SSO](docs/sso.md)
 - [Observability](docs/observability.md), [usage pipeline](docs/usage-pipeline.md), and [seed data](docs/seed.md)
 

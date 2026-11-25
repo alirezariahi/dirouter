@@ -114,7 +114,7 @@ CI تغییرات و مصرف‌کنندگانشان را lint، typecheck، tes
 
 - [فهرست مستندات](DOCUMENTATION.fa.md) و [راهنمای مشارکت](CONTRIBUTING.fa.md)
 - [استقرار production](deploy-production.fa.md) و [مرجع env](env-reference.fa.md)
-- یادداشت‌های ارتقا: [به v1.0](upgrade-v1.fa.md) و [به v1.1](upgrade-v1.1.fa.md)
+- یادداشت‌های ارتقا: [به v1.0](upgrade-v1.fa.md) و [به v1.1](upgrade-v1-1.fa.md)
 - [Runbook عملیاتی](runbook.fa.md)، [مشاهده‌پذیری](observability.fa.md) و [usage pipeline](usage-pipeline.fa.md)
 - [همگام‌سازی کاتالوگ مدل و قیمت](catalog-sync.fa.md)
 - [دادهٔ seed](seed.fa.md)، [مسیریابی](concepts/routing.fa.md) و [محدودیتها](concepts/limits.fa.md)

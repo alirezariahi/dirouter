@@ -374,7 +374,7 @@ flowchart LR
 
 - [فهرست مستندات](DOCUMENTATION.fa.md) و [راهنمای مشارکت](CONTRIBUTING.fa.md)
 - [استقرار production](docs/deploy-production.fa.md)، [مرجع متغیرهای محیطی](docs/env-reference.fa.md) و [Runbook](docs/runbook.fa.md)
-- [Changelog](CHANGELOG.md) و یادداشت‌های ارتقا [به v1.0](docs/upgrade-v1.fa.md) و [به v1.1](docs/upgrade-v1.1.fa.md)
+- [Changelog](CHANGELOG.md) و یادداشت‌های ارتقا [به v1.0](docs/upgrade-v1.fa.md) و [به v1.1](docs/upgrade-v1-1.fa.md)
 - [راهنمای قابلیت‌های اسپرینت ۲](docs/sprint-2.fa.md)، [استقرار HA](docs/deploy-ha.fa.md)، [امنیت](docs/security.fa.md) و [SSO](docs/sso.fa.md)
 - [مشاهده‌پذیری](docs/observability.fa.md)، [مسیر usage](docs/usage-pipeline.fa.md) و [داده‌های seed](docs/seed.fa.md)
 

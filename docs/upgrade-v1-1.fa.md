@@ -1,4 +1,4 @@
-[English](upgrade-v1.1.md) · [فارسی](upgrade-v1.1.fa.md)
+[English](upgrade-v1-1.md) · [فارسی](upgrade-v1-1.fa.md)
 
 # ارتقا به v1.1
 
