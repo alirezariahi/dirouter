@@ -383,6 +383,30 @@ export const TracingSettings = z.object({
   endpoint: z.string().optional(),
   serviceName: z.string().default('dirouter-gateway'),
   sampleRatio: z.number().min(0).max(1).default(0.1),
+  /**
+   * Span attribute names (card 24.3): `both` (default) adds the OpenTelemetry GenAI semantic
+   * conventions (`gen_ai.*`) next to the original `gateway.*` names, `gen_ai` sends only the
+   * conventions, `legacy` only the original names and span names, as before.
+   */
+  attributes: z.enum(['both', 'gen_ai', 'legacy']).default('both'),
+  /** OTLP/HTTP metrics export (card 24.3), alongside the Prometheus endpoint. */
+  metrics: z
+    .object({
+      enabled: z.boolean().default(false),
+      /** e.g. http://otel-collector:4318/v1/metrics */
+      endpoint: z.string().optional(),
+      intervalSeconds: z.int().min(5).max(3_600).default(30),
+    })
+    .optional(),
+  /** OTLP/HTTP logs export (card 24.3): the same JSON lines the gateway writes to stdout. */
+  logs: z
+    .object({
+      enabled: z.boolean().default(false),
+      /** e.g. http://otel-collector:4318/v1/logs */
+      endpoint: z.string().optional(),
+      level: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
+    })
+    .optional(),
 });
 export type TracingSettings = z.infer<typeof TracingSettings>;
 

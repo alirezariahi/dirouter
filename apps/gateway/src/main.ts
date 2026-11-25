@@ -17,6 +17,7 @@ import { buildGateway } from './server.js';
 import { UsageSink } from './usage-sink.js';
 import { McpCallSink } from './mcp/call-sink.js';
 import { BodySink } from './body-capture.js';
+import { OtlpLogBuffer } from './otlp-export.js';
 
 const quiet = (r: Redis) => {
   r.on('error', () => undefined);
@@ -40,7 +41,19 @@ const env = loadEnvOrExit(
     PLUGINS_ENABLED: z.string().default(''),
   }),
 );
-const logger = createLogger({ service: 'gateway', level: env.LOG_LEVEL });
+// Every log line also feeds the OTLP log export (card 24.3); the buffer ignores lines while that
+// export is off in the settings.
+const otlpLogs = new OtlpLogBuffer();
+const logger = createLogger({
+  service: 'gateway',
+  level: env.LOG_LEVEL,
+  destination: {
+    write(line: string) {
+      process.stdout.write(line);
+      otlpLogs.push(line);
+    },
+  },
+});
 
 // Without Valkey (e.g. a local single-file run) events are only logged.
 const usageSink = env.VALKEY_URL
@@ -74,6 +87,7 @@ const bodies = env.VALKEY_URL ? new BodySink(env.VALKEY_URL, logger) : undefined
 
 const gateway = buildGateway({
   logger,
+  otlpLogs,
   ...(mcpCalls
     ? {
         recordMcpCall: (call) => {

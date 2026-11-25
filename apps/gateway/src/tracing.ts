@@ -19,16 +19,27 @@ import { randomBytes } from 'node:crypto';
 import type { TracingSettings } from '@dirouter/contracts';
 import type { Logger } from '@dirouter/shared';
 
-type AttributeValue = string | number | boolean;
-export type Attributes = Record<string, AttributeValue>;
+import {
+  type AttributeMode,
+  type Attributes,
+  type AttributeValue,
+  GENAI_SCHEMA_URL,
+  shapeAttributes,
+  withErrorType,
+} from './genai.js';
 
-interface OtlpAttribute {
+export type { Attributes } from './genai.js';
+
+type OtlpValue =
+  | { stringValue: string }
+  | { intValue: string }
+  | { doubleValue: number }
+  | { boolValue: boolean }
+  | { arrayValue: { values: OtlpValue[] } };
+
+export interface OtlpAttribute {
   key: string;
-  value:
-    | { stringValue: string }
-    | { intValue: string }
-    | { doubleValue: number }
-    | { boolValue: boolean };
+  value: OtlpValue;
 }
 
 export interface Span {
@@ -42,7 +53,8 @@ export interface TraceSpan extends Span {
   readonly sampled: boolean;
   /** `traceparent` header value naming this span as the parent of the next hop. */
   readonly traceparent: string;
-  child(name: string, attributes?: Attributes): TraceSpan;
+  /** `semconvName` is used instead of `name` unless the attribute mode is `legacy`. */
+  child(name: string, attributes?: Attributes, semconvName?: string): TraceSpan;
 }
 
 export interface ParentContext {
@@ -55,7 +67,12 @@ const TRACEPARENT = /^00-([0-9a-f]{32})-([0-9a-f]{16})-([0-9a-f]{2})$/;
 const SPAN_KIND_SERVER = 2;
 const SPAN_KIND_CLIENT = 3;
 const MAX_BUFFER = 5_000;
-const OFF: TracingSettings = { enabled: false, serviceName: 'dirouter-gateway', sampleRatio: 0 };
+const OFF: TracingSettings = {
+  enabled: false,
+  serviceName: 'dirouter-gateway',
+  sampleRatio: 0,
+  attributes: 'both',
+};
 
 const traceIdHex = () => randomBytes(16).toString('hex');
 const spanIdHex = () => randomBytes(8).toString('hex');
@@ -102,6 +119,12 @@ export class Tracer {
     return this.#getSettings() ?? OFF;
   }
 
+  /** Which attribute and span names are sent (card 24.3). */
+  get attributeMode(): AttributeMode {
+    // A snapshot written before card 24.3 has no mode: it means the default.
+    return (this.#settings as Partial<TracingSettings>).attributes ?? 'both';
+  }
+
   get enabled(): boolean {
     return this.#settings.enabled && typeof this.#settings.endpoint === 'string';
   }
@@ -117,10 +140,15 @@ export class Tracer {
    * Starts the server span of an inbound request. `traceparent` is the raw header value (if any).
    * Always returns a span object so callers can propagate ids; nothing is recorded unless sampled.
    */
-  startRequest(name: string, attributes: Attributes = {}, traceparent?: unknown): TraceSpan {
+  startRequest(
+    name: string,
+    attributes: Attributes = {},
+    traceparent?: unknown,
+    semconvName?: string,
+  ): TraceSpan {
     const parent = parseTraceparent(traceparent);
     return this.#span({
-      name,
+      name: this.#name(name, semconvName),
       attributes,
       traceId: parent?.traceId ?? traceIdHex(),
       parentSpanId: parent?.spanId,
@@ -132,6 +160,10 @@ export class Tracer {
   /** Root span without propagation (kept for callers that only need timing). */
   startSpan(name: string, attributes: Attributes = {}): Span {
     return this.startRequest(name, attributes);
+  }
+
+  #name(name: string, semconvName: string | undefined): string {
+    return semconvName && this.attributeMode !== 'legacy' ? semconvName : name;
   }
 
   #span(input: {
@@ -150,9 +182,9 @@ export class Tracer {
       spanId,
       sampled: input.sampled,
       traceparent: formatTraceparent(input.traceId, spanId, input.sampled),
-      child: (name, attributes = {}) =>
+      child: (name, attributes = {}, semconvName) =>
         this.#span({
-          name,
+          name: this.#name(name, semconvName),
           attributes,
           traceId: input.traceId,
           parentSpanId: spanId,
@@ -175,7 +207,9 @@ export class Tracer {
           kind: input.kind,
           startTimeUnixNano: String(started * 1_000_000),
           endTimeUnixNano: String(Date.now() * 1_000_000),
-          attributes: toAttributes({ ...input.attributes, ...extra }),
+          attributes: toAttributes(
+            shapeAttributes(this.attributeMode, withErrorType({ ...input.attributes, ...extra })),
+          ),
           status: { code: status === 'ok' ? 1 : 2 },
         });
         if (this.#buffer.length >= 200) void this.flush();
@@ -208,7 +242,13 @@ export class Tracer {
               resource: {
                 attributes: toAttributes({ 'service.name': this.#settings.serviceName }),
               },
-              scopeSpans: [{ scope: { name: 'dirouter-gateway' }, spans }],
+              scopeSpans: [
+                {
+                  scope: { name: 'dirouter-gateway' },
+                  ...(this.attributeMode === 'legacy' ? {} : { schemaUrl: GENAI_SCHEMA_URL }),
+                  spans,
+                },
+              ],
             },
           ],
         }),
@@ -228,16 +268,17 @@ export class Tracer {
   }
 }
 
-function toAttributes(attributes: Attributes): OtlpAttribute[] {
-  return Object.entries(attributes).map(([key, value]) => ({
-    key,
-    value:
-      typeof value === 'string'
-        ? { stringValue: value }
-        : typeof value === 'boolean'
-          ? { boolValue: value }
-          : Number.isInteger(value)
-            ? { intValue: String(value) }
-            : { doubleValue: value },
-  }));
+function toValue(value: AttributeValue): OtlpValue {
+  if (Array.isArray(value)) return { arrayValue: { values: value.map((v) => toValue(v)) } };
+  return typeof value === 'string'
+    ? { stringValue: value }
+    : typeof value === 'boolean'
+      ? { boolValue: value }
+      : Number.isInteger(value)
+        ? { intValue: String(value) }
+        : { doubleValue: value };
+}
+
+export function toAttributes(attributes: Attributes): OtlpAttribute[] {
+  return Object.entries(attributes).map(([key, value]) => ({ key, value: toValue(value) }));
 }

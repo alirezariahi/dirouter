@@ -102,6 +102,14 @@ import { externalVerdicts } from './classifiers.js';
 import { type BodyCapture, type RecordBody, startBodyCapture } from './body-capture.js';
 import { evaluateGuardrails, policiesFor, StreamGuardrailBuffer } from './guardrails.js';
 import type { Tracer, TraceSpan } from './tracing.js';
+import {
+  type Attributes,
+  genAiOperation,
+  genAiProviderName,
+  genAiRequestAttributes,
+  genAiResponseAttributes,
+  serverAttributes,
+} from './genai.js';
 import { callUpstream, mergeTimeouts, readErrorBody, UpstreamTimeout } from './upstream.js';
 
 export interface ProxyDeps {
@@ -594,11 +602,13 @@ async function proxyRequest(
           'gateway.model': canonical.model,
           'gateway.stream': canonical.stream,
           'gateway.request_id': requestId,
+          // GenAI semantic conventions (card 24.3); usage is on the upstream CLIENT spans.
+          ...genAiRequestAttributes(api, canonical),
         },
         req.headers.traceparent,
       )
     : undefined;
-  const finishSpan = (status: 'ok' | 'error', extra?: Record<string, string | number>) => {
+  const finishSpan = (status: 'ok' | 'error', extra?: Attributes) => {
     if (!span) return;
     span.end(status, extra ?? {});
   };
@@ -1006,7 +1016,14 @@ async function proxyRequest(
     });
     // Cached answers cost nothing upstream but may be sold (sale.cacheMultiplier, card 19.4).
     settleWallet(cachedCharge.chargeUsd);
-    finishSpan('ok', { 'gateway.cache': cacheKind ?? 'exact' });
+    finishSpan('ok', {
+      'gateway.cache': cacheKind ?? 'exact',
+      ...(firstCandidate
+        ? { 'gen_ai.provider.name': genAiProviderName(firstCandidate.provider.type) }
+        : {}),
+      // A cache hit has no upstream span, so its usage (zero cost) is reported here.
+      ...genAiResponseAttributes(cached, cached.usage),
+    });
     return;
   }
 
@@ -1173,7 +1190,7 @@ async function runRoute(
     cacheBypass?: boolean;
     /** How an `auto*` alias was resolved (card 20.4). */
     routing?: UsageEvent['routing'];
-    finishSpan: (status: 'ok' | 'error', extra?: Record<string, string | number>) => void;
+    finishSpan: (status: 'ok' | 'error', extra?: Attributes) => void;
     /** Request span; every upstream attempt becomes a child of it. */
     span?: TraceSpan;
     /** Request body capture (card 24.1); a stream's answer is handed over here. */
@@ -1197,16 +1214,33 @@ async function runRoute(
     _attempt?: number,
     claim?: () => boolean,
   ): Promise<AttemptResult<Outcome>> => {
-    const attemptSpan = ctx.span?.child('gateway.upstream', {
-      'gateway.provider': candidate.provider.slug,
-      'gateway.resolved_model': candidate.model.slug,
-      'gateway.credential': candidate.credential.id,
-    });
+    // A GenAI inference CLIENT span (card 24.3): `{operation} {upstream model}`.
+    const attemptSpan = ctx.span?.child(
+      'gateway.upstream',
+      {
+        'gateway.provider': candidate.provider.slug,
+        'gateway.resolved_model': candidate.model.slug,
+        'gateway.credential': candidate.credential.id,
+        ...genAiRequestAttributes(api, canonical),
+        'gen_ai.request.model': candidate.model.upstreamModel,
+        'gen_ai.provider.name': genAiProviderName(candidate.provider.type),
+        ...serverAttributes(candidate.provider.baseUrl),
+      },
+      `${genAiOperation(api)} ${candidate.model.upstreamModel}`,
+    );
     try {
       const result = await attemptOnce(candidate, signal, attemptSpan?.traceparent, claim);
       attemptSpan?.end(
         result.ok ? 'ok' : 'error',
-        result.ok ? {} : { 'gateway.error_class': result.error.class },
+        result.ok
+          ? result.value.kind === 'json'
+            ? genAiResponseAttributes(result.value.response, result.value.response.usage)
+            : genAiResponseAttributes(
+                result.value.result.assembled,
+                result.value.result.usage,
+                candidate.model.upstreamModel,
+              )
+          : { 'gateway.error_class': result.error.class },
       );
       return result;
     } catch (error) {
@@ -1446,6 +1480,25 @@ async function runRoute(
       outcome: item.outcome,
       latencyMs: item.latencyMs,
     });
+    // GenAI client metrics (card 24.3): every upstream call, with tokens on the one that answered.
+    const answered =
+      result.ok && item.outcome === 'success' && item.modelId === result.candidate.model.id;
+    const usage = answered
+      ? result.value.kind === 'json'
+        ? result.value.response.usage
+        : result.value.result.usage
+      : undefined;
+    deps.metrics?.observeGenAi({
+      operation: genAiOperation(api),
+      provider: provider ? genAiProviderName(provider.type) : item.providerId,
+      requestModel: model?.upstreamModel ?? item.modelId,
+      responseModel:
+        answered && result.value.kind === 'json' ? result.value.response.model : undefined,
+      durationMs: item.latencyMs,
+      errorType: item.outcome === 'success' ? undefined : (item.errorClass ?? item.outcome),
+      inputTokens: usage?.inputTokens,
+      outputTokens: usage?.outputTokens,
+    });
   }
 
   const rememberResponse = (response: CanonicalResponse) => {
@@ -1528,6 +1581,9 @@ async function runRoute(
           'gateway.provider': result.candidate.provider.slug,
           'gateway.resolved_model': result.candidate.model.slug,
           'gateway.attempts': result.attempts.length,
+          'gen_ai.provider.name': genAiProviderName(result.candidate.provider.type),
+          'gen_ai.response.model': outcome.response.model,
+          'gen_ai.response.finish_reasons': [outcome.response.finishReason],
         });
       }
     } else {
@@ -1560,6 +1616,9 @@ async function runRoute(
         'gateway.provider': result.candidate.provider.slug,
         'gateway.resolved_model': result.candidate.model.slug,
         'gateway.attempts': result.attempts.length,
+        'gen_ai.provider.name': genAiProviderName(result.candidate.provider.type),
+        'gen_ai.response.model': assembled?.model ?? result.candidate.model.upstreamModel,
+        ...(assembled ? { 'gen_ai.response.finish_reasons': [assembled.finishReason] } : {}),
       });
     }
     // Routing statistics (cards 12.1 and 12.4): EWMA latency, recent volume and session pinning.

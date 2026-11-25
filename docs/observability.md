@@ -143,6 +143,93 @@ Off by default. Enable it in the gateway settings (`PUT /orgs/:orgId/config/sett
 | `gateway.request`  | server | `gateway.inbound_api`, `gateway.model`, `gateway.stream`, `gateway.request_id`, then `gateway.provider`, `gateway.resolved_model`, `gateway.attempts`, `gateway.cache` or `gateway.guardrail` |
 | `gateway.upstream` | client | one per attempt (retry, fallback or hedge): `gateway.provider`, `gateway.resolved_model`, `gateway.credential`, and `gateway.error_class` on failure                                          |
 
+Since card 24.3 the upstream span is named `{gen_ai.operation.name} {upstream model}` (for example `chat gpt-4o`) and both spans also carry the GenAI semantic conventions; see the next section. With `tracing.attributes: "legacy"` the names and attributes above are exactly what is sent.
+
 Span attributes are metadata only: no prompt, response or secret is attached. `gateway.request_id` equals the `X-Request-Id` in the logs, so a trace and its log lines can be joined.
 
 **Export.** Spans are batched and flushed every second (or at 200 spans). If the collector is slow or down, the batch is dropped (at most 5000 spans are buffered) and the request path is never affected.
+
+## GenAI semantic conventions, OTLP metrics and logs (card 24.3)
+
+> Code: `apps/gateway/src/genai.ts`, `apps/gateway/src/tracing.ts`, `apps/gateway/src/otlp-export.ts`.
+
+**Target version: OpenTelemetry semantic conventions v1.41.0** (GenAI conventions, status _Development_). v1.41.0 is the last release of the core `semantic-conventions` repository that carries the GenAI conventions; from v1.42.0 they moved to [`open-telemetry/semantic-conventions-genai`](https://github.com/open-telemetry/semantic-conventions-genai), whose first release (v0.1.0) renames the inference metrics (`gen_ai.client.inference.duration`, separate input and output token histograms). Because the conventions are still in Development, the version is fixed here and exported spans and metrics carry `schemaUrl: https://opentelemetry.io/schemas/1.41.0`. Moving to a newer version is a deliberate change of `genai.ts` and this section.
+
+Choices made against v1.41.0:
+
+- `gen_ai.provider.name` is sent; the deprecated `gen_ai.system` (renamed in v1.37.0) is not.
+- The upstream attempt is the inference span: kind CLIENT, name `{gen_ai.operation.name} {gen_ai.request.model}`. The request span stays `gateway.request` (kind SERVER) and carries the request attributes, but **no token usage**, so a backend that sums usage over spans does not count a call twice. A cache hit has no upstream span; its usage is on the request span.
+- Content attributes (`gen_ai.input.messages`, `gen_ai.output.messages`, `gen_ai.system_instructions`) are opt-in in the conventions and are never sent.
+
+| Attribute                                                                                                                  | Upstream span (client)                                                                                               | Request span (server)                     |
+| -------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- |
+| `gen_ai.operation.name`                                                                                                    | `chat`; `generate_content` for Gemini `generateContent`                                                              | same                                      |
+| `gen_ai.provider.name`                                                                                                     | from the provider type (table below)                                                                                 | the provider that answered                |
+| `gen_ai.request.model`                                                                                                     | the upstream model sent to the provider                                                                              | the model, alias or combo the client sent |
+| `gen_ai.request.max_tokens`, `temperature`, `top_p`, `top_k`, `seed`, `stop_sequences`                                     | when the client set them                                                                                             | same                                      |
+| `gen_ai.response.id`, `gen_ai.response.model`, `gen_ai.response.finish_reasons`                                            | from the answer (finish reasons in DiRouter's canonical values: `stop`, `length`, `tool_calls`, `content_filter`, …) | model and finish reasons                  |
+| `gen_ai.usage.input_tokens`, `gen_ai.usage.output_tokens`                                                                  | always on success                                                                                                    | only on a cache hit                       |
+| `gen_ai.usage.cache_read.input_tokens`, `gen_ai.usage.cache_creation.input_tokens`, `gen_ai.usage.reasoning.output_tokens` | when non-zero                                                                                                        | —                                         |
+| `server.address`, `server.port`                                                                                            | host and port of the provider's base URL                                                                             | —                                         |
+| `error.type`                                                                                                               | the error class (`timeout`, `rate_limit`, …) on failure                                                              | the reason a request was refused          |
+
+| Provider type  | `gen_ai.provider.name`                            |
+| -------------- | ------------------------------------------------- |
+| `openai`       | `openai`                                          |
+| `azure-openai` | `azure.ai.openai`                                 |
+| `anthropic`    | `anthropic`                                       |
+| `gemini`       | `gcp.gemini`                                      |
+| `vertex`       | `gcp.vertex_ai`                                   |
+| `bedrock`      | `aws.bedrock`                                     |
+| `cohere`       | `cohere`                                          |
+| `mistral`      | `mistral_ai`                                      |
+| anything else  | the type itself (for example `openai-compatible`) |
+
+**Keeping the old names.** `tracing.attributes` chooses what is sent:
+
+| Value            | Span names                               | Attributes                                           |
+| ---------------- | ---------------------------------------- | ---------------------------------------------------- |
+| `both` (default) | `gateway.request`, `{operation} {model}` | `gen_ai.*`, `error.type`, `server.*` and `gateway.*` |
+| `gen_ai`         | `gateway.request`, `{operation} {model}` | conventions only                                     |
+| `legacy`         | `gateway.request`, `gateway.upstream`    | `gateway.*` only, as before card 24.3                |
+
+Dashboards and queries built on `gateway.*` keep working with the default; switch to `gen_ai` once they use the conventions.
+
+**OTLP metrics.** With `tracing.metrics` enabled, the gateway sends its whole Prometheus registry to an OTLP/HTTP metrics endpoint every `intervalSeconds` (cumulative temporality; counters, gauges and histograms under their Prometheus names, plus the default Node.js metrics). `/metrics` stays as it is. Two histograms follow the conventions and leave under their convention names, with `gen_ai.*` attribute keys:
+
+| OTLP name (v1.41.0)                | Prometheus name                                             | Unit      | Attributes                                                                                                                               |
+| ---------------------------------- | ----------------------------------------------------------- | --------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `gen_ai.client.token.usage`        | `dirouter_gateway_gen_ai_client_token_usage`                | `{token}` | `gen_ai.operation.name`, `gen_ai.provider.name`, `gen_ai.request.model`, `gen_ai.response.model`, `gen_ai.token.type` (`input`/`output`) |
+| `gen_ai.client.operation.duration` | `dirouter_gateway_gen_ai_client_operation_duration_seconds` | `s`       | the same without the token type, plus `error.type` on failure                                                                            |
+
+Both are recorded per upstream attempt (tokens only on the attempt that answered), with the bucket boundaries the conventions recommend. In Prometheus the labels are `operation`, `provider`, `request_model`, `response_model`, `token_type` and `error_type`.
+
+**OTLP logs.** With `tracing.logs` enabled, every JSON log line the gateway writes at or above `level` is also sent as an OTLP log record: `msg` becomes the body, `level` the severity, the other fields attributes (objects as JSON text). These are the same lines as stdout, so the log privacy rules above apply unchanged. Records are batched every second; at most 5000 wait, the rest are dropped.
+
+```json
+{
+  "tracing": {
+    "enabled": true,
+    "endpoint": "http://otel-collector:4318/v1/traces",
+    "attributes": "both",
+    "metrics": {
+      "enabled": true,
+      "endpoint": "http://otel-collector:4318/v1/metrics",
+      "intervalSeconds": 30
+    },
+    "logs": { "enabled": true, "endpoint": "http://otel-collector:4318/v1/logs", "level": "info" }
+  }
+}
+```
+
+| Setting                   | Default | Meaning                                               |
+| ------------------------- | ------- | ----------------------------------------------------- |
+| `attributes`              | `both`  | `both`, `gen_ai` or `legacy`, see above               |
+| `metrics.enabled`         | `false` | OTLP metrics export; independent of `tracing.enabled` |
+| `metrics.endpoint`        | none    | OTLP/HTTP metrics URL                                 |
+| `metrics.intervalSeconds` | `30`    | 5 to 3600                                             |
+| `logs.enabled`            | `false` | OTLP logs export; independent of `tracing.enabled`    |
+| `logs.endpoint`           | none    | OTLP/HTTP logs URL                                    |
+| `logs.level`              | `info`  | lowest level sent: `debug`, `info`, `warn` or `error` |
+
+Like traces, metric and log export never blocks a request: a failed export is dropped and counted, and the last batch is sent on shutdown. A trace backend that reads the GenAI conventions (Langfuse, Phoenix, Datadog LLM Observability and others) shows each upstream span as an LLM call with its model, provider and tokens, without a custom mapping.

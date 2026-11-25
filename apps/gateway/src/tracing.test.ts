@@ -23,6 +23,7 @@ const on = (over: Partial<TracingSettings> = {}): TracingSettings => ({
   endpoint: 'http://collector.invalid/v1/traces',
   serviceName: 'dirouter-gateway',
   sampleRatio: 1,
+  attributes: 'both',
   ...over,
 });
 
@@ -296,7 +297,9 @@ describe('tracing through the gateway', () => {
     expect((await chat({ traceparent: `00-${TRACE}-${PARENT}-01` })).status).toBe(200);
     await waitForSpans(2);
     const request = received.find((s) => s.name === 'gateway.request');
-    const upstream = received.find((s) => s.name === 'gateway.upstream');
+    // The upstream attempt is a GenAI inference CLIENT span named `{operation} {model}` (24.3).
+    const upstream = received.find((s) => s.kind === 3);
+    expect(upstream?.name).toBe('chat mock-small');
     expect(request?.traceId).toBe(TRACE);
     expect(request?.parentSpanId).toBe(PARENT);
     expect(upstream?.traceId).toBe(TRACE);

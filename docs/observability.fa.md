@@ -145,8 +145,95 @@ dirouter_queue_metrics_up == 0
 | `gateway.request`  | server | `gateway.inbound_api`، `gateway.model`، `gateway.stream`، `gateway.request_id` و سپس `gateway.provider`، `gateway.resolved_model`، `gateway.attempts`، `gateway.cache` یا `gateway.guardrail` |
 | `gateway.upstream` | client | یکی به ازای هر تلاش (retry، فال‌بک یا hedge): `gateway.provider`، `gateway.resolved_model`، `gateway.credential` و در صورت خطا `gateway.error_class`                                          |
 
+از کارت ۲۴.۳ نام span تلاش upstream به شکل `{gen_ai.operation.name} {مدل upstream}` است (مثلاً `chat gpt-4o`) و هر دو span ویژگی‌های GenAI semantic conventions را هم دارند؛ بخش بعد را ببینید. با `tracing.attributes: "legacy"` دقیقاً همین نام‌ها و ویژگی‌های جدول بالا ارسال می‌شوند.
+
 ویژگی‌های span فقط متادیتا هستند: هیچ prompt، پاسخ یا رازی ضمیمه نمی‌شود. `gateway.request_id` همان `X-Request-Id` لاگ‌هاست؛ پس trace و خط‌های لاگ را می‌توان به هم وصل کرد.
 
 **ارسال.** spanها دسته‌ای و هر ثانیه (یا با رسیدن به ۲۰۰ span) ارسال می‌شوند. اگر collector کند یا خاموش باشد، دسته دور ریخته می‌شود (حداکثر ۵۰۰۰ span بافر می‌شود) و مسیر درخواست هرگز تحت تأثیر قرار نمی‌گیرد.
+
+## GenAI semantic conventions، متریک و لاگ OTLP (کارت ۲۴.۳)
+
+> کد: `apps/gateway/src/genai.ts`، `apps/gateway/src/tracing.ts` و `apps/gateway/src/otlp-export.ts`.
+
+**نسخهٔ هدف: OpenTelemetry semantic conventions نسخهٔ v1.41.0** (قراردادهای GenAI با وضعیت _Development_). نسخهٔ v1.41.0 آخرین انتشار مخزن اصلی `semantic-conventions` است که قراردادهای GenAI را دارد؛ از v1.42.0 این قراردادها به مخزن [`open-telemetry/semantic-conventions-genai`](https://github.com/open-telemetry/semantic-conventions-genai) منتقل شده‌اند و اولین انتشار آن (v0.1.0) نام متریک‌های inference را عوض کرده است (`gen_ai.client.inference.duration` و هیستوگرام‌های جدای توکن ورودی و خروجی). چون قراردادها هنوز Development هستند، نسخه این‌جا ثابت شده و spanها و متریک‌های ارسالی `schemaUrl: https://opentelemetry.io/schemas/1.41.0` دارند. رفتن به نسخهٔ جدیدتر تغییری آگاهانه در `genai.ts` و همین بخش است.
+
+انتخاب‌های انجام‌شده بر اساس v1.41.0:
+
+- `gen_ai.provider.name` ارسال می‌شود؛ `gen_ai.system` که منسوخ شده (تغییر نام در v1.37.0) نه.
+- تلاش upstream همان span استنتاج است: نوع CLIENT و نام `{gen_ai.operation.name} {gen_ai.request.model}`. span درخواست همچنان `gateway.request` (نوع SERVER) است و ویژگی‌های درخواست را دارد اما **مصرف توکن ندارد**، تا backendی که مصرف را روی spanها جمع می‌زند یک فراخوانی را دو بار حساب نکند. پاسخ از کش span upstream ندارد و مصرفش روی span درخواست است.
+- ویژگی‌های محتوا (`gen_ai.input.messages`، `gen_ai.output.messages` و `gen_ai.system_instructions`) در قراردادها opt-in هستند و هرگز ارسال نمی‌شوند.
+
+| ویژگی                                                                                                                      | span upstream (client)                                                                                 | span درخواست (server)                 |
+| -------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------- |
+| `gen_ai.operation.name`                                                                                                    | `chat`؛ برای `generateContent` جمینای `generate_content`                                               | همان                                  |
+| `gen_ai.provider.name`                                                                                                     | از نوع provider (جدول زیر)                                                                             | providerی که پاسخ داد                 |
+| `gen_ai.request.model`                                                                                                     | مدل upstream که به provider فرستاده شد                                                                 | مدل، alias یا comboی که کلاینت فرستاد |
+| `gen_ai.request.max_tokens`، `temperature`، `top_p`، `top_k`، `seed`، `stop_sequences`                                     | اگر کلاینت تعیین کرده باشد                                                                             | همان                                  |
+| `gen_ai.response.id`، `gen_ai.response.model`، `gen_ai.response.finish_reasons`                                            | از پاسخ (دلیل پایان با مقادیر canonical دی‌روتر: `stop`، `length`، `tool_calls`، `content_filter` و …) | مدل و دلیل پایان                      |
+| `gen_ai.usage.input_tokens`، `gen_ai.usage.output_tokens`                                                                  | همیشه در موفقیت                                                                                        | فقط در پاسخ از کش                     |
+| `gen_ai.usage.cache_read.input_tokens`، `gen_ai.usage.cache_creation.input_tokens`، `gen_ai.usage.reasoning.output_tokens` | اگر صفر نباشد                                                                                          | —                                     |
+| `server.address`، `server.port`                                                                                            | میزبان و پورت base URL provider                                                                        | —                                     |
+| `error.type`                                                                                                               | کلاس خطا (`timeout`، `rate_limit` و …) در شکست                                                         | دلیل رد درخواست                       |
+
+| نوع provider   | `gen_ai.provider.name`              |
+| -------------- | ----------------------------------- |
+| `openai`       | `openai`                            |
+| `azure-openai` | `azure.ai.openai`                   |
+| `anthropic`    | `anthropic`                         |
+| `gemini`       | `gcp.gemini`                        |
+| `vertex`       | `gcp.vertex_ai`                     |
+| `bedrock`      | `aws.bedrock`                       |
+| `cohere`       | `cohere`                            |
+| `mistral`      | `mistral_ai`                        |
+| هر نوع دیگر    | خود نوع (مثلاً `openai-compatible`) |
+
+**حفظ نام‌های قدیمی.** تنظیم `tracing.attributes` تعیین می‌کند چه ارسال شود:
+
+| مقدار            | نام spanها                                | ویژگی‌ها                                           |
+| ---------------- | ----------------------------------------- | -------------------------------------------------- |
+| `both` (پیش‌فرض) | `gateway.request` و `{operation} {model}` | `gen_ai.*`، `error.type`، `server.*` و `gateway.*` |
+| `gen_ai`         | `gateway.request` و `{operation} {model}` | فقط قراردادها                                      |
+| `legacy`         | `gateway.request` و `gateway.upstream`    | فقط `gateway.*`، مثل پیش از کارت ۲۴.۳              |
+
+داشبوردها و queryهایی که روی `gateway.*` ساخته شده‌اند با پیش‌فرض کار می‌کنند؛ وقتی به قراردادها منتقل شدند به `gen_ai` بروید.
+
+**متریک OTLP.** با فعال بودن `tracing.metrics`، گیت‌وی کل registry پرومتئوس خود را هر `intervalSeconds` به endpoint متریک OTLP/HTTP می‌فرستد (temporality تجمعی؛ counter، gauge و هیستوگرام با همان نام پرومتئوس، به‌علاوهٔ متریک‌های پیش‌فرض Node.js). `/metrics` همان‌طور باقی می‌ماند. دو هیستوگرام از قراردادها پیروی می‌کنند و با نام قراردادی و کلیدهای `gen_ai.*` ارسال می‌شوند:
+
+| نام OTLP (v1.41.0)                 | نام پرومتئوس                                                | واحد      | ویژگی‌ها                                                                                                                                  |
+| ---------------------------------- | ----------------------------------------------------------- | --------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `gen_ai.client.token.usage`        | `dirouter_gateway_gen_ai_client_token_usage`                | `{token}` | `gen_ai.operation.name`، `gen_ai.provider.name`، `gen_ai.request.model`، `gen_ai.response.model` و `gen_ai.token.type` (`input`/`output`) |
+| `gen_ai.client.operation.duration` | `dirouter_gateway_gen_ai_client_operation_duration_seconds` | `s`       | همان‌ها بدون نوع توکن، به‌علاوهٔ `error.type` در شکست                                                                                     |
+
+هر دو به ازای هر تلاش upstream ثبت می‌شوند (توکن فقط روی تلاشی که پاسخ داد) و مرز سطل‌ها همان پیشنهاد قراردادهاست. در پرومتئوس برچسب‌ها `operation`، `provider`، `request_model`، `response_model`، `token_type` و `error_type` هستند.
+
+**لاگ OTLP.** با فعال بودن `tracing.logs`، هر خط لاگ JSON گیت‌وی که سطحش دست‌کم `level` باشد به‌صورت یک log record در OTLP هم ارسال می‌شود: `msg` بدنه، `level` شدت و سایر فیلدها ویژگی می‌شوند (شیءها به‌صورت متن JSON). این‌ها همان خط‌های stdout هستند، پس قواعد حریم خصوصی لاگ در بالا بدون تغییر برقرارند. recordها هر ثانیه دسته‌ای ارسال می‌شوند؛ حداکثر ۵۰۰۰ منتظر می‌مانند و بقیه دور ریخته می‌شوند.
+
+```json
+{
+  "tracing": {
+    "enabled": true,
+    "endpoint": "http://otel-collector:4318/v1/traces",
+    "attributes": "both",
+    "metrics": {
+      "enabled": true,
+      "endpoint": "http://otel-collector:4318/v1/metrics",
+      "intervalSeconds": 30
+    },
+    "logs": { "enabled": true, "endpoint": "http://otel-collector:4318/v1/logs", "level": "info" }
+  }
+}
+```
+
+| تنظیم                     | پیش‌فرض | معنی                                                      |
+| ------------------------- | ------- | --------------------------------------------------------- |
+| `attributes`              | `both`  | `both`، `gen_ai` یا `legacy`؛ بالا را ببینید              |
+| `metrics.enabled`         | `false` | ارسال متریک OTLP؛ مستقل از `tracing.enabled`              |
+| `metrics.endpoint`        | ندارد   | URL متریک OTLP/HTTP                                       |
+| `metrics.intervalSeconds` | `30`    | ۵ تا ۳۶۰۰                                                 |
+| `logs.enabled`            | `false` | ارسال لاگ OTLP؛ مستقل از `tracing.enabled`                |
+| `logs.endpoint`           | ندارد   | URL لاگ OTLP/HTTP                                         |
+| `logs.level`              | `info`  | پایین‌ترین سطح ارسالی: `debug`، `info`، `warn` یا `error` |
+
+مانند traceها، ارسال متریک و لاگ هرگز درخواست را معطل نمی‌کند: ارسال ناموفق دور ریخته و شمرده می‌شود و آخرین دسته هنگام خاموشی ارسال می‌شود. backendهایی که GenAI conventions را می‌خوانند (Langfuse، Phoenix، Datadog LLM Observability و دیگران) هر span upstream را به‌عنوان یک فراخوانی LLM با مدل، provider و توکن نشان می‌دهند، بدون نگاشت دستی.
 
 </div>

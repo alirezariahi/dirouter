@@ -7,8 +7,10 @@
  *   node scripts/e2e/sprint-4.mjs 23.1    # only scenarios whose name contains one of these
  */
 import assert from 'node:assert/strict';
-import { execFile } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
+import { readFile, rm } from 'node:fs/promises';
+import { resolve } from 'node:path';
 import { promisify } from 'node:util';
 
 import {
@@ -27,6 +29,8 @@ import {
 } from './harness.mjs';
 
 const exec = promisify(execFile);
+const composeEnv = { ...process.env, GRAFANA_ADMIN_PASSWORD: 'e2e-not-used' };
+const compose = ['compose', '-f', 'compose.yaml', '-f', 'compose.dev.yaml'];
 const ORG = 'org_dev';
 const { scenario, cleanups, finish } = createRunner();
 
@@ -535,6 +539,133 @@ try {
         await sql(`SELECT count(*) FROM request_bodies WHERE request_id = '${full}'`),
         '1',
       );
+    },
+  );
+
+  await scenario(
+    '24.3 OpenTelemetry: GenAI semconv spans, legacy names behind a setting, OTLP metrics and logs',
+    async () => {
+      const file = '.verify/otlp-s4.jsonl';
+      await rm(resolve(root, file), { force: true });
+      // A minimal OTLP/HTTP collector inside the compose network, writing what it receives.
+      const collector = spawn(
+        'docker',
+        [
+          ...compose,
+          'exec',
+          '-T',
+          'dev-deps',
+          'node',
+          '-e',
+          `require('http').createServer((q,s)=>{let b='';q.on('data',c=>b+=c);q.on('end',()=>{require('fs').appendFileSync('/repo/${file}',JSON.stringify({url:q.url,body:b})+'\\n');s.writeHead(200,{'content-type':'application/json'});s.end('{}')})}).listen(4319,'0.0.0.0')`,
+        ],
+        { cwd: root, env: composeEnv, stdio: 'ignore' },
+      );
+      const original = (await org('GET', 'config/settings')).body.stored ?? {};
+      cleanups.push(async () => {
+        await org('PUT', 'config/settings', original, null);
+        collector.kill('SIGTERM');
+        await exec(
+          'docker',
+          [...compose, 'exec', '-T', 'dev-deps', 'sh', '-c', "pkill -f 'listen(4319' || true"],
+          { cwd: root, env: composeEnv },
+        ).catch(() => undefined);
+      });
+      await new Promise((r) => setTimeout(r, 1_500));
+      const otlp = 'http://dev-deps:4319/v1';
+      const settings = (attributes) =>
+        published(() =>
+          org(
+            'PUT',
+            'config/settings',
+            {
+              ...original,
+              tracing: {
+                enabled: true,
+                endpoint: `${otlp}/traces`,
+                sampleRatio: 1,
+                attributes,
+                metrics: { enabled: true, endpoint: `${otlp}/metrics`, intervalSeconds: 5 },
+                logs: { enabled: true, endpoint: `${otlp}/logs`, level: 'info' },
+              },
+            },
+            200,
+          ),
+        );
+      const received = async () =>
+        (await readFile(resolve(root, file), 'utf8').catch(() => ''))
+          .split('\n')
+          .filter(Boolean)
+          .map((line) => JSON.parse(line))
+          .map((entry) => ({ url: entry.url, body: JSON.parse(entry.body) }));
+      const spansOf = (entries, traceId) =>
+        entries
+          .filter((e) => e.url === '/v1/traces')
+          .flatMap((e) => e.body.resourceSpans.flatMap((r) => r.scopeSpans.flatMap((x) => x.spans)))
+          .filter((span) => span.traceId === traceId);
+      const attr = (span, key) => span?.attributes.find((a) => a.key === key)?.value;
+      const key = await createKey('otel');
+      const traced = async () => {
+        const traceId = randomUUID().replaceAll('-', '');
+        const res = await chat(
+          key.key,
+          { model: 'mock/small', max_tokens: 40, messages: [{ role: 'user', content: 'otel' }] },
+          { traceparent: `00-${traceId}-${'cd'.repeat(8)}-01` },
+        );
+        assert.equal(res.response.status, 200, res.text);
+        return waitFor('exported spans', async () => {
+          const spans = spansOf(await received(), traceId);
+          return spans.length >= 2 ? spans : undefined;
+        });
+      };
+
+      // 1. Default (`both`): the upstream span is an LLM call by the conventions, old names kept.
+      await settings('both');
+      const both = await traced();
+      const llm = both.find((s) => s.kind === 3);
+      assert.match(llm.name, /^chat /);
+      assert.deepEqual(attr(llm, 'gen_ai.operation.name'), { stringValue: 'chat' });
+      assert.ok(attr(llm, 'gen_ai.provider.name'));
+      assert.ok(attr(llm, 'gen_ai.request.model'));
+      assert.ok(attr(llm, 'gen_ai.response.model'));
+      assert.ok(Number(attr(llm, 'gen_ai.usage.input_tokens')?.intValue) > 0);
+      assert.ok(Number(attr(llm, 'gen_ai.usage.output_tokens')?.intValue) > 0);
+      assert.ok(attr(llm, 'gen_ai.response.finish_reasons')?.arrayValue);
+      assert.ok(attr(llm, 'gateway.provider'), 'legacy names are kept by default');
+      assert.ok(!JSON.stringify(both).includes('"otel"'), 'no prompt text in spans');
+
+      // 2. `legacy`: the previous names only.
+      await settings('legacy');
+      const legacy = await traced();
+      assert.ok(legacy.some((s) => s.name === 'gateway.upstream'));
+      assert.ok(legacy.every((s) => s.attributes.every((a) => a.key.startsWith('gateway.'))));
+
+      // 3. Metrics and logs arrive over OTLP too.
+      const entries = await waitFor('OTLP metrics and logs', async () => {
+        const all = await received();
+        const metrics = all
+          .filter((e) => e.url === '/v1/metrics')
+          .flatMap((e) =>
+            e.body.resourceMetrics.flatMap((r) =>
+              r.scopeMetrics.flatMap((x) => x.metrics.map((m) => m.name)),
+            ),
+          );
+        const logs = all
+          .filter((e) => e.url === '/v1/logs')
+          .flatMap((e) =>
+            e.body.resourceLogs.flatMap((r) => r.scopeLogs.flatMap((x) => x.logRecords)),
+          );
+        return metrics.includes('gen_ai.client.token.usage') &&
+          logs.some((l) => l.body.stringValue === 'request completed')
+          ? { metrics, logs }
+          : undefined;
+      });
+      for (const name of [
+        'gen_ai.client.operation.duration',
+        'dirouter_gateway_requests_total',
+        'dirouter_gateway_request_duration_seconds',
+      ])
+        assert.ok(entries.metrics.includes(name), name);
     },
   );
 

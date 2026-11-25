@@ -91,6 +91,24 @@ export function createGatewayMetrics(options: GatewayMetricOptions) {
     labelNames: ['kind'],
     registers: [registry],
   });
+  // GenAI semantic conventions v1.41.0 (card 24.3). Prometheus names cannot hold dots; the OTLP
+  // exporter sends these as gen_ai.client.token.usage and gen_ai.client.operation.duration.
+  const genAiTokens = new Histogram({
+    name: 'dirouter_gateway_gen_ai_client_token_usage',
+    help: 'Tokens per upstream LLM call (gen_ai.client.token.usage)',
+    labelNames: ['operation', 'provider', 'request_model', 'response_model', 'token_type'],
+    buckets: [1, 4, 16, 64, 256, 1024, 4096, 16384, 65536, 262144, 1048576, 4194304],
+    registers: [registry],
+  });
+  const genAiDuration = new Histogram({
+    name: 'dirouter_gateway_gen_ai_client_operation_duration_seconds',
+    help: 'Duration of each upstream LLM call (gen_ai.client.operation.duration)',
+    labelNames: ['operation', 'provider', 'request_model', 'response_model', 'error_type'],
+    buckets: [
+      0.01, 0.02, 0.04, 0.08, 0.16, 0.32, 0.64, 1.28, 2.56, 5.12, 10.24, 20.48, 40.96, 81.92,
+    ],
+    registers: [registry],
+  });
   const activeStreams = new Gauge({
     name: 'dirouter_gateway_active_streams',
     help: 'Currently open upstream/client LLM streams',
@@ -150,6 +168,29 @@ export function createGatewayMetrics(options: GatewayMetricOptions) {
     }) {
       const { provider, model, outcome } = attempt;
       attemptDuration.observe({ provider, model, outcome }, attempt.latencyMs / 1_000);
+    },
+    /** One upstream LLM call in GenAI semantic-convention terms (card 24.3). */
+    observeGenAi(call: {
+      operation: string;
+      provider: string;
+      requestModel: string;
+      responseModel?: string | undefined;
+      durationMs: number;
+      errorType?: string | undefined;
+      inputTokens?: number | undefined;
+      outputTokens?: number | undefined;
+    }) {
+      const base = {
+        operation: call.operation,
+        provider: call.provider,
+        request_model: call.requestModel,
+        response_model: call.responseModel ?? '',
+      };
+      genAiDuration.observe({ ...base, error_type: call.errorType ?? '' }, call.durationMs / 1_000);
+      if (call.inputTokens !== undefined)
+        genAiTokens.observe({ ...base, token_type: 'input' }, call.inputTokens);
+      if (call.outputTokens !== undefined)
+        genAiTokens.observe({ ...base, token_type: 'output' }, call.outputTokens);
     },
     reject(
       guard: 'rate_limit' | 'budget' | 'wallet' | 'concurrency' | 'guardrail',

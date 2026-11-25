@@ -44,6 +44,7 @@ import { registerMediaRoutes } from './media.js';
 import { configureUpstreamGuard } from './upstream.js';
 import { Tracer } from './tracing.js';
 import type { RecordBody } from './body-capture.js';
+import { type OtlpLogBuffer, OtlpExporter } from './otlp-export.js';
 import { geminiRequestToCanonical } from '@dirouter/translator';
 import { estimateRequestTokens } from '@dirouter/model-catalog';
 import { enabledPlugins, loadPlugins } from '@dirouter/providers';
@@ -68,6 +69,10 @@ export interface GatewayOptions {
   onRequestComplete?: (event: UsageEvent) => void;
   /** Destination of MCP tool-call records (card 20.1). */
   recordMcpCall?: (call: McpCallRecord) => void;
+  /** Log lines to export over OTLP when settings.tracing.logs is on (card 24.3). */
+  otlpLogs?: OtlpLogBuffer;
+  /** Tests only: OTLP export tick. */
+  otlpTickMs?: number;
   /** Destination of captured request bodies (card 24.1); its own queue, never the usage path. */
   recordBody?: RecordBody;
   /** Local usage outbox for the backlog-size gauge. */
@@ -223,6 +228,16 @@ export function buildGateway(opts: GatewayOptions) {
     emitUsage: deliverUsage,
     ...(opts.heartbeatMs !== undefined ? { heartbeatMs: opts.heartbeatMs } : {}),
   };
+
+  // OTLP metrics and logs (card 24.3); each switched on in settings.tracing, read on every tick.
+  const otlp = new OtlpExporter({
+    settings: () => store.current?.snapshot.settings.tracing,
+    registry: metrics.registry,
+    logger: opts.logger,
+    ...(opts.otlpLogs ? { logs: opts.otlpLogs } : {}),
+    instance: deps.instance,
+    ...(opts.otlpTickMs ? { tickMs: opts.otlpTickMs } : {}),
+  });
 
   const app = Fastify({
     logger: false,
@@ -576,7 +591,9 @@ export function buildGateway(opts: GatewayOptions) {
       return inFlight;
     },
     /** Exports the spans still buffered in memory (called once the drain is over). */
-    flushTraces: () => deps.tracer.shutdown(),
+    /** Last spans, metrics and log records before exit (cards 17.2 and 24.3). */
+    flushTraces: () => Promise.all([deps.tracer.shutdown(), otlp.shutdown()]).then(() => undefined),
+    otlp,
     /**
      * graceful shutdown (card 5.8):
      * 1. readyz=503 and service continues for `readyDelayMs`, so Traefik's health check takes this replica
