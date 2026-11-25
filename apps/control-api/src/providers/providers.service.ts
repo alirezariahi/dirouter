@@ -4,7 +4,8 @@
  * shows only `••••last4`. The connection test and model discovery go through the gateway (`/internal/providers/probe`)
  * so the same adapter, proxy, and timeout used for real traffic apply.
  */
-import { enabledPlugins, readPlugins } from '@dirouter/providers';
+import { type ProviderConfig, UpstreamBalanceSample } from '@dirouter/contracts';
+import { balanceKind, enabledPlugins, readPlugins } from '@dirouter/providers';
 import { DiRouterError, encrypt, keyVersionOf, prefixedId } from '@dirouter/shared';
 import { Prisma } from '@dirouter/db';
 import { Inject, Injectable } from '@nestjs/common';
@@ -140,10 +141,26 @@ export class ProvidersService {
       timeouts: p.timeouts ?? null,
       options: p.options,
       maxConcurrency: p.maxConcurrency,
+      // Upstream balance API of the provider (card 32.9), null when it has none.
+      balanceKind:
+        balanceKind({
+          type: FROM_DB[p.type] ?? 'openai-compatible',
+          options: p.options as Record<string, unknown>,
+        } as ProviderConfig) ?? null,
       credentials: p.credentials.map((c) => ({
         id: c.id,
         name: c.name,
         secret: mask(c.last4),
+        balance: c.balance
+          ? {
+              kind: c.balance.kind,
+              ok: c.balance.ok,
+              amount: c.balance.amount ? c.balance.amount.toFixed(8).replace(/\.?0+$/, '') : null,
+              currency: c.balance.currency,
+              error: c.balance.error,
+              checkedAt: c.balance.checkedAt.toISOString(),
+            }
+          : null,
         weight: c.weight,
         status: c.status,
         cooldownUntil: c.cooldownUntil?.toISOString() ?? null,
@@ -157,7 +174,7 @@ export class ProvidersService {
   async load(ctx: OrgContext, id: string) {
     const p = await this.db.provider.findFirst({
       where: { id, organizationId: ctx.organizationId, deletedAt: null },
-      include: { credentials: { orderBy: { createdAt: 'asc' } } },
+      include: { credentials: { orderBy: { createdAt: 'asc' }, include: { balance: true } } },
     });
     if (!p) throw notFound();
     return p;
@@ -166,7 +183,7 @@ export class ProvidersService {
   async list(ctx: OrgContext) {
     const rows = await this.db.provider.findMany({
       where: { organizationId: ctx.organizationId, deletedAt: null },
-      include: { credentials: { orderBy: { createdAt: 'asc' } } },
+      include: { credentials: { orderBy: { createdAt: 'asc' }, include: { balance: true } } },
       orderBy: { name: 'asc' },
     });
     return rows.map((p) => this.view(p));
@@ -503,6 +520,61 @@ export class ProvidersService {
       models: { id: string; catalog?: { key: string; contextWindow?: number; pricing: unknown } }[];
     };
     return { provider: p, result };
+  }
+
+  /**
+   * Looks the balance of the provider's credentials up now (card 32.9), through the gateway like
+   * the connection test, and stores it as the worker does: a failed lookup keeps the last known
+   * amount.
+   */
+  async refreshBalance(ctx: OrgContext, providerId: string) {
+    const p = await this.load(ctx, providerId);
+    const res = await fetch(
+      `${this.env.GATEWAY_INTERNAL_URL.replace(/\/+$/, '')}/internal/providers/balance`,
+      {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          authorization: `Bearer ${this.env.INTERNAL_TOKEN}`,
+        },
+        body: JSON.stringify({ provider: this.toConfig(p) }),
+        signal: AbortSignal.timeout(60_000),
+      },
+    ).catch((error: unknown) => {
+      throw new DiRouterError('service_unavailable', {
+        message: 'Gateway is not reachable',
+        cause: error,
+      });
+    });
+    if (!res.ok)
+      throw new DiRouterError('service_unavailable', {
+        message: `Gateway balance lookup failed (${String(res.status)})`,
+      });
+    const body = (await res.json()) as { kind: string | null; balances: unknown[] };
+    if (!body.kind)
+      throw new DiRouterError('invalid_request', {
+        message: 'This provider has no balance API (set options.balance or use a supported preset)',
+      });
+    for (const raw of body.balances) {
+      const parsed = UpstreamBalanceSample.safeParse(raw);
+      if (!parsed.success || !p.credentials.some((c) => c.id === parsed.data.credentialId))
+        continue;
+      const s = parsed.data;
+      const known = {
+        providerId: p.id,
+        kind: s.kind,
+        ok: s.ok,
+        error: s.ok ? null : (s.error ?? 'lookup failed'),
+        checkedAt: new Date(s.checkedAt),
+      };
+      const amount = s.ok ? { amount: s.amount ?? null, currency: s.currency ?? null } : {};
+      await this.db.credentialBalance.upsert({
+        where: { credentialId: s.credentialId },
+        create: { credentialId: s.credentialId, amount: null, currency: null, ...known, ...amount },
+        update: { ...known, ...amount },
+      });
+    }
+    return this.view(await this.load(ctx, providerId));
   }
 
   async test(ctx: OrgContext, providerId: string, credentialId?: string) {

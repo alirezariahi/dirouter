@@ -64,6 +64,9 @@ function fakeDb(options: {
     spent?: number;
     failures?: number;
     is_platform?: boolean;
+    amount?: number;
+    provider?: string;
+    currency?: string;
   }>;
   recent?: AlertEventRow | null;
   channels?: ChannelRow[];
@@ -139,6 +142,51 @@ describe('alert evaluation (16.2)', () => {
     expect(calls[0]?.url).toBe('https://hooks.test/alert');
     expect(calls[0]?.headers['x-dirouter-signature']).toBe(signWebhook(calls[0]!.body, 's3cret'));
     expect(updated[0]?.data.deliveredAt).toBeInstanceOf(Date);
+  });
+
+  it('fires upstream_balance_low when a balance falls to the threshold and reaches the channel (32.9)', async () => {
+    const low = fakeDb({
+      rules: [rule({ id: 'rb', name: 'Low credit', type: 'upstream_balance_low', threshold: 1 })],
+      measure: [{ amount: 0.5, provider: 'OpenRouter', currency: 'USD' }],
+      channels: [channel()],
+    });
+    const calls: string[] = [];
+    const result = await evaluateAlerts({
+      db: low.db,
+      logger,
+      clock: { now: () => 1_000_000 },
+      fetchImpl: (async (_url: string, init: RequestInit) => {
+        calls.push(bodyText(init));
+        return new Response('ok');
+      }) as unknown as typeof fetch,
+    });
+    expect(result.fired).toHaveLength(1);
+    expect(result.fired[0]?.value).toBe(0.5);
+    expect(low.created[0]?.title).toBe('Low credit: balance 0.5 (threshold balance 1)');
+    expect(low.created[0]?.details).toMatchObject({
+      type: 'upstream_balance_low',
+      balances: [{ provider: 'OpenRouter', amount: 0.5, currency: 'USD' }],
+    });
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toContain('Low credit');
+
+    // Above the threshold nothing fires; without any balance the rule is skipped, not fired.
+    const fine = fakeDb({
+      rules: [rule({ id: 'rb', type: 'upstream_balance_low', threshold: 1 })],
+      measure: [{ amount: 7 }],
+    });
+    expect((await evaluateAlerts({ db: fine.db, logger, clock: { now: () => 1 } })).fired).toEqual(
+      [],
+    );
+    const none = fakeDb({
+      rules: [rule({ id: 'rb', type: 'upstream_balance_low', threshold: 1 })],
+      measure: [],
+    });
+    none.db.$queryRawUnsafe = (async () => []) as typeof none.db.$queryRawUnsafe;
+    expect(
+      (await evaluateAlerts({ db: none.db, logger, clock: { now: () => 1 } })).skipped,
+    ).toEqual([{ ruleId: 'rb', type: 'upstream_balance_low', reason: 'no_balance' }]);
+    expect(thresholdOf({ type: 'upstream_balance_low', threshold: null })).toBeUndefined();
   });
 
   it('does not notify again inside the silence window', async () => {

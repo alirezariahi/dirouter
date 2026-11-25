@@ -19,3 +19,4 @@ export * from './wallet.js';
 export * from './mcp.js';
 export * from './plugins.js';
 export * from './breaker-state.js';
+export * from './upstream-balance.js';

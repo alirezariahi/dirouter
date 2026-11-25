@@ -29,7 +29,16 @@ import { type Logger, prefixedId } from '@dirouter/shared';
 import { isEmailAddress, type Mailer } from '@dirouter/shared/mail';
 
 export type AlertRuleType =
-  'error_rate' | 'latency' | 'budget' | 'invalid_credential' | 'breaker_open' | 'queue_length';
+  | 'error_rate'
+  | 'latency'
+  | 'budget'
+  | 'invalid_credential'
+  | 'breaker_open'
+  | 'queue_length'
+  | 'upstream_balance_low';
+
+/** Rules that fire when the value falls to or below the threshold instead of reaching it. */
+const LOW_IS_BAD = new Set(['upstream_balance_low']);
 
 export interface AlertRuleRow {
   id: string;
@@ -274,6 +283,46 @@ async function measure(
     if (owner[0]?.is_platform !== true) return { skip: 'not_platform_organization' };
     return { value: await sources.queueLength(), extra: { queue: 'usage' } };
   }
+  if (type === 'upstream_balance_low') {
+    // The newest balance of each active credential of the organization (card 32.9), looked up
+    // within the last week; the lowest one is the value.
+    const rows = await db.$queryRawUnsafe<
+      {
+        provider_id: string;
+        provider: string;
+        credential_id: string;
+        credential: string;
+        amount: number;
+        currency: string | null;
+      }[]
+    >(
+      `SELECT b.provider_id, p.name AS provider, b.credential_id, c.name AS credential,
+              b.amount::float8 AS amount, b.currency
+         FROM credential_balances b
+         JOIN credentials c ON c.id = b.credential_id
+         JOIN providers p ON p.id = b.provider_id
+        WHERE p.organization_id = $1 AND p.deleted_at IS NULL AND c.status = 'ACTIVE'
+          AND b.amount IS NOT NULL AND b.checked_at >= now() - interval '7 days'
+        ORDER BY b.amount ASC
+        LIMIT 20`,
+      rule.organizationId,
+    );
+    const lowest = rows[0];
+    if (!lowest) return { skip: 'no_balance' };
+    return {
+      value: lowest.amount,
+      extra: {
+        balances: rows.map((r) => ({
+          providerId: r.provider_id,
+          provider: r.provider,
+          credentialId: r.credential_id,
+          credential: r.credential,
+          amount: r.amount,
+          currency: r.currency,
+        })),
+      },
+    };
+  }
   return { skip: 'unknown_rule_type' };
 }
 
@@ -283,6 +332,7 @@ function formatValue(type: string, value: number): string {
   if (type === 'budget') return `$${value.toFixed(4)}`;
   if (type === 'queue_length') return `${String(value)} jobs`;
   if (type === 'breaker_open') return `${String(value)} open`;
+  if (type === 'upstream_balance_low') return `balance ${String(value)}`;
   return String(value);
 }
 
@@ -376,7 +426,7 @@ export async function evaluateAlerts(options: EvaluateOptions): Promise<Evaluate
       continue;
     }
     const value = typeof measured === 'number' ? measured : measured.value;
-    if (!(value >= threshold)) continue;
+    if (LOW_IS_BAD.has(rule.type) ? !(value <= threshold) : !(value >= threshold)) continue;
 
     const details = {
       type: rule.type,

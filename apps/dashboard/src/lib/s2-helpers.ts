@@ -115,6 +115,8 @@ export const RULE_TYPES = [
   'invalid_credential',
   'breaker_open',
   'queue_length',
+  // A provider account's balance at or below the threshold (card 32.9).
+  'upstream_balance_low',
 ] as const;
 /** Rule types that cannot fire without a threshold (THRESHOLD_REQUIRED in the control-api). */
 export const THRESHOLD_RULE_TYPES: readonly string[] = [
@@ -122,6 +124,7 @@ export const THRESHOLD_RULE_TYPES: readonly string[] = [
   'latency',
   'budget',
   'queue_length',
+  'upstream_balance_low',
 ];
 
 /** Why a rule draft cannot be sent, or undefined when it is fine. */

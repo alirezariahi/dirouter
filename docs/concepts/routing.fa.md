@@ -232,6 +232,7 @@ curl -X POST $A/aliases -H "authorization: Bearer $TOKEN" -H 'content-type: appl
 - فقط خطای کلاس `auth` یک credential را غیرفعال می‌کند. قطعی provider (5xx، timeout، اتصال) کار circuit breaker است؛ غیرفعال کردن همهٔ کلیدها در قطعی، علت واقعی را پنهان می‌کرد.
 - credential غیرفعال (چه با probe و چه با خطای ترافیک واقعی) به محض موفقیت probe خودکار برمی‌گردد و تغییر به همهٔ replicaها منتشر می‌شود.
 - با Valkey فقط یک replica در هر دور probe می‌کند (قفل `dirouter:health:probe-lock`)، پس upstream به ازای هر credential یک درخواست می‌بیند.
+- فهرست مدل حتی وقتی حساب اعتبار ندارد پاسخ می‌دهد؛ تست زمان‌بندی‌شدهٔ کانال به‌جای آن یک درخواست واقعی یک‌توکنی می‌فرستد ([upstream-balances.fa.md](../upstream-balances.fa.md)، کارت ۳۲.۹).
 - **تاریخچهٔ uptime**: نمونه‌ها در لیست `dirouter:health:samples` صف می‌شوند و job `health-samples` در worker هر ۳۰ ثانیه آن‌ها را به جدول `provider_health_samples` می‌برد (نگه‌داری: `HEALTH_SAMPLE_RETENTION_DAYS`، پیش‌فرض ۳۰ روز). خواندن: `GET /orgs/:orgId/health/uptime?from=&to=` با درصد uptime، میانگین تأخیر و سطل‌های ساعتی برای هر provider.
 
 ### Session affinity (۱۲.۴)

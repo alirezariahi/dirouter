@@ -22,6 +22,7 @@ import {
 import { type BudgetDb, processBudgetAlerts, reconcileBudgets } from './budgets.js';
 import { evaluateAlerts } from './alerts.js';
 import { drainHealthSamples } from './health-samples.js';
+import { drainBalances } from './balances.js';
 import { createMetrics } from './metrics.js';
 import { type UsageDb, UsageBatchWriter } from './writer.js';
 import { dropOldMcpCalls, writeMcpCall } from './mcp-calls.js';
@@ -209,6 +210,8 @@ const jobs: Record<string, () => Promise<unknown>> = {
   'body-retention': () => dropOldBodyPartitions(mdb, env.REQUEST_BODY_RETENTION_DAYS),
   'health-samples': () =>
     drainHealthSamples(db, connection, logger, { retentionDays: env.HEALTH_SAMPLE_RETENTION_DAYS }),
+  // Upstream balances from the gateway (card 32.9).
+  balances: () => drainBalances(db, connection, logger),
   'catalog-sync': () =>
     runCatalogSync({
       db,
@@ -260,6 +263,7 @@ const schedule = {
   'budget-reconcile': { every: 300_000 },
   'alerts-evaluate': { every: env.ALERT_EVALUATE_INTERVAL_MS },
   'health-samples': { every: 30_000 },
+  balances: { every: 30_000 },
   'wallet-sync': { every: 60_000 },
   'ledger-audit': { every: 3_600_000 },
   'plan-renewals': { every: 300_000 },

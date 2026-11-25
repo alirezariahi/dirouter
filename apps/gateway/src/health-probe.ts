@@ -49,6 +49,16 @@ export interface HealthProberOptions {
   probe?: (provider: ProviderConfig, credentialId: string) => Promise<ProbeResult>;
   onSample?: (sample: HealthSample) => void;
   now?: () => number;
+  /**
+   * Another kind of probe on the same machinery (card 32.9, scheduled channel tests): its
+   * settings, its Valkey lock, the prefix of its disable reasons, the error classes that take a
+   * credential out of rotation (default: `auth`) and the providers it looks at.
+   */
+  settings?: (snapshot: ConfigSnapshot | undefined) => Partial<HealthProbeSettings> | undefined;
+  lockKey?: string;
+  reasonPrefix?: string;
+  disableOn?: readonly string[];
+  eligible?: (provider: ProviderConfig, snapshot: ConfigSnapshot) => boolean;
 }
 
 const DEFAULTS: HealthProbeSettings = {
@@ -61,6 +71,8 @@ const DEFAULTS: HealthProbeSettings = {
 
 /** Reason prefix so the Health page can tell probe decisions from live-traffic ones. */
 export const PROBE_REASON_PREFIX = 'health_probe';
+/** Reason prefix of scheduled channel tests (card 32.9). */
+export const CHANNEL_TEST_REASON_PREFIX = 'channel_test';
 
 export class HealthProber {
   readonly #opts: HealthProberOptions;
@@ -77,7 +89,15 @@ export class HealthProber {
   }
 
   settings(): HealthProbeSettings {
-    return { ...DEFAULTS, ...this.#opts.snapshot()?.settings.healthProbe };
+    const snapshot = this.#opts.snapshot();
+    const own = this.#opts.settings
+      ? this.#opts.settings(snapshot)
+      : snapshot?.settings.healthProbe;
+    return { ...DEFAULTS, ...own };
+  }
+
+  get #prefix(): string {
+    return this.#opts.reasonPrefix ?? PROBE_REASON_PREFIX;
   }
 
   /**
@@ -114,8 +134,9 @@ export class HealthProber {
     this.#running = true;
     try {
       if (!(await this.#acquire(settings.intervalSeconds))) return [];
+      const eligible = this.#opts.eligible;
       const targets = snapshot.providers
-        .filter((provider) => provider.enabled)
+        .filter((provider) => provider.enabled && (!eligible || eligible(provider, snapshot)))
         .flatMap((provider) =>
           provider.credentials
             .filter((credential) => credential.enabled)
@@ -188,7 +209,13 @@ export class HealthProber {
     if (sample.ok) {
       this.#failures.delete(id);
       const disabled = health.credentialDisabledReason(id);
-      if (disabled === undefined) {
+      // A model list answers even when the account has no credit left, so the health probe never
+      // restores a credential a channel test took out (card 32.9); a real request proves both.
+      if (
+        disabled === undefined ||
+        (this.#prefix !== CHANNEL_TEST_REASON_PREFIX &&
+          disabled.startsWith(CHANNEL_TEST_REASON_PREFIX))
+      ) {
         this.#successes.delete(id);
         return;
       }
@@ -197,7 +224,7 @@ export class HealthProber {
         this.#successes.delete(id);
         health.restoreCredential(id);
         logger.info(
-          { credentialId: id, providerId: sample.providerId },
+          { credentialId: id, providerId: sample.providerId, by: this.#prefix },
           'credential re-enabled by health probe',
         );
       } else this.#successes.set(id, streak);
@@ -206,7 +233,7 @@ export class HealthProber {
     this.#successes.delete(id);
     // Only key-level failures disable a credential. Outages (5xx, timeout, connection) belong to the
     // provider breaker; disabling every key during an outage would hide the real cause.
-    if (sample.errorClass !== 'auth') {
+    if (!(this.#opts.disableOn ?? ['auth']).includes(sample.errorClass ?? '')) {
       this.#failures.delete(id);
       return;
     }
@@ -215,9 +242,9 @@ export class HealthProber {
     if (streak < settings.failureThreshold) return;
     if (health.credentialDisabledReason(id) !== undefined) return;
     const message = result.error?.message ?? 'authentication failed';
-    health.disableCredential(id, `${PROBE_REASON_PREFIX}: ${message}`);
+    health.disableCredential(id, `${this.#prefix}: ${message}`);
     logger.warn(
-      { credentialId: id, providerId: sample.providerId, failures: streak },
+      { credentialId: id, providerId: sample.providerId, failures: streak, by: this.#prefix },
       'credential disabled by health probe',
     );
   }
@@ -234,7 +261,13 @@ export class HealthProber {
     try {
       // Slightly shorter than the interval so the next round is never blocked by this one.
       const ttl = Math.max(1_000, intervalSeconds * 1_000 - 500);
-      const got = await redis.set(HEALTH_PROBE_LOCK_KEY, this.#opts.instance, 'PX', ttl, 'NX');
+      const got = await redis.set(
+        this.#opts.lockKey ?? HEALTH_PROBE_LOCK_KEY,
+        this.#opts.instance,
+        'PX',
+        ttl,
+        'NX',
+      );
       return got === 'OK';
     } catch {
       // Valkey down: probing locally is still better than not probing.

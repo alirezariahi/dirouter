@@ -32,6 +32,7 @@ import { newRealtimeStats, type RealtimeStats, registerRealtime } from './realti
 import { registerOAuth } from './oauth.js';
 import { type PaymentMockOptions, registerPayments } from './payments.js';
 import { registerWeb } from './web.js';
+import { registerBalance } from './balance.js';
 
 type Api = 'openai' | 'anthropic' | 'gemini';
 
@@ -847,6 +848,7 @@ export function buildServer(options: MockServerOptions = {}) {
     stats: () => stats.realtime,
   });
   registerWeb(app);
+  registerBalance(app);
 
   app.get('/healthz', () => ({ status: 'ok' }));
   app.get('/__mock/stats', () => stats);

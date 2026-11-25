@@ -7,6 +7,11 @@ import { useState, type ReactNode, type SyntheticEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { PluginPicker } from '../components/plugin-picker';
+import {
+  CredentialBalance,
+  type CredentialBalanceView,
+  RefreshBalanceButton,
+} from '../components/upstream-balance';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
 import { Field, FormError } from '../components/ui/field';
@@ -46,6 +51,8 @@ interface Credential {
   cooldownUntil: string | null;
   headers: string[];
   proxyUrl: string | null;
+  /** Latest upstream balance (card 32.9). */
+  balance?: CredentialBalanceView | null;
 }
 interface Provider {
   id: string;
@@ -58,6 +65,8 @@ interface Provider {
   timeouts: Timeouts | null;
   options: Record<string, unknown>;
   maxConcurrency: number | null;
+  /** Balance API of the provider, when it has one (card 32.9). */
+  balanceKind?: string | null;
   credentials: Credential[];
   createdAt: string;
 }
@@ -768,6 +777,13 @@ export default function ProvidersPage() {
                       >
                         {t('providers.discover')}
                       </Button>
+                      {provider.balanceKind ? (
+                        <RefreshBalanceButton
+                          org={org}
+                          providerId={provider.id}
+                          onError={setActionError}
+                        />
+                      ) : null}
                       <Button
                         variant="outline"
                         onClick={() => {
@@ -891,6 +907,7 @@ export default function ProvidersPage() {
                                 </td>
                                 <td className="py-3 pe-3" dir="ltr">
                                   <code>{credential.secret}</code>
+                                  <CredentialBalance balance={credential.balance} />
                                 </td>
                                 <td className="py-3 pe-3">{credential.weight}</td>
                                 <td className="py-3 pe-3">

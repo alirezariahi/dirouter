@@ -349,9 +349,28 @@ model Credential {
   updatedAt     DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   provider Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  balance  CredentialBalance?
 
   @@index([providerId])
   @@map("credentials")
+}
+
+/// Latest upstream account balance of a credential (card 32.9); `amount` is in `currency`.
+model CredentialBalance {
+  credentialId String     @id @map("credential_id")
+  providerId   String     @map("provider_id")
+  /// Balance API: openrouter | deepseek | moonshot | siliconflow.
+  kind         String
+  ok           Boolean
+  amount       Decimal?   @db.Decimal(20, 8)
+  currency     String?
+  error        String?
+  checkedAt    DateTime   @map("checked_at") @db.Timestamptz(3)
+
+  credential Credential @relation(fields: [credentialId], references: [id], onDelete: Cascade)
+
+  @@index([providerId])
+  @@map("credential_balances")
 }
 
 model Model {

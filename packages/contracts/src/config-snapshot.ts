@@ -494,7 +494,32 @@ export const WebSearchSettings = z.object({
 });
 export type WebSearchSettings = z.infer<typeof WebSearchSettings>;
 
+/**
+ * Scheduled channel tests (card 32.9): one small real request per credential (a one-token
+ * completion on the provider's cheapest model), separate from the model-list health probe. A
+ * credential whose key or credit fails `failureThreshold` times is taken out of rotation and comes
+ * back after `successThreshold` passing tests.
+ */
+export const ChannelTestSettings = z.object({
+  enabled: z.boolean().default(false),
+  intervalSeconds: z.int().min(60).max(86_400).default(3_600),
+  failureThreshold: z.int().min(1).max(20).default(2),
+  successThreshold: z.int().min(1).max(20).default(1),
+  maxPerRound: z.int().min(1).max(1_000).default(20),
+});
+export type ChannelTestSettings = z.infer<typeof ChannelTestSettings>;
+
+/** Periodic upstream balance lookups (card 32.9) for providers with a known balance API. */
+export const UpstreamBalanceSettings = z.object({
+  enabled: z.boolean().default(true),
+  intervalSeconds: z.int().min(300).max(86_400).default(3_600),
+});
+export type UpstreamBalanceSettings = z.infer<typeof UpstreamBalanceSettings>;
+
 export const GatewaySettings = z.object({
+  /** Scheduled channel tests and upstream balance lookups (card 32.9). */
+  channelTest: ChannelTestSettings.optional(),
+  upstreamBalance: UpstreamBalanceSettings.optional(),
   /** Web search and web fetch (card 30.8). */
   webSearch: WebSearchSettings.optional(),
   /**

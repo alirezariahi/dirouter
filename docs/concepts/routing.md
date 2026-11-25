@@ -230,6 +230,7 @@ Each round the gateway calls the cheap "list models" endpoint of every enabled c
 - Only an `auth` class error disables a credential. A provider outage (5xx, timeout, connection) is the circuit breaker's job; disabling every key during an outage would hide the real cause.
 - A disabled credential (by a probe or by a live-traffic error) returns automatically as soon as a probe succeeds, and the change is published to all replicas.
 - With Valkey only one replica probes per round (lock `dirouter:health:probe-lock`), so the upstream sees one request per credential.
+- A model list answers even when an account has no credit; scheduled channel tests send a real one-token request instead ([upstream-balances.md](../upstream-balances.md), card 32.9).
 - **Uptime history**: samples are queued in the `dirouter:health:samples` list and the worker's `health-samples` job moves them to the `provider_health_samples` table every 30 seconds (retention: `HEALTH_SAMPLE_RETENTION_DAYS`, default 30 days). Read it with `GET /orgs/:orgId/health/uptime?from=&to=`: uptime percent, average latency and hourly buckets per provider.
 
 ### Session affinity (12.4)

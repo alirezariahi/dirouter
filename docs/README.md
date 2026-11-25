@@ -115,6 +115,7 @@ CI runs lint, typecheck, test, and build for the changed packages and their cons
 - Upgrade notes: [to v1.0](upgrade-v1.md) and [to v1.1](upgrade-v1-1.md)
 - [Operational runbook](runbook.md), [observability](observability.md), and [usage pipeline](usage-pipeline.md)
 - [Model catalog and price sync](catalog-sync.md)
+- [Upstream balances and scheduled channel tests](upstream-balances.md)
 - [Seed data](seed.md), [routing](concepts/routing.md), and [limits](concepts/limits.md)
 - [Invoices, VAT, the Persian PDF and the portal](concepts/invoices.md)
 - [Request bodies, payload view and replay](concepts/request-bodies.md)

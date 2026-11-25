@@ -2439,6 +2439,10 @@
                         "minimum": -9007199254740991,
                         "maximum": 9007199254740991
                       },
+                      "balanceKind": {
+                        "nullable": true,
+                        "type": "string"
+                      },
                       "credentials": {
                         "type": "array",
                         "items": {
@@ -2453,6 +2457,42 @@
                             "secret": {
                               "type": "string",
                               "description": "فقط ••••last4؛ secret واقعی هرگز برنمی‌گردد"
+                            },
+                            "balance": {
+                              "nullable": true,
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string"
+                                },
+                                "ok": {
+                                  "type": "boolean"
+                                },
+                                "amount": {
+                                  "nullable": true,
+                                  "description": "the last known amount, also after a failed lookup",
+                                  "type": "string"
+                                },
+                                "currency": {
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "error": {
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "checkedAt": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "ok",
+                                "amount",
+                                "currency",
+                                "error",
+                                "checkedAt"
+                              ]
                             },
                             "weight": {
                               "type": "integer",
@@ -2486,6 +2526,7 @@
                             "id",
                             "name",
                             "secret",
+                            "balance",
                             "weight",
                             "status",
                             "cooldownUntil",
@@ -2509,6 +2550,7 @@
                       "timeouts",
                       "options",
                       "maxConcurrency",
+                      "balanceKind",
                       "credentials",
                       "createdAt"
                     ]
@@ -2771,6 +2813,10 @@
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991
                     },
+                    "balanceKind": {
+                      "nullable": true,
+                      "type": "string"
+                    },
                     "credentials": {
                       "type": "array",
                       "items": {
@@ -2785,6 +2831,42 @@
                           "secret": {
                             "type": "string",
                             "description": "فقط ••••last4؛ secret واقعی هرگز برنمی‌گردد"
+                          },
+                          "balance": {
+                            "nullable": true,
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "type": "string"
+                              },
+                              "ok": {
+                                "type": "boolean"
+                              },
+                              "amount": {
+                                "nullable": true,
+                                "description": "the last known amount, also after a failed lookup",
+                                "type": "string"
+                              },
+                              "currency": {
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "error": {
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "checkedAt": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "ok",
+                              "amount",
+                              "currency",
+                              "error",
+                              "checkedAt"
+                            ]
                           },
                           "weight": {
                             "type": "integer",
@@ -2818,6 +2900,7 @@
                           "id",
                           "name",
                           "secret",
+                          "balance",
                           "weight",
                           "status",
                           "cooldownUntil",
@@ -2841,6 +2924,7 @@
                     "timeouts",
                     "options",
                     "maxConcurrency",
+                    "balanceKind",
                     "credentials",
                     "createdAt"
                   ]
@@ -3055,6 +3139,10 @@
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991
                     },
+                    "balanceKind": {
+                      "nullable": true,
+                      "type": "string"
+                    },
                     "credentials": {
                       "type": "array",
                       "items": {
@@ -3069,6 +3157,42 @@
                           "secret": {
                             "type": "string",
                             "description": "فقط ••••last4؛ secret واقعی هرگز برنمی‌گردد"
+                          },
+                          "balance": {
+                            "nullable": true,
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "type": "string"
+                              },
+                              "ok": {
+                                "type": "boolean"
+                              },
+                              "amount": {
+                                "nullable": true,
+                                "description": "the last known amount, also after a failed lookup",
+                                "type": "string"
+                              },
+                              "currency": {
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "error": {
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "checkedAt": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "ok",
+                              "amount",
+                              "currency",
+                              "error",
+                              "checkedAt"
+                            ]
                           },
                           "weight": {
                             "type": "integer",
@@ -3102,6 +3226,7 @@
                           "id",
                           "name",
                           "secret",
+                          "balance",
                           "weight",
                           "status",
                           "cooldownUntil",
@@ -3125,6 +3250,7 @@
                     "timeouts",
                     "options",
                     "maxConcurrency",
+                    "balanceKind",
                     "credentials",
                     "createdAt"
                   ]
@@ -3329,6 +3455,10 @@
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991
                     },
+                    "balanceKind": {
+                      "nullable": true,
+                      "type": "string"
+                    },
                     "credentials": {
                       "type": "array",
                       "items": {
@@ -3343,6 +3473,42 @@
                           "secret": {
                             "type": "string",
                             "description": "فقط ••••last4؛ secret واقعی هرگز برنمی‌گردد"
+                          },
+                          "balance": {
+                            "nullable": true,
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "type": "string"
+                              },
+                              "ok": {
+                                "type": "boolean"
+                              },
+                              "amount": {
+                                "nullable": true,
+                                "description": "the last known amount, also after a failed lookup",
+                                "type": "string"
+                              },
+                              "currency": {
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "error": {
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "checkedAt": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "ok",
+                              "amount",
+                              "currency",
+                              "error",
+                              "checkedAt"
+                            ]
                           },
                           "weight": {
                             "type": "integer",
@@ -3376,6 +3542,7 @@
                           "id",
                           "name",
                           "secret",
+                          "balance",
                           "weight",
                           "status",
                           "cooldownUntil",
@@ -3399,6 +3566,7 @@
                     "timeouts",
                     "options",
                     "maxConcurrency",
+                    "balanceKind",
                     "credentials",
                     "createdAt"
                   ]
@@ -3604,6 +3772,10 @@
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991
                     },
+                    "balanceKind": {
+                      "nullable": true,
+                      "type": "string"
+                    },
                     "credentials": {
                       "type": "array",
                       "items": {
@@ -3618,6 +3790,42 @@
                           "secret": {
                             "type": "string",
                             "description": "فقط ••••last4؛ secret واقعی هرگز برنمی‌گردد"
+                          },
+                          "balance": {
+                            "nullable": true,
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "type": "string"
+                              },
+                              "ok": {
+                                "type": "boolean"
+                              },
+                              "amount": {
+                                "nullable": true,
+                                "description": "the last known amount, also after a failed lookup",
+                                "type": "string"
+                              },
+                              "currency": {
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "error": {
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "checkedAt": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "ok",
+                              "amount",
+                              "currency",
+                              "error",
+                              "checkedAt"
+                            ]
                           },
                           "weight": {
                             "type": "integer",
@@ -3651,6 +3859,7 @@
                           "id",
                           "name",
                           "secret",
+                          "balance",
                           "weight",
                           "status",
                           "cooldownUntil",
@@ -3674,6 +3883,7 @@
                     "timeouts",
                     "options",
                     "maxConcurrency",
+                    "balanceKind",
                     "credentials",
                     "createdAt"
                   ]
@@ -3856,6 +4066,10 @@
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991
                     },
+                    "balanceKind": {
+                      "nullable": true,
+                      "type": "string"
+                    },
                     "credentials": {
                       "type": "array",
                       "items": {
@@ -3870,6 +4084,42 @@
                           "secret": {
                             "type": "string",
                             "description": "فقط ••••last4؛ secret واقعی هرگز برنمی‌گردد"
+                          },
+                          "balance": {
+                            "nullable": true,
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "type": "string"
+                              },
+                              "ok": {
+                                "type": "boolean"
+                              },
+                              "amount": {
+                                "nullable": true,
+                                "description": "the last known amount, also after a failed lookup",
+                                "type": "string"
+                              },
+                              "currency": {
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "error": {
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "checkedAt": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "ok",
+                              "amount",
+                              "currency",
+                              "error",
+                              "checkedAt"
+                            ]
                           },
                           "weight": {
                             "type": "integer",
@@ -3903,6 +4153,7 @@
                           "id",
                           "name",
                           "secret",
+                          "balance",
                           "weight",
                           "status",
                           "cooldownUntil",
@@ -3926,6 +4177,7 @@
                     "timeouts",
                     "options",
                     "maxConcurrency",
+                    "balanceKind",
                     "credentials",
                     "createdAt"
                   ]
@@ -4068,6 +4320,245 @@
                     "ok",
                     "latencyMs",
                     "modelCount"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "providers"
+        ]
+      }
+    },
+    "/api/v1/orgs/{orgId}/providers/{id}/balance": {
+      "post": {
+        "operationId": "ProvidersController_refreshBalance",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "موجودی حساب upstream هر credential همین حالا از provider خوانده و ذخیره می‌شود",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "slug": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "openai",
+                        "azure-openai",
+                        "openai-compatible",
+                        "anthropic",
+                        "gemini",
+                        "bedrock",
+                        "vertex",
+                        "cohere",
+                        "mistral",
+                        "voyage",
+                        "jina",
+                        "elevenlabs",
+                        "deepgram",
+                        "fal",
+                        "plugin",
+                        "mock"
+                      ]
+                    },
+                    "baseUrl": {
+                      "type": "string"
+                    },
+                    "enabled": {
+                      "type": "boolean"
+                    },
+                    "proxyUrl": {
+                      "nullable": true,
+                      "type": "string"
+                    },
+                    "timeouts": {
+                      "nullable": true,
+                      "type": "object",
+                      "properties": {
+                        "connectMs": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "exclusiveMinimum": true,
+                          "maximum": 120000
+                        },
+                        "firstByteMs": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "exclusiveMinimum": true,
+                          "maximum": 900000
+                        },
+                        "idleMs": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "exclusiveMinimum": true,
+                          "maximum": 900000
+                        },
+                        "totalMs": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "exclusiveMinimum": true,
+                          "maximum": 3600000
+                        }
+                      }
+                    },
+                    "options": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    },
+                    "maxConcurrency": {
+                      "nullable": true,
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "balanceKind": {
+                      "nullable": true,
+                      "type": "string"
+                    },
+                    "credentials": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "secret": {
+                            "type": "string",
+                            "description": "فقط ••••last4؛ secret واقعی هرگز برنمی‌گردد"
+                          },
+                          "balance": {
+                            "nullable": true,
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "type": "string"
+                              },
+                              "ok": {
+                                "type": "boolean"
+                              },
+                              "amount": {
+                                "nullable": true,
+                                "description": "the last known amount, also after a failed lookup",
+                                "type": "string"
+                              },
+                              "currency": {
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "error": {
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "checkedAt": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "ok",
+                              "amount",
+                              "currency",
+                              "error",
+                              "checkedAt"
+                            ]
+                          },
+                          "weight": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "ACTIVE",
+                              "DISABLED"
+                            ]
+                          },
+                          "cooldownUntil": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "headers": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            },
+                            "description": "فقط نام هدرها"
+                          },
+                          "proxyUrl": {
+                            "nullable": true,
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "name",
+                          "secret",
+                          "balance",
+                          "weight",
+                          "status",
+                          "cooldownUntil",
+                          "headers",
+                          "proxyUrl"
+                        ]
+                      }
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "slug",
+                    "name",
+                    "type",
+                    "baseUrl",
+                    "enabled",
+                    "proxyUrl",
+                    "timeouts",
+                    "options",
+                    "maxConcurrency",
+                    "balanceKind",
+                    "credentials",
+                    "createdAt"
                   ]
                 }
               }
@@ -11434,7 +11925,8 @@
                       "budget",
                       "invalid_credential",
                       "breaker_open",
-                      "queue_length"
+                      "queue_length",
+                      "upstream_balance_low"
                     ]
                   },
                   "threshold": {
@@ -11531,7 +12023,8 @@
                       "budget",
                       "invalid_credential",
                       "breaker_open",
-                      "queue_length"
+                      "queue_length",
+                      "upstream_balance_low"
                     ]
                   },
                   "threshold": {

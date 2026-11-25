@@ -33,6 +33,7 @@ import { authenticate, extractApiKey } from './auth.js';
 import { ConfigStore } from './config-store.js';
 import { createGatewayMetrics } from './metrics.js';
 import { probeProvider } from './probe.js';
+import { balanceForProbe } from './balance.js';
 import { handleCountTokens, handleProxy } from './proxy.js';
 import { BudgetGuard } from './budget-guard.js';
 import { WalletGuard } from './wallet-guard.js';
@@ -559,6 +560,19 @@ export function buildGateway(opts: GatewayOptions) {
     } catch (error) {
       const e = error as { status?: number; toProblem?: (id: string) => unknown };
       return reply.status(e.status ?? 500).send(e.toProblem?.(req.id) ?? { error: 'probe failed' });
+    }
+  });
+
+  // Upstream balance of a provider's credentials for the control-api (card 32.9).
+  app.post('/internal/providers/balance', async (req, reply) => {
+    if (!internalOk(req)) return reply.status(404).send(notFound);
+    try {
+      return await balanceForProbe(req.body, opts.keyring);
+    } catch (error) {
+      const e = error as { status?: number; toProblem?: (id: string) => unknown };
+      return reply
+        .status(e.status ?? 500)
+        .send(e.toProblem?.(req.id) ?? { error: 'balance lookup failed' });
     }
   });
 

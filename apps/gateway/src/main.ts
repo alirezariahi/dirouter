@@ -13,6 +13,8 @@ import { Redis } from 'ioredis';
 import { z } from 'zod';
 
 import { HealthProber } from './health-probe.js';
+import { BalanceMonitor } from './balance.js';
+import { createChannelTester } from './channel-test.js';
 import { HealthSync } from './health-sync.js';
 import { storageFromEnv } from './jobs/blobs.js';
 import { buildGateway } from './server.js';
@@ -226,6 +228,30 @@ const prober = new HealthProber({
     : {}),
 });
 prober.start();
+// Scheduled channel tests and upstream balance lookups (card 32.9); channel tests wait for
+// `settings.channelTest.enabled`, balance lookups run for providers with a balance API.
+const probeRedis = env.VALKEY_URL
+  ? quiet(
+      connectValkey(Redis, env.VALKEY_URL, { enableOfflineQueue: false, maxRetriesPerRequest: 1 }),
+    )
+  : undefined;
+const channelTester = createChannelTester({
+  snapshot: () => gateway.store.current?.snapshot,
+  health: gateway.health,
+  keyring: env.MASTER_KEY,
+  logger,
+  instance: `${hostname()}-${String(process.pid)}`,
+  ...(probeRedis ? { redis: probeRedis } : {}),
+});
+channelTester.start();
+const balances = new BalanceMonitor({
+  snapshot: () => gateway.store.current?.snapshot,
+  keyring: env.MASTER_KEY,
+  logger,
+  instance: `${hostname()}-${String(process.pid)}`,
+  ...(probeRedis ? { redis: probeRedis } : {}),
+});
+balances.start();
 // Node heartbeat for the Health page (card 7.8): config version and readiness of each replica, expiring after 15 seconds.
 if (env.VALKEY_URL) {
   const beat = quiet(
@@ -273,6 +299,8 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.once(signal, () => {
     logger.info({ signal }, 'draining');
     prober.stop();
+    channelTester.stop();
+    balances.stop();
     void gateway
       .drain({ readyDelayMs: env.SHUTDOWN_READY_DELAY_MS, drainMs: env.SHUTDOWN_DRAIN_MS })
       .then(({ forced }) => {

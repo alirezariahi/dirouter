@@ -505,3 +505,39 @@ describe('web search backends and pages (card 30.8)', () => {
     );
   });
 });
+
+describe('account balances (card 32.9)', () => {
+  const get = (path: string, key = 'sk-mock') =>
+    fetch(`${base}${path}`, { headers: { authorization: `Bearer ${key}` } });
+
+  it('answers the four balance APIs with the configured amount, and refuses a bad key', async () => {
+    await fetch(`${base}/__mock/balance`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ amount: 3.25 }),
+    });
+    const openrouter = (await (await get('/v1/credits')).json()) as {
+      data: { total_credits: number; total_usage: number };
+    };
+    expect(openrouter.data.total_credits - openrouter.data.total_usage).toBe(3.25);
+    const deepseek = (await (await get('/user/balance')).json()) as {
+      balance_infos: { total_balance: string }[];
+    };
+    expect(deepseek.balance_infos[0]?.total_balance).toBe('3.25');
+    const moonshot = (await (await get('/v1/users/me/balance')).json()) as {
+      data: { available_balance: number };
+    };
+    expect(moonshot.data.available_balance).toBe(3.25);
+    const silicon = (await (await get('/v1/user/info')).json()) as {
+      data: { totalBalance: string };
+    };
+    expect(silicon.data.totalBalance).toBe('3.25');
+    expect((await get('/v1/credits', 'mock:auth')).status).toBe(401);
+    expect((await fetch(`${base}/v1/credits`)).status).toBe(401);
+    await fetch(`${base}/__mock/balance`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ amount: 42.5 }),
+    });
+  });
+});

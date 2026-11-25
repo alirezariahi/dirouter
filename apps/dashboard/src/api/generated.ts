@@ -640,6 +640,24 @@ export type ProvidersControllerList200ItemTimeouts = {
 
 export type ProvidersControllerList200ItemOptions = {[key: string]: unknown};
 
+/**
+ * @nullable
+ */
+export type ProvidersControllerList200ItemCredentialsItemBalance = {
+  kind: string;
+  ok: boolean;
+  /**
+     * the last known amount, also after a failed lookup
+     * @nullable
+     */
+  amount: string | null;
+  /** @nullable */
+  currency: string | null;
+  /** @nullable */
+  error: string | null;
+  checkedAt: string;
+} | null;
+
 export type ProvidersControllerList200ItemCredentialsItemStatus = typeof ProvidersControllerList200ItemCredentialsItemStatus[keyof typeof ProvidersControllerList200ItemCredentialsItemStatus];
 
 
@@ -653,6 +671,8 @@ export type ProvidersControllerList200ItemCredentialsItem = {
   name: string;
   /** فقط ••••last4؛ secret واقعی هرگز برنمی‌گردد */
   secret: string;
+  /** @nullable */
+  balance: ProvidersControllerList200ItemCredentialsItemBalance;
   /**
      * @minimum -9007199254740991
      * @maximum 9007199254740991
@@ -685,6 +705,8 @@ export type ProvidersControllerList200Item = {
      * @nullable
      */
   maxConcurrency: number | null;
+  /** @nullable */
+  balanceKind: string | null;
   credentials: ProvidersControllerList200ItemCredentialsItem[];
   createdAt: string;
 };
@@ -847,6 +869,24 @@ export type ProvidersControllerCreate200Timeouts = {
 
 export type ProvidersControllerCreate200Options = {[key: string]: unknown};
 
+/**
+ * @nullable
+ */
+export type ProvidersControllerCreate200CredentialsItemBalance = {
+  kind: string;
+  ok: boolean;
+  /**
+     * the last known amount, also after a failed lookup
+     * @nullable
+     */
+  amount: string | null;
+  /** @nullable */
+  currency: string | null;
+  /** @nullable */
+  error: string | null;
+  checkedAt: string;
+} | null;
+
 export type ProvidersControllerCreate200CredentialsItemStatus = typeof ProvidersControllerCreate200CredentialsItemStatus[keyof typeof ProvidersControllerCreate200CredentialsItemStatus];
 
 
@@ -860,6 +900,8 @@ export type ProvidersControllerCreate200CredentialsItem = {
   name: string;
   /** فقط ••••last4؛ secret واقعی هرگز برنمی‌گردد */
   secret: string;
+  /** @nullable */
+  balance: ProvidersControllerCreate200CredentialsItemBalance;
   /**
      * @minimum -9007199254740991
      * @maximum 9007199254740991
@@ -892,6 +934,8 @@ export type ProvidersControllerCreate200 = {
      * @nullable
      */
   maxConcurrency: number | null;
+  /** @nullable */
+  balanceKind: string | null;
   credentials: ProvidersControllerCreate200CredentialsItem[];
   createdAt: string;
 };
@@ -977,6 +1021,24 @@ export type ProvidersControllerGet200Timeouts = {
 
 export type ProvidersControllerGet200Options = {[key: string]: unknown};
 
+/**
+ * @nullable
+ */
+export type ProvidersControllerGet200CredentialsItemBalance = {
+  kind: string;
+  ok: boolean;
+  /**
+     * the last known amount, also after a failed lookup
+     * @nullable
+     */
+  amount: string | null;
+  /** @nullable */
+  currency: string | null;
+  /** @nullable */
+  error: string | null;
+  checkedAt: string;
+} | null;
+
 export type ProvidersControllerGet200CredentialsItemStatus = typeof ProvidersControllerGet200CredentialsItemStatus[keyof typeof ProvidersControllerGet200CredentialsItemStatus];
 
 
@@ -990,6 +1052,8 @@ export type ProvidersControllerGet200CredentialsItem = {
   name: string;
   /** فقط ••••last4؛ secret واقعی هرگز برنمی‌گردد */
   secret: string;
+  /** @nullable */
+  balance: ProvidersControllerGet200CredentialsItemBalance;
   /**
      * @minimum -9007199254740991
      * @maximum 9007199254740991
@@ -1022,6 +1086,8 @@ export type ProvidersControllerGet200 = {
      * @nullable
      */
   maxConcurrency: number | null;
+  /** @nullable */
+  balanceKind: string | null;
   credentials: ProvidersControllerGet200CredentialsItem[];
   createdAt: string;
 };
@@ -1133,6 +1199,24 @@ export type ProvidersControllerUpdate200Timeouts = {
 
 export type ProvidersControllerUpdate200Options = {[key: string]: unknown};
 
+/**
+ * @nullable
+ */
+export type ProvidersControllerUpdate200CredentialsItemBalance = {
+  kind: string;
+  ok: boolean;
+  /**
+     * the last known amount, also after a failed lookup
+     * @nullable
+     */
+  amount: string | null;
+  /** @nullable */
+  currency: string | null;
+  /** @nullable */
+  error: string | null;
+  checkedAt: string;
+} | null;
+
 export type ProvidersControllerUpdate200CredentialsItemStatus = typeof ProvidersControllerUpdate200CredentialsItemStatus[keyof typeof ProvidersControllerUpdate200CredentialsItemStatus];
 
 
@@ -1146,6 +1230,8 @@ export type ProvidersControllerUpdate200CredentialsItem = {
   name: string;
   /** فقط ••••last4؛ secret واقعی هرگز برنمی‌گردد */
   secret: string;
+  /** @nullable */
+  balance: ProvidersControllerUpdate200CredentialsItemBalance;
   /**
      * @minimum -9007199254740991
      * @maximum 9007199254740991
@@ -1178,6 +1264,8 @@ export type ProvidersControllerUpdate200 = {
      * @nullable
      */
   maxConcurrency: number | null;
+  /** @nullable */
+  balanceKind: string | null;
   credentials: ProvidersControllerUpdate200CredentialsItem[];
   createdAt: string;
 };
@@ -1259,6 +1347,24 @@ export type ProvidersControllerAddCredential200Timeouts = {
 
 export type ProvidersControllerAddCredential200Options = {[key: string]: unknown};
 
+/**
+ * @nullable
+ */
+export type ProvidersControllerAddCredential200CredentialsItemBalance = {
+  kind: string;
+  ok: boolean;
+  /**
+     * the last known amount, also after a failed lookup
+     * @nullable
+     */
+  amount: string | null;
+  /** @nullable */
+  currency: string | null;
+  /** @nullable */
+  error: string | null;
+  checkedAt: string;
+} | null;
+
 export type ProvidersControllerAddCredential200CredentialsItemStatus = typeof ProvidersControllerAddCredential200CredentialsItemStatus[keyof typeof ProvidersControllerAddCredential200CredentialsItemStatus];
 
 
@@ -1272,6 +1378,8 @@ export type ProvidersControllerAddCredential200CredentialsItem = {
   name: string;
   /** فقط ••••last4؛ secret واقعی هرگز برنمی‌گردد */
   secret: string;
+  /** @nullable */
+  balance: ProvidersControllerAddCredential200CredentialsItemBalance;
   /**
      * @minimum -9007199254740991
      * @maximum 9007199254740991
@@ -1304,6 +1412,8 @@ export type ProvidersControllerAddCredential200 = {
      * @nullable
      */
   maxConcurrency: number | null;
+  /** @nullable */
+  balanceKind: string | null;
   credentials: ProvidersControllerAddCredential200CredentialsItem[];
   createdAt: string;
 };
@@ -1394,6 +1504,24 @@ export type ProvidersControllerUpdateCredential200Timeouts = {
 
 export type ProvidersControllerUpdateCredential200Options = {[key: string]: unknown};
 
+/**
+ * @nullable
+ */
+export type ProvidersControllerUpdateCredential200CredentialsItemBalance = {
+  kind: string;
+  ok: boolean;
+  /**
+     * the last known amount, also after a failed lookup
+     * @nullable
+     */
+  amount: string | null;
+  /** @nullable */
+  currency: string | null;
+  /** @nullable */
+  error: string | null;
+  checkedAt: string;
+} | null;
+
 export type ProvidersControllerUpdateCredential200CredentialsItemStatus = typeof ProvidersControllerUpdateCredential200CredentialsItemStatus[keyof typeof ProvidersControllerUpdateCredential200CredentialsItemStatus];
 
 
@@ -1407,6 +1535,8 @@ export type ProvidersControllerUpdateCredential200CredentialsItem = {
   name: string;
   /** فقط ••••last4؛ secret واقعی هرگز برنمی‌گردد */
   secret: string;
+  /** @nullable */
+  balance: ProvidersControllerUpdateCredential200CredentialsItemBalance;
   /**
      * @minimum -9007199254740991
      * @maximum 9007199254740991
@@ -1439,6 +1569,8 @@ export type ProvidersControllerUpdateCredential200 = {
      * @nullable
      */
   maxConcurrency: number | null;
+  /** @nullable */
+  balanceKind: string | null;
   credentials: ProvidersControllerUpdateCredential200CredentialsItem[];
   createdAt: string;
 };
@@ -1470,6 +1602,127 @@ export type ProvidersControllerTest200 = {
      * @maximum 9007199254740991
      */
   modelCount: number;
+};
+
+export type ProvidersControllerRefreshBalance200Type = typeof ProvidersControllerRefreshBalance200Type[keyof typeof ProvidersControllerRefreshBalance200Type];
+
+
+export const ProvidersControllerRefreshBalance200Type = {
+  openai: 'openai',
+  'azure-openai': 'azure-openai',
+  'openai-compatible': 'openai-compatible',
+  anthropic: 'anthropic',
+  gemini: 'gemini',
+  bedrock: 'bedrock',
+  vertex: 'vertex',
+  cohere: 'cohere',
+  mistral: 'mistral',
+  voyage: 'voyage',
+  jina: 'jina',
+  elevenlabs: 'elevenlabs',
+  deepgram: 'deepgram',
+  fal: 'fal',
+  plugin: 'plugin',
+  mock: 'mock',
+} as const;
+
+/**
+ * @nullable
+ */
+export type ProvidersControllerRefreshBalance200Timeouts = {
+  /**
+     * @maximum 120000
+     * @exclusiveMinimum 0
+     */
+  connectMs?: number;
+  /**
+     * @maximum 900000
+     * @exclusiveMinimum 0
+     */
+  firstByteMs?: number;
+  /**
+     * @maximum 900000
+     * @exclusiveMinimum 0
+     */
+  idleMs?: number;
+  /**
+     * @maximum 3600000
+     * @exclusiveMinimum 0
+     */
+  totalMs?: number;
+} | null;
+
+export type ProvidersControllerRefreshBalance200Options = {[key: string]: unknown};
+
+/**
+ * @nullable
+ */
+export type ProvidersControllerRefreshBalance200CredentialsItemBalance = {
+  kind: string;
+  ok: boolean;
+  /**
+     * the last known amount, also after a failed lookup
+     * @nullable
+     */
+  amount: string | null;
+  /** @nullable */
+  currency: string | null;
+  /** @nullable */
+  error: string | null;
+  checkedAt: string;
+} | null;
+
+export type ProvidersControllerRefreshBalance200CredentialsItemStatus = typeof ProvidersControllerRefreshBalance200CredentialsItemStatus[keyof typeof ProvidersControllerRefreshBalance200CredentialsItemStatus];
+
+
+export const ProvidersControllerRefreshBalance200CredentialsItemStatus = {
+  ACTIVE: 'ACTIVE',
+  DISABLED: 'DISABLED',
+} as const;
+
+export type ProvidersControllerRefreshBalance200CredentialsItem = {
+  id: string;
+  name: string;
+  /** فقط ••••last4؛ secret واقعی هرگز برنمی‌گردد */
+  secret: string;
+  /** @nullable */
+  balance: ProvidersControllerRefreshBalance200CredentialsItemBalance;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     */
+  weight: number;
+  status: ProvidersControllerRefreshBalance200CredentialsItemStatus;
+  /** @nullable */
+  cooldownUntil: string | null;
+  /** فقط نام هدرها */
+  headers: string[];
+  /** @nullable */
+  proxyUrl: string | null;
+};
+
+export type ProvidersControllerRefreshBalance200 = {
+  id: string;
+  slug: string;
+  name: string;
+  type: ProvidersControllerRefreshBalance200Type;
+  baseUrl: string;
+  enabled: boolean;
+  /** @nullable */
+  proxyUrl: string | null;
+  /** @nullable */
+  timeouts: ProvidersControllerRefreshBalance200Timeouts;
+  options: ProvidersControllerRefreshBalance200Options;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  maxConcurrency: number | null;
+  /** @nullable */
+  balanceKind: string | null;
+  credentials: ProvidersControllerRefreshBalance200CredentialsItem[];
+  createdAt: string;
 };
 
 export type ProvidersControllerDiscover200Error = {
@@ -4377,6 +4630,7 @@ export const AlertsControllerCreateRuleBodyType = {
   invalid_credential: 'invalid_credential',
   breaker_open: 'breaker_open',
   queue_length: 'queue_length',
+  upstream_balance_low: 'upstream_balance_low',
 } as const;
 
 export type AlertsControllerCreateRuleBody = {
@@ -4415,6 +4669,7 @@ export const AlertsControllerUpdateRuleBodyType = {
   invalid_credential: 'invalid_credential',
   breaker_open: 'breaker_open',
   queue_length: 'queue_length',
+  upstream_balance_low: 'upstream_balance_low',
 } as const;
 
 export type AlertsControllerUpdateRuleBody = {
@@ -12244,6 +12499,121 @@ export function useProvidersControllerTest<TData = Awaited<ReturnType<typeof pro
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getProvidersControllerTestQueryOptions(orgId,id,providersControllerTestBody,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export type providersControllerRefreshBalanceResponse200 = {
+  data: ProvidersControllerRefreshBalance200
+  status: 200
+}
+
+export type providersControllerRefreshBalanceResponseSuccess = (providersControllerRefreshBalanceResponse200) & {
+  headers: Headers;
+};
+;
+
+export type providersControllerRefreshBalanceResponse = (providersControllerRefreshBalanceResponseSuccess)
+
+export const getProvidersControllerRefreshBalanceUrl = (orgId: string,
+    id: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/providers/${id}/balance`
+}
+
+export const providersControllerRefreshBalance = async (orgId: string,
+    id: string, options?: Parameters<typeof orvalFetch>[1]): Promise<providersControllerRefreshBalanceResponse> => {
+
+  return orvalFetch<providersControllerRefreshBalanceResponse>(getProvidersControllerRefreshBalanceUrl(orgId,id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getProvidersControllerRefreshBalanceQueryKey = (orgId: string,
+    id: string,) => {
+    return [
+    'POST', `/api/v1/orgs/${orgId}/providers/${id}/balance`
+    ] as const;
+    }
+
+
+export const getProvidersControllerRefreshBalanceQueryOptions = <TData = Awaited<ReturnType<typeof providersControllerRefreshBalance>>, TError = unknown>(orgId: string,
+    id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof providersControllerRefreshBalance>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getProvidersControllerRefreshBalanceQueryKey(orgId,id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof providersControllerRefreshBalance>>> = ({ signal }) => providersControllerRefreshBalance(orgId,id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: orgId !== null && orgId !== undefined && id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof providersControllerRefreshBalance>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type ProvidersControllerRefreshBalanceQueryResult = NonNullable<Awaited<ReturnType<typeof providersControllerRefreshBalance>>>
+export type ProvidersControllerRefreshBalanceQueryError = unknown
+
+
+export function useProvidersControllerRefreshBalance<TData = Awaited<ReturnType<typeof providersControllerRefreshBalance>>, TError = unknown>(
+ orgId: string,
+    id: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof providersControllerRefreshBalance>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof providersControllerRefreshBalance>>,
+          TError,
+          Awaited<ReturnType<typeof providersControllerRefreshBalance>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useProvidersControllerRefreshBalance<TData = Awaited<ReturnType<typeof providersControllerRefreshBalance>>, TError = unknown>(
+ orgId: string,
+    id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof providersControllerRefreshBalance>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof providersControllerRefreshBalance>>,
+          TError,
+          Awaited<ReturnType<typeof providersControllerRefreshBalance>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useProvidersControllerRefreshBalance<TData = Awaited<ReturnType<typeof providersControllerRefreshBalance>>, TError = unknown>(
+ orgId: string,
+    id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof providersControllerRefreshBalance>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useProvidersControllerRefreshBalance<TData = Awaited<ReturnType<typeof providersControllerRefreshBalance>>, TError = unknown>(
+ orgId: string,
+    id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof providersControllerRefreshBalance>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getProvidersControllerRefreshBalanceQueryOptions(orgId,id,options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 

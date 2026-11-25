@@ -13,6 +13,13 @@ export const upstreamServicesFa = {
     pathsHint:
       'هر خط یک مسیر نسبت به Base URL، مثل «POST /batches» یا «/files/*» (ستاره یعنی هر ادامه‌ای). خالی یعنی هیچ مسیری مجاز نیست.',
   },
+  balance: {
+    amount: 'موجودی: {{amount}} {{currency}}',
+    failed: 'استعلام ناموفق: {{error}}',
+    checkedAt: 'به‌روزشده در {{date}}',
+    refresh: 'به‌روزرسانی موجودی',
+    refreshing: 'در حال استعلام…',
+  },
 } as const;
 
 export const upstreamServicesEn: Widen<typeof upstreamServicesFa> = {
@@ -23,5 +30,12 @@ export const upstreamServicesEn: Widen<typeof upstreamServicesFa> = {
     paths: 'Pass-through allowed paths',
     pathsHint:
       'One path per line, relative to the base URL, such as "POST /batches" or "/files/*" (a trailing * matches anything after it). Empty allows no path.',
+  },
+  balance: {
+    amount: 'Balance: {{amount}} {{currency}}',
+    failed: 'Lookup failed: {{error}}',
+    checkedAt: 'Checked {{date}}',
+    refresh: 'Refresh balance',
+    refreshing: 'Looking up…',
   },
 };

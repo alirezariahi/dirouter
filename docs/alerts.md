@@ -8,19 +8,20 @@ The worker evaluates every enabled rule on a schedule (`ALERT_EVALUATE_INTERVAL_
 
 ## Rules
 
-| Type                 | Value compared with `threshold`                                                                           | Unit    |
-| -------------------- | --------------------------------------------------------------------------------------------------------- | ------- |
-| `error_rate`         | share of failed requests in the window                                                                    | percent |
-| `latency`            | p95 latency in the window                                                                                 | ms      |
-| `budget`             | cost of the organization's requests in the window                                                         | USD     |
-| `invalid_credential` | failed authentication probes in the window (needs health probes, card 12.3)                               | count   |
-| `breaker_open`       | circuit breakers of the organization's providers and models that are open, or were open during the window | count   |
-| `queue_length`       | jobs waiting in the usage queue (waiting, delayed and prioritized)                                        | jobs    |
+| Type                   | Value compared with `threshold`                                                                                                            | Unit              |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ----------------- |
+| `error_rate`           | share of failed requests in the window                                                                                                     | percent           |
+| `latency`              | p95 latency in the window                                                                                                                  | ms                |
+| `budget`               | cost of the organization's requests in the window                                                                                          | USD               |
+| `invalid_credential`   | failed authentication probes in the window (needs health probes, card 12.3)                                                                | count             |
+| `breaker_open`         | circuit breakers of the organization's providers and models that are open, or were open during the window                                  | count             |
+| `queue_length`         | jobs waiting in the usage queue (waiting, delayed and prioritized)                                                                         | jobs              |
+| `upstream_balance_low` | lowest balance of the organization's provider accounts; fires **at or below** the threshold ([upstream-balances.md](upstream-balances.md)) | provider currency |
 
 - `windowMinutes` is the look-back period; `silenceMinutes` is the minimum time between two notifications of the same rule.
 - **Deduplication**: one event per rule per silence window, enforced by a unique `(rule, dedupKey)` index, so several worker replicas never notify twice.
 - A rule with no traffic in its window is skipped, not fired.
-- `error_rate`, `latency`, `budget` and `queue_length` rules **require a threshold**; the API rejects them without one and the worker skips (never fires) a stored rule that has none. `invalid_credential` and `breaker_open` default to 1.
+- `error_rate`, `latency`, `budget`, `queue_length` and `upstream_balance_low` rules **require a threshold**; the API rejects them without one and the worker skips (never fires) a stored rule that has none. `invalid_credential` and `breaker_open` default to 1.
 - **Delivery retries**: the silence window only starts once the notification was delivered. A failed delivery is retried on the following evaluation ticks, at most 5 attempts in total; the attempt count is kept in the event's `details.deliveryAttempts`.
 
 ### Breaker state (`breaker_open`)

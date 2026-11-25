@@ -24,7 +24,13 @@ export type ChannelInput = {
 export type RuleInput = {
   name: string;
   type:
-    'error_rate' | 'latency' | 'budget' | 'invalid_credential' | 'breaker_open' | 'queue_length';
+    | 'error_rate'
+    | 'latency'
+    | 'budget'
+    | 'invalid_credential'
+    | 'breaker_open'
+    | 'queue_length'
+    | 'upstream_balance_low';
   threshold?: number;
   windowMinutes?: number;
   silenceMinutes?: number;
@@ -54,6 +60,8 @@ export const THRESHOLD_REQUIRED = new Set<string>([
   'latency',
   'budget',
   'queue_length',
+  // Fires when a provider account's balance falls to the threshold (card 32.9).
+  'upstream_balance_low',
 ]);
 
 const SECRET_KEYS = ['secret', 'botToken', 'webhookUrl', 'token', 'password', 'apiKey'];

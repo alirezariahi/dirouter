@@ -89,10 +89,20 @@ const PluginView = z.object({
 export const ProviderPatch = ProviderBody.omit({ credentials: true, type: true }).partial();
 const TestBody = z.object({ credentialId: z.string().optional() }).optional();
 
+/** Latest upstream balance of a credential (card 32.9). */
+const BalanceView = z.object({
+  kind: z.string(),
+  ok: z.boolean(),
+  amount: z.string().nullable().describe('the last known amount, also after a failed lookup'),
+  currency: z.string().nullable(),
+  error: z.string().nullable(),
+  checkedAt: z.string(),
+});
 const CredentialView = z.object({
   id: z.string(),
   name: z.string(),
   secret: z.string().describe('فقط ••••last4؛ secret واقعی هرگز برنمی‌گردد'),
+  balance: BalanceView.nullable(),
   weight: z.int(),
   status: z.enum(['ACTIVE', 'DISABLED']),
   cooldownUntil: z.string().nullable(),
@@ -110,6 +120,8 @@ const ProviderView = z.object({
   timeouts: Timeouts.nullable(),
   options: z.record(z.string(), z.unknown()),
   maxConcurrency: z.int().nullable(),
+  /** openrouter | deepseek | moonshot | siliconflow when the provider has a balance API. */
+  balanceKind: z.string().nullable(),
   credentials: z.array(CredentialView),
   createdAt: z.string(),
 });
@@ -258,6 +270,17 @@ export class ProvidersController {
     @Body(new ZodPipe(TestBody)) body: z.infer<typeof TestBody>,
   ) {
     return this.providers.test(org, id, body?.credentialId);
+  }
+
+  @Post(':id/balance')
+  @HttpCode(200)
+  @RequirePermission('providers:write')
+  @ApiZodOk(
+    ProviderView,
+    'موجودی حساب upstream هر credential همین حالا از provider خوانده و ذخیره می‌شود',
+  )
+  refreshBalance(@Org() org: OrgContext, @Param('id') id: string) {
+    return this.providers.refreshBalance(org, id);
   }
 
   @Post(':id/discover')

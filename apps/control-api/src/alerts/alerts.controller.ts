@@ -42,6 +42,7 @@ const RuleType = z.enum([
   'invalid_credential',
   'breaker_open',
   'queue_length',
+  'upstream_balance_low',
 ]);
 export const RuleBody = z.object({
   name: z.string().trim().min(1).max(100),

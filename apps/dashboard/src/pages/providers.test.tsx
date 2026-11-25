@@ -358,6 +358,39 @@ describe('providers and credentials', () => {
     });
   });
 
+  it('shows each credential balance and refreshes it on demand (card 32.9)', async () => {
+    const withBalance = {
+      ...PROVIDER,
+      balanceKind: 'openrouter',
+      credentials: [
+        {
+          ...CREDENTIAL,
+          balance: {
+            kind: 'openrouter',
+            ok: true,
+            amount: '12.5',
+            currency: 'USD',
+            error: null,
+            checkedAt: '2026-11-25T10:00:00.000Z',
+          },
+        },
+      ],
+    };
+    mockApi((path, init) =>
+      path === '/orgs/org_1/providers' && (!init.method || init.method === 'GET')
+        ? { status: 200, body: [withBalance] }
+        : undefined,
+    );
+    await renderPage();
+    expect(screen.getByTestId('credential-balance').textContent).toContain('Balance: 12.5 USD');
+    await click(screen.getByRole('button', { name: 'Refresh balance' }));
+    expect(
+      calls.some(
+        (c) => c.path === '/orgs/org_1/providers/prv_1/balance' && c.init.method === 'POST',
+      ),
+    ).toBe(true);
+  });
+
   it('keeps provider configuration read-only for viewers', async () => {
     mockApi((path) =>
       path === '/auth/me'

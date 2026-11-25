@@ -14,6 +14,7 @@ import { envSchema } from './env.js';
 const NO_BODY = [
   '/revoke',
   '/discover',
+  '/providers/{id}/balance',
   '/sync-catalog',
   '/logout',
   '/refresh',
