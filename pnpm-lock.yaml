@@ -111,6 +111,9 @@ importers:
       jose:
         specifier: ^6.2.15
         version: 6.2.15
+      js-tiktoken:
+        specifier: ^1.0.21
+        version: 1.0.21
       pdfkit:
         specifier: ^0.21.0
         version: 0.21.0

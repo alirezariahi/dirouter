@@ -29,11 +29,12 @@ RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
 # Remove what is not needed at runtime (~250MB window):
 # - Prisma optional peers that pnpm installs (CLI, engines, typescript)
 # - Prisma runtimes for other databases, edge and source maps (engineType=client needs only client.js + the postgresql compiler)
-# - all js-tiktoken encodings except o200k_base; and all of js-tiktoken except for the gateway (optional peer
-#   model-catalog; the other apps only import `@dirouter/model-catalog/catalog`)
+# - all js-tiktoken encodings except o200k_base; and all of js-tiktoken except for the gateway and the
+#   control-api (optional peer of model-catalog, whose token estimate both use: the guardrail live test counts
+#   tokens like the gateway; the other apps only import `@dirouter/model-catalog/catalog`)
 # - source maps of all dependencies (not used in production; swagger-ui alone is several MB)
 RUN cd /out/node_modules/.pnpm \
-    && if [ "${APP}" != gateway ]; then rm -rf js-tiktoken@* base64-js@*; fi \
+    && case "${APP}" in gateway|control-api) ;; *) rm -rf js-tiktoken@* base64-js@* ;; esac \
     && find /out/node_modules -name '*.map' -type f -delete \
     && rm -rf typescript@* prisma@* @prisma+engines@* @prisma+config@* effect@* \
     && for d in @prisma+client@*/node_modules/@prisma/client/runtime; do \
