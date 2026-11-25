@@ -89,7 +89,7 @@ describe('MCP probe', () => {
     expect(status).toBe(200);
     expect(body.ok).toBe(true);
     expect(body.latencyMs).toBeGreaterThanOrEqual(0);
-    expect(body.tools.map((t) => t.name).sort()).toEqual(['add', 'echo', 'fail', 'whoami']);
+    expect(body.tools.map((t) => t.name).sort()).toEqual(['add', 'echo', 'fail', 'link', 'whoami']);
     expect(body.tools.find((t) => t.name === 'echo')?.description).toBeTruthy();
   });
 

@@ -68,7 +68,13 @@ describe('IP allow-list', () => {
  * Mutating routes that need only a `:read` permission and still change nothing a read-only token
  * should not do: both compute an answer from the request without storing anything.
  */
-const READ_ONLY_POSTS = new Set(['PlaygroundController.compare', 'StatsController.simulate']);
+const READ_ONLY_POSTS = new Set([
+  'PlaygroundController.compare',
+  // The streamed playground (card 25.6): like compare, it stores nothing and spends through the
+  // caller's own virtual key.
+  'PlaygroundController.stream',
+  'StatsController.simulate',
+]);
 
 describe('read-only scopes', () => {
   it('every organization route that changes something needs a write permission or is closed to tokens', async () => {
