@@ -278,4 +278,60 @@ describe('streamed playground (card 25.6)', () => {
     });
     expect(column.textContent).toContain('429');
   });
+
+  it('aborts running streams when the page unmounts', async () => {
+    mockApi(textAnswer);
+    const mocked = globalThis.fetch;
+    const signals: AbortSignal[] = [];
+    let reads = 0;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string, init: RequestInit = {}) => {
+        if (!url.endsWith('/playground/stream')) return mocked(url, init);
+        const signal = init.signal as AbortSignal;
+        signals.push(signal);
+        const first = new TextEncoder().encode(
+          sse('meta', { status: 200, headers: {} }) + chunk({ content: 'partial' }),
+        );
+        // A stream that never ends by itself, like a long answer, and fails once aborted.
+        const body = new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.enqueue(first);
+            signal.addEventListener('abort', () => {
+              controller.error(new DOMException('aborted', 'AbortError'));
+            });
+          },
+          pull() {
+            reads += 1;
+          },
+        });
+        return Promise.resolve(
+          new Response(body, { status: 200, headers: { 'content-type': 'text/event-stream' } }),
+        );
+      }),
+    );
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    await renderPage();
+    fireEvent.click(screen.getByRole('button', { name: 'mock/small' }));
+    fireEvent.click(screen.getByRole('button', { name: 'mock/long' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Run' }));
+    await waitFor(() => {
+      expect(screen.getAllByTestId('playground-text').map((n) => n.textContent)).toEqual([
+        'partial',
+        'partial',
+      ]);
+    });
+    expect(signals).toHaveLength(2);
+    expect(signals.every((signal) => !signal.aborted)).toBe(true);
+
+    cleanup();
+    expect(signals.every((signal) => signal.aborted)).toBe(true);
+    const settled = reads;
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+    expect(reads).toBe(settled);
+    expect(errors).not.toHaveBeenCalled();
+    errors.mockRestore();
+  });
 });

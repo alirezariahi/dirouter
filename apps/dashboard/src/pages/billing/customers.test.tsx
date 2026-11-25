@@ -140,6 +140,8 @@ describe('billing customers and wallets (card 25.1)', () => {
     expect(files[0]?.name).toBe('dirouter-statement-acme.csv');
     const csv = await files[0]?.blob.text();
     expect(csv).toContain('"adjustment","bank transfer #77","25.50012345","25.50012345","txn_1"');
+    // A debit keeps its minus sign: amounts are numbers, not formulas.
+    expect(csv).toContain('"usage","","-0.00012345","25.50000000","txn_2"');
   });
 
   it('records a manual credit with the reason and one idempotency key per operation', async () => {

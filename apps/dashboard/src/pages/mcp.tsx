@@ -565,8 +565,15 @@ function AllowList({
       setError(t('mcpPage.allowList.invalidPattern', { pattern: bad }));
       return;
     }
+    const patterns = [...new Set([...chosen, ...others])];
+    // An empty list means "no restriction" on the server, so "selected" with nothing ticked
+    // would silently open every tool; refuse it here instead.
+    if (patterns.length === 0) {
+      setError(t('mcpPage.allowList.emptySelection'));
+      return;
+    }
     setError(undefined);
-    save.mutate([...new Set([...chosen, ...others])]);
+    save.mutate(patterns);
   };
   const toggle = (pattern: string, on: boolean) => {
     setChosen((old) => {

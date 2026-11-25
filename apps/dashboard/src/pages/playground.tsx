@@ -7,7 +7,7 @@
  * key. The key lives only in this component's state.
  */
 import { useQuery } from '@tanstack/react-query';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { PageHeader, Section, selectClass, textareaClass } from '../components/s2/common';
@@ -106,6 +106,15 @@ export default function PlaygroundPage() {
   const [columns, setColumns] = useState<Column[]>([]);
   const [running, setRunning] = useState(false);
   const abort = useRef<AbortController | undefined>(undefined);
+  const mounted = useRef(true);
+  // Leaving the page stops every running stream; nothing may touch state afterwards.
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      abort.current?.abort();
+    };
+  }, []);
 
   const models = useQuery({
     queryKey: ['playground-models', org?.id],
@@ -116,6 +125,7 @@ export default function PlaygroundPage() {
     setForm((old) => ({ ...old, [key]: value }));
   };
   const update = (index: number, change: (column: Column) => Column) => {
+    if (!mounted.current) return;
     setColumns((old) => old.map((column, i) => (i === index ? change(column) : column)));
   };
 
@@ -191,7 +201,7 @@ export default function PlaygroundPage() {
         ),
       ),
     ).finally(() => {
-      if (abort.current === controller) setRunning(false);
+      if (mounted.current && abort.current === controller) setRunning(false);
     });
   };
 

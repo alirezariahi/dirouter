@@ -16,6 +16,7 @@ import { PageHeader, RangeTabs, Section, Segmented, Stat } from '../components/s
 import { Button } from '../components/ui/button';
 import { ErrorState, Loading } from '../components/ui/states';
 import { api } from '../lib/api';
+import { downloadCsv } from '../lib/csv';
 import { useFormat } from '../lib/s2-format';
 import { formatDate, formatTick } from '../lib/date';
 import type { LogSearch } from '../lib/log-search';
@@ -31,17 +32,6 @@ interface TopItem {
   costUsd: string;
 }
 
-/** The report as a CSV file, with raw numbers so a spreadsheet can sum them. */
-function downloadCsv(name: string, header: string[], rows: (string | number)[][]) {
-  const cell = (v: string | number) => `"${String(v).replaceAll('"', '""')}"`;
-  const csv = [header, ...rows].map((r) => r.map(cell).join(',')).join('\n');
-  const url = URL.createObjectURL(new Blob([`\ufeff${csv}`], { type: 'text/csv;charset=utf-8' }));
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = name;
-  link.click();
-  URL.revokeObjectURL(url);
-}
 interface Point {
   bucket: string;
   requests: number;

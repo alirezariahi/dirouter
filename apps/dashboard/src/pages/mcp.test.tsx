@@ -301,6 +301,34 @@ describe('MCP and agents page (card 25.3)', () => {
     );
   });
 
+  it('refuses an empty selection, which the server would read as every tool', async () => {
+    const calls = mockApi();
+    await renderPage();
+    const section = screen.getByTestId('mcp-allow-list');
+    fireEvent.change(within(section).getByLabelText('Virtual key'), {
+      target: { value: 'key_1' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Discover tools' }));
+    fireEvent.click(within(section).getByLabelText('Only the selected tools'));
+    const tool = await within(section).findByLabelText('docs__search');
+    fireEvent.click(tool);
+    fireEvent.click(tool);
+    fireEvent.click(within(section).getByRole('button', { name: 'Save access' }));
+    expect((await within(section).findByRole('alert')).textContent).toBe(
+      'Choose at least one tool or pattern; to allow every tool pick “All tools”.',
+    );
+    expect(calls.some((c) => c.method === 'PATCH' && c.path.endsWith('/keys/key_1'))).toBe(false);
+
+    // "All tools" still clears the list on purpose.
+    fireEvent.click(within(section).getByLabelText('All tools'));
+    fireEvent.click(within(section).getByRole('button', { name: 'Save access' }));
+    await waitFor(() => {
+      expect(
+        calls.find((c) => c.path === '/orgs/org_1/keys/key_1' && c.method === 'PATCH')?.body,
+      ).toEqual({ mcpTools: [] });
+    });
+  });
+
   it('shows the tool-call log with masked arguments and latency, and filters it', async () => {
     const calls = mockApi();
     await renderPage();

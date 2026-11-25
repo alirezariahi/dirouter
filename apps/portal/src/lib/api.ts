@@ -99,5 +99,8 @@ export async function download(path: string, filename: string, retried = false):
   document.body.append(link);
   link.click();
   link.remove();
-  URL.revokeObjectURL(url);
+  // Revoking in the same tick can cancel the download in some browsers.
+  setTimeout(() => {
+    URL.revokeObjectURL(url);
+  }, 0);
 }

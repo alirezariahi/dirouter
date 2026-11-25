@@ -65,6 +65,8 @@ export const mcpPageFa = {
     extra: 'الگوهای دیگر',
     extraHelp: 'با ویرگول جدا کنید: server__tool، server__* یا *',
     invalidPattern: 'الگوی «{{pattern}}» معتبر نیست.',
+    emptySelection:
+      'دست‌کم یک ابزار یا الگو انتخاب کنید؛ برای دسترسی به همهٔ ابزارها گزینهٔ «همهٔ ابزارها» را بزنید.',
     save: 'ذخیرهٔ دسترسی',
     saved: 'دسترسی ذخیره شد.',
     current: 'الان: {{value}}',
@@ -151,6 +153,7 @@ export const mcpPageEn: Widen<typeof mcpPageFa> = {
     extra: 'Other patterns',
     extraHelp: 'Comma separated: server__tool, server__* or *',
     invalidPattern: 'The pattern “{{pattern}}” is not valid.',
+    emptySelection: 'Choose at least one tool or pattern; to allow every tool pick “All tools”.',
     save: 'Save access',
     saved: 'Access saved.',
     current: 'Now: {{value}}',
