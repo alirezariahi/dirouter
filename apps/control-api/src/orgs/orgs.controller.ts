@@ -29,7 +29,22 @@ const SlugSchema = z
   .string()
   .regex(/^[a-z0-9][a-z0-9-]{0,62}$/, 'lowercase letters, digits and dashes');
 
-export const OrgPatch = z.object({ name: Name });
+export const OrgPatch = z
+  .object({
+    name: Name.optional(),
+    /** Card 31.4: drop parameters a model cannot take (true, default) or answer them with a 400. */
+    dropParams: z.boolean().optional(),
+  })
+  .refine((body) => body.name !== undefined || body.dropParams !== undefined, {
+    message: 'name or dropParams is required',
+  });
+const OrgView = z.object({
+  id: z.string(),
+  name: z.string(),
+  slug: z.string(),
+  role: RoleSchema,
+  dropParams: z.boolean(),
+});
 export const RoleBody = z.object({
   role: RoleSchema,
   /** Optional custom role (card 14.3); null clears it. */
@@ -92,7 +107,7 @@ export class OrgsController {
 
   @Get()
   @RequirePermission('org:read')
-  @ApiZodOk(z.object({ id: z.string(), name: z.string(), slug: z.string(), role: RoleSchema }))
+  @ApiZodOk(OrgView)
   get(@Org() org: OrgContext) {
     return this.orgs.getOrg(org);
   }
@@ -100,9 +115,9 @@ export class OrgsController {
   @Patch()
   @RequirePermission('org:write')
   @ApiZodBody(OrgPatch)
-  @ApiZodOk(z.object({ id: z.string(), name: z.string(), slug: z.string(), role: RoleSchema }))
+  @ApiZodOk(OrgView)
   rename(@Org() org: OrgContext, @Body(new ZodPipe(OrgPatch)) body: z.infer<typeof OrgPatch>) {
-    return this.orgs.renameOrg(org, body.name);
+    return this.orgs.updateOrg(org, body);
   }
 
   @Get('members')

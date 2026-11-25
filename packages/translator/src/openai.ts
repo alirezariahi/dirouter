@@ -37,6 +37,7 @@ import {
   type TranslateOptions,
   UnsupportedContentError,
 } from './common.js';
+import { applyUpstreamFields, reportForeignPassthrough } from './params.js';
 
 /** OpenAI request fields that are translated directly; the rest are passed through. */
 const CONSUMED_REQUEST_FIELDS = new Set([
@@ -436,7 +437,7 @@ export function canonicalToOpenAIRequest(
     body[options.maxTokensField ?? 'max_tokens'] = req.maxOutputTokens;
   if (req.temperature !== undefined) body.temperature = req.temperature;
   if (req.topP !== undefined) body.top_p = req.topP;
-  if (req.topK !== undefined) onDrop('top_k', 'OpenAI has no top_k');
+  if (req.topK !== undefined) onDrop('top_k', 'OpenAI has no top_k', 'parameter');
   if (req.stop?.length) body.stop = req.stop;
   if (req.seed !== undefined) body.seed = req.seed;
   if (req.user !== undefined) body.user = req.user;
@@ -449,7 +450,8 @@ export function canonicalToOpenAIRequest(
     body.stream = true;
     body.stream_options = { include_usage: true };
   }
-  return body;
+  reportForeignPassthrough(req, req.inboundApi === 'openai.chat', 'OpenAI Chat', onDrop);
+  return applyUpstreamFields(body, req);
 }
 
 // ───────────── OpenAI response → canonical ─────────────

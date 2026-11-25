@@ -241,6 +241,21 @@ export const RequestPolicy = z.object({
   autoCache: z.boolean().optional(),
   /** Lifetime of the injected breakpoints; unset means the provider default (5 minutes). */
   autoCacheTtl: z.enum(['5m', '1h']).optional(),
+  /**
+   * Card 31.4, parameters by name. Portable names (`temperature`, `top_p`, `top_k`, `max_tokens`,
+   * `seed`, `stop`, `reasoning_effort`, `parallel_tool_calls`) act on the request whatever its
+   * format; any other name is a field of the provider's own body (a dotted path for nested ones).
+   * `defaults` fill what the request leaves unset, `overrides` always win.
+   */
+  defaults: z.record(z.string().min(1).max(100), z.unknown()).optional(),
+  overrides: z.record(z.string().min(1).max(100), z.unknown()).optional(),
+  /** Parameters always removed before the request is sent. */
+  drop: z.array(z.string().min(1).max(100)).max(50).optional(),
+  /**
+   * Parameters this model does not accept: removed when `drop_params` is on (the default),
+   * answered with a 400 that names them when it is off.
+   */
+  unsupported: z.array(z.string().min(1).max(100)).max(50).optional(),
 });
 export type RequestPolicy = z.infer<typeof RequestPolicy>;
 
@@ -407,6 +422,11 @@ export const VirtualKeyConfig = z.object({
    * duplicated tool calls in the history. The `x-dirouter-repair` header overrides it per request.
    */
   repair: z.array(RepairKind).default([]),
+  /**
+   * The organization's `drop_params` (card 31.4): `true` (default) drops a parameter the target
+   * cannot take, `false` answers it with a 400. A request can override it.
+   */
+  dropParams: z.boolean().optional(),
   /**
    * Providers this key may call through native pass-through routes (card 30.7): provider slugs or
    * `*`. Empty (the default) means pass-through is off for the key.

@@ -236,6 +236,18 @@ export const CanonicalRequest = z.object({
   metadata: z.record(z.string(), z.string()).optional(),
   /** Provider-specific parameters that have no generic translation and pass through unchanged. */
   passthrough: JsonObject.optional(),
+  /**
+   * Fields of the provider's own request body, set by a model's parameter policy (card 31.4) and
+   * applied by the outbound translator last: `set` always, `defaults` only where the body has no
+   * value, `drop` removed. Names are top-level keys or dotted paths (`generationConfig.topK`).
+   */
+  upstreamFields: z
+    .object({
+      set: JsonObject.optional(),
+      defaults: JsonObject.optional(),
+      drop: z.array(z.string()).optional(),
+    })
+    .optional(),
 });
 export type CanonicalRequest = z.infer<typeof CanonicalRequest>;
 

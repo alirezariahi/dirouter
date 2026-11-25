@@ -135,6 +135,34 @@ PATCH /api/v1/orgs/{org}/aliases/{id}    { "requestPolicy": { "autoCache": true 
 
 تست‌ها: `packages/translator/src/auto-cache.test.ts` (درخواست‌های golden، و دست‌نخوردن درخواستی که خودش marker دارد) و `apps/gateway/src/shaping.test.ts` (یک گفتگوی OpenAI-format به Claude در نوبت دوم `cached_tokens` بزرگ‌تر از صفر گزارش می‌کند، هم با policy مدل و هم با policy یک alias؛ mock مثل Anthropic کش می‌کند).
 
+## سیاست پارامتر و drop_params
+
+> کارت ۳۱.۴. ناسازگاری پارامترها بدون تغییر کلاینت حل می‌شود: مدل یا alias مقدار پیش‌فرض، مقدار اجباری و فهرست حذف دارد، و `drop_params` تعیین می‌کند پارامتری که مقصد نمی‌پذیرد حذف شود یا رد. کد: `packages/translator/src/params.ts` و اتصال در `apps/gateway/src/shaping.ts`.
+
+request policy یک مدل یا alias (`requestPolicy`، ویرایشگر مدل و alias) این‌ها را می‌گیرد:
+
+| فیلد          | اثر                                                                                     |
+| ------------- | --------------------------------------------------------------------------------------- |
+| `defaults`    | `{name: value}` وقتی درخواست آن پارامتر را نگذاشته باشد                                 |
+| `overrides`   | `{name: value}` همیشه، هرچه درخواست گفته باشد                                           |
+| `drop`        | نام‌هایی که پیش از ارسال همیشه حذف می‌شوند                                              |
+| `unsupported` | نام‌هایی که این مدل نمی‌پذیرد: با `drop_params` روشن حذف، با خاموش 400 با نام پارامترها |
+
+نام‌ها: `temperature`، `top_p`، `top_k`، `max_tokens` (و `max_completion_tokens`، `max_output_tokens`)، `seed`، `stop`، `reasoning_effort` و `parallel_tool_calls` روی خود درخواست اثر می‌کنند و برای هر فرمت کلاینت و هر provider کار می‌کنند. هر نام دیگر فیلد بدنهٔ درخواست خود provider است که مترجم خروجی آخر از همه اعمال می‌کند (مسیر نقطه‌دار مثل `generationConfig.topK` به فیلد تودرتو می‌رسد). پارامتر حذف‌شده با default یا override برنمی‌گردد. مقدار با نوع نادرست (رشته برای `temperature`) خطای 400 است.
+
+```json
+PATCH /api/v1/orgs/{org}/models/{id}
+{ "requestPolicy": { "overrides": { "temperature": 0.2 }, "defaults": { "max_tokens": 4096 }, "unsupported": ["logit_bias"] } }
+```
+
+کاری که policy کرده در سطح info لاگ می‌شود (`request parameters set by the model policy` با `params: {overrides, defaults, dropped}` و شناسهٔ درخواست) و در هدر پاسخ `x-dirouter-params` برمی‌گردد، مثلاً `temperature=override, max_tokens=default`.
+
+**drop_params.** پارامتری که مقصد نمی‌تواند حمل کند یا در `unsupported` policy آمده یا مترجم برای آن provider معادلی ندارد: `top_k` به OpenAI یا Bedrock، `seed` به Anthropic یا Bedrock، `parallel_tool_calls: false` به Gemini، و پارامترهای اضافهٔ خود کلاینت (`presence_penalty`، `logit_bias`، `prediction`، …) وقتی provider API دیگری دارد. با `drop_params` روشن (پیش‌فرض، مثل قبل) حذف و در سطح debug لاگ می‌شود؛ با خاموش، درخواست 400 می‌گیرد، در قالب خطای خود کلاینت و با نام پارامترها: `Unsupported parameter for model 'gpt-policy': 'logit_bias'. Remove it, or set drop_params to true to have unsupported parameters dropped.` محتوایی که منتقل نمی‌شود (تصویر در tool result به OpenAI، reasoning بدون امضا) پارامتر نیست و این‌گونه رد نمی‌شود.
+
+ترتیب تعیین تنظیم: هدر `x-dirouter-drop-params: true|false`، فیلد `drop_params` بدنهٔ درخواست (پیش از ارسال حذف می‌شود)، و سازمان (`PATCH /api/v1/orgs/{org}` با `{"dropParams": false}` یا صفحهٔ سازمان).
+
+تست‌ها: `packages/translator/src/params.test.ts` (درخواست‌های golden به Claude، OpenAI و Gemini، رد شدن و خطای نوع) و `apps/gateway/src/shaping.test.ts` (temperature اجباری به provider می‌رسد و لاگ می‌شود؛ پارامتر پشتیبانی‌نشده به‌طور پیش‌فرض حذف و با drop_params خاموش رد می‌شود، از راه سازمان، هدر و بدنه).
+
 ## ترمیم پاسخ JSON و tool call
 
 > کارت ۳۱.۱. مدل‌های ضعیف‌تر JSON را خراب می‌کنند و کلاینت‌های ایجنت تاریخچه‌ای می‌فرستند که provider رد می‌کند؛ گیت‌وی می‌تواند هر دو را ترمیم کند. کد: `packages/translator/src/repair.ts` و اتصال در `apps/gateway/src/shaping.ts`.
@@ -152,7 +180,7 @@ PATCH /api/v1/orgs/{org}/aliases/{id}    { "requestPolicy": { "autoCache": true 
 
 ## فیلدهای کنارگذاشته‌شده
 
-مترجم هر فیلد بی‌معادل را با `onDrop(field, reason)` گزارش می‌کند و گیت‌وی آن را با سطح debug لاگ می‌کند. فهرست: `n>1` و بخش `file` بدون داده و شناسه در OpenAI، تصویر `file` در Anthropic، ویدیو و بخش‌های ناشناختهٔ دیگر در Gemini و Responses، `top_k` به OpenAI، `seed` به Anthropic، `json_object` به مدل Claude با structured output بومی (به‌صورت دستور فرستاده می‌شود)، reasoning به OpenAI، thinking بدون امضا به Anthropic، تصویر در نتیجهٔ ابزار به OpenAI، دمای بالای ۱ به Anthropic.
+مترجم هر فیلد بی‌معادل را با `onDrop(field, reason, kind)` گزارش می‌کند و گیت‌وی آن را با سطح debug لاگ می‌کند؛ پارامتر درخواست (`kind: 'parameter'`) وقتی `drop_params` خاموش است به‌جای آن رد می‌شود (بالا را ببینید). فهرست: `n>1` و بخش `file` بدون داده و شناسه در OpenAI، تصویر `file` در Anthropic، ویدیو و بخش‌های ناشناختهٔ دیگر در Gemini و Responses، `top_k` به OpenAI، `seed` به Anthropic، `json_object` به مدل Claude با structured output بومی (به‌صورت دستور فرستاده می‌شود)، reasoning به OpenAI، thinking بدون امضا به Anthropic، تصویر در نتیجهٔ ابزار به OpenAI، دمای بالای ۱ به Anthropic.
 
 ## تست‌ها
 

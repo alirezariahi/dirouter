@@ -18,6 +18,8 @@ interface Organization {
   name: string;
   slug: string;
   role: Role;
+  /** Card 31.4: drop parameters a model cannot take, or refuse them with a 400. */
+  dropParams?: boolean;
 }
 interface Member {
   userId: string;
@@ -186,12 +188,12 @@ export default function OrganizationPage() {
       <Card>
         <h2 className="mb-3 font-semibold">{t('organization.details')}</h2>
         <form
-          key={`${organization.data.id}-${organization.data.name}`}
+          key={`${organization.data.id}-${organization.data.name}-${String(organization.data.dropParams)}`}
           onSubmit={(event) =>
             void submit(async (form, _element) => {
               await api<Organization>(base, {
                 method: 'PATCH',
-                body: { name: text(form, 'name') },
+                body: { name: text(form, 'name'), dropParams: form.has('dropParams') },
               });
             })(event)
           }
@@ -209,6 +211,19 @@ export default function OrganizationPage() {
           <p className="pb-3 text-sm text-muted" dir="ltr">
             {organization.data.slug}
           </p>
+          <label className="flex basis-full items-start gap-2 text-sm">
+            <input
+              type="checkbox"
+              name="dropParams"
+              defaultChecked={organization.data.dropParams ?? true}
+              disabled={!canManage}
+              className="mt-1"
+            />
+            <span>
+              {t('shaping.dropParams.label')}
+              <span className="block text-xs text-muted">{t('shaping.dropParams.hint')}</span>
+            </span>
+          </label>
           {canManage ? (
             <Button type="submit" disabled={mutation.isPending}>
               {t('organization.save')}

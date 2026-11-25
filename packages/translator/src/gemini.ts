@@ -38,6 +38,7 @@ import {
   type TranslateOptions,
   UnsupportedContentError,
 } from './common.js';
+import { applyUpstreamFields, reportForeignPassthrough } from './params.js';
 
 type Json = Record<string, unknown>;
 
@@ -318,7 +319,7 @@ export function canonicalToGeminiRequest(
     };
   }
   if (req.parallelToolCalls === false)
-    onDrop('parallel_tool_calls', 'Gemini cannot disable parallel function calls');
+    onDrop('parallel_tool_calls', 'Gemini cannot disable parallel function calls', 'parameter');
 
   const generationConfig: Json = {};
   if (req.maxOutputTokens !== undefined) generationConfig.maxOutputTokens = req.maxOutputTokens;
@@ -347,7 +348,8 @@ export function canonicalToGeminiRequest(
       threshold: options.safetyThreshold ?? GEMINI_DEFAULT_SAFETY_THRESHOLD,
     }));
   if (req.user !== undefined) onDrop('user', 'Gemini has no end-user field');
-  return body;
+  reportForeignPassthrough(req, false, 'Gemini', onDrop);
+  return applyUpstreamFields(body, req);
 }
 
 // ───────────── Gemini response → canonical ─────────────

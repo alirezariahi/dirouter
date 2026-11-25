@@ -35,6 +35,7 @@ import {
   type TranslateOptions,
   UnsupportedContentError,
 } from './common.js';
+import { applyUpstreamFields, reportForeignPassthrough } from './params.js';
 import {
   claudeStructuredOutputMode,
   JSON_ONLY_INSTRUCTION,
@@ -551,7 +552,7 @@ export function canonicalToAnthropicRequest(
   if (req.topP !== undefined) body.top_p = req.topP;
   if (req.topK !== undefined) body.top_k = req.topK;
   if (req.stop?.length) body.stop_sequences = req.stop;
-  if (req.seed !== undefined) onDrop('seed', 'Anthropic has no seed');
+  if (req.seed !== undefined) onDrop('seed', 'Anthropic has no seed', 'parameter');
   if (structured.format) {
     const current = body.output_config;
     body.output_config = {
@@ -568,7 +569,8 @@ export function canonicalToAnthropicRequest(
   }
   if (req.user !== undefined) body.metadata = { user_id: req.user };
   if (req.stream) body.stream = true;
-  return body;
+  reportForeignPassthrough(req, req.inboundApi === 'anthropic.messages', 'Anthropic', onDrop);
+  return applyUpstreamFields(body, req);
 }
 
 interface StructuredOutputPlan {

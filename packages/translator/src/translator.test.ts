@@ -776,7 +776,8 @@ describe('passthrough', () => {
       max_tokens: 512,
       temperature: 0.2,
     });
-    expect(drops).toEqual([]);
+    // OpenAI's own `prediction` cannot travel to Anthropic and is reported (card 31.4).
+    expect(drops).toEqual(['prediction']);
   });
 });
 

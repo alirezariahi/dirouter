@@ -37,6 +37,9 @@ model Organization {
   /// Prepaid organizations pay from their wallet: the gateway reserves credit before each request
   /// and the worker debits the real charge afterwards (card 19.1).
   prepaid Boolean @default(false)
+  /// `drop_params` (card 31.4): drop a parameter the target model cannot take (true) or answer
+  /// the request with a 400 that names it (false). A request can override it.
+  dropParams Boolean @default(true) @map("drop_params")
 
   memberships  Membership[]
   invitations  Invitation[]

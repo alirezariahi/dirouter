@@ -333,6 +333,7 @@ export type OrgsControllerGet200 = {
   name: string;
   slug: string;
   role: OrgsControllerGet200Role;
+  dropParams: boolean;
 };
 
 export type OrgsControllerRenameBody = {
@@ -340,7 +341,8 @@ export type OrgsControllerRenameBody = {
      * @minLength 1
      * @maxLength 100
      */
-  name: string;
+  name?: string;
+  dropParams?: boolean;
 };
 
 export type OrgsControllerRename200Role = typeof OrgsControllerRename200Role[keyof typeof OrgsControllerRename200Role];
@@ -358,6 +360,7 @@ export type OrgsControllerRename200 = {
   name: string;
   slug: string;
   role: OrgsControllerRename200Role;
+  dropParams: boolean;
 };
 
 export type OrgsControllerMembers200ItemRole = typeof OrgsControllerMembers200ItemRole[keyof typeof OrgsControllerMembers200ItemRole];

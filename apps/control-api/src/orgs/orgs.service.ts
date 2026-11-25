@@ -64,12 +64,25 @@ export class OrgsService {
   async getOrg(ctx: OrgContext) {
     const org = await this.db.organization.findUnique({ where: { id: ctx.organizationId } });
     if (!org) throw notFound();
-    return { id: org.id, name: org.name, slug: org.slug, role: ctx.role };
+    return {
+      id: org.id,
+      name: org.name,
+      slug: org.slug,
+      role: ctx.role,
+      dropParams: org.dropParams,
+    };
   }
 
-  async renameOrg(ctx: OrgContext, name: string) {
-    await this.db.organization.update({ where: { id: ctx.organizationId }, data: { name } });
-    await this.#audit(ctx, 'org.updated', 'organization', ctx.organizationId, { name });
+  async updateOrg(
+    ctx: OrgContext,
+    patch: { name?: string | undefined; dropParams?: boolean | undefined },
+  ) {
+    const data = {
+      ...(patch.name !== undefined ? { name: patch.name } : {}),
+      ...(patch.dropParams !== undefined ? { dropParams: patch.dropParams } : {}),
+    };
+    await this.db.organization.update({ where: { id: ctx.organizationId }, data });
+    await this.#audit(ctx, 'org.updated', 'organization', ctx.organizationId, data);
     return this.getOrg(ctx);
   }
 

@@ -1161,13 +1161,17 @@
                         "MEMBER",
                         "VIEWER"
                       ]
+                    },
+                    "dropParams": {
+                      "type": "boolean"
                     }
                   },
                   "required": [
                     "id",
                     "name",
                     "slug",
-                    "role"
+                    "role",
+                    "dropParams"
                   ]
                 }
               }
@@ -1206,11 +1210,11 @@
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 100
+                  },
+                  "dropParams": {
+                    "type": "boolean"
                   }
-                },
-                "required": [
-                  "name"
-                ]
+                }
               }
             }
           }
@@ -1240,13 +1244,17 @@
                         "MEMBER",
                         "VIEWER"
                       ]
+                    },
+                    "dropParams": {
+                      "type": "boolean"
                     }
                   },
                   "required": [
                     "id",
                     "name",
                     "slug",
-                    "role"
+                    "role",
+                    "dropParams"
                   ]
                 }
               }

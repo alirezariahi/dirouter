@@ -127,6 +127,34 @@ PATCH /api/v1/orgs/{org}/aliases/{id}    { "requestPolicy": { "autoCache": true 
 
 Tests: `packages/translator/src/auto-cache.test.ts` (golden requests, and requests with their own markers left alone) and `apps/gateway/src/shaping.test.ts` (an OpenAI-format conversation to Claude reports `cached_tokens` greater than zero on its second turn, through a model policy and through an alias policy; the mock caches like Anthropic does).
 
+## Parameter policy and drop_params
+
+> Card 31.4. Parameter mismatches are fixed without touching the client: a model or alias carries defaults, forced values and removals, and `drop_params` decides whether a parameter the target cannot take is dropped or refused. Code: `packages/translator/src/params.ts`, wiring in `apps/gateway/src/shaping.ts`.
+
+The request policy of a model or alias (`requestPolicy`, the model and alias editors) takes:
+
+| Field         | Effect                                                                                           |
+| ------------- | ------------------------------------------------------------------------------------------------ |
+| `defaults`    | `{name: value}` set when the request leaves the parameter unset                                  |
+| `overrides`   | `{name: value}` always set, whatever the request says                                            |
+| `drop`        | names always removed before the request is sent                                                  |
+| `unsupported` | names this model does not take: removed with `drop_params` on, a 400 that names them with it off |
+
+Names: `temperature`, `top_p`, `top_k`, `max_tokens` (also `max_completion_tokens`, `max_output_tokens`), `seed`, `stop`, `reasoning_effort` and `parallel_tool_calls` act on the request itself, so they work for every client format and every provider. Any other name is a field of the provider's own request body, set by the outbound translator last (a dotted path such as `generationConfig.topK` reaches a nested field). A removed parameter is never brought back by a default or an override. A value of the wrong type (a string for `temperature`) is a 400.
+
+```json
+PATCH /api/v1/orgs/{org}/models/{id}
+{ "requestPolicy": { "overrides": { "temperature": 0.2 }, "defaults": { "max_tokens": 4096 }, "unsupported": ["logit_bias"] } }
+```
+
+What a policy did is logged at info level (`request parameters set by the model policy`, with `params: {overrides, defaults, dropped}` and the request id) and returned in the `x-dirouter-params` response header, e.g. `temperature=override, max_tokens=default`.
+
+**drop_params.** A parameter the target cannot carry is either one the policy lists as `unsupported` or one the translator cannot express for that provider: `top_k` to OpenAI or Bedrock, `seed` to Anthropic or Bedrock, `parallel_tool_calls: false` to Gemini, and a client's own extra parameters (`presence_penalty`, `logit_bias`, `prediction`, …) when the provider speaks another API. With `drop_params` on (the default, as before) it is dropped and logged at debug level; with it off the request gets a 400, in the client's own error format, naming the parameters: `Unsupported parameter for model 'gpt-policy': 'logit_bias'. Remove it, or set drop_params to true to have unsupported parameters dropped.` Content that cannot travel (images in an OpenAI tool result, unsigned reasoning) is not a parameter and is never refused this way.
+
+The setting comes from, in order: the `x-dirouter-drop-params: true|false` header, the request body's `drop_params` (removed before the request is sent), and the organization (`PATCH /api/v1/orgs/{org}` with `{"dropParams": false}`, or the Organization page).
+
+Tests: `packages/translator/src/params.test.ts` (golden requests to Claude, OpenAI and Gemini, refusals and type errors) and `apps/gateway/src/shaping.test.ts` (a forced temperature reaches the provider and is logged; an unsupported parameter is dropped by default and refused with drop_params off, by organization, header and body).
+
 ## Repair of JSON answers and tool calls
 
 > Card 31.1. Weaker models break JSON and agent clients replay histories providers reject; the gateway can repair both. Code: `packages/translator/src/repair.ts`, wiring in `apps/gateway/src/shaping.ts`.
@@ -144,7 +172,7 @@ Tests: `packages/translator/src/repair.test.ts` (a corpus of broken JSON, valid 
 
 ## Dropped fields
 
-The translator reports each field that has no equivalent through `onDrop(field, reason)`, and the gateway logs it at debug level. The list: `n>1` and a `file` part with neither data nor id in OpenAI, image `file` in Anthropic, video and other unknown parts in Gemini and Responses, `top_k` to OpenAI, `seed` to Anthropic, `json_object` to a Claude model with native structured output (sent as an instruction), reasoning to OpenAI, thinking without a signature to Anthropic, images in tool results to OpenAI, and temperature above 1 to Anthropic.
+The translator reports each field that has no equivalent through `onDrop(field, reason, kind)`, and the gateway logs it at debug level; a request parameter (`kind: 'parameter'`) is refused instead when `drop_params` is off (see above). The list: `n>1` and a `file` part with neither data nor id in OpenAI, image `file` in Anthropic, video and other unknown parts in Gemini and Responses, `top_k` to OpenAI, `seed` to Anthropic, `json_object` to a Claude model with native structured output (sent as an instruction), reasoning to OpenAI, thinking without a signature to Anthropic, images in tool results to OpenAI, and temperature above 1 to Anthropic.
 
 ## Tests
 

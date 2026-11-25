@@ -17,6 +17,9 @@ const keyring = parseKeyring(generateKey());
 const pepper = 'p'.repeat(32);
 const KEY = 'dr-test-shaping-plain-0123456789';
 const REPAIR_KEY = 'dr-test-shaping-repair-012345678';
+const STRICT_KEY = 'dr-test-shaping-strict-012345678';
+/** Gateway log lines, to check what is logged. */
+const logLines: Record<string, unknown>[] = [];
 const BROKEN_JSON = '```json\n{"city": "Tehran", "temp": 21,}\n```';
 const b64 = (text: string) => Buffer.from(text).toString('base64url');
 
@@ -85,6 +88,13 @@ beforeAll(async () => {
       model('gpt', 'oa', 'mock-small'),
       model('gpt-broken', 'ob', 'mock-small'),
       model('claude-cached', 'an', 'claude-sonnet-4-5', { requestPolicy: { autoCache: true } }),
+      model('gpt-policy', 'oa', 'mock-small', {
+        requestPolicy: {
+          overrides: { temperature: 0.2 },
+          defaults: { max_tokens: 333 },
+          unsupported: ['logit_bias'],
+        },
+      }),
     ],
     combos: [],
     aliases: [
@@ -98,13 +108,23 @@ beforeAll(async () => {
     virtualKeys: [
       virtualKey('vk', KEY),
       virtualKey('vk-repair', REPAIR_KEY, { repair: ['json', 'tools'] }),
+      // An organization with drop_params off (card 31.4).
+      virtualKey('vk-strict', STRICT_KEY, { dropParams: false }),
     ],
     settings: { defaultRetry: { maxAttempts: 1, baseDelayMs: 1, maxDelayMs: 5 } },
   };
   const dataDir = await mkdtemp(join(tmpdir(), 'dirouter-shaping-'));
   await writeFile(join(dataDir, 'snapshot.json'), JSON.stringify(snapshot));
   gw = buildGateway({
-    logger: createLogger({ service: 'test', level: 'silent' }),
+    logger: createLogger({
+      service: 'test',
+      level: 'info',
+      destination: {
+        write: (line: string) => {
+          logLines.push(JSON.parse(line) as Record<string, unknown>);
+        },
+      },
+    }),
     keyring,
     pepper,
     dataDir,
@@ -334,6 +354,87 @@ describe('card 31.3: automatic prompt-cache breakpoints', () => {
       { logger: createLogger({ service: 'test', level: 'silent' }) },
       'r',
     );
-    expect(shaped).toBe(request);
+    expect(shaped.request).toBe(request);
+  });
+});
+
+describe('card 31.4: parameter policy and drop_params', () => {
+  const ask = { messages: [{ role: 'user', content: 'hi' }] };
+
+  it("forces the model's value on the request, fills a default, and logs both", async () => {
+    const res = await post('/v1/chat/completions', {
+      model: 'gpt-policy',
+      temperature: 0.9,
+      ...ask,
+    });
+    expect(res.status).toBe(200);
+    expect(res.headers.get('x-dirouter-params')).toBe('temperature=override, max_tokens=default');
+    const sent = await lastUpstream();
+    expect(sent.temperature).toBe(0.2);
+    expect(sent.max_tokens).toBe(333);
+    const requestId = res.headers.get('x-request-id');
+    const line = logLines.find(
+      (l) => l.msg === 'request parameters set by the model policy' && l.requestId === requestId,
+    );
+    expect(line).toMatchObject({
+      model: 'gpt-policy',
+      params: { overrides: ['temperature'], defaults: ['max_tokens'], dropped: [] },
+    });
+    // A request that sets max_tokens itself keeps it; the override still wins.
+    await post('/v1/chat/completions', { model: 'gpt-policy', max_tokens: 50, ...ask });
+    expect(await lastUpstream()).toMatchObject({ temperature: 0.2, max_tokens: 50 });
+  });
+
+  it('an unsupported parameter is dropped by default and a clear 400 with drop_params off', async () => {
+    const body = { model: 'gpt-policy', logit_bias: { 42: 5 }, ...ask };
+    const lenient = await post('/v1/chat/completions', body);
+    expect(lenient.status).toBe(200);
+    expect(lenient.headers.get('x-dirouter-params')).toContain('logit_bias=dropped');
+    expect((await lastUpstream()).logit_bias).toBeUndefined();
+
+    const strict = await post('/v1/chat/completions', body, {}, STRICT_KEY);
+    expect(strict.status).toBe(400);
+    const error = ((await strict.json()) as { error: { message: string; type: string } }).error;
+    expect(error.message).toBe(
+      "Unsupported parameter for model 'gpt-policy': 'logit_bias'. Remove it, or set drop_params to true to have unsupported parameters dropped.",
+    );
+  });
+
+  it('drop_params also covers what the target API cannot carry (seed to Claude)', async () => {
+    const body = { model: 'claude', seed: 7, ...ask };
+    expect((await post('/v1/chat/completions', body)).status).toBe(200);
+    const strict = await post('/v1/chat/completions', body, {}, STRICT_KEY);
+    expect(strict.status).toBe(400);
+    expect(await strict.text()).toContain("Unsupported parameter for model 'claude': 'seed'");
+    // The request can override the organization: header, or drop_params in the body.
+    const header = await post(
+      '/v1/chat/completions',
+      body,
+      { 'x-dirouter-drop-params': 'true' },
+      STRICT_KEY,
+    );
+    expect(header.status).toBe(200);
+    const inBody = await post(
+      '/v1/chat/completions',
+      { ...body, drop_params: true },
+      {},
+      STRICT_KEY,
+    );
+    expect(inBody.status).toBe(200);
+    expect(await lastUpstream()).not.toHaveProperty('drop_params');
+    const refused = await post('/v1/chat/completions', { ...body, drop_params: false });
+    expect(refused.status).toBe(400);
+    // An Anthropic client is answered in its own error format.
+    const anthropic = await post(
+      '/v1/messages',
+      { model: 'gpt', max_tokens: 10, top_k: 3, messages: [{ role: 'user', content: 'hi' }] },
+      {},
+      STRICT_KEY,
+    );
+    expect(anthropic.status).toBe(400);
+    expect(await anthropic.json()).toMatchObject({
+      type: 'error',
+      error: { message: expect.stringContaining("'top_k'") as string },
+    });
   });
 });

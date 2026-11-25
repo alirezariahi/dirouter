@@ -50,7 +50,7 @@
 
 | مسیر                                                                                                                                               | مجوز                              |
 | -------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
-| `GET /orgs/:orgId`، `PATCH /orgs/:orgId`                                                                                                           | `org:read`، `org:write`           |
+| `GET /orgs/:orgId`، `PATCH /orgs/:orgId` (`{name?, dropParams?}`، کارت ۳۱.۴)                                                                       | `org:read`، `org:write`           |
 | `GET /members`، `PATCH /members/:userId` (`{role}`)، `DELETE /members/:userId`                                                                     | `members:read`، `members:write`   |
 | `GET /members/:userId/sessions`، `POST /members/:userId/sessions/revoke` (کارت ۲۳.۵)                                                               | `members:write`                   |
 | `GET /service-accounts`؛ `POST/PATCH/DELETE /service-accounts…`، `DELETE /management-tokens/:id` (کارت ۲۳.۶، [auth.fa.md](control-api/auth.fa.md)) | `members:read`؛ `security:write`  |

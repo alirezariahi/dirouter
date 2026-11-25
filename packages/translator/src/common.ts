@@ -11,9 +11,10 @@ import type {
 
 /**
  * Reports fields that have no equivalent at the destination and were dropped. The gateway
- * logs these at debug level.
+ * logs these at debug level. `kind: 'parameter'` marks a request parameter (as opposed to
+ * content), which `drop_params: false` turns into a 400 (card 31.4).
  */
-export type DropReporter = (field: string, reason: string) => void;
+export type DropReporter = (field: string, reason: string, kind?: 'parameter') => void;
 
 export const ignoreDrops: DropReporter = () => undefined;
 

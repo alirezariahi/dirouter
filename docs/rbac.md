@@ -48,7 +48,7 @@ Additional rules in the service, separate from the matrix:
 
 | Route                                                                                                                                        | Permission                        |
 | -------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
-| `GET /orgs/:orgId`, `PATCH /orgs/:orgId`                                                                                                     | `org:read`, `org:write`           |
+| `GET /orgs/:orgId`, `PATCH /orgs/:orgId` (`{name?, dropParams?}`, card 31.4)                                                                 | `org:read`, `org:write`           |
 | `GET /members`, `PATCH /members/:userId` (`{role}`), `DELETE /members/:userId`                                                               | `members:read`, `members:write`   |
 | `GET /members/:userId/sessions`, `POST /members/:userId/sessions/revoke` (card 23.5)                                                         | `members:write`                   |
 | `GET /service-accounts`; `POST/PATCH/DELETE /service-accounts…`, `DELETE /management-tokens/:id` (card 23.6, [auth.md](control-api/auth.md)) | `members:read`; `security:write`  |

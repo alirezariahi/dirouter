@@ -35,6 +35,8 @@ import {
   ignoreDrops,
   structuredOutputTool,
   unwrapStructuredOutput,
+  applyUpstreamFields,
+  reportForeignPassthrough,
 } from '@dirouter/translator';
 
 import {
@@ -393,6 +395,9 @@ export function canonicalToConverseRequest(
   if (request.topP !== undefined) inferenceConfig.topP = request.topP;
   if (request.stop?.length) inferenceConfig.stopSequences = request.stop;
   if (Object.keys(inferenceConfig).length) body.inferenceConfig = inferenceConfig;
+  // Converse has no portable top_k or seed (card 31.4: dropped, or refused with drop_params off).
+  if (request.topK !== undefined) onDrop('top_k', 'Converse has no top_k', 'parameter');
+  if (request.seed !== undefined) onDrop('seed', 'Converse has no seed', 'parameter');
   const structured = converseStructuredOutput(request, modelId, options, onDrop);
   if (structured.instruction) system.push({ text: structured.instruction });
   if (structured.additional) body.additionalModelRequestFields = structured.additional;
@@ -426,7 +431,8 @@ export function canonicalToConverseRequest(
     };
   }
   addAutomaticCachePoint(request, body, messages, system);
-  return body;
+  reportForeignPassthrough(request, false, 'Bedrock', onDrop, ['cache_control']);
+  return applyUpstreamFields(body, request);
 }
 
 /** Most cache checkpoints a Converse request may carry (system, tools and messages together). */

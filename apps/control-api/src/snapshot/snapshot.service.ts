@@ -218,6 +218,15 @@ export class SnapshotService implements OnModuleInit, OnModuleDestroy {
         orderBy: [{ organizationId: 'asc' }, { scope: 'asc' }, { scopeId: 'asc' }],
       }),
     ]);
+    // Organizations that refuse unsupported parameters instead of dropping them (card 31.4).
+    const strictParams = new Set(
+      (
+        await db.organization.findMany({
+          where: { dropParams: false, deletedAt: null },
+          select: { id: true },
+        })
+      ).map((o) => o.id),
+    );
     const walletOf = new Map(wallets.map((w) => [w.organizationId, w.id]));
     const platformId = organizations.find((o) => o.isPlatform)?.id;
     const multiplierOf = new Map(
@@ -369,6 +378,7 @@ export class SnapshotService implements OnModuleInit, OnModuleDestroy {
           passthroughProviders: k.passthroughProviders,
           ipAllowlist: k.ipAllowlist,
           repair: k.repair.filter((r): r is RepairKind => r === 'json' || r === 'tools'),
+          ...(strictParams.has(k.organizationId) ? { dropParams: false } : {}),
           ...rateLimit(k),
           budgets: budgetsFor('API_KEY', k.id),
           ...(walletId ? { walletId } : {}),

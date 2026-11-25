@@ -109,10 +109,14 @@ import {
 import { compressRequest } from './compress.js';
 import {
   aliasPolicyFor,
+  dropParamsFor,
+  dropReporterFor,
+  PARAMS_HEADER,
   repairAnswer,
   repairKindsFor,
   repairRequest,
   shapeForCandidate,
+  withoutDropParams,
 } from './shaping.js';
 import { externalVerdicts } from './classifiers.js';
 import { type BodyCapture, type RecordBody, startBodyCapture } from './body-capture.js';
@@ -729,7 +733,12 @@ async function proxyRequest(
   }
 
   // Tool-call repair of the replayed history (card 31.1), when the key or header asks for it.
-  canonical = repairRequest(canonical, repairKindsFor(req.headers, key), deps, requestId);
+  canonical = repairRequest(
+    withoutDropParams(canonical),
+    repairKindsFor(req.headers, key),
+    deps,
+    requestId,
+  );
 
   const estimatedInputTokens = estimateRequestTokens(canonical, roughTokens);
   model = canonical.model;
@@ -1372,6 +1381,7 @@ async function runRoute(
   const settings = config.snapshot.settings;
   const repairKinds = repairKindsFor(req.headers, key);
   const aliasPolicy = aliasPolicyFor(config.snapshot, key, route.requested);
+  const dropParams = dropParamsFor(req.headers, req.body, key);
   const retry = route.combo?.retry ?? settings.defaultRetry;
   const baseTimeouts = mergeTimeouts(settings.defaultTimeouts, route.combo?.timeouts);
   const includeUsage =
@@ -1499,11 +1509,21 @@ async function runRoute(
     }
     let up;
     try {
+      // Model and alias policy (epic 31); a refused parameter is a 400 like refused content.
+      const shaped = shapeForCandidate(
+        canonical,
+        candidate,
+        aliasPolicy,
+        deps,
+        requestId,
+        dropParams,
+      );
+      if (shaped.paramsHeader) void reply.header(PARAMS_HEADER, shaped.paramsHeader);
       up = adapter.buildRequest({
         provider: candidate.provider,
         model: candidate.model,
         apiKey,
-        request: shapeForCandidate(canonical, candidate, aliasPolicy, deps, requestId),
+        request: shaped.request,
         credentialHeaders: candidate.credential.headers,
         clientHeaders: {
           'anthropic-beta':
@@ -1511,9 +1531,7 @@ async function runRoute(
               ? req.headers['anthropic-beta']
               : undefined,
         },
-        onDrop: (field, reason) => {
-          deps.logger.debug({ requestId, field, reason }, 'field dropped for provider');
-        },
+        onDrop: dropReporterFor(candidate, dropParams, deps, requestId),
       });
     } catch (error) {
       // Content this provider cannot carry (card 27.2): a clear 400, never a silent drop.

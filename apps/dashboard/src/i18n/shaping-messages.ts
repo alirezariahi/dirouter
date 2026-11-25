@@ -13,6 +13,17 @@ export const shapingMessagesFa = {
       'برای درخواستی که خودش cache_control ندارد روی ابزارها، system و آخرین پیام‌های پایدار breakpoint گذاشته می‌شود.',
     ttl: 'عمر کش',
     ttlDefault: 'پیش‌فرض provider',
+    defaults: 'مقدار پیش‌فرض پارامترها (JSON)',
+    overrides: 'مقدار اجباری پارامترها (JSON)',
+    drop: 'پارامترهای همیشه حذف‌شونده',
+    unsupported: 'پارامترهای پشتیبانی‌نشده (حذف یا 400 بنا بر drop_params)',
+    paramsHint:
+      'نام‌های temperature، top_p، top_k، max_tokens، seed، stop، reasoning_effort و parallel_tool_calls در هر فرمتی کار می‌کنند؛ هر نام دیگر فیلد بدنهٔ خود provider است (با نقطه برای فیلد تودرتو).',
+    invalidJson: 'یک شیء JSON معتبر وارد کنید.',
+  },
+  dropParams: {
+    label: 'حذف پارامترهای پشتیبانی‌نشده (drop_params)',
+    hint: 'خاموش باشد، درخواستی که پارامتری دارد که مدل مقصد نمی‌پذیرد با خطای 400 و نام پارامتر رد می‌شود. هدر x-dirouter-drop-params یا فیلد drop_params درخواست آن را برای همان درخواست عوض می‌کند.',
   },
   promptCache: {
     title: 'کش prompt خود provider',
@@ -35,6 +46,17 @@ export const shapingMessagesEn = {
       'A request without its own cache_control gets breakpoints on the tools, the system prompt and the last stable messages.',
     ttl: 'Cache lifetime',
     ttlDefault: 'Provider default',
+    defaults: 'Parameter defaults (JSON)',
+    overrides: 'Forced parameter values (JSON)',
+    drop: 'Parameters always removed',
+    unsupported: 'Unsupported parameters (dropped or a 400, by drop_params)',
+    paramsHint:
+      "temperature, top_p, top_k, max_tokens, seed, stop, reasoning_effort and parallel_tool_calls work in every format; any other name is a field of the provider's own body (dotted for nested fields).",
+    invalidJson: 'Enter a valid JSON object.',
+  },
+  dropParams: {
+    label: 'Drop unsupported parameters (drop_params)',
+    hint: "When off, a request with a parameter the target model does not take is refused with a 400 that names it. The x-dirouter-drop-params header or the request's drop_params field overrides it for that request.",
   },
   promptCache: {
     title: "Provider's prompt cache",

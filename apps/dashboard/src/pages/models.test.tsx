@@ -420,6 +420,17 @@ describe('model management UI', () => {
     // Card 31.3: automatic prompt-cache breakpoints for this alias, with a one-hour lifetime.
     fireEvent.click(screen.getByLabelText(/Automatic prompt-cache breakpoints/));
     fireEvent.change(screen.getByLabelText('Cache lifetime'), { target: { value: '1h' } });
+    // Card 31.4: a forced temperature and a parameter the model does not take.
+    fireEvent.change(screen.getByLabelText('Forced parameter values (JSON)'), {
+      target: { value: '{"temperature": 0.2' },
+    });
+    expect(screen.getByRole('alert').textContent).toBe('Enter a valid JSON object.');
+    fireEvent.change(screen.getByLabelText('Forced parameter values (JSON)'), {
+      target: { value: '{"temperature": 0.2}' },
+    });
+    fireEvent.change(screen.getByLabelText(/Unsupported parameters/), {
+      target: { value: 'top_k, presence_penalty' },
+    });
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => {
       expect(
@@ -432,7 +443,12 @@ describe('model management UI', () => {
     expect(JSON.parse(call?.init.body as string)).toEqual({
       slug: 'production',
       modelId: 'mdl_1',
-      requestPolicy: { autoCache: true, autoCacheTtl: '1h' },
+      requestPolicy: {
+        autoCache: true,
+        autoCacheTtl: '1h',
+        overrides: { temperature: 0.2 },
+        unsupported: ['top_k', 'presence_penalty'],
+      },
     });
   });
 
