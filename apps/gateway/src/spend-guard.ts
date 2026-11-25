@@ -284,6 +284,25 @@ const scoped = (l: Scope, target?: BudgetTarget): ScopedBudget[] =>
     ...(target ? { target } : {}),
   }));
 
+/**
+ * Of the budgets blocking each target, the one whose reset brings the first target back: a target
+ * is back when the last budget blocking it resets. Falls back to the soonest reset of all.
+ */
+export function firstBackBudget<T extends { resetAt: Date }>(
+  blockingPerTarget: readonly (readonly T[])[],
+  all: readonly T[],
+): T {
+  let first: T | undefined;
+  for (const blocking of blockingPerTarget) {
+    let latest: T | undefined;
+    for (const b of blocking)
+      if (latest === undefined || b.resetAt.getTime() > latest.resetAt.getTime()) latest = b;
+    if (latest && (first === undefined || latest.resetAt.getTime() < first.resetAt.getTime()))
+      first = latest;
+  }
+  return first ?? all.reduce((a, b) => (b.resetAt.getTime() < a.resetAt.getTime() ? b : a));
+}
+
 /** Every budget that covers a request to these candidates. */
 export function budgetScopes(
   config: { snapshot: ConfigSnapshot },
@@ -422,20 +441,21 @@ export async function admitRequest(
   let candidates = [...input.candidates];
   if (check.exhausted) {
     const spent = check.exhausted;
-    candidates = candidates.filter(
-      (c) =>
-        !spent.some(({ budget }) =>
-          budget.target
-            ? matchesTarget(budget.target, {
-                modelId: c.model.id,
-                providerId: c.provider.id,
-                credentialId: c.credential.id,
-              })
-            : false,
-        ),
-    );
+    const blocking = (c: Candidate) =>
+      spent.filter(({ budget }) =>
+        budget.target
+          ? matchesTarget(budget.target, {
+              modelId: c.model.id,
+              providerId: c.provider.id,
+              credentialId: c.credential.id,
+            })
+          : false,
+      );
+    candidates = candidates.filter((c) => blocking(c).length === 0);
     if (candidates.length === 0) {
-      const first = spent.reduce((a, b) => (b.resetAt < a.resetAt ? b : a));
+      // A target comes back when the last budget blocking it resets; the request can be retried
+      // when the first target comes back, and that target's longest budget is the one to name.
+      const first = firstBackBudget(input.candidates.map(blocking), spent);
       return {
         ok: false,
         headers: { 'retry-after': retryAfter(first.resetAt) },
