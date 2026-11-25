@@ -517,7 +517,7 @@ describe('request routing', () => {
     it(':online calls the web search extension when the gateway has one', async () => {
       const searched: string[] = [];
       const searchBase = await startGateway({
-        webSearch: {
+        onlineSearch: {
           augment: (request, context) => {
             searched.push(`${context.virtualKeyId}:${request.model}`);
             return Promise.resolve({

@@ -115,8 +115,11 @@ export interface GatewayOptions {
   blockPrivateUpstreams?: boolean;
   /** Tests only: delays between A2A push notification retries (card 28.2). */
   a2aPushRetryDelaysMs?: readonly number[];
-  /** Web search for the `:online` suffix (card 31.5 extension point, implemented by card 30.8). */
-  webSearch?: WebSearchExtension;
+  /**
+   * Web search for the `:online` suffix (card 31.5). Defaults to the gateway's own web search
+   * (card 30.8); tests can pass another implementation.
+   */
+  onlineSearch?: WebSearchExtension;
   /** Web search backends (card 30.8): SearXNG, Brave and Tavily addresses and keys. */
   webSearch?: SearchBackendConfig;
   /** Files, batches and async tasks (cards 30.1 and 30.6): limits and where bytes are kept. */
@@ -180,7 +183,7 @@ export function buildGateway(opts: GatewayOptions) {
     });
   const deps = {
     store,
-    ...(opts.webSearch ? { webSearch: opts.webSearch } : {}),
+    ...(opts.onlineSearch ? { webSearch: opts.onlineSearch } : {}),
     budget: new RetryBudget(),
     // One rolling hedge budget per (ratio, window) pair, shared by every request (card 12.2).
     hedgeBudgets: new Map(),
@@ -326,6 +329,9 @@ export function buildGateway(opts: GatewayOptions) {
     new WebSearchBackends(opts.webSearch ?? {}, opts.limiterRedis),
   );
   deps.web = web;
+  // The `:online` suffix (card 31.5) searches through these services unless a test injected one.
+  deps.webSearch ??= web.onlineExtension();
+  const onlineAvailable = () => deps.webSearch?.available?.() ?? deps.webSearch !== undefined;
   web.register();
   app.post('/v1/chat/completions', (req, reply) =>
     web.wants('openai.chat', req.body)
@@ -698,12 +704,12 @@ export function buildGateway(opts: GatewayOptions) {
             suffixes: suffix.suffixes,
             ...(suffix.reasoningEffort ? { reasoningEffort: suffix.reasoningEffort } : {}),
             ...(suffix.webSearch
-              ? { webSearch: deps.webSearch ? 'available' : 'unavailable' }
+              ? { webSearch: onlineAvailable() ? 'available' : 'unavailable' }
               : {}),
           }
         : {}),
     };
-    if (suffix.webSearch && !deps.webSearch)
+    if (suffix.webSearch && !onlineAvailable())
       return reply.status(400).send({
         error: { message: 'web_search_unavailable', code: 'web_search_unavailable' },
         skipped: [],

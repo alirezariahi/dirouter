@@ -557,7 +557,7 @@ async function proxyRequest(
   if (suffix.suffixes.length > 0) {
     canonical = suffixedRequest(canonical, suffix);
     requestRouting = withSuffixes(requestRouting, suffix);
-    if (suffix.webSearch && !deps.webSearch) {
+    if (suffix.webSearch && (!deps.webSearch || deps.webSearch.available?.() === false)) {
       sendError(
         reply,
         api,

@@ -15,6 +15,8 @@ export interface WebSearchContext {
 }
 
 export interface WebSearchExtension {
+  /** Whether a search can be served now (switched on, a backend configured); absent means yes. */
+  available?: () => boolean;
   /**
    * Returns the request with web results added (for example as a system message with sources).
    * May throw a `DiRouterError`, which reaches the client as is.

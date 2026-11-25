@@ -118,19 +118,19 @@ The simulator response has the effective `dataPolicy`, and every request log ent
 
 A model name can end in suffixes, as on OpenRouter. They can be chained (`gpt-4.1:floor:online`), and a name that exists as written is never split (an organization may call a model `x:free` itself).
 
-| Suffix                                 | Effect                                                                                                       | Status                                     |
-| -------------------------------------- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------ |
-| `:nitro`                               | `sort: "throughput"`: fastest measured target first                                                          | live                                       |
-| `:floor`                               | `sort: "price"`: cheapest target first                                                                       | live                                       |
-| `:free`                                | only targets whose price is zero; skip reason `not_free`, none left is 400 `no_provider_matches_preferences` | live                                       |
-| `:thinking`                            | reasoning on, effort `medium`                                                                                | live                                       |
-| `:minimal`, `:low`, `:medium`, `:high` | reasoning effort                                                                                             | live                                       |
-| `:online`                              | web search before the model answers                                                                          | needs the web search extension (card 30.8) |
+| Suffix                                 | Effect                                                                                                       | Status                                                                   |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------ |
+| `:nitro`                               | `sort: "throughput"`: fastest measured target first                                                          | live                                                                     |
+| `:floor`                               | `sort: "price"`: cheapest target first                                                                       | live                                                                     |
+| `:free`                                | only targets whose price is zero; skip reason `not_free`, none left is 400 `no_provider_matches_preferences` | live                                                                     |
+| `:thinking`                            | reasoning on, effort `medium`                                                                                | live                                                                     |
+| `:minimal`, `:low`, `:medium`, `:high` | reasoning effort                                                                                             | live                                                                     |
+| `:online`                              | web search before the model answers                                                                          | live when web search is enabled ([web search](../gateway/web-search.md)) |
 
 - An explicit `provider.sort` wins over `:nitro`/`:floor`, and so does an effort the request sets itself (`reasoning_effort`) over a reasoning suffix.
 - On a key whose preferences are locked, `:nitro` and `:floor` are ignored like any client preference (`x-dirouter-preferences: locked`); `:free` only narrows and still applies.
 - The model name in the answer and in the usage record is the name without suffixes; the suffixes are kept in the request log's routing decision.
-- `:online` calls the gateway's web search extension (`webSearch` in `buildGateway`, interface `WebSearchExtension` in `apps/gateway/src/web-search.ts`), which adds the results to the request once the route is known. Without one, the request fails with **400 `web_search_unavailable`** and nothing is sent upstream. The simulator reports `webSearch: "available"` or `"unavailable"`.
+- `:online` searches the last user message with the gateway's own web search (card 30.8) under the caller's key — rate limited, budgeted and billed as a separate `web.search` usage event — and puts the results in front of the system prompt once the route is known. When web search is switched off or has no backend, the request fails with **400 `web_search_unavailable`** and nothing is sent upstream. The simulator reports `webSearch: "available"` or `"unavailable"`. Tests can inject another implementation with `onlineSearch` in `buildGateway` (interface `WebSearchExtension` in `apps/gateway/src/web-search.ts`).
 
 The simulator accepts suffixed names and answers with `suffixes`, `reasoningEffort` and `webSearch`.
 

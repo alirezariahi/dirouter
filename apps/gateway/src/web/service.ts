@@ -31,6 +31,7 @@ import { z } from 'zod';
 
 import { authenticate, extractApiKey } from '../auth.js';
 import { budgetScopes, errorPayload, handleProxy, limitScopes, type ProxyDeps } from '../proxy.js';
+import type { WebSearchExtension } from '../web-search.js';
 import { FetchRefused, type FetchedPage, fetchPage } from './fetch.js';
 import {
   type SearchAnswer,
@@ -267,6 +268,51 @@ export class WebServices {
     return outcome
       ? { ok: true, value: outcome.value, costUsd }
       : { ok: false, error: failure ?? new DiRouterError('upstream_error') };
+  }
+
+  /**
+   * The `:online` model suffix (card 31.5) on top of these searches: the last user message is
+   * searched with the caller's own key (rate limit, budgets, wallet and a usage event of its own,
+   * like any search) and the results go in front of the system prompt. Without search available
+   * the request fails with 400 `web_search_unavailable` instead of answering without it.
+   */
+  onlineExtension(): WebSearchExtension {
+    return {
+      available: () => this.available,
+      augment: async (request, context) => {
+        if (!this.available)
+          throw new DiRouterError('web_search_unavailable', {
+            message:
+              'Web search is not enabled on this gateway, so the :online suffix cannot be served',
+            status: 400,
+          });
+        const key = this.#deps.store.current?.snapshot.virtualKeys.find(
+          (k) => k.id === context.virtualKeyId,
+        );
+        if (!key) throw new DiRouterError('unauthenticated');
+        const query = lastUserText(request.messages).slice(0, 400);
+        if (!query) return request;
+        const found = await this.search(key, query, `${context.requestId}:web_search:1`);
+        if (!found.ok) {
+          // Limits and money stop the request; a backend failure answers without results.
+          if (
+            found.error.status === 429 ||
+            found.error.code === 'budget_exceeded' ||
+            found.error.code === 'insufficient_credit'
+          )
+            throw found.error;
+          return request;
+        }
+        if (found.value.results.length === 0) return request;
+        return {
+          ...request,
+          system: [
+            { type: 'text', text: resultsPrompt(query, found.value.results) },
+            ...request.system,
+          ],
+        };
+      },
+    };
   }
 
   /** One metered search for a key (also the building block of online mode). */

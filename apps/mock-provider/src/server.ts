@@ -374,30 +374,6 @@ export function buildServer(options: MockServerOptions = {}) {
     openai(req, reply, (req.body as { model?: string } | undefined)?.model ?? 'mock'),
   );
 
-  // Legacy text completions: an OpenAI endpoint DiRouter does not translate, reached through
-  // native pass-through (card 30.7). Echoes the received auth header kind for assertions.
-  app.post('/v1/completions', async (req, reply) => {
-    const s = scenarioFor(req);
-    await sleep(sampleLatency(s.latency));
-    if (await maybeFail('openai', s, req, reply)) return;
-    record(req, 200);
-    const body = (req.body ?? {}) as { model?: string; prompt?: unknown };
-    const promptTokens = tokens(body.prompt);
-    const completionTokens = Math.max(1, Math.ceil(s.text.length / 4));
-    return reply.send({
-      id: `cmpl-mock${Date.now().toString(36)}`,
-      object: 'text_completion',
-      created: Math.floor(Date.now() / 1000),
-      model: body.model ?? 'mock',
-      choices: [{ index: 0, text: s.text, finish_reason: 'stop', logprobs: null }],
-      usage: {
-        prompt_tokens: promptTokens,
-        completion_tokens: completionTokens,
-        total_tokens: promptTokens + completionTokens,
-      },
-    });
-  });
-
   // ───────────── Moderation (card 23.2) ─────────────
   app.post('/v1/moderations', async (req, reply) => {
     const s = scenarioFor(req);

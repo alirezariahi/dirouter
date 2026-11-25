@@ -383,6 +383,24 @@ describe('web search and fetch through the gateway', () => {
     expect(chat?.requestId).toBe(res.headers.get('x-request-id'));
   });
 
+  it('the :online model suffix (card 31.5) searches with the built-in web search', async () => {
+    const res = await post('/v1/chat/completions', {
+      model: 'chat:online',
+      messages: [{ role: 'user', content: 'Latest gateway news?' }],
+    });
+    expect(res.status).toBe(200);
+    const stats = (await (await fetch(`${root}/__mock/stats`)).json()) as {
+      last: { messages: { role: string; content: string }[] }[];
+    };
+    expect(stats.last.at(-1)?.messages[0]?.content).toContain(
+      'Web search results for "Latest gateway news?"',
+    );
+    const events = await waitEvents(2);
+    const search = events.find((e) => e.inboundApi === 'web.search');
+    expect(search).toMatchObject({ costUsd: '0.00500000', virtualKeyId: 'vk' });
+    expect(search?.requestId).toMatch(/:web_search:1$/);
+  });
+
   it('online mode streams the answer with its annotations (web_search_options)', async () => {
     const res = await post('/v1/chat/completions', {
       model: 'chat',
