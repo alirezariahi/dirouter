@@ -55,6 +55,10 @@ When the batch ends, DiRouter downloads the results and stores them as new files
 - **At completion** one usage event (`inboundApi: "openai.batches"`, `requestId` = the batch id) carries the summed usage of all successful lines. Its cost is the normal token cost times `1 − batchDiscount` (from the catalog or the model's price settings, card 27.5); the sale price (multipliers, customer group) is discounted the same way. The wallet hold becomes that charge and the worker posts it to the ledger like any request.
 - A batch that fails or is cancelled before any line succeeds records an error event with zero cost and releases the hold. A cancelled or expired batch is charged for the lines that did run.
 
+## Webhook
+
+Add `webhook_url` (a DiRouter extension) when creating a batch to receive a signed `batch.completed`, `batch.failed`, `batch.cancelled` or `batch.expired` event when it ends; see [webhooks](videos.md#webhooks).
+
 ## Isolation and retention
 
 - A file or batch belongs to the organization of the key that created it. Every key of that organization can use it; a key of another organization gets 404, the same answer as for an id that does not exist, and never sees it in a list.

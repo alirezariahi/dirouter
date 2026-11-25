@@ -3,7 +3,8 @@
  * JSON-RPC at POST /a2a-agent. It answers both protocol versions by echoing the message, and
  * reports the X-DiRouter-* headers it received in the task metadata. `SendStreamingMessage`
  * answers the echo as an SSE stream (card 28.2). POST /__hooks/:name records webhook calls (push
- * notifications) and GET /__hooks/:name lists them.
+ * notifications) and GET /__hooks/:name lists them; PUT /__hooks/:name/fail with `{count}` makes
+ * the next deliveries to that name answer 500 (job webhook retries, card 30.6).
  */
 import { randomUUID } from 'node:crypto';
 
@@ -19,7 +20,11 @@ interface Rpc {
 export function registerA2a(app: FastifyInstance): void {
   // Webhook sink for A2A push notifications (card 28.2): records each POST with its headers and
   // the raw body (needed to check the signature); GET returns what arrived.
-  const hooks = new Map<string, { headers: Record<string, unknown>; body: string }[]>();
+  const hooks = new Map<
+    string,
+    { headers: Record<string, unknown>; body: string; status: number }[]
+  >();
+  const failing = new Map<string, number>();
   app.register((scope, _opts, done) => {
     scope.removeAllContentTypeParsers();
     scope.addContentTypeParser('*', { parseAs: 'string' }, (_req, body, next) => {
@@ -27,15 +32,25 @@ export function registerA2a(app: FastifyInstance): void {
     });
     scope.post<{ Params: { name: string }; Body: string }>('/__hooks/:name', (req, reply) => {
       const list = hooks.get(req.params.name) ?? [];
-      list.push({ headers: req.headers, body: req.body });
+      const fail = failing.get(req.params.name) ?? 0;
+      if (fail > 0) failing.set(req.params.name, fail - 1);
+      const status = fail > 0 ? 500 : 204;
+      list.push({ headers: req.headers, body: req.body, status });
       hooks.set(req.params.name, list.slice(-50));
-      return reply.status(204).send();
+      return reply.status(status).send();
     });
     done();
   });
   app.get<{ Params: { name: string } }>(
     '/__hooks/:name',
     (req) => hooks.get(req.params.name) ?? [],
+  );
+  app.put<{ Params: { name: string }; Body: { count?: number } | undefined }>(
+    '/__hooks/:name/fail',
+    (req) => {
+      failing.set(req.params.name, req.body?.count ?? 1);
+      return { failing: failing.get(req.params.name) };
+    },
   );
 
   app.get('/a2a-agent/.well-known/agent-card.json', (req) => {

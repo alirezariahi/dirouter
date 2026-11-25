@@ -168,6 +168,8 @@ export const InboundApi = z.enum([
   'openai.transcriptions',
   /** A finished batch (card 30.1): one event with the batch's summed usage. */
   'openai.batches',
+  /** A finished async video task (card 30.6). */
+  'openai.videos',
   /** One model response of a Realtime WebSocket session (card 30.5). */
   'openai.realtime',
   /** Legacy `/v1/completions` and `/v1/audio/translations` (card 30.4). */
@@ -181,8 +183,10 @@ export const MediaUsage = z.object({
   images: z.int().nonnegative().optional(),
   /** Input characters of a speech request. */
   characters: z.int().nonnegative().optional(),
-  /** Seconds of audio transcribed (fractional). */
+  /** Seconds of audio transcribed, or of video generated (card 30.6); fractional. */
   seconds: z.number().nonnegative().optional(),
+  /** Requests priced per request, such as one generated video (card 30.6). */
+  requests: z.int().nonnegative().optional(),
   /**
    * Realtime audio tokens (card 30.5), priced at the model's audio token rates. The event's
    * `usage` then holds the text (and image) tokens only. Input includes the cached audio tokens.

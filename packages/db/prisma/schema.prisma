@@ -373,6 +373,8 @@ model Model {
   imagePrice       Decimal?  @map("image_price") @db.Decimal(18, 8)
   charPrice        Decimal?  @map("char_price") @db.Decimal(18, 8)
   secondPrice      Decimal?  @map("second_price") @db.Decimal(18, 8)
+  /// Fixed cost per request (card 30.6), e.g. per generated video.
+  requestPrice     Decimal?  @map("request_price") @db.Decimal(18, 8)
   /// Realtime audio tokens, dollars per million (card 30.5); unset means the text rates.
   audioInputPrice  Decimal?  @map("audio_input_price") @db.Decimal(18, 8)
   audioOutputPrice Decimal?  @map("audio_output_price") @db.Decimal(18, 8)

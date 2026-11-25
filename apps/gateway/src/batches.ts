@@ -46,8 +46,10 @@ import {
   targetFor,
   upstreamFailure,
 } from './jobs/context.js';
+import { admitJob, releaseJob } from './jobs/admission.js';
+import { checkJobWebhookUrl, enqueueWebhook } from './jobs/webhooks.js';
 import { chargeUnits } from './pricing.js';
-import { budgetScopes, limitScopes } from './proxy.js';
+import { budgetScopes } from './proxy.js';
 
 /** OpenAI's limits: 50,000 requests per batch, a 24 hour completion window. */
 export const MAX_BATCH_LINES = 50_000;
@@ -104,6 +106,8 @@ export interface BatchRecord {
   usage?: CanonicalUsage;
   costUsd?: string;
   chargeUsd?: string;
+  /** Where the end of the batch is announced (card 30.6, a DiRouter extension). */
+  webhookUrl?: string;
   /** Usage recorded and wallet settled; the batch needs no more work. */
   settled: boolean;
   checkedAt: number;
@@ -253,6 +257,11 @@ async function create(req: FastifyRequest, reply: FastifyReply, deps: JobsDeps) 
       'metadata',
     );
 
+  const webhookUrl =
+    body.webhook_url === undefined
+      ? undefined
+      : await checkJobWebhookUrl(body.webhook_url, key.organizationId);
+
   const file = await loadFile(deps, key.organizationId, body.input_file_id);
   if (!file) throw notFound('file', body.input_file_id);
   if (file.purpose !== 'batch')
@@ -283,26 +292,6 @@ async function create(req: FastifyRequest, reply: FastifyReply, deps: JobsDeps) 
     throw invalid(`'${model}' has no provider with a batch API for ${endpoint}`, 'input_file_id');
 
   const id = `batch_${ulid()}`;
-  const admission = deps.limiter
-    ? await deps.limiter.acquire(limitScopes(config, key), 0, id)
-    : undefined;
-  if (admission && !admission.ok)
-    throw new DiRouterError('rate_limited', {
-      message: `Rate limit exceeded for ${admission.scope.split(':')[0] ?? 'key'} (${admission.kind})`,
-      status: 429,
-    });
-  admission?.settle(0);
-  admission?.release();
-  const budgetCheck = deps.budgets
-    ? await deps.budgets.check(budgetScopes(config, key))
-    : { ok: true as const };
-  if (!budgetCheck.ok)
-    throw new DiRouterError('budget_exceeded', {
-      message: budgetCheck.unavailable
-        ? 'Budget check unavailable (fail-closed), retry shortly'
-        : `${budgetCheck.period === 'daily' ? 'Daily' : 'Monthly'} ${budgetCheck.scope} budget exceeded`,
-    });
-
   // The wallet holds the most the batch can cost on the most expensive candidate.
   let worst = 0n;
   for (const c of candidates) {
@@ -314,15 +303,12 @@ async function create(req: FastifyRequest, reply: FastifyReply, deps: JobsDeps) 
     if (amount > worst) worst = amount;
   }
   const reserved = formatUsd(worst);
-  if (key.walletId && deps.wallets) {
-    const hold = await deps.wallets.reserve(key.walletId, id, reserved, BATCH_HOLD_MS);
-    if (!hold.ok)
-      throw new DiRouterError('insufficient_credit', {
-        message: hold.unavailable
-          ? 'Wallet check unavailable (fail-closed), retry shortly'
-          : `Insufficient credit: this batch may cost up to USD ${hold.neededUsd}, available USD ${hold.availableUsd}`,
-      });
-  }
+  await admitJob(deps, config, key, {
+    id,
+    what: 'batch',
+    worstUsd: reserved,
+    holdMs: BATCH_HOLD_MS,
+  });
 
   let started: { candidate: Candidate; upstreamId: string; state: UpstreamBatchState } | undefined;
   let failure: DiRouterError | undefined;
@@ -344,7 +330,7 @@ async function create(req: FastifyRequest, reply: FastifyReply, deps: JobsDeps) 
     }
   }
   if (!started) {
-    if (key.walletId) deps.wallets?.settle(key.walletId, id, '0');
+    releaseJob(deps, key, id);
     throw (
       failure ??
       new DiRouterError('service_unavailable', { message: 'No provider accepted the batch' })
@@ -376,6 +362,7 @@ async function create(req: FastifyRequest, reply: FastifyReply, deps: JobsDeps) 
     requestCounts: { total: lines.length, completed: 0, failed: 0 },
     createdAt: now,
     expiresAt: now + COMPLETION_WINDOW_SECONDS,
+    ...(webhookUrl ? { webhookUrl } : {}),
     settled: false,
     checkedAt: Date.now(),
     configVersion: config.version,
@@ -603,6 +590,13 @@ async function finish(
       failed: converted.errors.length,
     };
   settle(deps, config, record, converted.usage);
+  if (record.webhookUrl)
+    await enqueueWebhook(deps, {
+      organizationId: record.organizationId,
+      url: record.webhookUrl,
+      type: `batch.${record.status}`,
+      objectId: record.id,
+    });
 }
 
 /** One usage event for the whole batch, at the batch price; the wallet hold becomes the charge. */

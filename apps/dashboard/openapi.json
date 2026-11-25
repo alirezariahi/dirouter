@@ -1482,7 +1482,7 @@
         ],
         "responses": {
           "200": {
-            "description": "نشست‌های فعال یک عضو",
+            "description": "نشست‌های فعال یک عضو، بدون نشانی IP و دستگاه",
             "content": {
               "application/json": {
                 "schema": {
@@ -5900,6 +5900,10 @@
                             "type": "string",
                             "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
                           },
+                          "perRequestUsd": {
+                            "type": "string",
+                            "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
+                          },
                           "tiers": {
                             "maxItems": 8,
                             "type": "array",
@@ -6102,6 +6106,10 @@
                         "type": "string",
                         "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
                       },
+                      "perRequestUsd": {
+                        "type": "string",
+                        "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
+                      },
                       "tiers": {
                         "maxItems": 8,
                         "type": "array",
@@ -6172,6 +6180,9 @@
                         "type": "boolean"
                       },
                       "transcription": {
+                        "type": "boolean"
+                      },
+                      "video": {
                         "type": "boolean"
                       },
                       "documents": {
@@ -6288,6 +6299,10 @@
                           "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
                         },
                         "perSecondUsd": {
+                          "type": "string",
+                          "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
+                        },
+                        "perRequestUsd": {
                           "type": "string",
                           "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
                         },
@@ -6549,6 +6564,10 @@
                           "type": "string",
                           "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
                         },
+                        "perRequestUsd": {
+                          "type": "string",
+                          "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
+                        },
                         "tiers": {
                           "maxItems": 8,
                           "type": "array",
@@ -6750,6 +6769,10 @@
                         "type": "string",
                         "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
                       },
+                      "perRequestUsd": {
+                        "type": "string",
+                        "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
+                      },
                       "tiers": {
                         "maxItems": 8,
                         "type": "array",
@@ -6820,6 +6843,9 @@
                         "type": "boolean"
                       },
                       "transcription": {
+                        "type": "boolean"
+                      },
+                      "video": {
                         "type": "boolean"
                       },
                       "documents": {
@@ -6935,6 +6961,10 @@
                           "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
                         },
                         "perSecondUsd": {
+                          "type": "string",
+                          "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
+                        },
+                        "perRequestUsd": {
                           "type": "string",
                           "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
                         },
@@ -16534,6 +16564,10 @@
                       "requestedById": {
                         "type": "string"
                       },
+                      "requestedByHumanId": {
+                        "nullable": true,
+                        "type": "string"
+                      },
                       "decidedById": {
                         "nullable": true,
                         "type": "string"
@@ -16565,6 +16599,7 @@
                       "payload",
                       "status",
                       "requestedById",
+                      "requestedByHumanId",
                       "decidedById",
                       "decidedAt",
                       "reason",
@@ -16656,6 +16691,10 @@
                     "requestedById": {
                       "type": "string"
                     },
+                    "requestedByHumanId": {
+                      "nullable": true,
+                      "type": "string"
+                    },
                     "decidedById": {
                       "nullable": true,
                       "type": "string"
@@ -16687,6 +16726,7 @@
                     "payload",
                     "status",
                     "requestedById",
+                    "requestedByHumanId",
                     "decidedById",
                     "decidedAt",
                     "reason",
@@ -16782,6 +16822,10 @@
                     "requestedById": {
                       "type": "string"
                     },
+                    "requestedByHumanId": {
+                      "nullable": true,
+                      "type": "string"
+                    },
                     "decidedById": {
                       "nullable": true,
                       "type": "string"
@@ -16813,6 +16857,7 @@
                     "payload",
                     "status",
                     "requestedById",
+                    "requestedByHumanId",
                     "decidedById",
                     "decidedAt",
                     "reason",

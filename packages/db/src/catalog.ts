@@ -16,6 +16,7 @@ export interface CatalogPricing {
   perImageUsd?: string | undefined;
   perMCharUsd?: string | undefined;
   perSecondUsd?: string | undefined;
+  perRequestUsd?: string | undefined;
   audioInputPerMTok?: string | undefined;
   audioOutputPerMTok?: string | undefined;
   tiers?: Record<string, unknown>[] | undefined;
@@ -35,6 +36,7 @@ export function modelPriceColumns(pricing: CatalogPricing) {
     imagePrice: pricing.perImageUsd ?? null,
     charPrice: pricing.perMCharUsd ?? null,
     secondPrice: pricing.perSecondUsd ?? null,
+    requestPrice: pricing.perRequestUsd ?? null,
     audioInputPrice: pricing.audioInputPerMTok ?? null,
     audioOutputPrice: pricing.audioOutputPerMTok ?? null,
     pricingTiers:

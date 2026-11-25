@@ -165,6 +165,23 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('models, aliases and combos over H
       pricing: { perMCharUsd: '15' },
     });
     expect(patched.json()).toMatchObject({ pricing: { perImageUsd: '0.01', perMCharUsd: '15' } });
+    // Video (card 30.6): per generated second plus a fixed price per request.
+    const sora = await call('POST', 'models', {
+      providerId: provider,
+      upstreamModel: 'sora-2',
+      pricing: {
+        inputPerMTok: '0',
+        outputPerMTok: '0',
+        perSecondUsd: '0.1',
+        perRequestUsd: '0.05',
+      },
+      capabilities: { video: true },
+    });
+    expect(sora.statusCode).toBe(201);
+    expect(sora.json()).toMatchObject({
+      pricing: { perSecondUsd: '0.1', perRequestUsd: '0.05' },
+      capabilities: { video: true },
+    });
     // Realtime audio token prices and capability (card 30.5).
     const realtime = await call('POST', 'models', {
       providerId: provider,
@@ -194,6 +211,10 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('models, aliases and combos over H
     expect(snap.models.find((x) => x.upstreamModel === 'gpt-image-1')?.pricing).toMatchObject({
       perImageUsd: '0.01',
       perMCharUsd: '15',
+    });
+    expect(snap.models.find((x) => x.upstreamModel === 'sora-2')).toMatchObject({
+      pricing: { perRequestUsd: '0.05' },
+      capabilities: { video: true },
     });
     expect(snap.models.find((x) => x.upstreamModel === 'gpt-realtime')).toMatchObject({
       pricing: { audioInputPerMTok: '32', audioOutputPerMTok: '64' },

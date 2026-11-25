@@ -132,6 +132,7 @@ export class ModelsService {
         ...(m.imagePrice ? { perImageUsd: dec(m.imagePrice) } : {}),
         ...(m.charPrice ? { perMCharUsd: dec(m.charPrice) } : {}),
         ...(m.secondPrice ? { perSecondUsd: dec(m.secondPrice) } : {}),
+        ...(m.requestPrice ? { perRequestUsd: dec(m.requestPrice) } : {}),
         ...(m.audioInputPrice ? { audioInputPerMTok: dec(m.audioInputPrice) } : {}),
         ...(m.audioOutputPrice ? { audioOutputPerMTok: dec(m.audioOutputPrice) } : {}),
         ...(Array.isArray(m.pricingTiers) && m.pricingTiers.length > 0
@@ -244,6 +245,7 @@ export class ModelsService {
         imagePrice: pricing.perImageUsd ?? null,
         charPrice: pricing.perMCharUsd ?? null,
         secondPrice: pricing.perSecondUsd ?? null,
+        requestPrice: pricing.perRequestUsd ?? null,
         audioInputPrice: pricing.audioInputPerMTok ?? null,
         audioOutputPrice: pricing.audioOutputPerMTok ?? null,
         ...(tiers && tiers.length > 0 ? { pricingTiers: tiers } : {}),
@@ -294,6 +296,7 @@ export class ModelsService {
         ...(p.perImageUsd ? { imagePrice: p.perImageUsd } : {}),
         ...(p.perMCharUsd ? { charPrice: p.perMCharUsd } : {}),
         ...(p.perSecondUsd ? { secondPrice: p.perSecondUsd } : {}),
+        ...(p.perRequestUsd ? { requestPrice: p.perRequestUsd } : {}),
         ...(p.audioInputPerMTok ? { audioInputPrice: p.audioInputPerMTok } : {}),
         ...(p.audioOutputPerMTok ? { audioOutputPrice: p.audioOutputPerMTok } : {}),
         ...(p.tiers
@@ -650,6 +653,7 @@ function normalizePricing(p: ModelPricing) {
     ...(p.perImageUsd ? { perImageUsd: n(p.perImageUsd) } : {}),
     ...(p.perMCharUsd ? { perMCharUsd: n(p.perMCharUsd) } : {}),
     ...(p.perSecondUsd ? { perSecondUsd: n(p.perSecondUsd) } : {}),
+    ...(p.perRequestUsd ? { perRequestUsd: n(p.perRequestUsd) } : {}),
     ...(p.audioInputPerMTok ? { audioInputPerMTok: n(p.audioInputPerMTok) } : {}),
     ...(p.audioOutputPerMTok ? { audioOutputPerMTok: n(p.audioOutputPerMTok) } : {}),
     ...(p.tiers && p.tiers.length > 0

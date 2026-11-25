@@ -5,7 +5,8 @@
  * - cache read/write at their own rates (if absent, the input rate)
  * - Regular output = outputTokens − reasoning, priced at the output rate; reasoning at its own rate or the output rate
  * - Media (card 21.1): images × per-image price, characters at the per-million-characters price and
- *   audio seconds (to the millisecond) at the per-second price, added to any token cost
+ *   audio or video seconds (to the millisecond) at the per-second price, and requests at the
+ *   per-request price (card 30.6), added to any token cost
  * - Context tiers (card 27.5): a prompt longer than a tier's threshold is priced at that tier
  * - Realtime audio tokens (card 30.5): at the audio rates (the text rates when unset); cached audio
  *   at the cache read rate
@@ -47,6 +48,8 @@ export function mediaCost(media: MediaUsage | undefined, pricing: ModelPricing):
     const ms = BigInt(Math.round(media.seconds * 1_000));
     total += (ms * parseUsd(pricing.perSecondUsd) + 500n) / 1_000n;
   }
+  if (media.requests && pricing.perRequestUsd)
+    total += BigInt(media.requests) * parseUsd(pricing.perRequestUsd);
   return total;
 }
 

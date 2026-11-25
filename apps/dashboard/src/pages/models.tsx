@@ -40,7 +40,8 @@ type Capability =
   | 'speech'
   | 'transcription'
   | 'realtime'
-  | 'completions';
+  | 'completions'
+  | 'video';
 type TimeoutKey = 'connectMs' | 'firstByteMs' | 'idleMs' | 'totalMs';
 
 interface Pricing {
@@ -52,6 +53,7 @@ interface Pricing {
   perImageUsd?: string;
   perMCharUsd?: string;
   perSecondUsd?: string;
+  perRequestUsd?: string;
   audioInputPerMTok?: string;
   audioOutputPerMTok?: string;
 }
@@ -149,6 +151,7 @@ interface ModelDraft {
   perImageUsd: string;
   perMCharUsd: string;
   perSecondUsd: string;
+  perRequestUsd: string;
   audioInputPerMTok: string;
   audioOutputPerMTok: string;
   capabilities: Record<Capability, boolean>;
@@ -185,6 +188,7 @@ const CAPABILITIES: Capability[] = [
   'transcription',
   'realtime',
   'completions',
+  'video',
 ];
 const TIMEOUT_KEYS: TimeoutKey[] = ['connectMs', 'firstByteMs', 'idleMs', 'totalMs'];
 
@@ -233,6 +237,7 @@ function modelDraft(model: Model | undefined, providers: Provider[]): ModelDraft
     perImageUsd: model?.pricing.perImageUsd ?? '',
     perMCharUsd: model?.pricing.perMCharUsd ?? '',
     perSecondUsd: model?.pricing.perSecondUsd ?? '',
+    perRequestUsd: model?.pricing.perRequestUsd ?? '',
     audioInputPerMTok: model?.pricing.audioInputPerMTok ?? '',
     audioOutputPerMTok: model?.pricing.audioOutputPerMTok ?? '',
     capabilities: Object.fromEntries(
@@ -973,6 +978,7 @@ function ModelEditor({
     'perImageUsd',
     'perMCharUsd',
     'perSecondUsd',
+    'perRequestUsd',
     'audioInputPerMTok',
     'audioOutputPerMTok',
   ] as const;

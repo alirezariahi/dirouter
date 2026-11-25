@@ -36,6 +36,21 @@ describe('media cost', () => {
   });
 });
 
+describe('video price (card 30.6)', () => {
+  it('prices generated seconds and a fixed price per request', () => {
+    const pricing = {
+      inputPerMTok: '0',
+      outputPerMTok: '0',
+      perSecondUsd: '0.1',
+      perRequestUsd: '0.05',
+    };
+    expect(computeCostUsd(none, pricing, { seconds: 8, requests: 1 })).toBe('0.85000000');
+    expect(computeCostUsd(none, { inputPerMTok: '0', outputPerMTok: '0' }, { requests: 3 })).toBe(
+      '0.00000000',
+    );
+  });
+});
+
 describe('realtime audio token cost (card 30.5)', () => {
   const pricing = {
     inputPerMTok: '4',

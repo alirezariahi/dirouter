@@ -2326,6 +2326,8 @@ export type ModelsControllerList200ItemPricing = {
   perMCharUsd?: string;
   /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
   perSecondUsd?: string;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  perRequestUsd?: string;
   /** @maxItems 8 */
   tiers?: ModelsControllerList200ItemPricingTiersItem[];
   /** @pattern ^(0(\.\d{1,6})?|1(\.0{1,6})?)$ */
@@ -2403,6 +2405,8 @@ export type ModelsControllerCreateBodyPricing = {
   perMCharUsd?: string;
   /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
   perSecondUsd?: string;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  perRequestUsd?: string;
   /** @maxItems 8 */
   tiers?: ModelsControllerCreateBodyPricingTiersItem[];
   /** @pattern ^(0(\.\d{1,6})?|1(\.0{1,6})?)$ */
@@ -2419,6 +2423,7 @@ export type ModelsControllerCreateBodyCapabilities = {
   images?: boolean;
   speech?: boolean;
   transcription?: boolean;
+  video?: boolean;
   documents?: boolean;
   audioInput?: boolean;
 };
@@ -2506,6 +2511,8 @@ export type ModelsControllerCreate200Pricing = {
   perMCharUsd?: string;
   /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
   perSecondUsd?: string;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  perRequestUsd?: string;
   /** @maxItems 8 */
   tiers?: ModelsControllerCreate200PricingTiersItem[];
   /** @pattern ^(0(\.\d{1,6})?|1(\.0{1,6})?)$ */
@@ -2592,6 +2599,8 @@ export type ModelsControllerGet200Pricing = {
   perMCharUsd?: string;
   /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
   perSecondUsd?: string;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  perRequestUsd?: string;
   /** @maxItems 8 */
   tiers?: ModelsControllerGet200PricingTiersItem[];
   /** @pattern ^(0(\.\d{1,6})?|1(\.0{1,6})?)$ */
@@ -2669,6 +2678,8 @@ export type ModelsControllerUpdateBodyPricing = {
   perMCharUsd?: string;
   /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
   perSecondUsd?: string;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  perRequestUsd?: string;
   /** @maxItems 8 */
   tiers?: ModelsControllerUpdateBodyPricingTiersItem[];
   /** @pattern ^(0(\.\d{1,6})?|1(\.0{1,6})?)$ */
@@ -2685,6 +2696,7 @@ export type ModelsControllerUpdateBodyCapabilities = {
   images?: boolean;
   speech?: boolean;
   transcription?: boolean;
+  video?: boolean;
   documents?: boolean;
   audioInput?: boolean;
 };
@@ -2767,6 +2779,8 @@ export type ModelsControllerUpdate200Pricing = {
   perMCharUsd?: string;
   /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
   perSecondUsd?: string;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  perRequestUsd?: string;
   /** @maxItems 8 */
   tiers?: ModelsControllerUpdate200PricingTiersItem[];
   /** @pattern ^(0(\.\d{1,6})?|1(\.0{1,6})?)$ */
@@ -5557,6 +5571,8 @@ export type ChangeRequestsControllerList200Item = {
   status: ChangeRequestsControllerList200ItemStatus;
   requestedById: string;
   /** @nullable */
+  requestedByHumanId: string | null;
+  /** @nullable */
   decidedById: string | null;
   /** @nullable */
   decidedAt: string | null;
@@ -5591,6 +5607,8 @@ export type ChangeRequestsControllerApprove200 = {
   payload: unknown;
   status: ChangeRequestsControllerApprove200Status;
   requestedById: string;
+  /** @nullable */
+  requestedByHumanId: string | null;
   /** @nullable */
   decidedById: string | null;
   /** @nullable */
@@ -5629,6 +5647,8 @@ export type ChangeRequestsControllerReject200 = {
   payload: unknown;
   status: ChangeRequestsControllerReject200Status;
   requestedById: string;
+  /** @nullable */
+  requestedByHumanId: string | null;
   /** @nullable */
   decidedById: string | null;
   /** @nullable */

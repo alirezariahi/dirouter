@@ -51,6 +51,8 @@ import { expireFile, registerFileRoutes } from './files.js';
 import { type BlobStorage, LocalBlobStorage } from './jobs/blobs.js';
 import { DEFAULT_JOBS_OPTIONS, type JobsDeps, type JobsOptions } from './jobs/context.js';
 import { JobPoller } from './jobs/poller.js';
+import { deliverWebhook } from './jobs/webhooks.js';
+import { refreshTask, registerVideoRoutes } from './videos.js';
 import { MemoryJobStore, RedisJobStore } from './jobs/store.js';
 import { configureUpstreamGuard } from './upstream.js';
 import { credentialTokens } from './credential-tokens.js';
@@ -311,7 +313,7 @@ export function buildGateway(opts: GatewayOptions) {
   const realtime = new RealtimeGateway(deps, { ...DEFAULT_REALTIME_SETTINGS, ...opts.realtime });
   realtime.register(app);
 
-  // Files and batches (card 30.1): state in Valkey (or memory on a single node), bytes in the
+  // Files, batches (card 30.1) and async video tasks with webhooks (card 30.6): state in Valkey (or memory on a single node), bytes in the
   // configured storage, followed upstream by the job poller (ADR-0007).
   const jobsRedis = opts.stateRedis ?? opts.limiterRedis;
   const jobDeps: JobsDeps = {
@@ -323,6 +325,7 @@ export function buildGateway(opts: GatewayOptions) {
   };
   registerFileRoutes(app, jobDeps);
   registerBatchRoutes(app, jobDeps);
+  registerVideoRoutes(app, jobDeps);
   const poller = new JobPoller({
     store: jobDeps.jobs,
     logger: opts.logger,
@@ -330,6 +333,8 @@ export function buildGateway(opts: GatewayOptions) {
     handlers: {
       file: (id) => expireFile(jobDeps, id),
       batch: (id) => refreshBatch(jobDeps, id),
+      task: (id) => refreshTask(jobDeps, id),
+      webhook: (id) => deliverWebhook(jobDeps, id),
     },
   });
   app.addHook('onClose', async () => {

@@ -24,6 +24,7 @@ import {
 } from './structured.js';
 import { registerMcp } from './mcp.js';
 import { registerBatches } from './batches.js';
+import { registerVideos } from './videos.js';
 import { registerMedia, registerWorkersAi } from './media.js';
 import { registerCatalog } from './catalog.js';
 import { newRealtimeStats, type RealtimeStats, registerRealtime } from './realtime.js';
@@ -590,6 +591,9 @@ export function buildServer(options: MockServerOptions = {}) {
   const gemini = async (path: string, req: FastifyRequest, reply: FastifyReply) => {
     const [rawModel = 'mock', action = ''] = path.split(':');
     const model = decodeURIComponent(rawModel);
+    if (action === 'predictLongRunning') return videos.veoStart(model, req, reply);
+    if (action === 'cancel' && model.includes('/operations/'))
+      return videos.veoCancel(model, reply);
     const isEmbedding = action === 'embedContent' || action === 'batchEmbedContents';
     if (!isEmbedding && action !== 'generateContent' && action !== 'streamGenerateContent')
       return reply.status(404).send(errorBody('gemini', 404, `unknown action ${action}`, ''));
@@ -740,6 +744,7 @@ export function buildServer(options: MockServerOptions = {}) {
   registerA2a(app);
   registerMedia(app);
   registerBatches(app);
+  const videos = registerVideos(app);
   registerWorkersAi(app);
   registerBedrock(app, { record });
   registerCatalog(app);

@@ -277,6 +277,7 @@ export class SnapshotService implements OnModuleInit, OnModuleDestroy {
           ...(m.imagePrice ? { perImageUsd: usd(m.imagePrice) } : {}),
           ...(m.charPrice ? { perMCharUsd: usd(m.charPrice) } : {}),
           ...(m.secondPrice ? { perSecondUsd: usd(m.secondPrice) } : {}),
+          ...(m.requestPrice ? { perRequestUsd: usd(m.requestPrice) } : {}),
           ...(m.audioInputPrice ? { audioInputPerMTok: usd(m.audioInputPrice) } : {}),
           ...(m.audioOutputPrice ? { audioOutputPerMTok: usd(m.audioOutputPrice) } : {}),
           // Context tiers and batch discount (card 27.5); the gateway prices tiers itself.
