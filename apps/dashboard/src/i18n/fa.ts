@@ -4,6 +4,7 @@ import { guidesFa, organizationFa, providersFa } from './page-messages';
 import { s2Fa } from './s2';
 import { s3Fa } from './s3';
 import { s4Fa } from './s4';
+import { routingRequestsFa } from './routing-requests';
 import { billingFa } from './billing';
 import { mcpPageFa } from './mcp-page';
 import { scopeLimitsFa } from './scope-limits';
@@ -253,6 +254,7 @@ export const fa = {
   s2: s2Fa,
   s3: s3Fa,
   s4: s4Fa,
+  routingRequests: routingRequestsFa,
   billing: billingFa,
   mcpPage: mcpPageFa,
   scopeLimits: scopeLimitsFa,

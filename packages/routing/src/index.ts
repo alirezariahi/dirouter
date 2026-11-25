@@ -6,3 +6,6 @@ export * from './stats.js';
 export * from './hedging.js';
 export * from './classifier.js';
 export * from './auto.js';
+export * from './preferences.js';
+export * from './policy.js';
+export * from './plan.js';

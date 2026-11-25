@@ -15,6 +15,7 @@ import {
   type ConfigSnapshotInput,
   GatewaySettings,
   type ModelPricing,
+  RoutingPolicy,
 } from '@dirouter/contracts';
 import type { Prisma } from '@dirouter/db';
 import type { Logger } from '@dirouter/shared';
@@ -160,6 +161,7 @@ export class SnapshotService implements OnModuleInit, OnModuleDestroy {
       organizations,
       mcpServers,
       bodyCapture,
+      routingPolicies,
     ] = await Promise.all([
       db.provider.findMany({
         where: { deletedAt: null },
@@ -195,6 +197,10 @@ export class SnapshotService implements OnModuleInit, OnModuleDestroy {
       db.mcpServer.findMany({ where: { deletedAt: null }, orderBy: { id: 'asc' } }),
       // Request body capture levels (card 24.1).
       db.bodyCaptureSetting.findMany({
+        orderBy: [{ organizationId: 'asc' }, { scope: 'asc' }, { scopeId: 'asc' }],
+      }),
+      // Routing policies (cards 32.1, 32.5 and 32.7).
+      db.routingPolicySetting.findMany({
         orderBy: [{ organizationId: 'asc' }, { scope: 'asc' }, { scopeId: 'asc' }],
       }),
     ]);
@@ -414,6 +420,27 @@ export class SnapshotService implements OnModuleInit, OnModuleDestroy {
               scopeId: r.scopeId,
               level: r.level as 'none' | 'metadata' | 'full',
             })),
+          }
+        : {}),
+      // Routing policies (cards 32.1, 32.5 and 32.7); absent while none is set, like bodyCapture.
+      // A stored policy that no longer parses is left out rather than breaking the snapshot.
+      ...(routingPolicies.length > 0
+        ? {
+            routingPolicies: routingPolicies.flatMap((r) => {
+              const policy = RoutingPolicy.safeParse(r.policy);
+              if (!policy.success) {
+                this.logger.warn({ scope: r.scope, scopeId: r.scopeId }, 'invalid routing policy');
+                return [];
+              }
+              return [
+                {
+                  organizationId: r.organizationId,
+                  scope: r.scope as 'organization' | 'project' | 'key',
+                  scopeId: r.scopeId,
+                  ...policy.data,
+                },
+              ];
+            }),
           }
         : {}),
     };

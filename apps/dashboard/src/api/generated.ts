@@ -4344,6 +4344,11 @@ export type StatsControllerCacheParams = {
 
 export type StatsControllerCache200 = {[key: string]: unknown};
 
+/**
+ * OpenRouter-style provider preferences, as a request's `provider` object (card 32.1)
+ */
+export type StatsControllerSimulateBodyProvider = {[key: string]: unknown};
+
 export type StatsControllerSimulateBody = {
   /**
      * model slug, alias or combo slug
@@ -4365,6 +4370,15 @@ export type StatsControllerSimulateBody = {
   maxOutputTokens?: number;
   /** @maxLength 200 */
   sessionKey?: string;
+  /** OpenRouter-style provider preferences, as a request's `provider` object (card 32.1) */
+  provider?: StatsControllerSimulateBodyProvider;
+  /**
+     * fallback models tried after `model` (card 32.1)
+     * @maxItems 8
+     * @items.minLength 1
+     * @items.maxLength 256
+     */
+  models?: string[];
 };
 
 export type StatsControllerSimulate200 = {[key: string]: unknown};
@@ -7082,6 +7096,215 @@ export type LimitsControllerRemove200 = {
      */
   maxConcurrency: number | null;
   budgets: LimitsControllerRemove200BudgetsItem[];
+};
+
+export type RoutingPoliciesControllerList200PoliciesItemPolicyProviderSort = typeof RoutingPoliciesControllerList200PoliciesItemPolicyProviderSort[keyof typeof RoutingPoliciesControllerList200PoliciesItemPolicyProviderSort];
+
+
+export const RoutingPoliciesControllerList200PoliciesItemPolicyProviderSort = {
+  price: 'price',
+  throughput: 'throughput',
+  latency: 'latency',
+} as const;
+
+export type RoutingPoliciesControllerList200PoliciesItemPolicyProviderMaxPrice = {
+  /** @minimum 0 */
+  prompt?: number;
+  /** @minimum 0 */
+  completion?: number;
+  /** @minimum 0 */
+  request?: number;
+  /** @minimum 0 */
+  image?: number;
+};
+
+export type RoutingPoliciesControllerList200PoliciesItemPolicyProvider = {
+  /**
+     * @maxItems 50
+     * @items.minLength 1
+     * @items.maxLength 100
+     */
+  order?: string[];
+  /**
+     * @maxItems 50
+     * @items.minLength 1
+     * @items.maxLength 100
+     */
+  only?: string[];
+  /**
+     * @maxItems 50
+     * @items.minLength 1
+     * @items.maxLength 100
+     */
+  ignore?: string[];
+  allowFallbacks?: boolean;
+  sort?: RoutingPoliciesControllerList200PoliciesItemPolicyProviderSort;
+  maxPrice?: RoutingPoliciesControllerList200PoliciesItemPolicyProviderMaxPrice;
+};
+
+export type RoutingPoliciesControllerList200PoliciesItemPolicy = {
+  provider?: RoutingPoliciesControllerList200PoliciesItemPolicyProvider;
+  lockProvider?: boolean;
+};
+
+export type RoutingPoliciesControllerList200PoliciesItem = {
+  scope: string;
+  scopeId: string;
+  policy: RoutingPoliciesControllerList200PoliciesItemPolicy;
+  updatedAt: string;
+};
+
+export type RoutingPoliciesControllerList200 = {
+  policies: RoutingPoliciesControllerList200PoliciesItem[];
+};
+
+export type RoutingPoliciesControllerSetBodyScope = typeof RoutingPoliciesControllerSetBodyScope[keyof typeof RoutingPoliciesControllerSetBodyScope];
+
+
+export const RoutingPoliciesControllerSetBodyScope = {
+  organization: 'organization',
+  project: 'project',
+  key: 'key',
+} as const;
+
+export type RoutingPoliciesControllerSetBodyPolicyProviderSort = typeof RoutingPoliciesControllerSetBodyPolicyProviderSort[keyof typeof RoutingPoliciesControllerSetBodyPolicyProviderSort];
+
+
+export const RoutingPoliciesControllerSetBodyPolicyProviderSort = {
+  price: 'price',
+  throughput: 'throughput',
+  latency: 'latency',
+} as const;
+
+export type RoutingPoliciesControllerSetBodyPolicyProviderMaxPrice = {
+  /** @minimum 0 */
+  prompt?: number;
+  /** @minimum 0 */
+  completion?: number;
+  /** @minimum 0 */
+  request?: number;
+  /** @minimum 0 */
+  image?: number;
+};
+
+export type RoutingPoliciesControllerSetBodyPolicyProvider = {
+  /**
+     * @maxItems 50
+     * @items.minLength 1
+     * @items.maxLength 100
+     */
+  order?: string[];
+  /**
+     * @maxItems 50
+     * @items.minLength 1
+     * @items.maxLength 100
+     */
+  only?: string[];
+  /**
+     * @maxItems 50
+     * @items.minLength 1
+     * @items.maxLength 100
+     */
+  ignore?: string[];
+  allowFallbacks?: boolean;
+  sort?: RoutingPoliciesControllerSetBodyPolicyProviderSort;
+  maxPrice?: RoutingPoliciesControllerSetBodyPolicyProviderMaxPrice;
+};
+
+/**
+ * @nullable
+ */
+export type RoutingPoliciesControllerSetBodyPolicy = {
+  provider?: RoutingPoliciesControllerSetBodyPolicyProvider;
+  lockProvider?: boolean;
+} | null;
+
+export type RoutingPoliciesControllerSetBody = {
+  scope: RoutingPoliciesControllerSetBodyScope;
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  scopeId: string;
+  /** @nullable */
+  policy: RoutingPoliciesControllerSetBodyPolicy;
+};
+
+export type RoutingPoliciesControllerSet200Scope = typeof RoutingPoliciesControllerSet200Scope[keyof typeof RoutingPoliciesControllerSet200Scope];
+
+
+export const RoutingPoliciesControllerSet200Scope = {
+  organization: 'organization',
+  project: 'project',
+  key: 'key',
+} as const;
+
+export type RoutingPoliciesControllerSet200PolicyProviderSort = typeof RoutingPoliciesControllerSet200PolicyProviderSort[keyof typeof RoutingPoliciesControllerSet200PolicyProviderSort];
+
+
+export const RoutingPoliciesControllerSet200PolicyProviderSort = {
+  price: 'price',
+  throughput: 'throughput',
+  latency: 'latency',
+} as const;
+
+export type RoutingPoliciesControllerSet200PolicyProviderMaxPrice = {
+  /** @minimum 0 */
+  prompt?: number;
+  /** @minimum 0 */
+  completion?: number;
+  /** @minimum 0 */
+  request?: number;
+  /** @minimum 0 */
+  image?: number;
+};
+
+export type RoutingPoliciesControllerSet200PolicyProvider = {
+  /**
+     * @maxItems 50
+     * @items.minLength 1
+     * @items.maxLength 100
+     */
+  order?: string[];
+  /**
+     * @maxItems 50
+     * @items.minLength 1
+     * @items.maxLength 100
+     */
+  only?: string[];
+  /**
+     * @maxItems 50
+     * @items.minLength 1
+     * @items.maxLength 100
+     */
+  ignore?: string[];
+  allowFallbacks?: boolean;
+  sort?: RoutingPoliciesControllerSet200PolicyProviderSort;
+  maxPrice?: RoutingPoliciesControllerSet200PolicyProviderMaxPrice;
+};
+
+/**
+ * @nullable
+ */
+export type RoutingPoliciesControllerSet200Policy = {
+  provider?: RoutingPoliciesControllerSet200PolicyProvider;
+  lockProvider?: boolean;
+} | null;
+
+export type RoutingPoliciesControllerSet200 = {
+  scope: RoutingPoliciesControllerSet200Scope;
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  scopeId: string;
+  /** @nullable */
+  policy: RoutingPoliciesControllerSet200Policy;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     */
+  configVersion: number;
 };
 
 type AwaitedInput<T> = PromiseLike<T> | T;
@@ -31220,6 +31443,214 @@ export function useLimitsControllerRemove<TData = Awaited<ReturnType<typeof limi
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getLimitsControllerRemoveQueryOptions(orgId,scope,scopeId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export type routingPoliciesControllerListResponse200 = {
+  data: RoutingPoliciesControllerList200
+  status: 200
+}
+
+export type routingPoliciesControllerListResponseSuccess = (routingPoliciesControllerListResponse200) & {
+  headers: Headers;
+};
+;
+
+export type routingPoliciesControllerListResponse = (routingPoliciesControllerListResponseSuccess)
+
+export const getRoutingPoliciesControllerListUrl = (orgId: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/routing-policies`
+}
+
+export const routingPoliciesControllerList = async (orgId: string, options?: Parameters<typeof orvalFetch>[1]): Promise<routingPoliciesControllerListResponse> => {
+
+  return orvalFetch<routingPoliciesControllerListResponse>(getRoutingPoliciesControllerListUrl(orgId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getRoutingPoliciesControllerListMutationKey = () => ['routingPoliciesControllerList'] as const;
+
+export const getRoutingPoliciesControllerListMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof routingPoliciesControllerList>>, TError,RoutingPoliciesControllerListMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof routingPoliciesControllerList>>, TError,RoutingPoliciesControllerListMutationVariables, TContext> => {
+
+const mutationKey = getRoutingPoliciesControllerListMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof routingPoliciesControllerList>>, RoutingPoliciesControllerListMutationVariables> = (props) => {
+          const {orgId} = props ?? {};
+
+          return  routingPoliciesControllerList(orgId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RoutingPoliciesControllerListMutationResult = NonNullable<Awaited<ReturnType<typeof routingPoliciesControllerList>>>
+
+    export type RoutingPoliciesControllerListMutationError = unknown
+    export type RoutingPoliciesControllerListMutationVariables = {orgId: string}
+
+    export const useRoutingPoliciesControllerList = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof routingPoliciesControllerList>>, TError,RoutingPoliciesControllerListMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof routingPoliciesControllerList>>,
+        TError,
+        RoutingPoliciesControllerListMutationVariables,
+        TContext
+      > => {
+      return useMutation(getRoutingPoliciesControllerListMutationOptions(options), queryClient);
+    }
+
+export type routingPoliciesControllerSetResponse200 = {
+  data: RoutingPoliciesControllerSet200
+  status: 200
+}
+
+export type routingPoliciesControllerSetResponseSuccess = (routingPoliciesControllerSetResponse200) & {
+  headers: Headers;
+};
+;
+
+export type routingPoliciesControllerSetResponse = (routingPoliciesControllerSetResponseSuccess)
+
+export const getRoutingPoliciesControllerSetUrl = (orgId: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/routing-policies`
+}
+
+export const routingPoliciesControllerSet = async (orgId: string,
+    routingPoliciesControllerSetBody: RoutingPoliciesControllerSetBody, options?: Parameters<typeof orvalFetch>[1]): Promise<routingPoliciesControllerSetResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return orvalFetch<routingPoliciesControllerSetResponse>(getRoutingPoliciesControllerSetUrl(orgId),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(routingPoliciesControllerSetBody)
+  }
+);}
+
+
+
+
+
+export const getRoutingPoliciesControllerSetQueryKey = (orgId: string,
+    routingPoliciesControllerSetBody?: RoutingPoliciesControllerSetBody,) => {
+    return [
+    'PUT', `/api/v1/orgs/${orgId}/routing-policies`, routingPoliciesControllerSetBody
+    ] as const;
+    }
+
+
+export const getRoutingPoliciesControllerSetQueryOptions = <TData = Awaited<ReturnType<typeof routingPoliciesControllerSet>>, TError = unknown>(orgId: string,
+    routingPoliciesControllerSetBody: RoutingPoliciesControllerSetBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof routingPoliciesControllerSet>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getRoutingPoliciesControllerSetQueryKey(orgId,routingPoliciesControllerSetBody);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof routingPoliciesControllerSet>>> = ({ signal }) => routingPoliciesControllerSet(orgId,routingPoliciesControllerSetBody, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: orgId !== null && orgId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof routingPoliciesControllerSet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type RoutingPoliciesControllerSetQueryResult = NonNullable<Awaited<ReturnType<typeof routingPoliciesControllerSet>>>
+export type RoutingPoliciesControllerSetQueryError = unknown
+
+
+export function useRoutingPoliciesControllerSet<TData = Awaited<ReturnType<typeof routingPoliciesControllerSet>>, TError = unknown>(
+ orgId: string,
+    routingPoliciesControllerSetBody: RoutingPoliciesControllerSetBody, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof routingPoliciesControllerSet>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof routingPoliciesControllerSet>>,
+          TError,
+          Awaited<ReturnType<typeof routingPoliciesControllerSet>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useRoutingPoliciesControllerSet<TData = Awaited<ReturnType<typeof routingPoliciesControllerSet>>, TError = unknown>(
+ orgId: string,
+    routingPoliciesControllerSetBody: RoutingPoliciesControllerSetBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof routingPoliciesControllerSet>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof routingPoliciesControllerSet>>,
+          TError,
+          Awaited<ReturnType<typeof routingPoliciesControllerSet>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useRoutingPoliciesControllerSet<TData = Awaited<ReturnType<typeof routingPoliciesControllerSet>>, TError = unknown>(
+ orgId: string,
+    routingPoliciesControllerSetBody: RoutingPoliciesControllerSetBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof routingPoliciesControllerSet>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useRoutingPoliciesControllerSet<TData = Awaited<ReturnType<typeof routingPoliciesControllerSet>>, TError = unknown>(
+ orgId: string,
+    routingPoliciesControllerSetBody: RoutingPoliciesControllerSetBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof routingPoliciesControllerSet>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getRoutingPoliciesControllerSetQueryOptions(orgId,routingPoliciesControllerSetBody,options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 

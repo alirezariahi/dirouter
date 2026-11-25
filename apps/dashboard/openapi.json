@@ -10982,6 +10982,21 @@
                   "sessionKey": {
                     "type": "string",
                     "maxLength": 200
+                  },
+                  "provider": {
+                    "description": "OpenRouter-style provider preferences, as a request's `provider` object (card 32.1)",
+                    "type": "object",
+                    "additionalProperties": {}
+                  },
+                  "models": {
+                    "description": "fallback models tried after `model` (card 32.1)",
+                    "maxItems": 8,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 256
+                    }
                   }
                 },
                 "required": [
@@ -20570,6 +20585,376 @@
         ],
         "tags": [
           "limits"
+        ]
+      }
+    },
+    "/api/v1/orgs/{orgId}/routing-policies": {
+      "get": {
+        "operationId": "RoutingPoliciesController_list",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "policies": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "scope": {
+                            "type": "string"
+                          },
+                          "scopeId": {
+                            "type": "string"
+                          },
+                          "policy": {
+                            "type": "object",
+                            "properties": {
+                              "provider": {
+                                "type": "object",
+                                "properties": {
+                                  "order": {
+                                    "maxItems": 50,
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 100
+                                    }
+                                  },
+                                  "only": {
+                                    "maxItems": 50,
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 100
+                                    }
+                                  },
+                                  "ignore": {
+                                    "maxItems": 50,
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 100
+                                    }
+                                  },
+                                  "allowFallbacks": {
+                                    "type": "boolean"
+                                  },
+                                  "sort": {
+                                    "type": "string",
+                                    "enum": [
+                                      "price",
+                                      "throughput",
+                                      "latency"
+                                    ]
+                                  },
+                                  "maxPrice": {
+                                    "type": "object",
+                                    "properties": {
+                                      "prompt": {
+                                        "type": "number",
+                                        "minimum": 0
+                                      },
+                                      "completion": {
+                                        "type": "number",
+                                        "minimum": 0
+                                      },
+                                      "request": {
+                                        "type": "number",
+                                        "minimum": 0
+                                      },
+                                      "image": {
+                                        "type": "number",
+                                        "minimum": 0
+                                      }
+                                    }
+                                  }
+                                }
+                              },
+                              "lockProvider": {
+                                "type": "boolean"
+                              }
+                            }
+                          },
+                          "updatedAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "scope",
+                          "scopeId",
+                          "policy",
+                          "updatedAt"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "policies"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "models & routing"
+        ]
+      },
+      "put": {
+        "operationId": "RoutingPoliciesController_set",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "scope": {
+                    "type": "string",
+                    "enum": [
+                      "organization",
+                      "project",
+                      "key"
+                    ]
+                  },
+                  "scopeId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "policy": {
+                    "nullable": true,
+                    "type": "object",
+                    "properties": {
+                      "provider": {
+                        "type": "object",
+                        "properties": {
+                          "order": {
+                            "maxItems": 50,
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 100
+                            }
+                          },
+                          "only": {
+                            "maxItems": 50,
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 100
+                            }
+                          },
+                          "ignore": {
+                            "maxItems": 50,
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 100
+                            }
+                          },
+                          "allowFallbacks": {
+                            "type": "boolean"
+                          },
+                          "sort": {
+                            "type": "string",
+                            "enum": [
+                              "price",
+                              "throughput",
+                              "latency"
+                            ]
+                          },
+                          "maxPrice": {
+                            "type": "object",
+                            "properties": {
+                              "prompt": {
+                                "type": "number",
+                                "minimum": 0
+                              },
+                              "completion": {
+                                "type": "number",
+                                "minimum": 0
+                              },
+                              "request": {
+                                "type": "number",
+                                "minimum": 0
+                              },
+                              "image": {
+                                "type": "number",
+                                "minimum": 0
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "lockProvider": {
+                        "type": "boolean"
+                      }
+                    }
+                  }
+                },
+                "required": [
+                  "scope",
+                  "scopeId",
+                  "policy"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "the policy applies once the gateway loads the new snapshot",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "scope": {
+                      "type": "string",
+                      "enum": [
+                        "organization",
+                        "project",
+                        "key"
+                      ]
+                    },
+                    "scopeId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 100
+                    },
+                    "policy": {
+                      "nullable": true,
+                      "type": "object",
+                      "properties": {
+                        "provider": {
+                          "type": "object",
+                          "properties": {
+                            "order": {
+                              "maxItems": 50,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 100
+                              }
+                            },
+                            "only": {
+                              "maxItems": 50,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 100
+                              }
+                            },
+                            "ignore": {
+                              "maxItems": 50,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 100
+                              }
+                            },
+                            "allowFallbacks": {
+                              "type": "boolean"
+                            },
+                            "sort": {
+                              "type": "string",
+                              "enum": [
+                                "price",
+                                "throughput",
+                                "latency"
+                              ]
+                            },
+                            "maxPrice": {
+                              "type": "object",
+                              "properties": {
+                                "prompt": {
+                                  "type": "number",
+                                  "minimum": 0
+                                },
+                                "completion": {
+                                  "type": "number",
+                                  "minimum": 0
+                                },
+                                "request": {
+                                  "type": "number",
+                                  "minimum": 0
+                                },
+                                "image": {
+                                  "type": "number",
+                                  "minimum": 0
+                                }
+                              }
+                            }
+                          }
+                        },
+                        "lockProvider": {
+                          "type": "boolean"
+                        }
+                      }
+                    },
+                    "configVersion": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "scope",
+                    "scopeId",
+                    "policy",
+                    "configVersion"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "models & routing"
         ]
       }
     }

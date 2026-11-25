@@ -155,3 +155,50 @@ describe('routing simulator strategies (card 25.4)', () => {
     expect(screen.queryByTestId('simulator-signal')).toBeNull();
   });
 });
+
+describe('routing simulator provider preferences (card 32.1)', () => {
+  it('sends the provider object and fallback models and shows their effect', async () => {
+    const calls = mockApi({
+      ok: true,
+      status: 200,
+      kind: 'combo',
+      models: ['chat', 'backup'],
+      preferences: { sort: 'throughput' },
+      policy: { lockProvider: false, sources: [] },
+      combo: { id: 'c', slug: 'chat', strategy: 'priority' },
+      candidates: [candidate('a', { throughputTps: 85.5 })],
+      skipped: [{ modelId: 'b', credentialId: 'k', reason: 'above_max_price_prompt' }],
+    });
+    await renderPage();
+    fireEvent.change(screen.getByLabelText(/Model, alias or combo/), { target: { value: 'chat' } });
+    fireEvent.change(screen.getByLabelText(/Fallback models/), { target: { value: 'backup' } });
+    fireEvent.change(screen.getByLabelText(/Provider preferences/), {
+      target: { value: '{"sort":"throughput","max_price":{"prompt":1}}' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Simulate' }));
+    expect((await screen.findByTestId('simulator-throughput')).textContent).toBe(
+      'Generation speed: 85.5 tokens/s',
+    );
+    expect(screen.getByTestId('simulator-models').textContent).toBe(
+      'Models in order: chat → backup',
+    );
+    expect(screen.getByText('Input price above max_price')).toBeTruthy();
+    expect(calls.find((call) => call.path === '/orgs/org_1/routes/simulate')?.body).toMatchObject({
+      model: 'chat',
+      models: ['backup'],
+      provider: { sort: 'throughput', max_price: { prompt: 1 } },
+    });
+  });
+
+  it('refuses provider preferences that are not a JSON object', async () => {
+    const calls = mockApi({ ok: true, status: 200, candidates: [], skipped: [] });
+    await renderPage();
+    fireEvent.change(screen.getByLabelText(/Model, alias or combo/), { target: { value: 'chat' } });
+    fireEvent.change(screen.getByLabelText(/Provider preferences/), { target: { value: '[1' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Simulate' }));
+    expect(
+      await screen.findByText('Provider preferences must be a valid JSON object.'),
+    ).toBeTruthy();
+    expect(calls.some((call) => call.path.endsWith('/routes/simulate'))).toBe(false);
+  });
+});

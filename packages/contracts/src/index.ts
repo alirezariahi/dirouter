@@ -11,6 +11,7 @@ export * from './request-body.js';
 export * from './live.js';
 export * from './canonical.js';
 export * from './config-snapshot.js';
+export * from './routing-policy.js';
 export * from './usage-event.js';
 export * from './errors.js';
 export * from './json-schema.js';

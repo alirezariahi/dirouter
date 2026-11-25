@@ -528,6 +528,8 @@ export class StatsService {
       estimatedInputTokens?: number | undefined;
       maxOutputTokens?: number | undefined;
       sessionKey?: string | undefined;
+      provider?: Record<string, unknown> | undefined;
+      models?: string[] | undefined;
     },
   ) {
     if (body.virtualKeyId) {

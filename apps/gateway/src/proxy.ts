@@ -43,7 +43,8 @@ import {
   executeWithHedging,
   HedgeBudget,
   isAutoAlias,
-  isRouteError,
+  isPlanError,
+  planRoute,
   type ResolvedRoute,
   type RetryBudget,
   type TaskType,
@@ -118,6 +119,12 @@ import {
 } from './genai.js';
 import { resolveCredentialKey, tokenFailure } from './credential-tokens.js';
 import { callUpstream, mergeTimeouts, readErrorBody, UpstreamTimeout } from './upstream.js';
+import {
+  planErrorToClient,
+  type RequestRouting,
+  routingFromRequest,
+  withoutRoutingFields,
+} from './route-request.js';
 
 export interface ProxyDeps {
   store: ConfigStore;
@@ -500,6 +507,7 @@ async function proxyRequest(
 
   let canonical: CanonicalRequest;
   let key;
+  let requestRouting: RequestRouting;
   try {
     key = authenticate(
       config,
@@ -513,7 +521,9 @@ async function proxyRequest(
     );
     const body = req.body as { model?: unknown } | undefined;
     if (typeof body?.model === 'string' && body.model.length <= 256) model = body.model;
-    canonical = parseInbound(api, req.body, deps.logger);
+    canonical = withoutRoutingFields(parseInbound(api, req.body, deps.logger));
+    // Provider preferences and fallback models (card 32.1), merged with the key's policy.
+    requestRouting = routingFromRequest(config.snapshot.routingPolicies, key, req.body);
   } catch (error) {
     sendError(
       reply,
@@ -745,10 +755,15 @@ async function proxyRequest(
     deps.logger.debug({ requestId, routing }, 'auto routing decision');
   }
   // The alias was checked against the key above; the target is the gateway's choice, not the client's.
-  const route = config.router.resolve(
-    routing ? { ...key, allowedModels: [] } : key,
-    routing?.target ?? canonical.model,
-    {
+  if (requestRouting.clientIgnored) void reply.header('x-dirouter-preferences', 'locked');
+  // Same planner as the routing simulator (cards 12.5 and 32.1): resolve, fallback models, then
+  // provider preferences.
+  const route = planRoute(config.router, {
+    key: routing ? { ...key, allowedModels: [] } : key,
+    model: routing?.target ?? canonical.model,
+    fallbackModels: requestRouting.fallbackModels,
+    preferences: requestRouting.preferences,
+    resolve: {
       estimatedInputTokens,
       ...(canonical.maxOutputTokens !== undefined
         ? { maxOutputTokens: canonical.maxOutputTokens }
@@ -757,21 +772,9 @@ async function proxyRequest(
       // Power-of-two-choices for `latency` combos (card 12.1); other strategies ignore it.
       p2c: true,
     },
-  );
-  if (isRouteError(route)) {
-    const error =
-      route.error === 'model_not_found'
-        ? new NotFoundError('model_not_found', {
-            message: `Model '${canonical.model}' not found`,
-            param: 'model',
-          })
-        : route.error === 'model_not_allowed'
-          ? new ForbiddenError('model_not_allowed', { param: 'model' })
-          : route.error === 'context_length_exceeded'
-            ? new DiRouterError('context_length_exceeded', {
-                message: `Request needs about ${String(route.neededTokens ?? 0)} tokens (input estimate + max output), more than any model for '${canonical.model}' supports`,
-              })
-            : new UpstreamError('no_available_provider');
+  });
+  if (isPlanError(route)) {
+    const error = planErrorToClient(route, canonical.model);
     deps.logger.debug({ requestId, skipped: route.skipped }, 'route failed');
     sendError(reply, api, error, requestId);
     finishSpan('error', { 'gateway.error': route.error });
@@ -1657,6 +1660,18 @@ async function runRoute(
     config.router.stats.recordLatency(
       result.candidate.model.id,
       outcome.kind === 'json' ? Date.now() - started : outcome.result.ttftMs,
+    );
+    // Live generation speed per model and provider (card 32.1): output tokens over the time spent
+    // generating them (after the first token for a stream).
+    const answered = result.attempts.findLast((a) => a.outcome === 'success');
+    config.router.stats.recordThroughput(
+      result.candidate.model.id,
+      outcome.kind === 'json'
+        ? outcome.response.usage.outputTokens
+        : outcome.result.usage.outputTokens,
+      outcome.kind === 'json'
+        ? (answered?.latencyMs ?? Date.now() - started)
+        : Date.now() - started - outcome.result.ttftMs,
     );
     if (route.combo?.sticky && ctx.sessionKey)
       config.router.pinSession(

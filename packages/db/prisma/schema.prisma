@@ -1585,3 +1585,19 @@ model RequestBody {
   @@index([organizationId, createdAt])
   @@map("request_bodies")
 }
+
+/// Routing policies per organization, project or key (cards 32.1, 32.5 and 32.7): provider
+/// preferences and their lock, data policy and the routing explanation permission. The JSON is a
+/// `RoutingPolicy` from @dirouter/contracts; the gateway combines the three scopes.
+model RoutingPolicySetting {
+  organizationId String   @map("organization_id")
+  /// organization | project | key
+  scope          String
+  scopeId        String   @map("scope_id")
+  policy         Json
+  updatedById    String?  @map("updated_by_id")
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@id([organizationId, scope, scopeId])
+  @@map("routing_policies")
+}

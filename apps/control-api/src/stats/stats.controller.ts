@@ -195,6 +195,17 @@ const SimulateBody = z.object({
   estimatedInputTokens: z.coerce.number().int().nonnegative().optional(),
   maxOutputTokens: z.coerce.number().int().positive().optional(),
   sessionKey: z.string().max(200).optional(),
+  provider: z
+    .record(z.string(), z.unknown())
+    .optional()
+    .describe(
+      "OpenRouter-style provider preferences, as a request's `provider` object (card 32.1)",
+    ),
+  models: z
+    .array(z.string().min(1).max(256))
+    .max(8)
+    .optional()
+    .describe('fallback models tried after `model` (card 32.1)'),
 });
 
 @ApiTags('stats & logs')

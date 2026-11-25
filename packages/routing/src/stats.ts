@@ -14,6 +14,8 @@ export interface ModelStatsSnapshot {
   recentRequests: number;
   inFlight: number;
   lastSuccessAt?: number;
+  /** Output tokens per second (EWMA, card 32.1). */
+  throughputTps?: number;
 }
 
 const DEFAULT_ALPHA = 0.2;
@@ -68,6 +70,7 @@ export class RouterStats {
   readonly #requests = new Map<string, MinuteCounter>();
   readonly #inFlight = new Map<string, number>();
   readonly #lastSuccess = new Map<string, number>();
+  readonly #throughput = new Map<string, number>();
   readonly #alpha: number;
   readonly #decayMs: number;
   readonly #now: () => number;
@@ -104,6 +107,25 @@ export class RouterStats {
     return Math.max(decayed, this.#latency.get(modelId) ?? 0);
   }
 
+  /**
+   * Generation speed of a model (and so of its provider: a model belongs to one provider), in
+   * output tokens per second, for `sort: throughput` and the `:nitro` suffix (card 32.1).
+   */
+  recordThroughput(modelId: string, outputTokens: number, generationMs: number): void {
+    if (!(outputTokens > 0) || !(generationMs > 0) || !Number.isFinite(generationMs)) return;
+    const tps = (outputTokens * 1000) / generationMs;
+    const prev = this.#throughput.get(modelId);
+    this.#throughput.set(
+      modelId,
+      prev === undefined ? tps : prev * (1 - this.#alpha) + tps * this.#alpha,
+    );
+  }
+
+  /** Output tokens per second; undefined until the model has answered once. */
+  throughput(modelId: string): number | undefined {
+    return this.#throughput.get(modelId);
+  }
+
   lastSuccessAt(modelId: string): number | undefined {
     return this.#lastSuccess.get(modelId);
   }
@@ -138,6 +160,7 @@ export class RouterStats {
       recentRequests: recent,
       inFlight: this.#inFlight.get(modelId) ?? 0,
       ...(lastSuccess !== undefined ? { lastSuccessAt: lastSuccess } : {}),
+      ...(this.#throughput.has(modelId) ? { throughputTps: this.#throughput.get(modelId) } : {}),
     };
   }
 
@@ -159,6 +182,7 @@ export class RouterStats {
     this.#requests.clear();
     this.#inFlight.clear();
     this.#lastSuccess.clear();
+    this.#throughput.clear();
   }
 }
 

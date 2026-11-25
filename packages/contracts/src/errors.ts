@@ -233,6 +233,13 @@ export const ERROR_CODES = {
     anthropic: 'overloaded_error',
     title: 'No available provider',
   },
+  /** Every provider was removed by the request's provider preferences (card 32.1). */
+  no_provider_matches_preferences: {
+    status: 400,
+    openai: 'invalid_request_error',
+    anthropic: 'invalid_request_error',
+    title: 'No provider matches the provider preferences',
+  },
   // Internal
   service_unavailable: {
     status: 503,

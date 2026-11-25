@@ -3,6 +3,7 @@ import { type DynamicModule, Module } from '@nestjs/common';
 
 import { AuthModule } from './auth/auth.module.js';
 import { BodiesModule } from './bodies/bodies.module.js';
+import { RoutingPoliciesModule } from './routing-policies/routing-policies.module.js';
 import { AlertsModule } from './alerts/alerts.module.js';
 import { BillingModule } from './billing/billing.module.js';
 import { PortalModule } from './portal/portal.module.js';
@@ -60,6 +61,7 @@ export class AppModule {
         PlaygroundModule,
         BodiesModule,
         LimitsModule,
+        RoutingPoliciesModule,
       ],
       controllers: [HealthController],
       providers: [

@@ -4,6 +4,8 @@
 
 > Code: `packages/routing` (cards 5.1, 5.3, 5.5, 5.6). No I/O; the index is built once per ConfigSnapshot.
 
+See also [request-level routing](request-routing.md): provider preferences, fallback models and routing policies (sprint 5).
+
 ## 1. Model name resolution
 
 ```

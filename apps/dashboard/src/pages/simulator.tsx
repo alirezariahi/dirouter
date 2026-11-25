@@ -4,6 +4,7 @@
  */
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
+import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '../components/ui/button';
@@ -27,6 +28,8 @@ interface Signals {
   recentRequests?: number;
   inFlight?: number;
   headroomTokens?: number;
+  /** Output tokens per second (card 32.1). */
+  throughputTps?: number;
 }
 type SignalStrategy = 'latency' | 'cost' | 'least-used' | 'headroom';
 const SIGNAL_STRATEGIES: readonly string[] = ['latency', 'cost', 'least-used', 'headroom'];
@@ -69,6 +72,18 @@ interface Simulation {
   skipped?: Skipped[];
   neededTokens?: number;
   error?: { code?: string; message?: string };
+  /** Provider preferences and fallback models (card 32.1). */
+  models?: string[];
+  preferences?: Record<string, unknown>;
+  policy?: { lockProvider: boolean; sources: { scope: string; scopeId: string }[] };
+  clientPreferencesIgnored?: boolean;
+}
+
+/** A skip reason or route error, from the sprint 2 messages or the request-routing ones. */
+function reasonText(t: TFunction, reason: string): string {
+  return t(`s2.simulator.reason.${reason}`, {
+    defaultValue: t(`routingRequests.reason.${reason}`, { defaultValue: reason }),
+  });
 }
 interface KeyRow {
   id: string;
@@ -98,6 +113,9 @@ export default function SimulatorPage() {
   const [inputTokens, setInputTokens] = useState('');
   const [maxOutput, setMaxOutput] = useState('');
   const [sessionKey, setSessionKey] = useState('');
+  const [providerJson, setProviderJson] = useState('');
+  const [fallbackModels, setFallbackModels] = useState('');
+  const [jsonError, setJsonError] = useState(false);
 
   const keys = useQuery({
     queryKey: ['simulator-keys', org?.id],
@@ -112,7 +130,7 @@ export default function SimulatorPage() {
   const modelSlug = new Map(list<ModelRow>(models.data).map((m) => [m.id, m.slug]));
 
   const run = useMutation({
-    mutationFn: () =>
+    mutationFn: (provider: Record<string, unknown> | undefined) =>
       api<Simulation>(`${base}/routes/simulate`, {
         method: 'POST',
         body: {
@@ -121,12 +139,31 @@ export default function SimulatorPage() {
           ...(inputTokens ? { estimatedInputTokens: Number(inputTokens) } : {}),
           ...(maxOutput ? { maxOutputTokens: Number(maxOutput) } : {}),
           ...(sessionKey.trim() ? { sessionKey: sessionKey.trim() } : {}),
+          ...(provider ? { provider } : {}),
+          ...(fallbacks.length > 0 ? { models: fallbacks } : {}),
         },
       }),
   });
+  const fallbacks = fallbackModels
+    .split(',')
+    .map((m) => m.trim())
+    .filter(Boolean);
   const submit = (event: SubmitEvent) => {
     event.preventDefault();
-    if (model.trim()) run.mutate();
+    if (!model.trim()) return;
+    let provider: Record<string, unknown> | undefined;
+    if (providerJson.trim()) {
+      try {
+        const parsed: unknown = JSON.parse(providerJson);
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('');
+        provider = parsed as Record<string, unknown>;
+      } catch {
+        setJsonError(true);
+        return;
+      }
+    }
+    setJsonError(false);
+    run.mutate(provider);
   };
 
   const result = run.data;
@@ -211,6 +248,32 @@ export default function SimulatorPage() {
               setSessionKey(event.target.value);
             }}
           />
+          <Field
+            name="fallbackModels"
+            label={t('routingRequests.fallbackModels')}
+            dir="ltr"
+            value={fallbackModels}
+            onChange={(event) => {
+              setFallbackModels(event.target.value);
+            }}
+          />
+          <label
+            htmlFor="simulator-provider"
+            className="flex flex-col gap-1 text-sm md:col-span-2 lg:col-span-3"
+          >
+            <span className="font-medium">{t('routingRequests.preferences')}</span>
+            <textarea
+              id="simulator-provider"
+              dir="ltr"
+              rows={2}
+              value={providerJson}
+              placeholder={t('routingRequests.preferencesHint')}
+              onChange={(event) => {
+                setProviderJson(event.target.value);
+              }}
+              className="rounded-lg border border-border bg-surface px-3 py-2 font-mono text-xs"
+            />
+          </label>
           <div className="flex items-end">
             <Button type="submit" disabled={run.isPending || !model.trim()}>
               {result ? t('s2.simulator.again') : t('s2.simulator.run')}
@@ -221,12 +284,17 @@ export default function SimulatorPage() {
       </Card>
 
       {run.isError ? <FormError message={errorMessage(run.error, t)} /> : null}
+      {jsonError ? <FormError message={t('routingRequests.invalidJson')} /> : null}
 
       {result ? (
         <>
           {routeError ? (
             <FormError
-              message={`${t(`s2.simulator.error.${routeError}`, { defaultValue: routeError })}${
+              message={`${t(`s2.simulator.error.${routeError}`, {
+                defaultValue: t(`routingRequests.error.${routeError}`, {
+                  defaultValue: routeError,
+                }),
+              })}${
                 result.neededTokens !== undefined
                   ? ` (${t('s2.simulator.neededTokens')}: ${String(result.neededTokens)})`
                   : ''
@@ -254,6 +322,24 @@ export default function SimulatorPage() {
                   </span>
                 ) : null}
               </div>
+              {result.models && result.models.length > 1 ? (
+                <p className="mb-2 text-sm text-muted" data-testid="simulator-models">
+                  {t('routingRequests.models')}: <span dir="ltr">{result.models.join(' → ')}</span>
+                </p>
+              ) : null}
+              {result.preferences ? (
+                <p className="mb-2 text-sm text-muted" data-testid="simulator-preferences">
+                  {t('routingRequests.applied')}:{' '}
+                  <code dir="ltr" className="text-xs">
+                    {JSON.stringify(result.preferences)}
+                  </code>
+                </p>
+              ) : null}
+              {result.clientPreferencesIgnored ? (
+                <p className="mb-2 text-sm text-warn">{t('routingRequests.locked')}</p>
+              ) : result.policy?.lockProvider ? (
+                <p className="mb-2 text-sm text-muted">{t('routingRequests.lockedPolicy')}</p>
+              ) : null}
               {result.combo ? (
                 <p className="mb-3 text-xs text-muted">
                   {t(`models.strategyHelp.${result.combo.strategy}`, { defaultValue: '' })}
@@ -282,6 +368,14 @@ export default function SimulatorPage() {
                         <span className="text-muted" data-testid="simulator-signal">
                           {t(`s2.simulator.signal.${signalStrategy}`)}:{' '}
                           <span dir="ltr">{signalValue(signalStrategy, c.signals, lang, t)}</span>
+                        </span>
+                      ) : null}
+                      {c.signals?.throughputTps !== undefined ? (
+                        <span className="text-muted" data-testid="simulator-throughput">
+                          {t('routingRequests.throughput')}:{' '}
+                          <span dir="ltr">
+                            {formatNumber(c.signals.throughputTps, lang)} {t('routingRequests.tps')}
+                          </span>
                         </span>
                       ) : null}
                     </li>
@@ -316,9 +410,7 @@ export default function SimulatorPage() {
                       <td className="py-1.5" dir="ltr">
                         {s.credentialId ?? '—'}
                       </td>
-                      <td className="py-1.5">
-                        {t(`s2.simulator.reason.${s.reason}`, { defaultValue: s.reason })}
-                      </td>
+                      <td className="py-1.5">{reasonText(t, s.reason)}</td>
                     </tr>
                   ))}
                 </tbody>

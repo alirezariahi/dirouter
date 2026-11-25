@@ -19,11 +19,12 @@ import {
   type HealthChange,
   HealthRegistry,
   headroom,
-  isRouteError,
+  isPlanError,
+  planRoute,
   RetryBudget,
   type TaskType,
 } from '@dirouter/routing';
-import { type Keyring, type Logger, prefixedId } from '@dirouter/shared';
+import { type DiRouterError, type Keyring, type Logger, prefixedId } from '@dirouter/shared';
 import { setTimeout as sleep } from 'node:timers/promises';
 
 import type { Redis } from 'ioredis';
@@ -33,6 +34,7 @@ import { authenticate, extractApiKey } from './auth.js';
 import { ConfigStore } from './config-store.js';
 import { createGatewayMetrics } from './metrics.js';
 import { probeProvider } from './probe.js';
+import { planErrorStatus, type RequestRouting, routingFromRequest } from './route-request.js';
 import { balanceForProbe } from './balance.js';
 import { handleCountTokens, handleProxy } from './proxy.js';
 import { BudgetGuard } from './budget-guard.js';
@@ -633,37 +635,56 @@ export function buildGateway(opts: GatewayOptions) {
     const number = (value: unknown) => (typeof value === 'number' ? value : undefined);
     const inputTokens = number(body.estimatedInputTokens);
     const outputTokens = number(body.maxOutputTokens);
-    const result = config.router.simulate(key, requested, {
-      ...(number(body.estimatedInputTokens) !== undefined
-        ? { estimatedInputTokens: number(body.estimatedInputTokens) }
-        : {}),
-      ...(number(body.maxOutputTokens) !== undefined
-        ? { maxOutputTokens: number(body.maxOutputTokens) }
-        : {}),
-      ...(typeof body.sessionKey === 'string' ? { sessionKey: body.sessionKey } : {}),
-      ...(typeof body.promptPrefixHash === 'string'
-        ? { promptPrefixHash: body.promptPrefixHash }
-        : {}),
-      ...(body.p2c === true ? { p2c: true } : {}),
-      ...(body.preferLastKnownGood === true ? { preferLastKnownGood: true } : {}),
+    // The request's `provider` object and `models` array (card 32.1), read exactly like traffic.
+    let requestRouting: RequestRouting;
+    try {
+      requestRouting = routingFromRequest(config.snapshot.routingPolicies, key, body);
+    } catch (error) {
+      const e = error as DiRouterError;
+      return reply.status(e.status).send(e.toOpenAI());
+    }
+    const result = planRoute(config.router, {
+      key,
+      model: requested,
+      fallbackModels: requestRouting.fallbackModels,
+      preferences: requestRouting.preferences,
+      resolve: {
+        ...(number(body.estimatedInputTokens) !== undefined
+          ? { estimatedInputTokens: number(body.estimatedInputTokens) }
+          : {}),
+        ...(number(body.maxOutputTokens) !== undefined
+          ? { maxOutputTokens: number(body.maxOutputTokens) }
+          : {}),
+        ...(typeof body.sessionKey === 'string' ? { sessionKey: body.sessionKey } : {}),
+        ...(typeof body.promptPrefixHash === 'string'
+          ? { promptPrefixHash: body.promptPrefixHash }
+          : {}),
+        ...(body.p2c === true ? { p2c: true } : {}),
+        ...(body.preferLastKnownGood === true ? { preferLastKnownGood: true } : {}),
+      },
     });
-    if (isRouteError(result)) {
-      const status =
-        result.error === 'model_not_found'
-          ? 404
-          : result.error === 'model_not_allowed'
-            ? 403
-            : result.error === 'no_available_provider'
-              ? 503
-              : 400;
-      return reply.status(status).send({
+    const routingView = {
+      ...(requestRouting.preferences ? { preferences: requestRouting.preferences } : {}),
+      policy: {
+        lockProvider: requestRouting.policy.lockProvider,
+        sources: requestRouting.policy.sources,
+      },
+      ...(requestRouting.clientIgnored ? { clientPreferencesIgnored: true } : {}),
+    };
+    if (isPlanError(result)) {
+      return reply.status(planErrorStatus(result.error)).send({
         error: { message: result.error, code: result.error },
-        ...(result.neededTokens !== undefined ? { neededTokens: result.neededTokens } : {}),
+        ...('neededTokens' in result && result.neededTokens !== undefined
+          ? { neededTokens: result.neededTokens }
+          : {}),
         skipped: result.skipped,
+        ...routingView,
       });
     }
     return {
       requested: result.requested,
+      models: result.models,
+      ...routingView,
       kind: result.kind,
       combo: result.combo
         ? { id: result.combo.id, slug: result.combo.slug, strategy: result.combo.strategy }
@@ -687,6 +708,9 @@ export function buildGateway(opts: GatewayOptions) {
             costMicroUsd: estimateMicroUsd(candidate.model, inputTokens ?? 0, outputTokens ?? 0),
             recentRequests: stats.recentRequests,
             inFlight: stats.inFlight,
+            ...(stats.throughputTps !== undefined
+              ? { throughputTps: Math.round(stats.throughputTps * 10) / 10 }
+              : {}),
             ...(room !== Number.MAX_SAFE_INTEGER ? { headroomTokens: room } : {}),
           },
         };
