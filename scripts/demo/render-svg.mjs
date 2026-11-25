@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* eslint-disable no-console */
 // Draws a looping terminal animation (SVG, no JavaScript) from a timeline that
 // scripts/demo/fallback.mjs recorded. GitHub renders animated SVG in README images.
 // Usage: node scripts/demo/render-svg.mjs timeline.json assets/demo-fallback.svg

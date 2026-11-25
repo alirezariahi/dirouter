@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* eslint-disable no-console */
 // Live fallback demo: two mock providers behind the gateway, the primary is killed mid-run.
 // Every request keeps answering 200; the gateway moves to the backup (an Anthropic-format API)
 // without the client changing anything. No database, Valkey or Docker: the gateway reads a
@@ -134,7 +135,9 @@ async function waitReady(url) {
   for (let i = 0; i < 100; i++) {
     try {
       if ((await fetch(url)).ok) return;
-    } catch {}
+    } catch {
+      // not listening yet; retry
+    }
     await sleep(100);
   }
   throw new Error(`not ready: ${url}`);
