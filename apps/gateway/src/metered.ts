@@ -25,6 +25,7 @@ import {
 import type { FastifyRequest } from 'fastify';
 
 import { authenticate, extractApiKey } from './auth.js';
+import { resolveCredentialKey, tokenFailure } from './credential-tokens.js';
 import { chargeUnits, chargeUsd } from './pricing.js';
 import { budgetScopes, limitScopes, type ProxyDeps, toClientError } from './proxy.js';
 import { callUpstream, mergeTimeouts, readErrorBody, UpstreamTimeout } from './upstream.js';
@@ -276,6 +277,25 @@ export async function runMetered<T>(
         },
       };
     }
+    const proxyUrl =
+      candidate.credential.proxy?.url ?? candidate.provider.proxy?.url ?? settings.proxy?.url;
+    try {
+      apiKey = await resolveCredentialKey(candidate.provider, candidate.credential, apiKey, {
+        signal,
+        proxyUrl,
+      });
+    } catch (error) {
+      deps.logger.warn(
+        {
+          requestId,
+          provider: candidate.provider.slug,
+          credential: candidate.credential.id,
+          error: (error as Error).message,
+        },
+        'credential token refresh failed',
+      );
+      return { ok: false as const, error: tokenFailure(error) };
+    }
     let upstream;
     try {
       upstream = input.build(candidate, apiKey);
@@ -308,7 +328,7 @@ export async function runMetered<T>(
         timeouts,
         signal,
         false,
-        candidate.credential.proxy?.url ?? candidate.provider.proxy?.url ?? settings.proxy?.url,
+        proxyUrl,
       );
       try {
         if (!call.response.ok)

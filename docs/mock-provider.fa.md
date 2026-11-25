@@ -24,6 +24,10 @@
 | `POST /__mock/reset`                                                   | صفر کردن آمار                                                           |
 | `PUT /__mock/config`                                                   | `{"directives":"…"}` سناریوی پیش‌فرض سراسری                             |
 | `GET /healthz`                                                         | سلامت                                                                   |
+| `POST /oauth2/token`                                                   | endpoint توکن JWT-bearer گوگل (کارت ۲۷.۴)                               |
+| `POST /{tenant}/oauth2/v2.0/token`                                     | endpoint توکن client credentials نسخهٔ ۲ در Entra ID                    |
+| `POST /{v1,v1beta1}/projects/…/publishers/google/models/{m}:{verb}`    | Vertex AI (با همان handler جمینای)                                      |
+| `GET/PUT /__mock/oauth`                                                | توکن‌های صادرشده برای هر هویت؛ `{"ttlSeconds":n,"reset":true}`          |
 
 ## انتخاب سناریو
 
@@ -81,5 +85,9 @@ curl -sN http://mock.localhost/v1/chat/completions -H 'x-mock: chunks=20,chunk_d
 | `mock/claude`  | سالم، type `anthropic`      | ترجمهٔ OpenAI به Anthropic                 |
 | `mock/azure`   | سالم، type `azure-openai`   | مسیر deployment در Azure                   |
 | `mock/long`    | ۶۰۰ chunk با فاصلهٔ ۱ ثانیه | stream ده‌دقیقه‌ای از Traefik              |
+
+## endpointهای توکن OAuth (کارت ۲۷.۴)
+
+`POST /oauth2/token` grant نوع JWT-bearer گوگل را می‌پذیرد: assertion باید JWT با الگوریتم RS256 و claimهای `iss`، `scope`، `aud` (که به `/oauth2/token` ختم شود)، `iat` و `exp` (حداکثر یک ساعت بعد) باشد؛ امضا بررسی نمی‌شود. `POST /{tenant}/oauth2/v2.0/token` grant نوع client credentials در Entra ID را می‌پذیرد (`scope` باید به `/.default` ختم شود). هویتی (`iss` یا `client_id`) که `fail` در آن باشد پاسخ `401 invalid_client` می‌گیرد تا یک credential شکست بخورد و دیگری کار کند. توکن‌های صادرشده با `mock-oauth-` شروع می‌شوند؛ هر درخواستی که چنین توکنی را پس از انقضا (یا توکنی را که mock صادر نکرده) بفرستد `401` می‌گیرد، پس معلوم می‌شود گیت‌وی به‌موقع تمدید می‌کند یا نه. `PUT /__mock/oauth {"ttlSeconds":4}` عمر توکن‌های جدید را کوتاه می‌کند؛ `GET /__mock/oauth` شمارش `byIdentity` و `refused` را برمی‌گرداند.
 
 </div>

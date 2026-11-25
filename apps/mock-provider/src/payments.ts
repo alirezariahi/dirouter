@@ -45,13 +45,14 @@ export function registerPayments(app: FastifyInstance, options: PaymentMockOptio
   const stripe = new Map<string, StripeSession>();
   let refId = 100_000;
 
-  app.addContentTypeParser(
-    'application/x-www-form-urlencoded',
-    { parseAs: 'string' },
-    (_req, body, done) => {
-      done(null, Object.fromEntries(new URLSearchParams(String(body))));
-    },
-  );
+  if (!app.hasContentTypeParser('application/x-www-form-urlencoded'))
+    app.addContentTypeParser(
+      'application/x-www-form-urlencoded',
+      { parseAs: 'string' },
+      (_req, body, done) => {
+        done(null, Object.fromEntries(new URLSearchParams(String(body))));
+      },
+    );
 
   // ───────────── Zarinpal ─────────────
 

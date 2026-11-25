@@ -1236,6 +1236,124 @@ try {
       assert.equal((await ask(key.key, 'what time is it')).response.status, 200);
     },
   );
+
+  // ───────────── Epic 27: providers ─────────────
+
+  await scenario(
+    '27.4 Vertex service account and Azure Entra ID: tokens obtained, refreshed before expiry, a failing credential cools down alone',
+    async () => {
+      const tag = randomUUID().slice(0, 6);
+      const oauth = (body) =>
+        request(
+          `${urls.mock}/__mock/oauth`,
+          body
+            ? {
+                method: 'PUT',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify(body),
+              }
+            : {},
+          200,
+        );
+      await oauth({ reset: true, ttlSeconds: 4 });
+      cleanups.push(() => oauth({ reset: true, ttlSeconds: 3600 }));
+      // The key pair is generated here; no key material lives in the repository.
+      const { generateKeyPairSync } = await import('node:crypto');
+      const pem = generateKeyPairSync('rsa', { modulusLength: 2048 })
+        .privateKey.export({ type: 'pkcs8', format: 'pem' })
+        .toString();
+      const email = `e2e-${tag}@demo.iam.gserviceaccount.com`;
+      const provider = async (body) => {
+        const created = (
+          await published(() =>
+            org('POST', 'providers', { name: `s4-${tag}-${body.type}`, ...body }, 201),
+          )
+        ).body;
+        cleanups.push(() => org('DELETE', `providers/${created.id}`, undefined, null));
+        return created;
+      };
+      const model = async (providerId, upstreamModel, slug) => {
+        const created = (
+          await published(() =>
+            org(
+              'POST',
+              'models',
+              {
+                providerId,
+                upstreamModel,
+                slug,
+                pricing: { inputPerMTok: '1', outputPerMTok: '2' },
+              },
+              201,
+            ),
+          )
+        ).body;
+        cleanups.push(() => org('DELETE', `models/${created.id}`, undefined, null));
+        return created;
+      };
+      const vertex = await provider({
+        type: 'vertex',
+        baseUrl: 'http://mock-provider:8090',
+        options: {
+          project: 'demo',
+          location: 'us-central1',
+          tokenUrl: 'http://mock-provider:8090/oauth2/token',
+        },
+        credentials: [
+          {
+            name: 'sa',
+            secret: JSON.stringify({
+              type: 'service_account',
+              project_id: 'demo',
+              private_key_id: 'e2e',
+              private_key: pem,
+              client_email: email,
+            }),
+          },
+        ],
+      });
+      const entra = (clientId) =>
+        JSON.stringify({ tenantId: 'contoso', clientId, clientSecret: 'e2e-client-secret' });
+      const azure = await provider({
+        type: 'azure-openai',
+        baseUrl: 'http://mock-provider:8090',
+        options: { authMode: 'entra', authorityHost: 'http://mock-provider:8090' },
+        credentials: [
+          { name: 'bad', secret: entra(`fail-${tag}`) },
+          { name: 'good', secret: entra(`good-${tag}`) },
+        ],
+      });
+      const vModel = await model(vertex.id, 'gemini-mock-flash', `e2e-${tag}/vertex`);
+      const aModel = await model(azure.id, 'gpt-dep', `e2e-${tag}/azure`);
+      const key = await createKey('oauth');
+      const ask = (slug) =>
+        chat(key.key, { model: slug, messages: [{ role: 'user', content: 'hi' }] });
+
+      // Vertex: one token for back-to-back calls, a new one past half the 4 s lifetime, no expired
+      // token ever reaches the model endpoint (the mock answers 401 to one).
+      assert.equal((await ask(vModel.slug)).response.status, 200);
+      assert.equal((await ask(vModel.slug)).response.status, 200);
+      assert.equal((await oauth()).body.byIdentity[email], 1);
+      await new Promise((r) => setTimeout(r, 2_500));
+      assert.equal((await ask(vModel.slug)).response.status, 200);
+      assert.equal((await oauth()).body.byIdentity[email], 2);
+      await new Promise((r) => setTimeout(r, 2_500));
+      const late = await ask(vModel.slug);
+      assert.equal(late.response.status, 200, late.text);
+      assert.equal((await oauth()).body.refused, 0);
+
+      // Azure: every call succeeds through the good credential; the failing one never gets a token
+      // and does not take the provider down.
+      for (let i = 0; i < 8; i++) {
+        const res = await ask(aModel.slug);
+        assert.equal(res.response.status, 200, res.text);
+      }
+      const stats = (await oauth()).body;
+      assert.equal(stats.byIdentity[`contoso/good-${tag}`] >= 1, true, JSON.stringify(stats));
+      assert.equal(stats.byIdentity[`contoso/fail-${tag}`], undefined);
+      console.log(`     oauth tokens issued: ${JSON.stringify(stats.byIdentity)}`);
+    },
+  );
   // ───────────── Epic 28: MCP and A2A ─────────────
 
   /** Registers an MCP server (replacing one left over with the same slug) and removes it after. */

@@ -353,6 +353,16 @@ class OpenAICompatibleAdapter implements ProviderAdapter {
 
 export const AZURE_DEFAULT_API_VERSION = '2024-10-21';
 
+/**
+ * `api-key` for a resource key; with `options.authMode: 'entra'` the gateway has already exchanged
+ * the Entra ID client credentials for an access token (card 27.4), sent as a Bearer token.
+ */
+function azureAuthHeader(provider: ProviderConfig, apiKey: string): Record<string, string> {
+  return provider.options.authMode === 'entra'
+    ? { authorization: `Bearer ${apiKey}` }
+    : { 'api-key': apiKey };
+}
+
 class AzureOpenAIAdapter extends OpenAICompatibleAdapter {
   constructor() {
     super('azure-openai');
@@ -376,7 +386,7 @@ class AzureOpenAIAdapter extends OpenAICompatibleAdapter {
       headers: {
         'content-type': 'application/json',
         accept: ctx.request.stream ? 'text/event-stream' : 'application/json',
-        'api-key': ctx.apiKey,
+        ...azureAuthHeader(ctx.provider, ctx.apiKey),
         ...ctx.credentialHeaders,
       },
       body: JSON.stringify(body),
@@ -391,7 +401,7 @@ class AzureOpenAIAdapter extends OpenAICompatibleAdapter {
     return {
       url: `${trimSlash(provider.baseUrl)}/openai/deployments?api-version=${apiVersion}`,
       method: 'GET',
-      headers: { 'api-key': apiKey },
+      headers: azureAuthHeader(provider, apiKey),
     };
   }
 }
@@ -694,7 +704,8 @@ function vertexVersion(provider: ProviderConfig): string {
 /**
  * Vertex AI adapter (card 11.3): the Gemini-compatible publisher endpoint with OAuth bearer
  * tokens. Project and location come from provider options; the credential is an access token
- * (or `x-goog-api-key` when `options.authMode === 'apiKey'`).
+ * (or `x-goog-api-key` when `options.authMode === 'apiKey'`). A service-account JSON key is
+ * exchanged for an access token by the gateway before the request is built (card 27.4).
  */
 export class VertexAdapter extends GeminiAdapter {
   override readonly type: ProviderType = 'vertex';

@@ -22,6 +22,10 @@ A fake provider compatible with OpenAI, Azure OpenAI and Anthropic (stream and n
 | `POST /__mock/reset`                                                   | Reset the statistics                                                                   |
 | `PUT /__mock/config`                                                   | `{"directives":"…"}` global default scenario                                           |
 | `GET /healthz`                                                         | Health                                                                                 |
+| `POST /oauth2/token`                                                   | Google JWT-bearer token endpoint (card 27.4)                                           |
+| `POST /{tenant}/oauth2/v2.0/token`                                     | Entra ID v2 client-credentials token endpoint                                          |
+| `POST /{v1,v1beta1}/projects/…/publishers/google/models/{m}:{verb}`    | Vertex AI (shares the Gemini handler)                                                  |
+| `GET/PUT /__mock/oauth`                                                | Issued tokens per identity; `{"ttlSeconds":n,"reset":true}`                            |
 
 ## Scenario selection
 
@@ -79,3 +83,7 @@ curl -sN http://mock.localhost/v1/chat/completions -H 'x-mock: chunks=20,chunk_d
 | `mock/claude`  | healthy, type `anthropic`    | OpenAI to Anthropic translation              |
 | `mock/azure`   | healthy, type `azure-openai` | deployment path in Azure                     |
 | `mock/long`    | 600 chunks, 1 second apart   | ten-minute stream through Traefik            |
+
+## OAuth token endpoints (card 27.4)
+
+`POST /oauth2/token` accepts Google's JWT-bearer grant: the assertion must be an RS256 JWT with `iss`, `scope`, `aud` (ending in `/oauth2/token`), `iat` and `exp` (at most one hour later); the signature is not verified. `POST /{tenant}/oauth2/v2.0/token` accepts Entra ID's client-credentials grant (`scope` must end in `/.default`). An identity (`iss` or `client_id`) containing `fail` gets `401 invalid_client`, so one credential can fail while another works. Issued tokens start with `mock-oauth-`; any request that presents such a token after it expired, or one the mock never issued, gets `401`, which shows whether the gateway refreshes in time. `PUT /__mock/oauth {"ttlSeconds":4}` shortens the lifetime of new tokens; `GET /__mock/oauth` returns `byIdentity` counts and `refused`.

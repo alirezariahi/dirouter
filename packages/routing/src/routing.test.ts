@@ -466,6 +466,27 @@ describe('cooldown, lockout and auth', () => {
     ]);
   });
 
+  it('a failed OAuth token refresh cools down only that credential, not the provider (card 27.4)', () => {
+    const { router, health, clock } = setup();
+    const refreshFailed = {
+      ...classified('auth', { message: 'token refresh failed: token endpoint returned 503' }),
+      credentialAction: 'cooldown' as const,
+    };
+    for (let i = 0; i < 20; i++) health.recordFailure(t, refreshFailed);
+    // The other credential of the same provider keeps serving; the provider breaker stays closed.
+    expect(ids(router.resolve(key(), 'a/m1'))).toEqual(['m1:a-k2']);
+    expect(health.providerBreaker('a').state).toBe('closed');
+    expect(health.modelBreaker('m1').state).toBe('closed');
+    const report = health.report().credentials.find((c) => c.credentialId === 'a-k1');
+    expect(report?.cooldownUntil).toBeGreaterThan(health.now());
+    expect(report?.disabledUntil).toBeUndefined();
+    clock.advance(300_000);
+    expect((ids(router.resolve(key(), 'a/m1', { random: () => 0 })) as string[]).sort()).toEqual([
+      'm1:a-k1',
+      'm1:a-k2',
+    ]);
+  });
+
   it('cooldown without Retry-After grows exponentially', () => {
     const { health } = setup();
     health.recordFailure(t, classified('rate_limit', { message: 'x' }));

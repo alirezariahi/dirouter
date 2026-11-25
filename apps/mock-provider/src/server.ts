@@ -24,6 +24,7 @@ import {
 } from './structured.js';
 import { registerMcp } from './mcp.js';
 import { registerMedia, registerWorkersAi } from './media.js';
+import { registerOAuth } from './oauth.js';
 import { type PaymentMockOptions, registerPayments } from './payments.js';
 
 type Api = 'openai' | 'anthropic' | 'gemini';
@@ -104,6 +105,9 @@ export function buildServer(options: MockServerOptions = {}) {
   const app = Fastify({ logger: false, bodyLimit: 10 * 1024 * 1024 });
   let defaults = parseScenario(options.defaultDirectives, DEFAULT_SCENARIO);
   let stats = newStats();
+
+  // Mock OAuth token endpoints (card 27.4); registered first so its token check runs early.
+  registerOAuth(app);
 
   app.addHook('onRequest', (req, reply, done) => {
     if (req.url.startsWith('/__mock') || req.url === '/healthz') {
@@ -500,8 +504,8 @@ export function buildServer(options: MockServerOptions = {}) {
   // ───────────── Gemini ─────────────
   // POST /v1beta/models/{model}:generateContent and :streamGenerateContent?alt=sse
 
-  app.post<{ Params: { '*': string } }>('/v1beta/models/*', async (req, reply) => {
-    const [rawModel = 'mock', action = ''] = req.params['*'].split(':');
+  const gemini = async (path: string, req: FastifyRequest, reply: FastifyReply) => {
+    const [rawModel = 'mock', action = ''] = path.split(':');
     const model = decodeURIComponent(rawModel);
     const isEmbedding = action === 'embedContent' || action === 'batchEmbedContents';
     if (!isEmbedding && action !== 'generateContent' && action !== 'streamGenerateContent')
@@ -603,7 +607,18 @@ export function buildServer(options: MockServerOptions = {}) {
       sent++;
     }
     res.end();
-  });
+  };
+  app.post<{ Params: { '*': string } }>('/v1beta/models/*', (req, reply) =>
+    gemini(req.params['*'], req, reply),
+  );
+  // Vertex AI (card 27.4): /{v1|v1beta1}/projects/{p}/locations/{l}/publishers/google/models/{m}:{verb}
+  // shares the Gemini handler; tokens from the mock OAuth endpoint are checked in the onRequest hook.
+  for (const version of ['v1', 'v1beta1'])
+    app.post<{ Params: { '*': string } }>(`/${version}/projects/*`, (req, reply) => {
+      const at = req.params['*'].indexOf('/publishers/google/models/');
+      if (at < 0) return reply.status(404).send(errorBody('gemini', 404, 'unknown path', ''));
+      return gemini(req.params['*'].slice(at + '/publishers/google/models/'.length), req, reply);
+    });
 
   app.get('/v1beta/models', async (req, reply) => {
     const s = scenarioFor(req);

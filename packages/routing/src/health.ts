@@ -1,7 +1,7 @@
 /**
  * In-memory health state per node (cards 5.5 and 5.6):
  * - Circuit breaker for the provider and for the model (sliding error-rate window + minimum volume)
- * - Cooldown per credential (429), model lockout on a credential, credential disabling (auth)
+ * - Cooldown per credential (429 or a failed OAuth token refresh), model lockout on a credential, credential disabling (auth)
  *
  * Synchronization between nodes (Valkey) is outside this class: changes are published via `onChange`
  * and remote state is applied via `applyRemote`. A Valkey outage only stops synchronization;
@@ -270,10 +270,16 @@ export class HealthRegistry {
     target: { providerId: string; modelId: string; credentialId: string },
     error: ClassifiedError,
   ): void {
+    const now = this.#clock();
+    // A credential-only failure that is not a 429 (an OAuth token refresh that failed, card 27.4)
+    // says nothing about the provider: only that credential cools down, the breakers stay as they are.
+    if (error.credentialAction === 'cooldown' && error.class !== 'rate_limit') {
+      this.#coolCredential(target.credentialId, error.retryAfterMs, now);
+      return;
+    }
     if (BREAKER_CLASSES.has(error.class)) this.#recordBreakers(target, false);
     else this.#recordBreakers(target, true); // A user/key error is a sign the service is healthy
 
-    const now = this.#clock();
     if (error.credentialAction === 'disable') {
       const reason = `${error.class}: ${error.message}`.slice(0, 200);
       this.#disabled.set(target.credentialId, { until: now + this.#disableMs, reason });
@@ -303,6 +309,16 @@ export class HealthRegistry {
         this.#onChange({ kind: 'cooldown', credentialId: target.credentialId, until });
       }
     }
+  }
+
+  /** Credential cooldown with exponential backoff per consecutive strike. */
+  #coolCredential(credentialId: string, retryAfterMs: number | undefined, now: number): void {
+    const prev = this.#cooldowns.get(credentialId);
+    const strikes = (prev?.strikes ?? 0) + 1;
+    const until =
+      now + (retryAfterMs ?? Math.min(this.#maxCooldownMs, this.#cooldownMs * 2 ** (strikes - 1)));
+    this.#cooldowns.set(credentialId, { until, strikes });
+    this.#onChange({ kind: 'cooldown', credentialId, until });
   }
 
   /** Apply a change received from another node. */

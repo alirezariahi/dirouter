@@ -5,3 +5,4 @@ export * from './media.js';
 export * from './plugins/adapter.js';
 export * from './plugins/loader.js';
 export * from './plugins/sandbox.js';
+export * from './oauth.js';

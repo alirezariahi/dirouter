@@ -9,6 +9,7 @@ import { adapterForProvider, classifyNetworkError } from '@dirouter/providers';
 import { decrypt, type Keyring, ValidationError } from '@dirouter/shared';
 import { z } from 'zod';
 
+import { resolveCredentialKey, tokenFailure } from './credential-tokens.js';
 import { callUpstream, mergeTimeouts, readErrorBody, UpstreamTimeout } from './upstream.js';
 
 export const ProbeRequest = z.object({
@@ -37,8 +38,26 @@ export async function probeProvider(body: unknown, keyring: Keyring): Promise<Pr
     : provider.credentials.find((c) => c.enabled);
   const secret = credential ? decrypt(keyring, credential.secret, credential.id) : '';
   const adapter = adapterForProvider(provider);
-  const req = adapter.listModelsRequest(provider, secret);
   const proxyUrl = credential?.proxy?.url ?? provider.proxy?.url ?? parsed.data.proxyUrl;
+  let key = secret;
+  if (credential) {
+    // A service-account or Entra ID credential is tested by obtaining a token with it (card 27.4).
+    const tokenStarted = Date.now();
+    try {
+      key = await resolveCredentialKey(provider, credential, secret, {
+        signal: new AbortController().signal,
+        proxyUrl,
+      });
+    } catch (error) {
+      return {
+        ok: false,
+        latencyMs: Date.now() - tokenStarted,
+        error: { class: 'auth', message: tokenFailure(error).message },
+        models: [],
+      };
+    }
+  }
+  const req = adapter.listModelsRequest(provider, key);
   const timeouts = mergeTimeouts(
     { connectMs: 5_000, firstByteMs: 15_000, idleMs: 15_000, totalMs: 20_000 },
     provider.timeouts,

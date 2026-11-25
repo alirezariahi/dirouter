@@ -312,3 +312,93 @@ describe('structured output (card 27.1)', () => {
     expect(bytes.toString('utf8')).toContain('dirouter_structured_output');
   });
 });
+
+describe('mock OAuth token endpoints (card 27.4)', () => {
+  const form = (path: string, fields: Record<string, string>) =>
+    fetch(base + path, {
+      method: 'POST',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams(fields).toString(),
+    });
+  const jwt = (claims: Record<string, unknown>) =>
+    [{ alg: 'RS256', typ: 'JWT' }, claims, 'sig']
+      .map((part) =>
+        Buffer.from(typeof part === 'string' ? part : JSON.stringify(part)).toString('base64url'),
+      )
+      .join('.');
+  const now = () => Math.floor(Date.now() / 1000);
+  const claims = (iss: string) => ({
+    iss,
+    scope: 'https://www.googleapis.com/auth/cloud-platform',
+    aud: `${base}/oauth2/token`,
+    iat: now(),
+    exp: now() + 3600,
+  });
+  const grant = 'urn:ietf:params:oauth:grant-type:jwt-bearer';
+  const configure = (body: Record<string, unknown>) =>
+    fetch(`${base}/__mock/oauth`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+
+  it('exchanges a service-account JWT and accepts the token on Vertex until it expires', async () => {
+    await configure({ reset: true, ttlSeconds: 1 });
+    const res = await form('/oauth2/token', {
+      grant_type: grant,
+      assertion: jwt(claims('sa@demo')),
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { access_token: string; expires_in: number };
+    expect(body.expires_in).toBe(1);
+    const vertex = (token: string) =>
+      post(
+        '/v1beta1/projects/demo/locations/us-central1/publishers/google/models/gemini-mock-flash:generateContent',
+        { contents: [{ role: 'user', parts: [{ text: 'hi' }] }] },
+        { authorization: `Bearer ${token}` },
+      );
+    expect((await vertex(body.access_token)).status).toBe(200);
+    await new Promise((r) => setTimeout(r, 1100));
+    expect((await vertex(body.access_token)).status).toBe(401);
+    expect((await vertex('mock-oauth-google-never-issued')).status).toBe(401);
+    await configure({ reset: true });
+  });
+
+  it('refuses malformed assertions and failing identities', async () => {
+    expect((await form('/oauth2/token', { grant_type: grant, assertion: 'x.y' })).status).toBe(400);
+    const tooLong = { ...claims('sa@demo'), exp: now() + 7200 };
+    expect(
+      (await form('/oauth2/token', { grant_type: grant, assertion: jwt(tooLong) })).status,
+    ).toBe(400);
+    const failed = await form('/oauth2/token', {
+      grant_type: grant,
+      assertion: jwt(claims('fail@demo')),
+    });
+    expect(failed.status).toBe(401);
+    expect(await failed.json()).toMatchObject({ error: 'invalid_client' });
+  });
+
+  it('serves the Entra ID v2 client-credentials grant', async () => {
+    const fields = {
+      grant_type: 'client_credentials',
+      client_id: 'app',
+      client_secret: 's',
+      scope: 'https://cognitiveservices.azure.com/.default',
+    };
+    const res = await form('/contoso/oauth2/v2.0/token', fields);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { access_token: string; token_type: string };
+    expect(body.token_type).toBe('Bearer');
+    const azure = await post('/openai/deployments/d/chat/completions?api-version=1', oa, {
+      authorization: `Bearer ${body.access_token}`,
+    });
+    expect(azure.status).toBe(200);
+    expect(
+      (await form('/contoso/oauth2/v2.0/token', { ...fields, client_id: 'fail-app' })).status,
+    ).toBe(401);
+    const stats = (await (await fetch(`${base}/__mock/oauth`)).json()) as {
+      byIdentity: Record<string, number>;
+    };
+    expect(stats.byIdentity['contoso/app']).toBe(1);
+  });
+});

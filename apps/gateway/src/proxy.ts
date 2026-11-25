@@ -110,6 +110,7 @@ import {
   genAiResponseAttributes,
   serverAttributes,
 } from './genai.js';
+import { resolveCredentialKey, tokenFailure } from './credential-tokens.js';
 import { callUpstream, mergeTimeouts, readErrorBody, UpstreamTimeout } from './upstream.js';
 
 export interface ProxyDeps {
@@ -1272,6 +1273,25 @@ async function runRoute(
         },
       };
     }
+    const proxyUrl =
+      candidate.credential.proxy?.url ?? candidate.provider.proxy?.url ?? settings.proxy?.url;
+    try {
+      apiKey = await resolveCredentialKey(candidate.provider, candidate.credential, apiKey, {
+        signal,
+        proxyUrl,
+      });
+    } catch (error) {
+      deps.logger.warn(
+        {
+          requestId,
+          provider: candidate.provider.slug,
+          credential: candidate.credential.id,
+          error: (error as Error).message,
+        },
+        'credential token refresh failed',
+      );
+      return { ok: false, error: tokenFailure(error) };
+    }
     let up;
     try {
       up = adapter.buildRequest({
@@ -1322,7 +1342,7 @@ async function runRoute(
         timeouts,
         signal,
         canonical.stream,
-        candidate.credential.proxy?.url ?? candidate.provider.proxy?.url ?? settings.proxy?.url,
+        proxyUrl,
       );
     } catch (error) {
       return { ok: false, error: classifyNetworkError(error, error instanceof UpstreamTimeout) };
