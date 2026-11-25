@@ -215,6 +215,15 @@ services:
       # Alert email channels (card 24.2) use the same SMTP settings as the control-api.
       SMTP_URL: ${SMTP_URL:-}
       SMTP_FROM: ${SMTP_FROM:-DiRouter <noreply@${DOMAIN:-localhost}>}
+      REQUEST_BODY_RETENTION_DAYS: ${REQUEST_BODY_RETENTION_DAYS:-7}
+      # Catalog and price sync (card 27.5); the defaults are the worker's own. Air-gapped installs
+      # set CATALOG_SYNC_ENABLED=false or point CATALOG_SYNC_SOURCES at an internal mirror.
+      CATALOG_SYNC_ENABLED: ${CATALOG_SYNC_ENABLED:-true}
+      CATALOG_SYNC_SOURCES: ${CATALOG_SYNC_SOURCES:-https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json}
+      CATALOG_SYNC_MODE: ${CATALOG_SYNC_MODE:-manual}
+      CATALOG_SYNC_INTERVAL_MS: ${CATALOG_SYNC_INTERVAL_MS:-21600000}
+      CATALOG_SYNC_MAX_CHANGE_FACTOR: ${CATALOG_SYNC_MAX_CHANGE_FACTOR:-3}
+      CATALOG_SYNC_TIMEOUT_MS: ${CATALOG_SYNC_TIMEOUT_MS:-30000}
     # edge gives outbound access: alert webhooks, Slack, Telegram and SMTP servers are outside.
     networks: [internal, edge]
     stop_grace_period: 30s

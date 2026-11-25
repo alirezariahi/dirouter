@@ -94,9 +94,9 @@ Migrations are forward-only, as before.
 - **Air-gapped installations:** switch it off or point it at an internal mirror
   ([catalog-sync](catalog-sync.md)). The switch and the source list are in the dashboard's catalog
   sync settings for the platform organization (`PUT /orgs/{org}/catalog-sync/settings`). The
-  environment defaults `CATALOG_SYNC_ENABLED` and `CATALOG_SYNC_SOURCES` are read by the worker; the
-  bundled `compose.yaml` does not pass them to the worker container, so with Compose set them in an
-  override file for the `worker` service, and with Helm in `worker.extraEnv`.
+  environment defaults `CATALOG_SYNC_ENABLED` and `CATALOG_SYNC_SOURCES` (and the other
+  `CATALOG_SYNC_*` settings) are read by the worker: with Compose set them in `.env`, with Helm in
+  `worker.extraEnv`. Settings stored from the dashboard take precedence.
 - **Hand-priced models are protected:** the `review_hardening` migration marks every catalog model
   whose prices differ from its catalog entry as `price_override`, so no sync reprices it. "Follow
   catalog" (`followCatalog: true`) switches a model back to the catalog price.
