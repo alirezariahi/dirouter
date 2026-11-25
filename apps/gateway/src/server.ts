@@ -648,6 +648,7 @@ export function buildGateway(opts: GatewayOptions) {
       ipAllowlist: [],
       budgets: [],
       mcpTools: [],
+      repair: [],
       passthroughProviders: [],
     };
     const number = (value: unknown) => (typeof value === 'number' ? value : undefined);

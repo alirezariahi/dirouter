@@ -1,5 +1,6 @@
 import type { Messages } from './fa';
 import { keyMessagesEn } from './key-messages';
+import { shapingMessagesEn } from './shaping-messages';
 import { modelMessagesEn } from './model-messages';
 import { guidesEn, organizationEn, providersEn } from './page-messages';
 import { s2En } from './s2';
@@ -250,6 +251,7 @@ export const en: Widen<Messages> = {
     network: 'Could not reach the server. Check the network or the API address.',
   },
   keys: keyMessagesEn,
+  shaping: shapingMessagesEn,
   models: modelMessagesEn,
   providers: providersEn,
   organization: organizationEn,

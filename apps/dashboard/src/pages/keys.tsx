@@ -130,6 +130,23 @@ function KeyFields({ initial, error }: { initial?: VirtualKey; error?: unknown }
       />
       <p className="-mt-2 text-xs text-muted">{t('upstreamServices.passthrough.keyHint')}</p>
       <fieldset>
+        <legend className="mb-2 text-sm font-medium">{t('shaping.repair.legend')}</legend>
+        <div className="flex flex-col gap-1.5 text-sm">
+          {(['json', 'tools'] as const).map((kind) => (
+            <label key={kind} className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                name="repair"
+                value={kind}
+                defaultChecked={initial?.repair.includes(kind) ?? false}
+              />
+              <span>{t(`shaping.repair.${kind}`)}</span>
+            </label>
+          ))}
+        </div>
+        <p className="mt-1 text-xs text-muted">{t('shaping.repair.hint')}</p>
+      </fieldset>
+      <fieldset>
         <legend className="mb-2 text-sm font-medium">{t('keys.budgets')}</legend>
         <div className="flex flex-col gap-3">
           {(['daily', 'monthly'] as const).map((period) => (
@@ -186,6 +203,9 @@ function bodyFrom(form: FormData, initial?: VirtualKey): KeyBody {
     name: text(form, 'name').trim(),
     allowedModels: list(text(form, 'allowedModels')),
     ipAllowlist: list(text(form, 'ipAllowlist')),
+    repair: form
+      .getAll('repair')
+      .filter((value): value is 'json' | 'tools' => value === 'json' || value === 'tools'),
     rpm: optionalInteger(text(form, 'rpm')),
     tpm: optionalInteger(text(form, 'tpm')),
     maxConcurrency: optionalInteger(text(form, 'maxConcurrency')),

@@ -15,6 +15,7 @@ import {
   type ConfigSnapshotInput,
   GatewaySettings,
   type ModelPricing,
+  type RepairKind,
   ProviderDataPolicy,
   RoutingPolicy,
 } from '@dirouter/contracts';
@@ -353,6 +354,7 @@ export class SnapshotService implements OnModuleInit, OnModuleDestroy {
           mcpTools: k.mcpTools,
           passthroughProviders: k.passthroughProviders,
           ipAllowlist: k.ipAllowlist,
+          repair: k.repair.filter((r): r is RepairKind => r === 'json' || r === 'tools'),
           ...rateLimit(k),
           budgets: budgetsFor('API_KEY', k.id),
           ...(walletId ? { walletId } : {}),

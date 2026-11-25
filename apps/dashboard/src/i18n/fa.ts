@@ -1,4 +1,5 @@
 import { keyMessagesFa } from './key-messages';
+import { shapingMessagesFa } from './shaping-messages';
 import { modelMessagesFa } from './model-messages';
 import { guidesFa, organizationFa, providersFa } from './page-messages';
 import { s2Fa } from './s2';
@@ -247,6 +248,7 @@ export const fa = {
     network: 'ارتباط با سرور برقرار نشد. اتصال شبکه یا آدرس API را بررسی کنید.',
   },
   keys: keyMessagesFa,
+  shaping: shapingMessagesFa,
   models: modelMessagesFa,
   providers: providersFa,
   organization: organizationFa,

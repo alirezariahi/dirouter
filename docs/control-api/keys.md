@@ -6,13 +6,13 @@ Code: `apps/control-api/src/keys` · test: `keys.integration.test.ts` · card 3.
 
 ## Endpoints (`/api/v1/orgs/:orgId/keys`)
 
-| route                  | permission   | description                                                                                                                                                      |
-| ---------------------- | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GET /` and `GET /:id` | `keys:read`  | no raw key; only `prefix` and status (`active`, `rotating`, `expired` or `revoked`)                                                                              |
-| `POST /`               | `keys:write` | `{name, projectId, allowedModels?, ipAllowlist?, rpm?, tpm?, maxConcurrency?, expiresAt?, budgets?}`. The response contains the **full key only this one time**. |
-| `PATCH /:id`           | `keys:write` | change limits, expiry and budget                                                                                                                                 |
-| `POST /:id/revoke`     | `keys:write` | immediate revocation                                                                                                                                             |
-| `POST /:id/rotate`     | `keys:write` | `{graceSeconds}` (default 24 hours, maximum 30 days). Returns the new key, together with `previous`.                                                             |
+| route                  | permission   | description                                                                                                                                                                                                            |
+| ---------------------- | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /` and `GET /:id` | `keys:read`  | no raw key; only `prefix` and status (`active`, `rotating`, `expired` or `revoked`)                                                                                                                                    |
+| `POST /`               | `keys:write` | `{name, projectId, allowedModels?, ipAllowlist?, repair?, rpm?, tpm?, maxConcurrency?, expiresAt?, budgets?}` (`repair`: `json` and/or `tools`, card 31.1). The response contains the **full key only this one time**. |
+| `PATCH /:id`           | `keys:write` | change limits, expiry and budget                                                                                                                                                                                       |
+| `POST /:id/revoke`     | `keys:write` | immediate revocation                                                                                                                                                                                                   |
+| `POST /:id/rotate`     | `keys:write` | `{graceSeconds}` (default 24 hours, maximum 30 days). Returns the new key, together with `previous`.                                                                                                                   |
 
 MEMBER can create keys. VIEWER can only view them ([rbac.md](../rbac.md)).
 

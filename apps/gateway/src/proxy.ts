@@ -107,6 +107,7 @@ import {
   StreamAssembler,
 } from './cache.js';
 import { compressRequest } from './compress.js';
+import { repairAnswer, repairKindsFor, repairRequest } from './shaping.js';
 import { externalVerdicts } from './classifiers.js';
 import { type BodyCapture, type RecordBody, startBodyCapture } from './body-capture.js';
 import {
@@ -720,6 +721,9 @@ async function proxyRequest(
     if (compressed.savedChars > 0)
       deps.logger.debug({ requestId, ...compressed }, 'request compressed');
   }
+
+  // Tool-call repair of the replayed history (card 31.1), when the key or header asks for it.
+  canonical = repairRequest(canonical, repairKindsFor(req.headers, key), deps, requestId);
 
   const estimatedInputTokens = estimateRequestTokens(canonical, roughTokens);
   model = canonical.model;
@@ -1360,6 +1364,7 @@ async function runRoute(
   const { config, key, canonical, route, requestId, started, clientGone } = ctx;
 
   const settings = config.snapshot.settings;
+  const repairKinds = repairKindsFor(req.headers, key);
   const retry = route.combo?.retry ?? settings.defaultRetry;
   const baseTimeouts = mergeTimeouts(settings.defaultTimeouts, route.combo?.timeouts);
   const includeUsage =
@@ -1555,7 +1560,13 @@ async function runRoute(
       }
       if (!canonical.stream) {
         const json: unknown = await response.json();
-        const parsed = adapter.parseResponse(json, candidate.model.upstreamModel);
+        const parsed = repairAnswer(
+          adapter.parseResponse(json, candidate.model.upstreamModel),
+          canonical,
+          repairKinds,
+          deps,
+          requestId,
+        );
         // No usage from the provider: estimate with the tokenizer so both the client and the usage event get a number.
         const usage = parsed.usage ?? estimateUsage(canonical, parsed.content);
         return {

@@ -54,6 +54,7 @@ const KEYS = [
     mcpTools: [],
     mcpAdmin: 'none',
     ipAllowlist: [],
+    repair: [],
     rpm: null,
     tpm: null,
     maxConcurrency: null,

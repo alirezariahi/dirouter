@@ -8,13 +8,13 @@
 
 ## endpointها (`/api/v1/orgs/:orgId/keys`)
 
-| مسیر                 | مجوز         | توضیح                                                                                                                                             |
-| -------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GET /` و `GET /:id` | `keys:read`  | بدون کلید خام؛ فقط `prefix` و وضعیت (`active`، `rotating`، `expired` یا `revoked`)                                                                |
-| `POST /`             | `keys:write` | `{name, projectId, allowedModels?, ipAllowlist?, rpm?, tpm?, maxConcurrency?, expiresAt?, budgets?}`. پاسخ **کلید کامل را فقط همین یک بار** دارد. |
-| `PATCH /:id`         | `keys:write` | تغییر محدودیت‌ها، انقضا و بودجه                                                                                                                   |
-| `POST /:id/revoke`   | `keys:write` | ابطال فوری                                                                                                                                        |
-| `POST /:id/rotate`   | `keys:write` | `{graceSeconds}` (پیش‌فرض ۲۴ ساعت، حداکثر ۳۰ روز). کلید تازه را برمی‌گرداند، به‌همراه `previous`.                                                 |
+| مسیر                 | مجوز         | توضیح                                                                                                                                                                                                 |
+| -------------------- | ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /` و `GET /:id` | `keys:read`  | بدون کلید خام؛ فقط `prefix` و وضعیت (`active`، `rotating`، `expired` یا `revoked`)                                                                                                                    |
+| `POST /`             | `keys:write` | `{name, projectId, allowedModels?, ipAllowlist?, repair?, rpm?, tpm?, maxConcurrency?, expiresAt?, budgets?}` (`repair`: `json` و/یا `tools`، کارت ۳۱.۱). پاسخ **کلید کامل را فقط همین یک بار** دارد. |
+| `PATCH /:id`         | `keys:write` | تغییر محدودیت‌ها، انقضا و بودجه                                                                                                                                                                       |
+| `POST /:id/revoke`   | `keys:write` | ابطال فوری                                                                                                                                                                                            |
+| `POST /:id/rotate`   | `keys:write` | `{graceSeconds}` (پیش‌فرض ۲۴ ساعت، حداکثر ۳۰ روز). کلید تازه را برمی‌گرداند، به‌همراه `previous`.                                                                                                     |
 
 MEMBER می‌تواند کلید بسازد. VIEWER فقط می‌بیند ([rbac.md](../rbac.fa.md)).
 

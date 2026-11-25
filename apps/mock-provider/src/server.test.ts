@@ -435,6 +435,75 @@ describe('mock price list (card 27.5)', () => {
   });
 });
 
+describe('tool-call pairing (card 31.1)', () => {
+  it('answers an unpaired Anthropic tool_use or tool_result with a 400, like Anthropic', async () => {
+    const unpaired = await post('/v1/messages', {
+      ...an,
+      messages: [
+        { role: 'user', content: 'hi' },
+        { role: 'assistant', content: [{ type: 'tool_use', id: 't1', name: 'ls', input: {} }] },
+        { role: 'user', content: 'go on' },
+      ],
+    });
+    expect(unpaired.status).toBe(400);
+    expect(((await unpaired.json()) as { error: { message: string } }).error.message).toContain(
+      '`tool_use` ids were found without `tool_result` blocks immediately after: t1',
+    );
+    const orphan = await post('/v1/messages', {
+      ...an,
+      messages: [
+        { role: 'user', content: [{ type: 'tool_result', tool_use_id: 'gone', content: 'x' }] },
+      ],
+    });
+    expect(orphan.status).toBe(400);
+    const paired = await post('/v1/messages', {
+      ...an,
+      messages: [
+        { role: 'user', content: 'hi' },
+        { role: 'assistant', content: [{ type: 'tool_use', id: 't1', name: 'ls', input: {} }] },
+        { role: 'user', content: [{ type: 'tool_result', tool_use_id: 't1', content: 'a' }] },
+      ],
+    });
+    expect(paired.status).toBe(200);
+  });
+
+  it('answers an unanswered OpenAI tool call or a stray tool message with a 400', async () => {
+    const call = { id: 'c1', type: 'function', function: { name: 'f', arguments: '{}' } };
+    const unanswered = await post('/v1/chat/completions', {
+      ...oa,
+      messages: [
+        { role: 'user', content: 'hi' },
+        { role: 'assistant', content: null, tool_calls: [call] },
+        { role: 'user', content: 'go on' },
+      ],
+    });
+    expect(unanswered.status).toBe(400);
+    const stray = await post('/v1/chat/completions', {
+      ...oa,
+      messages: [{ role: 'tool', tool_call_id: 'c9', content: 'x' }],
+    });
+    expect(stray.status).toBe(400);
+    const ok = await post('/v1/chat/completions', {
+      ...oa,
+      messages: [
+        { role: 'user', content: 'hi' },
+        { role: 'assistant', content: null, tool_calls: [call] },
+        { role: 'tool', tool_call_id: 'c1', content: 'x' },
+      ],
+    });
+    expect(ok.status).toBe(200);
+  });
+
+  it('text_b64 sets any answer text, commas included', async () => {
+    const text = '```json\n{"a": 1,}\n```';
+    const res = await post('/v1/chat/completions', oa, {
+      'x-mock': `text_b64=${Buffer.from(text).toString('base64url')}`,
+    });
+    const body = (await res.json()) as { choices: { message: { content: string } }[] };
+    expect(body.choices[0]?.message.content).toBe(text);
+  });
+});
+
 describe('legacy completions (card 30.7)', () => {
   it('answers /v1/completions with usage, for pass-through tests', async () => {
     const res = await post('/v1/completions', { model: 'gpt-3.5-turbo-instruct', prompt: 'hi' });

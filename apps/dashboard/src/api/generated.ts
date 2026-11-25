@@ -643,6 +643,24 @@ export type ProvidersControllerList200ItemOptions = {[key: string]: unknown};
 /**
  * @nullable
  */
+export type ProvidersControllerList200ItemDataPolicy = {
+  /**
+     * region code, e.g. eu or us
+     * @pattern ^[a-z][a-z0-9-]{1,30}$
+     */
+  region?: string;
+  /**
+     * ISO 3166-1 alpha-2 country code
+     * @pattern ^[A-Z]{2}$
+     */
+  country?: string;
+  zdr?: boolean;
+  trainsOnData?: boolean;
+} | null;
+
+/**
+ * @nullable
+ */
 export type ProvidersControllerList200ItemCredentialsItemBalance = {
   kind: string;
   ok: boolean;
@@ -706,6 +724,8 @@ export type ProvidersControllerList200Item = {
      */
   maxConcurrency: number | null;
   /** @nullable */
+  dataPolicy: ProvidersControllerList200ItemDataPolicy;
+  /** @nullable */
   balanceKind: string | null;
   credentials: ProvidersControllerList200ItemCredentialsItem[];
   createdAt: string;
@@ -759,6 +779,24 @@ export type ProvidersControllerCreateBodyTimeouts = {
 } | null;
 
 export type ProvidersControllerCreateBodyOptions = {[key: string]: unknown};
+
+/**
+ * @nullable
+ */
+export type ProvidersControllerCreateBodyDataPolicy = {
+  /**
+     * region code, e.g. eu or us
+     * @pattern ^[a-z][a-z0-9-]{1,30}$
+     */
+  region?: string;
+  /**
+     * ISO 3166-1 alpha-2 country code
+     * @pattern ^[A-Z]{2}$
+     */
+  country?: string;
+  zdr?: boolean;
+  trainsOnData?: boolean;
+} | null;
 
 export type ProvidersControllerCreateBodyCredentialsItemHeaders = {[key: string]: string};
 
@@ -814,6 +852,8 @@ export type ProvidersControllerCreateBody = {
      * @nullable
      */
   maxConcurrency?: number | null;
+  /** @nullable */
+  dataPolicy?: ProvidersControllerCreateBodyDataPolicy;
   /** @maxItems 50 */
   credentials?: ProvidersControllerCreateBodyCredentialsItem[];
   acceptTerms?: boolean;
@@ -868,6 +908,24 @@ export type ProvidersControllerCreate200Timeouts = {
 } | null;
 
 export type ProvidersControllerCreate200Options = {[key: string]: unknown};
+
+/**
+ * @nullable
+ */
+export type ProvidersControllerCreate200DataPolicy = {
+  /**
+     * region code, e.g. eu or us
+     * @pattern ^[a-z][a-z0-9-]{1,30}$
+     */
+  region?: string;
+  /**
+     * ISO 3166-1 alpha-2 country code
+     * @pattern ^[A-Z]{2}$
+     */
+  country?: string;
+  zdr?: boolean;
+  trainsOnData?: boolean;
+} | null;
 
 /**
  * @nullable
@@ -934,6 +992,8 @@ export type ProvidersControllerCreate200 = {
      * @nullable
      */
   maxConcurrency: number | null;
+  /** @nullable */
+  dataPolicy: ProvidersControllerCreate200DataPolicy;
   /** @nullable */
   balanceKind: string | null;
   credentials: ProvidersControllerCreate200CredentialsItem[];
@@ -1024,6 +1084,24 @@ export type ProvidersControllerGet200Options = {[key: string]: unknown};
 /**
  * @nullable
  */
+export type ProvidersControllerGet200DataPolicy = {
+  /**
+     * region code, e.g. eu or us
+     * @pattern ^[a-z][a-z0-9-]{1,30}$
+     */
+  region?: string;
+  /**
+     * ISO 3166-1 alpha-2 country code
+     * @pattern ^[A-Z]{2}$
+     */
+  country?: string;
+  zdr?: boolean;
+  trainsOnData?: boolean;
+} | null;
+
+/**
+ * @nullable
+ */
 export type ProvidersControllerGet200CredentialsItemBalance = {
   kind: string;
   ok: boolean;
@@ -1087,6 +1165,8 @@ export type ProvidersControllerGet200 = {
      */
   maxConcurrency: number | null;
   /** @nullable */
+  dataPolicy: ProvidersControllerGet200DataPolicy;
+  /** @nullable */
   balanceKind: string | null;
   credentials: ProvidersControllerGet200CredentialsItem[];
   createdAt: string;
@@ -1120,6 +1200,24 @@ export type ProvidersControllerUpdateBodyTimeouts = {
 
 export type ProvidersControllerUpdateBodyOptions = {[key: string]: unknown};
 
+/**
+ * @nullable
+ */
+export type ProvidersControllerUpdateBodyDataPolicy = {
+  /**
+     * region code, e.g. eu or us
+     * @pattern ^[a-z][a-z0-9-]{1,30}$
+     */
+  region?: string;
+  /**
+     * ISO 3166-1 alpha-2 country code
+     * @pattern ^[A-Z]{2}$
+     */
+  country?: string;
+  zdr?: boolean;
+  trainsOnData?: boolean;
+} | null;
+
 export type ProvidersControllerUpdateBody = {
   /**
      * @minLength 1
@@ -1146,6 +1244,8 @@ export type ProvidersControllerUpdateBody = {
      * @nullable
      */
   maxConcurrency?: number | null;
+  /** @nullable */
+  dataPolicy?: ProvidersControllerUpdateBodyDataPolicy;
   acceptTerms?: boolean;
 };
 
@@ -1198,6 +1298,24 @@ export type ProvidersControllerUpdate200Timeouts = {
 } | null;
 
 export type ProvidersControllerUpdate200Options = {[key: string]: unknown};
+
+/**
+ * @nullable
+ */
+export type ProvidersControllerUpdate200DataPolicy = {
+  /**
+     * region code, e.g. eu or us
+     * @pattern ^[a-z][a-z0-9-]{1,30}$
+     */
+  region?: string;
+  /**
+     * ISO 3166-1 alpha-2 country code
+     * @pattern ^[A-Z]{2}$
+     */
+  country?: string;
+  zdr?: boolean;
+  trainsOnData?: boolean;
+} | null;
 
 /**
  * @nullable
@@ -1264,6 +1382,8 @@ export type ProvidersControllerUpdate200 = {
      * @nullable
      */
   maxConcurrency: number | null;
+  /** @nullable */
+  dataPolicy: ProvidersControllerUpdate200DataPolicy;
   /** @nullable */
   balanceKind: string | null;
   credentials: ProvidersControllerUpdate200CredentialsItem[];
@@ -1350,6 +1470,24 @@ export type ProvidersControllerAddCredential200Options = {[key: string]: unknown
 /**
  * @nullable
  */
+export type ProvidersControllerAddCredential200DataPolicy = {
+  /**
+     * region code, e.g. eu or us
+     * @pattern ^[a-z][a-z0-9-]{1,30}$
+     */
+  region?: string;
+  /**
+     * ISO 3166-1 alpha-2 country code
+     * @pattern ^[A-Z]{2}$
+     */
+  country?: string;
+  zdr?: boolean;
+  trainsOnData?: boolean;
+} | null;
+
+/**
+ * @nullable
+ */
 export type ProvidersControllerAddCredential200CredentialsItemBalance = {
   kind: string;
   ok: boolean;
@@ -1412,6 +1550,8 @@ export type ProvidersControllerAddCredential200 = {
      * @nullable
      */
   maxConcurrency: number | null;
+  /** @nullable */
+  dataPolicy: ProvidersControllerAddCredential200DataPolicy;
   /** @nullable */
   balanceKind: string | null;
   credentials: ProvidersControllerAddCredential200CredentialsItem[];
@@ -1507,6 +1647,24 @@ export type ProvidersControllerUpdateCredential200Options = {[key: string]: unkn
 /**
  * @nullable
  */
+export type ProvidersControllerUpdateCredential200DataPolicy = {
+  /**
+     * region code, e.g. eu or us
+     * @pattern ^[a-z][a-z0-9-]{1,30}$
+     */
+  region?: string;
+  /**
+     * ISO 3166-1 alpha-2 country code
+     * @pattern ^[A-Z]{2}$
+     */
+  country?: string;
+  zdr?: boolean;
+  trainsOnData?: boolean;
+} | null;
+
+/**
+ * @nullable
+ */
 export type ProvidersControllerUpdateCredential200CredentialsItemBalance = {
   kind: string;
   ok: boolean;
@@ -1569,6 +1727,8 @@ export type ProvidersControllerUpdateCredential200 = {
      * @nullable
      */
   maxConcurrency: number | null;
+  /** @nullable */
+  dataPolicy: ProvidersControllerUpdateCredential200DataPolicy;
   /** @nullable */
   balanceKind: string | null;
   credentials: ProvidersControllerUpdateCredential200CredentialsItem[];
@@ -1657,6 +1817,24 @@ export type ProvidersControllerRefreshBalance200Options = {[key: string]: unknow
 /**
  * @nullable
  */
+export type ProvidersControllerRefreshBalance200DataPolicy = {
+  /**
+     * region code, e.g. eu or us
+     * @pattern ^[a-z][a-z0-9-]{1,30}$
+     */
+  region?: string;
+  /**
+     * ISO 3166-1 alpha-2 country code
+     * @pattern ^[A-Z]{2}$
+     */
+  country?: string;
+  zdr?: boolean;
+  trainsOnData?: boolean;
+} | null;
+
+/**
+ * @nullable
+ */
 export type ProvidersControllerRefreshBalance200CredentialsItemBalance = {
   kind: string;
   ok: boolean;
@@ -1720,6 +1898,8 @@ export type ProvidersControllerRefreshBalance200 = {
      */
   maxConcurrency: number | null;
   /** @nullable */
+  dataPolicy: ProvidersControllerRefreshBalance200DataPolicy;
+  /** @nullable */
   balanceKind: string | null;
   credentials: ProvidersControllerRefreshBalance200CredentialsItem[];
   createdAt: string;
@@ -1781,6 +1961,14 @@ export const KeysControllerList200ItemMcpAdmin = {
   write: 'write',
 } as const;
 
+export type KeysControllerList200ItemRepairItem = typeof KeysControllerList200ItemRepairItem[keyof typeof KeysControllerList200ItemRepairItem];
+
+
+export const KeysControllerList200ItemRepairItem = {
+  json: 'json',
+  tools: 'tools',
+} as const;
+
 export type KeysControllerList200ItemBudgetsItemPeriod = typeof KeysControllerList200ItemBudgetsItemPeriod[keyof typeof KeysControllerList200ItemBudgetsItemPeriod];
 
 
@@ -1818,6 +2006,7 @@ export type KeysControllerList200Item = {
   passthroughProviders: string[];
   mcpAdmin: KeysControllerList200ItemMcpAdmin;
   ipAllowlist: string[];
+  repair: KeysControllerList200ItemRepairItem[];
   /**
      * @minimum -9007199254740991
      * @maximum 9007199254740991
@@ -1847,6 +2036,14 @@ export type KeysControllerList200Item = {
   createdAt: string;
   budgets: KeysControllerList200ItemBudgetsItem[];
 };
+
+export type KeysControllerCreateBodyRepairItem = typeof KeysControllerCreateBodyRepairItem[keyof typeof KeysControllerCreateBodyRepairItem];
+
+
+export const KeysControllerCreateBodyRepairItem = {
+  json: 'json',
+  tools: 'tools',
+} as const;
 
 export type KeysControllerCreateBodyMcpAdmin = typeof KeysControllerCreateBodyMcpAdmin[keyof typeof KeysControllerCreateBodyMcpAdmin];
 
@@ -1906,6 +2103,8 @@ export type KeysControllerCreateBody = {
      * @items.maxLength 64
      */
   ipAllowlist?: string[];
+  /** @maxItems 2 */
+  repair?: KeysControllerCreateBodyRepairItem[];
   /**
      * @maxItems 100
      * @items.pattern ^(\*|[a-z0-9][a-z0-9-]{0,62})$
@@ -1958,6 +2157,14 @@ export const KeysControllerCreate200McpAdmin = {
   write: 'write',
 } as const;
 
+export type KeysControllerCreate200RepairItem = typeof KeysControllerCreate200RepairItem[keyof typeof KeysControllerCreate200RepairItem];
+
+
+export const KeysControllerCreate200RepairItem = {
+  json: 'json',
+  tools: 'tools',
+} as const;
+
 export type KeysControllerCreate200BudgetsItemPeriod = typeof KeysControllerCreate200BudgetsItemPeriod[keyof typeof KeysControllerCreate200BudgetsItemPeriod];
 
 
@@ -1995,6 +2202,7 @@ export type KeysControllerCreate200 = {
   passthroughProviders: string[];
   mcpAdmin: KeysControllerCreate200McpAdmin;
   ipAllowlist: string[];
+  repair: KeysControllerCreate200RepairItem[];
   /**
      * @minimum -9007199254740991
      * @maximum 9007199254740991
@@ -2046,6 +2254,14 @@ export const KeysControllerGet200McpAdmin = {
   write: 'write',
 } as const;
 
+export type KeysControllerGet200RepairItem = typeof KeysControllerGet200RepairItem[keyof typeof KeysControllerGet200RepairItem];
+
+
+export const KeysControllerGet200RepairItem = {
+  json: 'json',
+  tools: 'tools',
+} as const;
+
 export type KeysControllerGet200BudgetsItemPeriod = typeof KeysControllerGet200BudgetsItemPeriod[keyof typeof KeysControllerGet200BudgetsItemPeriod];
 
 
@@ -2083,6 +2299,7 @@ export type KeysControllerGet200 = {
   passthroughProviders: string[];
   mcpAdmin: KeysControllerGet200McpAdmin;
   ipAllowlist: string[];
+  repair: KeysControllerGet200RepairItem[];
   /**
      * @minimum -9007199254740991
      * @maximum 9007199254740991
@@ -2112,6 +2329,14 @@ export type KeysControllerGet200 = {
   createdAt: string;
   budgets: KeysControllerGet200BudgetsItem[];
 };
+
+export type KeysControllerUpdateBodyRepairItem = typeof KeysControllerUpdateBodyRepairItem[keyof typeof KeysControllerUpdateBodyRepairItem];
+
+
+export const KeysControllerUpdateBodyRepairItem = {
+  json: 'json',
+  tools: 'tools',
+} as const;
 
 export type KeysControllerUpdateBodyMcpAdmin = typeof KeysControllerUpdateBodyMcpAdmin[keyof typeof KeysControllerUpdateBodyMcpAdmin];
 
@@ -2169,6 +2394,8 @@ export type KeysControllerUpdateBody = {
      * @items.maxLength 64
      */
   ipAllowlist?: string[];
+  /** @maxItems 2 */
+  repair?: KeysControllerUpdateBodyRepairItem[];
   /**
      * @maxItems 100
      * @items.pattern ^(\*|[a-z0-9][a-z0-9-]{0,62})$
@@ -2221,6 +2448,14 @@ export const KeysControllerUpdate200McpAdmin = {
   write: 'write',
 } as const;
 
+export type KeysControllerUpdate200RepairItem = typeof KeysControllerUpdate200RepairItem[keyof typeof KeysControllerUpdate200RepairItem];
+
+
+export const KeysControllerUpdate200RepairItem = {
+  json: 'json',
+  tools: 'tools',
+} as const;
+
 export type KeysControllerUpdate200BudgetsItemPeriod = typeof KeysControllerUpdate200BudgetsItemPeriod[keyof typeof KeysControllerUpdate200BudgetsItemPeriod];
 
 
@@ -2258,6 +2493,7 @@ export type KeysControllerUpdate200 = {
   passthroughProviders: string[];
   mcpAdmin: KeysControllerUpdate200McpAdmin;
   ipAllowlist: string[];
+  repair: KeysControllerUpdate200RepairItem[];
   /**
      * @minimum -9007199254740991
      * @maximum 9007199254740991
@@ -2307,6 +2543,14 @@ export const KeysControllerRevoke200McpAdmin = {
   write: 'write',
 } as const;
 
+export type KeysControllerRevoke200RepairItem = typeof KeysControllerRevoke200RepairItem[keyof typeof KeysControllerRevoke200RepairItem];
+
+
+export const KeysControllerRevoke200RepairItem = {
+  json: 'json',
+  tools: 'tools',
+} as const;
+
 export type KeysControllerRevoke200BudgetsItemPeriod = typeof KeysControllerRevoke200BudgetsItemPeriod[keyof typeof KeysControllerRevoke200BudgetsItemPeriod];
 
 
@@ -2344,6 +2588,7 @@ export type KeysControllerRevoke200 = {
   passthroughProviders: string[];
   mcpAdmin: KeysControllerRevoke200McpAdmin;
   ipAllowlist: string[];
+  repair: KeysControllerRevoke200RepairItem[];
   /**
      * @minimum -9007199254740991
      * @maximum 9007199254740991
@@ -2401,6 +2646,14 @@ export const KeysControllerRotate200McpAdmin = {
   write: 'write',
 } as const;
 
+export type KeysControllerRotate200RepairItem = typeof KeysControllerRotate200RepairItem[keyof typeof KeysControllerRotate200RepairItem];
+
+
+export const KeysControllerRotate200RepairItem = {
+  json: 'json',
+  tools: 'tools',
+} as const;
+
 export type KeysControllerRotate200BudgetsItemPeriod = typeof KeysControllerRotate200BudgetsItemPeriod[keyof typeof KeysControllerRotate200BudgetsItemPeriod];
 
 
@@ -2446,6 +2699,14 @@ export const KeysControllerRotate200PreviousMcpAdmin = {
   write: 'write',
 } as const;
 
+export type KeysControllerRotate200PreviousRepairItem = typeof KeysControllerRotate200PreviousRepairItem[keyof typeof KeysControllerRotate200PreviousRepairItem];
+
+
+export const KeysControllerRotate200PreviousRepairItem = {
+  json: 'json',
+  tools: 'tools',
+} as const;
+
 export type KeysControllerRotate200PreviousBudgetsItemPeriod = typeof KeysControllerRotate200PreviousBudgetsItemPeriod[keyof typeof KeysControllerRotate200PreviousBudgetsItemPeriod];
 
 
@@ -2483,6 +2744,7 @@ export type KeysControllerRotate200Previous = {
   passthroughProviders: string[];
   mcpAdmin: KeysControllerRotate200PreviousMcpAdmin;
   ipAllowlist: string[];
+  repair: KeysControllerRotate200PreviousRepairItem[];
   /**
      * @minimum -9007199254740991
      * @maximum 9007199254740991
@@ -2524,6 +2786,7 @@ export type KeysControllerRotate200 = {
   passthroughProviders: string[];
   mcpAdmin: KeysControllerRotate200McpAdmin;
   ipAllowlist: string[];
+  repair: KeysControllerRotate200RepairItem[];
   /**
      * @minimum -9007199254740991
      * @maximum 9007199254740991
@@ -2579,6 +2842,15 @@ export type ModelsControllerList200ItemPricingTiersItem = {
   cacheWritePerMTok?: string;
 };
 
+export type ModelsControllerList200ItemPricingServiceTiers = {[key: string]: {
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  inputPerMTok: string;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  outputPerMTok: string;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  cacheReadPerMTok?: string;
+}};
+
 export type ModelsControllerList200ItemPricing = {
   /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
   inputPerMTok: string;
@@ -2600,10 +2872,15 @@ export type ModelsControllerList200ItemPricing = {
   perRequestUsd?: string;
   /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
   perSearchUsd?: string;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  audioInputPerMTok?: string;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  audioOutputPerMTok?: string;
   /** @maxItems 8 */
   tiers?: ModelsControllerList200ItemPricingTiersItem[];
   /** @pattern ^(0(\.\d{1,6})?|1(\.0{1,6})?)$ */
   batchDiscount?: string;
+  serviceTiers?: ModelsControllerList200ItemPricingServiceTiers;
 };
 
 export type ModelsControllerList200ItemSale = {
@@ -2660,6 +2937,15 @@ export type ModelsControllerCreateBodyPricingTiersItem = {
   cacheWritePerMTok?: string;
 };
 
+export type ModelsControllerCreateBodyPricingServiceTiers = {[key: string]: {
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  inputPerMTok: string;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  outputPerMTok: string;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  cacheReadPerMTok?: string;
+}};
+
 export type ModelsControllerCreateBodyPricing = {
   /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
   inputPerMTok?: string;
@@ -2681,10 +2967,15 @@ export type ModelsControllerCreateBodyPricing = {
   perRequestUsd?: string;
   /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
   perSearchUsd?: string;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  audioInputPerMTok?: string;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  audioOutputPerMTok?: string;
   /** @maxItems 8 */
   tiers?: ModelsControllerCreateBodyPricingTiersItem[];
   /** @pattern ^(0(\.\d{1,6})?|1(\.0{1,6})?)$ */
   batchDiscount?: string;
+  serviceTiers?: ModelsControllerCreateBodyPricingServiceTiers;
 };
 
 export type ModelsControllerCreateBodyCapabilities = {
@@ -2701,6 +2992,8 @@ export type ModelsControllerCreateBodyCapabilities = {
   rerank?: boolean;
   documents?: boolean;
   audioInput?: boolean;
+  realtime?: boolean;
+  completions?: boolean;
 };
 
 export type ModelsControllerCreateBodySale = {
@@ -2769,6 +3062,15 @@ export type ModelsControllerCreate200PricingTiersItem = {
   cacheWritePerMTok?: string;
 };
 
+export type ModelsControllerCreate200PricingServiceTiers = {[key: string]: {
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  inputPerMTok: string;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  outputPerMTok: string;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  cacheReadPerMTok?: string;
+}};
+
 export type ModelsControllerCreate200Pricing = {
   /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
   inputPerMTok: string;
@@ -2790,10 +3092,15 @@ export type ModelsControllerCreate200Pricing = {
   perRequestUsd?: string;
   /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
   perSearchUsd?: string;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  audioInputPerMTok?: string;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  audioOutputPerMTok?: string;
   /** @maxItems 8 */
   tiers?: ModelsControllerCreate200PricingTiersItem[];
   /** @pattern ^(0(\.\d{1,6})?|1(\.0{1,6})?)$ */
   batchDiscount?: string;
+  serviceTiers?: ModelsControllerCreate200PricingServiceTiers;
 };
 
 export type ModelsControllerCreate200Sale = {
@@ -2859,6 +3166,15 @@ export type ModelsControllerGet200PricingTiersItem = {
   cacheWritePerMTok?: string;
 };
 
+export type ModelsControllerGet200PricingServiceTiers = {[key: string]: {
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  inputPerMTok: string;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  outputPerMTok: string;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  cacheReadPerMTok?: string;
+}};
+
 export type ModelsControllerGet200Pricing = {
   /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
   inputPerMTok: string;
@@ -2880,10 +3196,15 @@ export type ModelsControllerGet200Pricing = {
   perRequestUsd?: string;
   /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
   perSearchUsd?: string;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  audioInputPerMTok?: string;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  audioOutputPerMTok?: string;
   /** @maxItems 8 */
   tiers?: ModelsControllerGet200PricingTiersItem[];
   /** @pattern ^(0(\.\d{1,6})?|1(\.0{1,6})?)$ */
   batchDiscount?: string;
+  serviceTiers?: ModelsControllerGet200PricingServiceTiers;
 };
 
 export type ModelsControllerGet200Sale = {
@@ -2940,6 +3261,15 @@ export type ModelsControllerUpdateBodyPricingTiersItem = {
   cacheWritePerMTok?: string;
 };
 
+export type ModelsControllerUpdateBodyPricingServiceTiers = {[key: string]: {
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  inputPerMTok: string;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  outputPerMTok: string;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  cacheReadPerMTok?: string;
+}};
+
 export type ModelsControllerUpdateBodyPricing = {
   /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
   inputPerMTok?: string;
@@ -2961,10 +3291,15 @@ export type ModelsControllerUpdateBodyPricing = {
   perRequestUsd?: string;
   /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
   perSearchUsd?: string;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  audioInputPerMTok?: string;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  audioOutputPerMTok?: string;
   /** @maxItems 8 */
   tiers?: ModelsControllerUpdateBodyPricingTiersItem[];
   /** @pattern ^(0(\.\d{1,6})?|1(\.0{1,6})?)$ */
   batchDiscount?: string;
+  serviceTiers?: ModelsControllerUpdateBodyPricingServiceTiers;
 };
 
 export type ModelsControllerUpdateBodyCapabilities = {
@@ -2981,6 +3316,8 @@ export type ModelsControllerUpdateBodyCapabilities = {
   rerank?: boolean;
   documents?: boolean;
   audioInput?: boolean;
+  realtime?: boolean;
+  completions?: boolean;
 };
 
 export type ModelsControllerUpdateBodySale = {
@@ -3044,6 +3381,15 @@ export type ModelsControllerUpdate200PricingTiersItem = {
   cacheWritePerMTok?: string;
 };
 
+export type ModelsControllerUpdate200PricingServiceTiers = {[key: string]: {
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  inputPerMTok: string;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  outputPerMTok: string;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  cacheReadPerMTok?: string;
+}};
+
 export type ModelsControllerUpdate200Pricing = {
   /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
   inputPerMTok: string;
@@ -3065,10 +3411,15 @@ export type ModelsControllerUpdate200Pricing = {
   perRequestUsd?: string;
   /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
   perSearchUsd?: string;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  audioInputPerMTok?: string;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  audioOutputPerMTok?: string;
   /** @maxItems 8 */
   tiers?: ModelsControllerUpdate200PricingTiersItem[];
   /** @pattern ^(0(\.\d{1,6})?|1(\.0{1,6})?)$ */
   batchDiscount?: string;
+  serviceTiers?: ModelsControllerUpdate200PricingServiceTiers;
 };
 
 export type ModelsControllerUpdate200Sale = {
@@ -4162,6 +4513,13 @@ export type StatsControllerLog200 = {
   attempts: unknown;
   /** Auto-routing decision (card 20.4): alias, target, task type, source and reasons */
   routing: unknown;
+  /**
+     * service tier the request was priced at (31.5)
+     * @nullable
+     */
+  serviceTier: string | null;
+  /** Routing decision (cards 32.5 and 32.7): data policy and removed targets */
+  routeDecision: unknown;
   chargeUsd: string;
 };
 
@@ -7142,9 +7500,26 @@ export type RoutingPoliciesControllerList200PoliciesItemPolicyProvider = {
   maxPrice?: RoutingPoliciesControllerList200PoliciesItemPolicyProviderMaxPrice;
 };
 
+export type RoutingPoliciesControllerList200PoliciesItemPolicyDataPolicy = {
+  /**
+     * @maxItems 50
+     * @items.pattern ^[a-z][a-z0-9-]{1,30}$
+     */
+  allowedRegions?: string[];
+  /**
+     * @maxItems 250
+     * @items.pattern ^[A-Z]{2}$
+     */
+  allowedCountries?: string[];
+  requireZdr?: boolean;
+  denyTraining?: boolean;
+};
+
 export type RoutingPoliciesControllerList200PoliciesItemPolicy = {
   provider?: RoutingPoliciesControllerList200PoliciesItemPolicyProvider;
   lockProvider?: boolean;
+  dataPolicy?: RoutingPoliciesControllerList200PoliciesItemPolicyDataPolicy;
+  explain?: boolean;
 };
 
 export type RoutingPoliciesControllerList200PoliciesItem = {
@@ -7211,12 +7586,29 @@ export type RoutingPoliciesControllerSetBodyPolicyProvider = {
   maxPrice?: RoutingPoliciesControllerSetBodyPolicyProviderMaxPrice;
 };
 
+export type RoutingPoliciesControllerSetBodyPolicyDataPolicy = {
+  /**
+     * @maxItems 50
+     * @items.pattern ^[a-z][a-z0-9-]{1,30}$
+     */
+  allowedRegions?: string[];
+  /**
+     * @maxItems 250
+     * @items.pattern ^[A-Z]{2}$
+     */
+  allowedCountries?: string[];
+  requireZdr?: boolean;
+  denyTraining?: boolean;
+};
+
 /**
  * @nullable
  */
 export type RoutingPoliciesControllerSetBodyPolicy = {
   provider?: RoutingPoliciesControllerSetBodyPolicyProvider;
   lockProvider?: boolean;
+  dataPolicy?: RoutingPoliciesControllerSetBodyPolicyDataPolicy;
+  explain?: boolean;
 } | null;
 
 export type RoutingPoliciesControllerSetBody = {
@@ -7283,12 +7675,29 @@ export type RoutingPoliciesControllerSet200PolicyProvider = {
   maxPrice?: RoutingPoliciesControllerSet200PolicyProviderMaxPrice;
 };
 
+export type RoutingPoliciesControllerSet200PolicyDataPolicy = {
+  /**
+     * @maxItems 50
+     * @items.pattern ^[a-z][a-z0-9-]{1,30}$
+     */
+  allowedRegions?: string[];
+  /**
+     * @maxItems 250
+     * @items.pattern ^[A-Z]{2}$
+     */
+  allowedCountries?: string[];
+  requireZdr?: boolean;
+  denyTraining?: boolean;
+};
+
 /**
  * @nullable
  */
 export type RoutingPoliciesControllerSet200Policy = {
   provider?: RoutingPoliciesControllerSet200PolicyProvider;
   lockProvider?: boolean;
+  dataPolicy?: RoutingPoliciesControllerSet200PolicyDataPolicy;
+  explain?: boolean;
 } | null;
 
 export type RoutingPoliciesControllerSet200 = {

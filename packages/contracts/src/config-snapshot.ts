@@ -352,6 +352,10 @@ export const BudgetConfig = z
   });
 export type BudgetConfig = z.infer<typeof BudgetConfig>;
 
+/** What the gateway may repair for a key (card 31.1). */
+export const RepairKind = z.enum(['json', 'tools']);
+export type RepairKind = z.infer<typeof RepairKind>;
+
 export const VirtualKeyConfig = z.object({
   id: z.string(),
   /** HMAC-SHA256 of the key; the key itself is never stored. */
@@ -378,6 +382,12 @@ export const VirtualKeyConfig = z.object({
    * Empty means every tool of the organization's MCP servers.
    */
   mcpTools: z.array(z.string()).default([]),
+  /**
+   * Repairs the gateway applies for this key (card 31.1): `json` fixes broken JSON answers to a
+   * `response_format` request (non-streamed), `tools` fixes tool-call arguments and unpaired or
+   * duplicated tool calls in the history. The `x-dirouter-repair` header overrides it per request.
+   */
+  repair: z.array(RepairKind).default([]),
   /**
    * Providers this key may call through native pass-through routes (card 30.7): provider slugs or
    * `*`. Empty (the default) means pass-through is off for the key.

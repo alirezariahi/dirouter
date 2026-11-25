@@ -253,6 +253,8 @@ model ApiKey {
   passthroughProviders String[] @default([]) @map("passthrough_providers")
   /// DiRouter's own MCP server (card 20.2): none | read | write. Only owners and admins grant it.
   mcpAdmin       String       @default("none") @map("mcp_admin")
+  /// Gateway repairs for this key (card 31.1): `json` and/or `tools`; empty = none.
+  repair         String[]     @default([])
   ipAllowlist    String[]     @default([]) @map("ip_allowlist")
   rpm            Int?
   tpm            Int?

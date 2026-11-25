@@ -30,6 +30,7 @@ import { registerMedia, registerWorkersAi } from './media.js';
 import { registerCatalog } from './catalog.js';
 import { newRealtimeStats, type RealtimeStats, registerRealtime } from './realtime.js';
 import { registerOAuth } from './oauth.js';
+import { anthropicToolPairingError, openAIToolPairingError } from './tool-pairing.js';
 import { type PaymentMockOptions, registerPayments } from './payments.js';
 import { registerWeb } from './web.js';
 import { registerBalance } from './balance.js';
@@ -247,6 +248,12 @@ export function buildServer(options: MockServerOptions = {}) {
     const s = scenarioFor(req);
     await sleep(sampleLatency(s.latency));
     if (await maybeFail('openai', s, req, reply)) return;
+    // Like OpenAI, an unpaired tool call or result is a 400 (card 31.1).
+    const pairing = openAIToolPairingError((req.body ?? {}) as Record<string, unknown>);
+    if (pairing !== undefined) {
+      record(req, 400);
+      return reply.status(400).send(errorBody('openai', 400, pairing, 'invalid_request_error'));
+    }
     const body = (req.body ?? {}) as {
       messages?: unknown;
       tools?: unknown;
@@ -544,6 +551,12 @@ export function buildServer(options: MockServerOptions = {}) {
     const s = scenarioFor(req);
     await sleep(sampleLatency(s.latency));
     if (await maybeFail('anthropic', s, req, reply)) return;
+    // Like Anthropic, an unpaired or repeated tool_use / tool_result is a 400 (card 31.1).
+    const pairing = anthropicToolPairingError((req.body ?? {}) as Record<string, unknown>);
+    if (pairing !== undefined) {
+      record(req, 400);
+      return reply.status(400).send(errorBody('anthropic', 400, pairing, 'invalid_request_error'));
+    }
     const body = (req.body ?? {}) as {
       model?: string;
       messages?: unknown;

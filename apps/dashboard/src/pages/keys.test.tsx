@@ -48,6 +48,7 @@ const KEY = {
   state: 'active',
   allowedModels: ['gpt-4.1'],
   ipAllowlist: ['192.0.2.10'],
+  repair: ['tools'],
   passthroughProviders: ['openai'],
   rpm: 60,
   tpm: 100_000,
@@ -276,6 +277,7 @@ describe('virtual key management', () => {
     fireEvent.change(dialog.getByLabelText('IP allowlist'), {
       target: { value: '192.0.2.10, 2001:db8::/32' },
     });
+    fireEvent.click(dialog.getByLabelText(/Repair broken JSON/));
     fireEvent.change(dialog.getAllByLabelText('Cost limit (USD)')[0] as HTMLElement, {
       target: { value: '12.50' },
     });
@@ -294,6 +296,7 @@ describe('virtual key management', () => {
       projectId: 'prj_2',
       allowedModels: ['gpt-4.1', 'claude-sonnet-4'],
       ipAllowlist: ['192.0.2.10', '2001:db8::/32'],
+      repair: ['json'],
       rpm: 120,
       tpm: 200000,
       maxConcurrency: 8,
@@ -347,6 +350,8 @@ describe('virtual key management', () => {
     expect(JSON.parse(patch?.init.body as string)).toMatchObject({
       name: 'Renamed key',
       rpm: null,
+      // The key's repair setting is shown and kept (card 31.1).
+      repair: ['tools'],
     });
     // An unchanged pass-through grant (card 30.7) is not sent, so members can edit such keys.
     expect(JSON.parse(patch?.init.body as string)).not.toHaveProperty('passthroughProviders');

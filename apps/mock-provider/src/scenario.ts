@@ -101,6 +101,10 @@ export function parseScenario(
       case 'text':
         s.text = value ?? s.text;
         break;
+      case 'text_b64':
+        // Any text, commas included (base64url or base64), e.g. a broken JSON answer (card 31.1).
+        s.text = value ? Buffer.from(value, 'base64url').toString('utf8') : s.text;
+        break;
       case 'no_usage':
         s.noUsage = true;
         break;

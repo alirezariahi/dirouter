@@ -6,6 +6,7 @@
 import { randomBytes } from 'node:crypto';
 import { isIP } from 'node:net';
 
+import type { RepairKind } from '@dirouter/contracts';
 import { DiRouterError, ForbiddenError, hashApiKey, prefixedId } from '@dirouter/shared';
 import { Inject, Injectable } from '@nestjs/common';
 
@@ -52,6 +53,7 @@ export interface KeyInput {
   passthroughProviders?: string[] | undefined;
   mcpAdmin?: 'none' | 'read' | 'write' | undefined;
   ipAllowlist?: string[] | undefined;
+  repair?: RepairKind[] | undefined;
   rpm?: number | null | undefined;
   tpm?: number | null | undefined;
   maxConcurrency?: number | null | undefined;
@@ -106,6 +108,7 @@ export class KeysService {
       passthroughProviders: k.passthroughProviders,
       mcpAdmin: k.mcpAdmin as 'none' | 'read' | 'write',
       ipAllowlist: k.ipAllowlist,
+      repair: k.repair.filter((r): r is RepairKind => r === 'json' || r === 'tools'),
       rpm: k.rpm,
       tpm: k.tpm,
       maxConcurrency: k.maxConcurrency,
@@ -210,6 +213,7 @@ export class KeysService {
           passthroughProviders: input.passthroughProviders ?? [],
           mcpAdmin: input.mcpAdmin ?? 'none',
           ipAllowlist: input.ipAllowlist ?? [],
+          repair: [...new Set(input.repair ?? [])],
           rpm: input.rpm ?? null,
           tpm: input.tpm ?? null,
           maxConcurrency: input.maxConcurrency ?? null,
@@ -243,6 +247,7 @@ export class KeysService {
             : {}),
           ...(input.mcpAdmin !== undefined ? { mcpAdmin: input.mcpAdmin } : {}),
           ...(input.ipAllowlist !== undefined ? { ipAllowlist: input.ipAllowlist } : {}),
+          ...(input.repair !== undefined ? { repair: [...new Set(input.repair)] } : {}),
           ...(input.rpm !== undefined ? { rpm: input.rpm } : {}),
           ...(input.tpm !== undefined ? { tpm: input.tpm } : {}),
           ...(input.maxConcurrency !== undefined ? { maxConcurrency: input.maxConcurrency } : {}),
@@ -301,6 +306,7 @@ export class KeysService {
           passthroughProviders: old.passthroughProviders,
           mcpAdmin: old.mcpAdmin,
           ipAllowlist: old.ipAllowlist,
+          repair: old.repair,
           rpm: old.rpm,
           tpm: old.tpm,
           maxConcurrency: old.maxConcurrency,

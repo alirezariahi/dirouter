@@ -69,9 +69,12 @@ Directives are separated by `,` or `;`. Sources in priority order:
 | `drop_after=<n>` (or `stream_drop_after`) | Cut the connection in the middle of the stream after n chunks                                        |
 | `tool[=name]`                             | Response with a tool call (default `get_weather`)                                                    |
 | `text=<str>`                              | Response text                                                                                        |
+| `text_b64=<base64url>`                    | Response text of any content (commas included), unpadded base64url; e.g. broken JSON for card 31.1   |
 | `no_usage`                                | No `usage` (for testing token estimation, card 6.2)                                                  |
 
 Structured output (card 27.1): when an Anthropic request carries `output_config.format` (or a Bedrock request `additionalModelRequestFields.output_config.format`), the answer text is JSON built from the schema; when it carries the gateway's `dirouter_structured_output` tool, the answer is a call to that tool with input built from the schema. Strings become `"mock"`, numbers `1` (or `minimum`), booleans `true`, arrays get `minItems` items.
+
+Tool-call pairing (card 31.1): like the real providers, `/v1/messages` answers 400 to a `tool_use` without a `tool_result` in the next message, a `tool_result` without a `tool_use` in the previous one, or a repeated `tool_use` id; `/v1/chat/completions` answers 400 to an assistant `tool_calls` message not followed by a tool message per call, or a stray tool message. The messages use the providers' wording.
 
 Prompt caching on the Bedrock route (card 27.3): the prompt up to the last `cachePoint` is the cached prefix; the first request with a prefix reports `cacheWriteInputTokens`, later ones `cacheReadInputTokens`. `POST /__mock/reset` empties the cache.
 

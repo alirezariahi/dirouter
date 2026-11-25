@@ -11,6 +11,7 @@ import {
   Res,
   UseGuards,
 } from '@nestjs/common';
+import { RepairKind } from '@dirouter/contracts';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { z } from 'zod';
 
@@ -41,6 +42,8 @@ export const KeyBody = z.object({
     .max(200)
     .optional(),
   ipAllowlist: z.array(z.string().max(64)).max(100).optional(),
+  /** Gateway repairs (card 31.1): `json` answers and `tools` histories; empty = none. */
+  repair: z.array(RepairKind).max(2).optional(),
   /**
    * Native pass-through (card 30.7): provider slugs (or `*`) this key may call through
    * /passthrough/{provider}/*; empty (the default) keeps pass-through off.
@@ -78,6 +81,7 @@ const KeyView = z.object({
   passthroughProviders: z.array(z.string()),
   mcpAdmin: z.enum(['none', 'read', 'write']),
   ipAllowlist: z.array(z.string()),
+  repair: z.array(RepairKind),
   rpm: z.int().nullable(),
   tpm: z.int().nullable(),
   maxConcurrency: z.int().nullable(),

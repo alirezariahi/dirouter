@@ -110,6 +110,21 @@ Canonical parts: `document` (source `base64`, `url`, `text` or `file`: a provide
 - OpenAI and Gemini cache prompts on their own; the markers are not sent to them.
 - Usage: Converse `inputTokens`, like Anthropic's `input_tokens`, counts only uncached input, so canonical `inputTokens` = `inputTokens + cacheReadInputTokens + cacheWriteInputTokens`. An Anthropic client of a Bedrock model receives `cache_read_input_tokens` and `cache_creation_input_tokens`, in streams too.
 
+## Repair of JSON answers and tool calls
+
+> Card 31.1. Weaker models break JSON and agent clients replay histories providers reject; the gateway can repair both. Code: `packages/translator/src/repair.ts`, wiring in `apps/gateway/src/shaping.ts`.
+
+Repair is off unless the key asks for it (`repair: ["json", "tools"]` on the key, the "Answer and history repair" boxes on the Keys page) or the request does with the header `x-dirouter-repair: json`, `tools`, `all` or `off` (the header wins over the key).
+
+| Kind    | When                                                                                                                    | What                                                                                                                                                                                                                                                                                                                                                                             |
+| ------- | ----------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `json`  | a non-streamed answer to a request with `response_format` (`json_object` or `json_schema`) whose text is not valid JSON | Code fences and prose around the value are removed, trailing commas dropped, single quotes, bare keys, comments and Python literals (`True`, `None`) fixed, a missing comma inserted, and a truncated tail closed. The repair is only kept when the result parses; valid JSON is never touched. Streams are passed on as they come.                                              |
+| `tools` | before routing, on the replayed history; and on every non-streamed answer                                               | A call repeated with the same id is kept once; every call gets its result in the tool turn right after it (a late result is moved there, a duplicate dropped, a missing one becomes an error result that says so); a result whose call is gone becomes user text; broken JSON in tool arguments is repaired. A trailing assistant turn that waits for its results is left alone. |
+
+Each repair is logged (`repaired before passing on`, with the list) and counted in `dirouter_gateway_repairs_total{action}` (`json`, `tool_arguments`, `tool_duplicate_call`, `tool_duplicate_result`, `tool_orphan_result`, `tool_moved_result`, `tool_missing_result`).
+
+Tests: `packages/translator/src/repair.test.ts` (a corpus of broken JSON, valid JSON left alone, and a golden broken history checked against Anthropic's and OpenAI's pairing rules) and `apps/gateway/src/shaping.test.ts` (through the gateway against the mock, which answers an unpaired history with the providers' own 400).
+
 ## Dropped fields
 
 The translator reports each field that has no equivalent through `onDrop(field, reason)`, and the gateway logs it at debug level. The list: `n>1` and a `file` part with neither data nor id in OpenAI, image `file` in Anthropic, video and other unknown parts in Gemini and Responses, `top_k` to OpenAI, `seed` to Anthropic, `json_object` to a Claude model with native structured output (sent as an instruction), reasoning to OpenAI, thinking without a signature to Anthropic, images in tool results to OpenAI, and temperature above 1 to Anthropic.

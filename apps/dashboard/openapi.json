@@ -2439,6 +2439,28 @@
                         "minimum": -9007199254740991,
                         "maximum": 9007199254740991
                       },
+                      "dataPolicy": {
+                        "nullable": true,
+                        "type": "object",
+                        "properties": {
+                          "region": {
+                            "type": "string",
+                            "pattern": "^[a-z][a-z0-9-]{1,30}$",
+                            "description": "region code, e.g. eu or us"
+                          },
+                          "country": {
+                            "type": "string",
+                            "pattern": "^[A-Z]{2}$",
+                            "description": "ISO 3166-1 alpha-2 country code"
+                          },
+                          "zdr": {
+                            "type": "boolean"
+                          },
+                          "trainsOnData": {
+                            "type": "boolean"
+                          }
+                        }
+                      },
                       "balanceKind": {
                         "nullable": true,
                         "type": "string"
@@ -2550,6 +2572,7 @@
                       "timeouts",
                       "options",
                       "maxConcurrency",
+                      "dataPolicy",
                       "balanceKind",
                       "credentials",
                       "createdAt"
@@ -2671,6 +2694,28 @@
                     "minimum": 0,
                     "exclusiveMinimum": true,
                     "maximum": 10000
+                  },
+                  "dataPolicy": {
+                    "nullable": true,
+                    "type": "object",
+                    "properties": {
+                      "region": {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9-]{1,30}$",
+                        "description": "region code, e.g. eu or us"
+                      },
+                      "country": {
+                        "type": "string",
+                        "pattern": "^[A-Z]{2}$",
+                        "description": "ISO 3166-1 alpha-2 country code"
+                      },
+                      "zdr": {
+                        "type": "boolean"
+                      },
+                      "trainsOnData": {
+                        "type": "boolean"
+                      }
+                    }
                   },
                   "credentials": {
                     "maxItems": 50,
@@ -2813,6 +2858,28 @@
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991
                     },
+                    "dataPolicy": {
+                      "nullable": true,
+                      "type": "object",
+                      "properties": {
+                        "region": {
+                          "type": "string",
+                          "pattern": "^[a-z][a-z0-9-]{1,30}$",
+                          "description": "region code, e.g. eu or us"
+                        },
+                        "country": {
+                          "type": "string",
+                          "pattern": "^[A-Z]{2}$",
+                          "description": "ISO 3166-1 alpha-2 country code"
+                        },
+                        "zdr": {
+                          "type": "boolean"
+                        },
+                        "trainsOnData": {
+                          "type": "boolean"
+                        }
+                      }
+                    },
                     "balanceKind": {
                       "nullable": true,
                       "type": "string"
@@ -2924,6 +2991,7 @@
                     "timeouts",
                     "options",
                     "maxConcurrency",
+                    "dataPolicy",
                     "balanceKind",
                     "credentials",
                     "createdAt"
@@ -3139,6 +3207,28 @@
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991
                     },
+                    "dataPolicy": {
+                      "nullable": true,
+                      "type": "object",
+                      "properties": {
+                        "region": {
+                          "type": "string",
+                          "pattern": "^[a-z][a-z0-9-]{1,30}$",
+                          "description": "region code, e.g. eu or us"
+                        },
+                        "country": {
+                          "type": "string",
+                          "pattern": "^[A-Z]{2}$",
+                          "description": "ISO 3166-1 alpha-2 country code"
+                        },
+                        "zdr": {
+                          "type": "boolean"
+                        },
+                        "trainsOnData": {
+                          "type": "boolean"
+                        }
+                      }
+                    },
                     "balanceKind": {
                       "nullable": true,
                       "type": "string"
@@ -3250,6 +3340,7 @@
                     "timeouts",
                     "options",
                     "maxConcurrency",
+                    "dataPolicy",
                     "balanceKind",
                     "credentials",
                     "createdAt"
@@ -3359,6 +3450,28 @@
                     "exclusiveMinimum": true,
                     "maximum": 10000
                   },
+                  "dataPolicy": {
+                    "nullable": true,
+                    "type": "object",
+                    "properties": {
+                      "region": {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9-]{1,30}$",
+                        "description": "region code, e.g. eu or us"
+                      },
+                      "country": {
+                        "type": "string",
+                        "pattern": "^[A-Z]{2}$",
+                        "description": "ISO 3166-1 alpha-2 country code"
+                      },
+                      "zdr": {
+                        "type": "boolean"
+                      },
+                      "trainsOnData": {
+                        "type": "boolean"
+                      }
+                    }
+                  },
                   "acceptTerms": {
                     "type": "boolean"
                   }
@@ -3454,6 +3567,28 @@
                       "type": "integer",
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991
+                    },
+                    "dataPolicy": {
+                      "nullable": true,
+                      "type": "object",
+                      "properties": {
+                        "region": {
+                          "type": "string",
+                          "pattern": "^[a-z][a-z0-9-]{1,30}$",
+                          "description": "region code, e.g. eu or us"
+                        },
+                        "country": {
+                          "type": "string",
+                          "pattern": "^[A-Z]{2}$",
+                          "description": "ISO 3166-1 alpha-2 country code"
+                        },
+                        "zdr": {
+                          "type": "boolean"
+                        },
+                        "trainsOnData": {
+                          "type": "boolean"
+                        }
+                      }
                     },
                     "balanceKind": {
                       "nullable": true,
@@ -3566,6 +3701,7 @@
                     "timeouts",
                     "options",
                     "maxConcurrency",
+                    "dataPolicy",
                     "balanceKind",
                     "credentials",
                     "createdAt"
@@ -3772,6 +3908,28 @@
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991
                     },
+                    "dataPolicy": {
+                      "nullable": true,
+                      "type": "object",
+                      "properties": {
+                        "region": {
+                          "type": "string",
+                          "pattern": "^[a-z][a-z0-9-]{1,30}$",
+                          "description": "region code, e.g. eu or us"
+                        },
+                        "country": {
+                          "type": "string",
+                          "pattern": "^[A-Z]{2}$",
+                          "description": "ISO 3166-1 alpha-2 country code"
+                        },
+                        "zdr": {
+                          "type": "boolean"
+                        },
+                        "trainsOnData": {
+                          "type": "boolean"
+                        }
+                      }
+                    },
                     "balanceKind": {
                       "nullable": true,
                       "type": "string"
@@ -3883,6 +4041,7 @@
                     "timeouts",
                     "options",
                     "maxConcurrency",
+                    "dataPolicy",
                     "balanceKind",
                     "credentials",
                     "createdAt"
@@ -4066,6 +4225,28 @@
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991
                     },
+                    "dataPolicy": {
+                      "nullable": true,
+                      "type": "object",
+                      "properties": {
+                        "region": {
+                          "type": "string",
+                          "pattern": "^[a-z][a-z0-9-]{1,30}$",
+                          "description": "region code, e.g. eu or us"
+                        },
+                        "country": {
+                          "type": "string",
+                          "pattern": "^[A-Z]{2}$",
+                          "description": "ISO 3166-1 alpha-2 country code"
+                        },
+                        "zdr": {
+                          "type": "boolean"
+                        },
+                        "trainsOnData": {
+                          "type": "boolean"
+                        }
+                      }
+                    },
                     "balanceKind": {
                       "nullable": true,
                       "type": "string"
@@ -4177,6 +4358,7 @@
                     "timeouts",
                     "options",
                     "maxConcurrency",
+                    "dataPolicy",
                     "balanceKind",
                     "credentials",
                     "createdAt"
@@ -4445,6 +4627,28 @@
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991
                     },
+                    "dataPolicy": {
+                      "nullable": true,
+                      "type": "object",
+                      "properties": {
+                        "region": {
+                          "type": "string",
+                          "pattern": "^[a-z][a-z0-9-]{1,30}$",
+                          "description": "region code, e.g. eu or us"
+                        },
+                        "country": {
+                          "type": "string",
+                          "pattern": "^[A-Z]{2}$",
+                          "description": "ISO 3166-1 alpha-2 country code"
+                        },
+                        "zdr": {
+                          "type": "boolean"
+                        },
+                        "trainsOnData": {
+                          "type": "boolean"
+                        }
+                      }
+                    },
                     "balanceKind": {
                       "nullable": true,
                       "type": "string"
@@ -4556,6 +4760,7 @@
                     "timeouts",
                     "options",
                     "maxConcurrency",
+                    "dataPolicy",
                     "balanceKind",
                     "credentials",
                     "createdAt"
@@ -4772,6 +4977,16 @@
                           "type": "string"
                         }
                       },
+                      "repair": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "enum": [
+                            "json",
+                            "tools"
+                          ]
+                        }
+                      },
                       "rpm": {
                         "nullable": true,
                         "type": "integer",
@@ -4864,6 +5079,7 @@
                       "passthroughProviders",
                       "mcpAdmin",
                       "ipAllowlist",
+                      "repair",
                       "rpm",
                       "tpm",
                       "maxConcurrency",
@@ -4940,6 +5156,17 @@
                     "items": {
                       "type": "string",
                       "maxLength": 64
+                    }
+                  },
+                  "repair": {
+                    "maxItems": 2,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "json",
+                        "tools"
+                      ]
                     }
                   },
                   "passthroughProviders": {
@@ -5093,6 +5320,16 @@
                         "type": "string"
                       }
                     },
+                    "repair": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "json",
+                          "tools"
+                        ]
+                      }
+                    },
                     "rpm": {
                       "nullable": true,
                       "type": "integer",
@@ -5189,6 +5426,7 @@
                     "passthroughProviders",
                     "mcpAdmin",
                     "ipAllowlist",
+                    "repair",
                     "rpm",
                     "tpm",
                     "maxConcurrency",
@@ -5297,6 +5535,16 @@
                         "type": "string"
                       }
                     },
+                    "repair": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "json",
+                          "tools"
+                        ]
+                      }
+                    },
                     "rpm": {
                       "nullable": true,
                       "type": "integer",
@@ -5389,6 +5637,7 @@
                     "passthroughProviders",
                     "mcpAdmin",
                     "ipAllowlist",
+                    "repair",
                     "rpm",
                     "tpm",
                     "maxConcurrency",
@@ -5468,6 +5717,17 @@
                     "items": {
                       "type": "string",
                       "maxLength": 64
+                    }
+                  },
+                  "repair": {
+                    "maxItems": 2,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "json",
+                        "tools"
+                      ]
                     }
                   },
                   "passthroughProviders": {
@@ -5617,6 +5877,16 @@
                         "type": "string"
                       }
                     },
+                    "repair": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "json",
+                          "tools"
+                        ]
+                      }
+                    },
                     "rpm": {
                       "nullable": true,
                       "type": "integer",
@@ -5709,6 +5979,7 @@
                     "passthroughProviders",
                     "mcpAdmin",
                     "ipAllowlist",
+                    "repair",
                     "rpm",
                     "tpm",
                     "maxConcurrency",
@@ -5816,6 +6087,16 @@
                         "type": "string"
                       }
                     },
+                    "repair": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "json",
+                          "tools"
+                        ]
+                      }
+                    },
                     "rpm": {
                       "nullable": true,
                       "type": "integer",
@@ -5908,6 +6189,7 @@
                     "passthroughProviders",
                     "mcpAdmin",
                     "ipAllowlist",
+                    "repair",
                     "rpm",
                     "tpm",
                     "maxConcurrency",
@@ -6031,6 +6313,16 @@
                       "type": "array",
                       "items": {
                         "type": "string"
+                      }
+                    },
+                    "repair": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "json",
+                          "tools"
+                        ]
                       }
                     },
                     "rpm": {
@@ -6173,6 +6465,16 @@
                             "type": "string"
                           }
                         },
+                        "repair": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "enum": [
+                              "json",
+                              "tools"
+                            ]
+                          }
+                        },
                         "rpm": {
                           "nullable": true,
                           "type": "integer",
@@ -6265,6 +6567,7 @@
                         "passthroughProviders",
                         "mcpAdmin",
                         "ipAllowlist",
+                        "repair",
                         "rpm",
                         "tpm",
                         "maxConcurrency",
@@ -6288,6 +6591,7 @@
                     "passthroughProviders",
                     "mcpAdmin",
                     "ipAllowlist",
+                    "repair",
                     "rpm",
                     "tpm",
                     "maxConcurrency",
@@ -6464,6 +6768,14 @@
                             "type": "string",
                             "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
                           },
+                          "audioInputPerMTok": {
+                            "type": "string",
+                            "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
+                          },
+                          "audioOutputPerMTok": {
+                            "type": "string",
+                            "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
+                          },
                           "tiers": {
                             "maxItems": 8,
                             "type": "array",
@@ -6503,6 +6815,30 @@
                           "batchDiscount": {
                             "type": "string",
                             "pattern": "^(0(\\.\\d{1,6})?|1(\\.0{1,6})?)$"
+                          },
+                          "serviceTiers": {
+                            "type": "object",
+                            "additionalProperties": {
+                              "type": "object",
+                              "properties": {
+                                "inputPerMTok": {
+                                  "type": "string",
+                                  "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
+                                },
+                                "outputPerMTok": {
+                                  "type": "string",
+                                  "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
+                                },
+                                "cacheReadPerMTok": {
+                                  "type": "string",
+                                  "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
+                                }
+                              },
+                              "required": [
+                                "inputPerMTok",
+                                "outputPerMTok"
+                              ]
+                            }
                           }
                         },
                         "required": [
@@ -6674,6 +7010,14 @@
                         "type": "string",
                         "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
                       },
+                      "audioInputPerMTok": {
+                        "type": "string",
+                        "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
+                      },
+                      "audioOutputPerMTok": {
+                        "type": "string",
+                        "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
+                      },
                       "tiers": {
                         "maxItems": 8,
                         "type": "array",
@@ -6713,6 +7057,30 @@
                       "batchDiscount": {
                         "type": "string",
                         "pattern": "^(0(\\.\\d{1,6})?|1(\\.0{1,6})?)$"
+                      },
+                      "serviceTiers": {
+                        "type": "object",
+                        "additionalProperties": {
+                          "type": "object",
+                          "properties": {
+                            "inputPerMTok": {
+                              "type": "string",
+                              "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
+                            },
+                            "outputPerMTok": {
+                              "type": "string",
+                              "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
+                            },
+                            "cacheReadPerMTok": {
+                              "type": "string",
+                              "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
+                            }
+                          },
+                          "required": [
+                            "inputPerMTok",
+                            "outputPerMTok"
+                          ]
+                        }
                       }
                     }
                   },
@@ -6756,6 +7124,12 @@
                         "type": "boolean"
                       },
                       "audioInput": {
+                        "type": "boolean"
+                      },
+                      "realtime": {
+                        "type": "boolean"
+                      },
+                      "completions": {
                         "type": "boolean"
                       }
                     }
@@ -6877,6 +7251,14 @@
                           "type": "string",
                           "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
                         },
+                        "audioInputPerMTok": {
+                          "type": "string",
+                          "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
+                        },
+                        "audioOutputPerMTok": {
+                          "type": "string",
+                          "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
+                        },
                         "tiers": {
                           "maxItems": 8,
                           "type": "array",
@@ -6916,6 +7298,30 @@
                         "batchDiscount": {
                           "type": "string",
                           "pattern": "^(0(\\.\\d{1,6})?|1(\\.0{1,6})?)$"
+                        },
+                        "serviceTiers": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "object",
+                            "properties": {
+                              "inputPerMTok": {
+                                "type": "string",
+                                "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
+                              },
+                              "outputPerMTok": {
+                                "type": "string",
+                                "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
+                              },
+                              "cacheReadPerMTok": {
+                                "type": "string",
+                                "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
+                              }
+                            },
+                            "required": [
+                              "inputPerMTok",
+                              "outputPerMTok"
+                            ]
+                          }
                         }
                       },
                       "required": [
@@ -7143,6 +7549,14 @@
                           "type": "string",
                           "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
                         },
+                        "audioInputPerMTok": {
+                          "type": "string",
+                          "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
+                        },
+                        "audioOutputPerMTok": {
+                          "type": "string",
+                          "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
+                        },
                         "tiers": {
                           "maxItems": 8,
                           "type": "array",
@@ -7182,6 +7596,30 @@
                         "batchDiscount": {
                           "type": "string",
                           "pattern": "^(0(\\.\\d{1,6})?|1(\\.0{1,6})?)$"
+                        },
+                        "serviceTiers": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "object",
+                            "properties": {
+                              "inputPerMTok": {
+                                "type": "string",
+                                "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
+                              },
+                              "outputPerMTok": {
+                                "type": "string",
+                                "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
+                              },
+                              "cacheReadPerMTok": {
+                                "type": "string",
+                                "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
+                              }
+                            },
+                            "required": [
+                              "inputPerMTok",
+                              "outputPerMTok"
+                            ]
+                          }
                         }
                       },
                       "required": [
@@ -7352,6 +7790,14 @@
                         "type": "string",
                         "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
                       },
+                      "audioInputPerMTok": {
+                        "type": "string",
+                        "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
+                      },
+                      "audioOutputPerMTok": {
+                        "type": "string",
+                        "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
+                      },
                       "tiers": {
                         "maxItems": 8,
                         "type": "array",
@@ -7391,6 +7837,30 @@
                       "batchDiscount": {
                         "type": "string",
                         "pattern": "^(0(\\.\\d{1,6})?|1(\\.0{1,6})?)$"
+                      },
+                      "serviceTiers": {
+                        "type": "object",
+                        "additionalProperties": {
+                          "type": "object",
+                          "properties": {
+                            "inputPerMTok": {
+                              "type": "string",
+                              "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
+                            },
+                            "outputPerMTok": {
+                              "type": "string",
+                              "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
+                            },
+                            "cacheReadPerMTok": {
+                              "type": "string",
+                              "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
+                            }
+                          },
+                          "required": [
+                            "inputPerMTok",
+                            "outputPerMTok"
+                          ]
+                        }
                       }
                     }
                   },
@@ -7434,6 +7904,12 @@
                         "type": "boolean"
                       },
                       "audioInput": {
+                        "type": "boolean"
+                      },
+                      "realtime": {
+                        "type": "boolean"
+                      },
+                      "completions": {
                         "type": "boolean"
                       }
                     }
@@ -7554,6 +8030,14 @@
                           "type": "string",
                           "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
                         },
+                        "audioInputPerMTok": {
+                          "type": "string",
+                          "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
+                        },
+                        "audioOutputPerMTok": {
+                          "type": "string",
+                          "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
+                        },
                         "tiers": {
                           "maxItems": 8,
                           "type": "array",
@@ -7593,6 +8077,30 @@
                         "batchDiscount": {
                           "type": "string",
                           "pattern": "^(0(\\.\\d{1,6})?|1(\\.0{1,6})?)$"
+                        },
+                        "serviceTiers": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "object",
+                            "properties": {
+                              "inputPerMTok": {
+                                "type": "string",
+                                "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
+                              },
+                              "outputPerMTok": {
+                                "type": "string",
+                                "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
+                              },
+                              "cacheReadPerMTok": {
+                                "type": "string",
+                                "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
+                              }
+                            },
+                            "required": [
+                              "inputPerMTok",
+                              "outputPerMTok"
+                            ]
+                          }
                         }
                       },
                       "required": [
@@ -10271,6 +10779,14 @@
                     "routing": {
                       "description": "Auto-routing decision (card 20.4): alias, target, task type, source and reasons"
                     },
+                    "serviceTier": {
+                      "nullable": true,
+                      "description": "service tier the request was priced at (31.5)",
+                      "type": "string"
+                    },
+                    "routeDecision": {
+                      "description": "Routing decision (cards 32.5 and 32.7): data policy and removed targets"
+                    },
                     "chargeUsd": {
                       "type": "string"
                     }
@@ -10304,6 +10820,8 @@
                     "gatewayInstance",
                     "attempts",
                     "routing",
+                    "serviceTier",
+                    "routeDecision",
                     "chargeUsd"
                   ]
                 }
@@ -20689,6 +21207,38 @@
                               },
                               "lockProvider": {
                                 "type": "boolean"
+                              },
+                              "dataPolicy": {
+                                "type": "object",
+                                "properties": {
+                                  "allowedRegions": {
+                                    "maxItems": 50,
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string",
+                                      "pattern": "^[a-z][a-z0-9-]{1,30}$",
+                                      "description": "region code, e.g. eu or us"
+                                    }
+                                  },
+                                  "allowedCountries": {
+                                    "maxItems": 250,
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string",
+                                      "pattern": "^[A-Z]{2}$",
+                                      "description": "ISO 3166-1 alpha-2 country code"
+                                    }
+                                  },
+                                  "requireZdr": {
+                                    "type": "boolean"
+                                  },
+                                  "denyTraining": {
+                                    "type": "boolean"
+                                  }
+                                }
+                              },
+                              "explain": {
+                                "type": "boolean"
                               }
                             }
                           },
@@ -20824,6 +21374,38 @@
                       },
                       "lockProvider": {
                         "type": "boolean"
+                      },
+                      "dataPolicy": {
+                        "type": "object",
+                        "properties": {
+                          "allowedRegions": {
+                            "maxItems": 50,
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "pattern": "^[a-z][a-z0-9-]{1,30}$",
+                              "description": "region code, e.g. eu or us"
+                            }
+                          },
+                          "allowedCountries": {
+                            "maxItems": 250,
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "pattern": "^[A-Z]{2}$",
+                              "description": "ISO 3166-1 alpha-2 country code"
+                            }
+                          },
+                          "requireZdr": {
+                            "type": "boolean"
+                          },
+                          "denyTraining": {
+                            "type": "boolean"
+                          }
+                        }
+                      },
+                      "explain": {
+                        "type": "boolean"
                       }
                     }
                   }
@@ -20927,6 +21509,38 @@
                           }
                         },
                         "lockProvider": {
+                          "type": "boolean"
+                        },
+                        "dataPolicy": {
+                          "type": "object",
+                          "properties": {
+                            "allowedRegions": {
+                              "maxItems": 50,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "pattern": "^[a-z][a-z0-9-]{1,30}$",
+                                "description": "region code, e.g. eu or us"
+                              }
+                            },
+                            "allowedCountries": {
+                              "maxItems": 250,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "pattern": "^[A-Z]{2}$",
+                                "description": "ISO 3166-1 alpha-2 country code"
+                              }
+                            },
+                            "requireZdr": {
+                              "type": "boolean"
+                            },
+                            "denyTraining": {
+                              "type": "boolean"
+                            }
+                          }
+                        },
+                        "explain": {
                           "type": "boolean"
                         }
                       }

@@ -85,6 +85,12 @@ export function createGatewayMetrics(options: GatewayMetricOptions) {
     labelNames: ['type', 'outcome'],
     registers: [registry],
   });
+  const repairs = new Counter({
+    name: 'dirouter_gateway_repairs_total',
+    help: 'Broken JSON answers and tool-call histories repaired by the gateway (card 31.1)',
+    labelNames: ['action'],
+    registers: [registry],
+  });
   const cacheHits = new Counter({
     name: 'dirouter_gateway_cache_hits_total',
     help: 'Responses served from the exact or semantic cache',
@@ -204,6 +210,10 @@ export function createGatewayMetrics(options: GatewayMetricOptions) {
     },
     guardrailCall(type: string, outcome: 'pass' | 'flagged' | 'timeout' | 'error') {
       guardrailCalls.inc({ type, outcome });
+    },
+    /** One applied repair (card 31.1); `action` is a fixed set of names. */
+    repair(action: string) {
+      repairs.inc({ action });
     },
     cacheHit(kind: 'exact' | 'semantic') {
       cacheHits.inc({ kind });
