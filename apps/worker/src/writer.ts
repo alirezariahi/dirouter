@@ -7,10 +7,12 @@
  * If a batch fails, events are written one by one so a bad event does not hold back the rest.
  */
 import type { UsageEvent } from '@dirouter/contracts';
-import type { Logger } from '@dirouter/shared';
+import { type Logger, prefixedId } from '@dirouter/shared';
 
 export interface UsageDb {
   $transaction(ops: Promise<unknown>[]): Promise<unknown>;
+  /** Present on Prisma; records the end users a batch named (card 33.2). */
+  $executeRawUnsafe?(query: string, ...values: unknown[]): Promise<number>;
   requestLog: { createMany(args: { data: unknown[]; skipDuplicates: boolean }): Promise<unknown> };
   usageLedger: { createMany(args: { data: unknown[]; skipDuplicates: boolean }): Promise<unknown> };
 }
@@ -85,10 +87,41 @@ export function toLedgerRow(e: UsageEvent) {
     apiKeyId: e.virtualKeyId,
     modelId: e.resolvedModelId,
     providerId: e.providerId,
+    endUser: e.endUser ?? null,
     costUsd: e.costUsd,
     tokens: e.usage.inputTokens + e.usage.outputTokens,
     occurredAt: new Date(e.occurredAt),
   };
+}
+
+/**
+ * End users a batch named (card 33.2): created on first sight, with the first and last time seen.
+ * One statement per batch, in the same transaction as the usage rows.
+ */
+export const END_USERS_UPSERT = `
+INSERT INTO end_users (id, organization_id, external_id, first_seen_at, last_seen_at, updated_at)
+SELECT * FROM unnest($1::text[], $2::text[], $3::text[], $4::timestamptz[], $5::timestamptz[],
+                     $5::timestamptz[])
+ON CONFLICT (organization_id, external_id) DO UPDATE SET
+  first_seen_at = LEAST(coalesce(end_users.first_seen_at, EXCLUDED.first_seen_at),
+                        EXCLUDED.first_seen_at),
+  last_seen_at = GREATEST(coalesce(end_users.last_seen_at, EXCLUDED.last_seen_at),
+                          EXCLUDED.last_seen_at),
+  updated_at = now()`;
+
+export function endUsersOf(events: UsageEvent[]) {
+  const seen = new Map<string, { org: string; id: string; first: number; last: number }>();
+  for (const e of events) {
+    if (!e.endUser) continue;
+    const at = Date.parse(e.occurredAt);
+    const key = `${e.organizationId}\u0000${e.endUser}`;
+    const row = seen.get(key);
+    if (row) {
+      row.first = Math.min(row.first, at);
+      row.last = Math.max(row.last, at);
+    } else seen.set(key, { org: e.organizationId, id: e.endUser, first: at, last: at });
+  }
+  return [...seen.values()];
 }
 
 export const hourOf = (iso: string) => {
@@ -138,9 +171,22 @@ export class UsageBatchWriter {
 
   async #insert(events: UsageEvent[]): Promise<void> {
     const { db } = this.#opts;
+    const endUsers = endUsersOf(events);
     await db.$transaction([
       db.requestLog.createMany({ data: events.map(toRequestLogRow), skipDuplicates: true }),
       db.usageLedger.createMany({ data: events.map(toLedgerRow), skipDuplicates: true }),
+      ...(endUsers.length > 0 && db.$executeRawUnsafe
+        ? [
+            db.$executeRawUnsafe(
+              END_USERS_UPSERT,
+              endUsers.map(() => prefixedId('eu')),
+              endUsers.map((u) => u.org),
+              endUsers.map((u) => u.id),
+              endUsers.map((u) => new Date(u.first)),
+              endUsers.map((u) => new Date(u.last)),
+            ),
+          ]
+        : []),
     ]);
   }
 

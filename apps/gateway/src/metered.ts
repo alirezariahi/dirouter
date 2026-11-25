@@ -34,6 +34,7 @@ import { resolveCredentialKey, tokenFailure } from './credential-tokens.js';
 import { chargeUnits, chargeUsd } from './pricing.js';
 import { type ProxyDeps, toClientError } from './proxy.js';
 import { admitRequest, type Spent } from './spend-guard.js';
+import { attributionFields, requestAttribution } from './attribution.js';
 import { planErrorToClient, routingFromRequest } from './route-request.js';
 import { callUpstream, mergeTimeouts, readErrorBody, UpstreamTimeout } from './upstream.js';
 
@@ -175,7 +176,12 @@ export async function runMetered<T>(
 
   // Budgets and rate limits (RPM and TPM on the input estimate) apply before any provider is
   // called (spend-guard.ts); a used-up model or provider budget takes its candidates out.
+  const attribution = requestAttribution(
+    req.headers,
+    (req.body as { user?: unknown } | undefined)?.user,
+  );
   const admission = await admitRequest(deps, {
+    attribution,
     config,
     key,
     candidates: selected,
@@ -401,6 +407,7 @@ export async function runMetered<T>(
       usage,
       costUsd,
       chargeUsd: charged,
+      ...attributionFields(attribution),
       usageEstimated: result.ok && metering.estimated,
       ...(metering.media ? { media: metering.media } : {}),
       latencyMs: Date.now() - started,

@@ -63,10 +63,13 @@ export async function rollup(
   try {
     for (const hour of [...hours].sort()) {
       await db.$queryRawUnsafe('SELECT dirouter_rollup_hour($1::timestamptz)', hour);
+      // Usage per end user, tag and cost center (cards 33.2 and 33.4).
+      await db.$queryRawUnsafe('SELECT dirouter_rollup_dimensions_hour($1::timestamptz)', hour);
       days.add(hour.slice(0, 10));
     }
     for (const day of [...days].sort()) {
       await db.$queryRawUnsafe('SELECT dirouter_rollup_day($1::date)', day);
+      await db.$queryRawUnsafe('SELECT dirouter_rollup_dimensions_day($1::date)', day);
     }
   } catch (error) {
     // hours are returned so the next tick retries them.

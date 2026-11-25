@@ -21,6 +21,10 @@ export interface Range {
   from: Date;
   to: Date;
 }
+/** Attribution dimensions with rollups (card 33.2: end users). */
+export const DIMENSIONS = ['end_user'] as const;
+export type Dimension = (typeof DIMENSIONS)[number];
+
 export interface Filters {
   projectId?: string | undefined;
   apiKeyId?: string | undefined;
@@ -669,6 +673,66 @@ export class StatsService {
             })),
         };
       }),
+    };
+  }
+
+  /**
+   * Usage per attribution dimension (cards 33.2 and 33.4): grouped by the dimension's value, or,
+   * with `value` set, that value's usage grouped by model, key, project or provider. Read from the
+   * dimension rollups; ranges over 7 days use the daily table, like the other reports.
+   */
+  async dimensions(
+    ctx: OrgContext,
+    r: Range,
+    f: Filters,
+    q: {
+      dimension: Dimension;
+      value?: string | undefined;
+      groupBy: 'value' | 'model' | 'key' | 'project' | 'provider';
+      limit: number;
+    },
+  ) {
+    const t = this.#table(r);
+    const table =
+      t === 'd' ? Prisma.raw('usage_dimension_daily') : Prisma.raw('usage_dimension_hourly');
+    const col = Prisma.raw(
+      {
+        value: 'value',
+        model: 'model_slug',
+        key: 'api_key_id',
+        project: 'project_id',
+        provider: 'provider_id',
+      }[q.groupBy],
+    );
+    const where = Prisma.join(
+      [
+        this.#where(ctx, r, f, t),
+        Prisma.sql`dimension = ${q.dimension}`,
+        ...(q.value !== undefined ? [Prisma.sql`value = ${q.value}`] : []),
+      ],
+      ' AND ',
+    );
+    const rows = await this.db.$queryRaw<Record<string, unknown>[]>`
+      SELECT ${col} AS id, sum(requests) AS requests, sum(errors) AS errors,
+             sum(input_tokens) AS input_tokens, sum(output_tokens) AS output_tokens,
+             sum(cost_usd)::text AS cost_usd, sum(charge_usd)::text AS charge_usd
+      FROM ${table} WHERE ${where}
+      GROUP BY ${col} ORDER BY sum(cost_usd) DESC NULLS LAST, sum(requests) DESC, ${col}
+      LIMIT ${q.limit}`;
+    return {
+      dimension: q.dimension,
+      groupBy: q.groupBy,
+      ...(q.value !== undefined ? { value: q.value } : {}),
+      items: rows.map((x) => ({
+        id: String(x.id),
+        requests: num(x.requests),
+        errors: num(x.errors),
+        inputTokens: num(x.input_tokens),
+        outputTokens: num(x.output_tokens),
+        tokens: num(x.input_tokens) + num(x.output_tokens),
+        costUsd: usd(x.cost_usd),
+        chargeUsd: usd(x.charge_usd),
+      })),
     };
   }
 

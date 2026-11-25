@@ -120,3 +120,4 @@ CI runs lint, typecheck, test, and build for the changed packages and their cons
 - Migration guides: [from OpenRouter](migrate-from-openrouter.md) and [from LiteLLM](migrate-from-litellm.md)
 - [Request-level routing](concepts/request-routing.md): provider preferences, data policy, model suffixes, service tier and the routing explanation
 - Gateway endpoints added in sprint 5: [Files and Batch](gateway/batch.md), [videos](gateway/videos.md), [moderations](gateway/moderations.md), [rerank](gateway/rerank.md), [Realtime](gateway/realtime.md), [image edits, translations and legacy completions](gateway/legacy-endpoints.md), [pass-through](gateway/passthrough.md) and [web search](gateway/web-search.md)
+- [End users: limits, blocking and usage per user of your product](concepts/end-users.md)

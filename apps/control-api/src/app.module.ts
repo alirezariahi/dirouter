@@ -23,6 +23,7 @@ import { HealthController } from './health/health.controller.js';
 import { InfraModule } from './infra/infra.module.js';
 import { KeysModule } from './keys/keys.module.js';
 import { LimitsModule } from './limits/limits.module.js';
+import { EndUsersModule } from './end-users/end-users.module.js';
 import { ModelsModule } from './models/models.module.js';
 import { OrgsModule } from './orgs/orgs.module.js';
 import { ProvidersModule } from './providers/providers.module.js';
@@ -61,6 +62,7 @@ export class AppModule {
         PlaygroundModule,
         BodiesModule,
         LimitsModule,
+        EndUsersModule,
         RoutingPoliciesModule,
       ],
       controllers: [HealthController],

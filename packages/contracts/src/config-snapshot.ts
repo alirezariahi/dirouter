@@ -446,9 +446,10 @@ export type VirtualKeyConfig = z.infer<typeof VirtualKeyConfig>;
 
 /**
  * Limits and budgets shared by many keys (cards 25.5 and 33.1). `scopeId` is the team, project,
- * organization (its own id), member (user id), model id or provider id. Organization, team,
- * project and member scopes reject a request when they are exhausted; model and provider scopes
- * take their targets out of the route instead, so a combo falls back to its other targets.
+ * organization (its own id), member (user id), model id or provider id, or an end user's id (card
+ * 33.2; `*` holds the defaults every end user gets on counters of its own). Organization, team,
+ * project, member and end-user scopes reject a request when they are exhausted; model and
+ * provider scopes take their targets out of the route instead, so a combo falls back.
  */
 export const LimitScopeKind = z.enum([
   'organization',
@@ -457,6 +458,7 @@ export const LimitScopeKind = z.enum([
   'user',
   'model',
   'provider',
+  'end_user',
 ]);
 export type LimitScopeKind = z.infer<typeof LimitScopeKind>;
 
@@ -466,6 +468,8 @@ export const ScopeLimitConfig = z.object({
   scopeId: z.string(),
   rateLimit: RateLimitConfig.optional(),
   budgets: z.array(BudgetConfig).default([]),
+  /** End users only (card 33.2): every request naming this end user gets 403. */
+  blocked: z.boolean().optional(),
 });
 export type ScopeLimitConfig = z.infer<typeof ScopeLimitConfig>;
 

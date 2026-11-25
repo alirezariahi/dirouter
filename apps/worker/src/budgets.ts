@@ -17,6 +17,8 @@ import {
   budgetCounterKey,
   budgetPeriodKey,
   budgetPeriodRange,
+  END_USER_DEFAULT,
+  endUserCounterId,
   usdToUnits,
 } from '@dirouter/contracts';
 import { type Logger, prefixedId } from '@dirouter/shared';
@@ -40,6 +42,8 @@ const SCOPE_FILTER: Record<string, string> = {
   user: 'api_key_id IN (SELECT id FROM api_keys WHERE created_by_id = $1)',
   model: 'model_id = $1',
   provider: 'provider_id = $1',
+  // Card 33.2: one end user; the `*` defaults are counted per end user below.
+  end_user: 'end_user = $1',
 };
 
 /** KEYS[1]: counter; ARGV: ledgerUsd, ledgerTokens, nowMs, quietMs, expireAtMs */
@@ -107,7 +111,64 @@ export async function reconcileBudgets(
     'SELECT id, organization_id, scope::text AS scope, scope_id, period::text AS period FROM budgets',
   );
   const result: ReconcileResult = { budgets: budgets.length, adjusted: 0, drift: [] };
+  const adjust = async (
+    budgetId: string,
+    counterId: string,
+    periodKey: string,
+    usdText: string,
+    tokensText: string,
+    expireAt: number,
+  ) => {
+    const ledgerUsd = usdToUnits(usdText);
+    const ledgerTokens = Number(tokensText);
+    const [counterUsd = 0, counterTokens = 0, nextUsd = 0, nextTokens = 0] =
+      await r.budgetReconcile(
+        1,
+        budgetCounterKey(counterId, periodKey),
+        ledgerUsd,
+        ledgerTokens,
+        now.getTime(),
+        quietMs,
+        expireAt,
+      );
+    if (nextUsd !== counterUsd || nextTokens !== counterTokens) {
+      result.adjusted++;
+      result.drift.push({
+        budgetId,
+        periodKey,
+        counterUsd,
+        ledgerUsd,
+        counterTokens,
+        ledgerTokens,
+      });
+    }
+  };
   for (const b of budgets) {
+    if (b.scope === 'end_user' && b.scope_id === END_USER_DEFAULT) {
+      // Default end-user budgets count each end user on a counter of its own (card 33.2).
+      const { start, end } = budgetPeriodRange(b.period, now);
+      const rows = await db.$queryRawUnsafe<{ end_user: string; usd: string; tokens: string }[]>(
+        `SELECT end_user, COALESCE(SUM(cost_usd), 0)::text AS usd,
+                COALESCE(SUM(tokens), 0)::bigint::text AS tokens
+           FROM usage_ledger
+          WHERE organization_id = $1 AND end_user IS NOT NULL
+            AND occurred_at >= $2 AND occurred_at < $3
+          GROUP BY end_user`,
+        b.organization_id,
+        start,
+        end,
+      );
+      for (const row of rows)
+        await adjust(
+          b.id,
+          endUserCounterId(b.id, row.end_user),
+          budgetPeriodKey(b.period, now),
+          row.usd,
+          row.tokens,
+          end.getTime() + 7 * 86_400_000,
+        );
+      continue;
+    }
     const filter = SCOPE_FILTER[b.scope];
     if (!filter) continue;
     const { start, end } = budgetPeriodRange(b.period, now);
@@ -120,30 +181,14 @@ export async function reconcileBudgets(
       end,
       b.organization_id,
     );
-    const ledgerUsd = usdToUnits(sum?.usd ?? '0');
-    const ledgerTokens = Number(sum?.tokens ?? 0);
-    const periodKey = budgetPeriodKey(b.period, now);
-    const [counterUsd = 0, counterTokens = 0, nextUsd = 0, nextTokens = 0] =
-      await r.budgetReconcile(
-        1,
-        budgetCounterKey(b.id, periodKey),
-        ledgerUsd,
-        ledgerTokens,
-        now.getTime(),
-        quietMs,
-        end.getTime() + 7 * 86_400_000,
-      );
-    if (nextUsd !== counterUsd || nextTokens !== counterTokens) {
-      result.adjusted++;
-      result.drift.push({
-        budgetId: b.id,
-        periodKey,
-        counterUsd,
-        ledgerUsd,
-        counterTokens,
-        ledgerTokens,
-      });
-    }
+    await adjust(
+      b.id,
+      b.id,
+      budgetPeriodKey(b.period, now),
+      sum?.usd ?? '0',
+      sum?.tokens ?? '0',
+      end.getTime() + 7 * 86_400_000,
+    );
   }
   if (result.adjusted > 0)
     logger.info({ drift: result.drift }, 'budget counters reconciled with ledger');

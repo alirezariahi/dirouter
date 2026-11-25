@@ -98,6 +98,7 @@ import { chargeUsd } from './pricing.js';
 import { type WalletGuard, worstCaseChargeUsd } from './wallet-guard.js';
 import type { RateLimiter } from './rate-limiter.js';
 import { admitRequest, type Spent } from './spend-guard.js';
+import { type Attribution, attributionFields, requestAttribution } from './attribution.js';
 import {
   cacheKeyFor,
   type ExactCache,
@@ -1066,7 +1067,9 @@ async function proxyRequest(
 
   // Budgets and rate limits (cards 6.1, 6.3, 25.5 and 33.x; spend-guard.ts). A used-up model or
   // provider budget takes its candidates out of the route. TPM reservation = input + output cap.
+  const attribution = requestAttribution(req.headers, canonical.user);
   const admission = await admitRequest(deps, {
+    attribution,
     config,
     key,
     candidates: route.candidates,
@@ -1079,7 +1082,8 @@ async function proxyRequest(
     sendError(reply, api, admission.error, requestId);
     deps.metrics?.reject(admission.metric.guard, admission.metric.reason);
     finishSpan('error', {
-      'gateway.error': admission.metric.guard === 'budget' ? 'budget_exceeded' : 'rate_limit',
+      'gateway.error':
+        admission.metric.guard === 'budget' ? 'budget_exceeded' : admission.error.code,
     });
     observeEarly(reply.statusCode);
     return;
@@ -1218,6 +1222,7 @@ async function proxyRequest(
       finishReason: cached.finishReason,
     });
     const cachedCharge = emitUsageEvent(deps, config, {
+      attribution,
       api,
       requestId,
       key,
@@ -1317,6 +1322,7 @@ async function proxyRequest(
           ? { savedInputTokens: Math.round(savedCompressedChars / 4) }
           : {}),
         ...(routing ? { routing } : {}),
+        attribution,
         ...(policy ? { policy } : {}),
         routeDecision: routeDecisionOf(explanation),
         ...(explainAllowed ? { explanation } : {}),
@@ -1429,6 +1435,8 @@ async function runRoute(
     cacheBypass?: boolean;
     /** How an `auto*` alias was resolved (card 20.4). */
     routing?: UsageEvent['routing'];
+    /** End user and cost attribution (cards 33.2 and 33.4). */
+    attribution?: Attribution;
     /** What the organization's routing policies did (sprint 5). */
     policy?: UsageEvent['policy'];
     /** How the route was planned (cards 32.5 and 32.7), for the request log. */
@@ -2001,6 +2009,7 @@ async function runRoute(
   const resolvedModel = config.snapshot.models.find((m) => m.id === candidate?.model.id);
   const resolvedProvider = config.snapshot.providers.find((p) => p.id === candidate?.provider.id);
   const { costUsd, chargeUsd } = emitUsageEvent(deps, config, {
+    ...(ctx.attribution ? { attribution: ctx.attribution } : {}),
     api,
     requestId,
     key,
@@ -2379,6 +2388,7 @@ function emitUsageEvent(
     savedInputTokens?: number;
     hedgeAttempts?: number;
     routing?: UsageEvent['routing'];
+    attribution?: Attribution;
     policy?: UsageEvent['policy'];
     routeDecision?: RouteDecision;
     serviceTier?: string | undefined;
@@ -2422,7 +2432,7 @@ function emitUsageEvent(
       projectId: e.key.projectId,
       virtualKeyId: e.key.id,
       ...(e.key.walletId ? { walletId: e.key.walletId } : {}),
-      ...(e.canonical.user ? { endUser: e.canonical.user } : {}),
+      ...attributionFields(e.attribution ?? requestAttribution({}, e.canonical.user)),
       inboundApi: e.api,
       requestedModel: e.canonical.model,
       resolvedModelId: e.candidate?.model.id ?? null,

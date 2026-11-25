@@ -25,7 +25,7 @@ import { Card } from './ui/card';
 import { Field, FormError } from './ui/field';
 
 type Scope = ScopeLimit['scope'];
-interface Target {
+export interface Target {
   scope: Scope;
   id: string;
   name: string;
@@ -53,13 +53,22 @@ export function ScopeLimitsCard({
   projects,
   members = [],
   canManage,
+  only,
+  title,
+  help,
+  testId = 'scope-limits',
 }: {
   orgId: string;
   organizationName?: string | undefined;
-  teams: { id: string; name: string }[];
-  projects: { id: string; name: string }[];
+  teams?: { id: string; name: string }[];
+  projects?: { id: string; name: string }[];
   members?: { userId: string; name: string; email: string }[];
   canManage: boolean;
+  /** Edit just these scopes (e.g. end users, card 33.2); no picker. */
+  only?: Target[];
+  title?: string;
+  help?: string;
+  testId?: string;
 }) {
   const { t, i18n } = useTranslation();
   // The organization page renders without the settings context, so the language comes from i18n.
@@ -81,18 +90,18 @@ export function ScopeLimitsCard({
   const models = useQuery({
     queryKey: ['scope-limits', orgId, 'models'],
     queryFn: () => api<unknown>(`/orgs/${orgId}/models`),
-    enabled: canManage,
+    enabled: canManage && !only,
   });
   const providers = useQuery({
     queryKey: ['scope-limits', orgId, 'providers'],
     queryFn: () => api<unknown>(`/orgs/${orgId}/providers`),
-    enabled: canManage,
+    enabled: canManage && !only,
   });
   const [extra, setExtra] = useState<Target>();
   const done = () => qc.invalidateQueries({ queryKey: ['scope-limits', orgId] });
   const save = useMutation({
     mutationFn: async ({ target, remove }: { target: Target; remove: boolean }) => {
-      const path = `${base}/${target.scope}/${target.id}`;
+      const path = `${base}/${target.scope}/${encodeURIComponent(target.id)}`;
       if (remove) return api<unknown>(path, { method: 'DELETE' });
       const parsed = limitBody(draft);
       if (!parsed.ok) throw new Error('invalid');
@@ -123,10 +132,10 @@ export function ScopeLimitsCard({
       name: p.name,
     })),
   ];
-  const targets: Target[] = [
+  const targets: Target[] = only ?? [
     { scope: 'organization', id: orgId, name: organizationName ?? orgId },
-    ...teams.map((team) => ({ scope: 'team' as const, id: team.id, name: team.name })),
-    ...projects.map((project) => ({
+    ...(teams ?? []).map((team) => ({ scope: 'team' as const, id: team.id, name: team.name })),
+    ...(projects ?? []).map((project) => ({
       scope: 'project' as const,
       id: project.id,
       name: project.name,
@@ -183,9 +192,9 @@ export function ScopeLimitsCard({
   };
 
   return (
-    <Card data-testid="scope-limits">
-      <h2 className="font-semibold">{t('scopeLimits.title')}</h2>
-      <p className="mt-1 mb-3 text-sm text-muted">{t('scopeLimits.help')}</p>
+    <Card data-testid={testId}>
+      <h2 className="font-semibold">{title ?? t('scopeLimits.title')}</h2>
+      <p className="mt-1 mb-3 text-sm text-muted">{help ?? t('scopeLimits.help')}</p>
       {notice ? (
         <p role="status" className="mb-3 rounded-lg bg-brand/10 px-3 py-2 text-sm">
           {notice}
@@ -193,7 +202,7 @@ export function ScopeLimitsCard({
       ) : null}
       <FormError message={limits.error ? errorMessage(limits.error, t) : undefined} />
       {!canManage ? <p className="mb-3 text-sm text-muted">{t('scopeLimits.readOnly')}</p> : null}
-      {canManage && pickable.length > 0 ? (
+      {canManage && !only && pickable.length > 0 ? (
         <label className="mb-3 flex flex-wrap items-center gap-2 text-sm">
           <span>{t('scopeLimits.addTarget')}</span>
           <select

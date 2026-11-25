@@ -16,6 +16,7 @@ import { PageHeader, RangeTabs, Section, Segmented, Stat } from '../components/s
 import { Button } from '../components/ui/button';
 import { ErrorState, Loading } from '../components/ui/states';
 import { api } from '../lib/api';
+import { AttributionUsage } from '../components/attribution-usage';
 import { downloadCsv } from '../lib/csv';
 import { useFormat } from '../lib/s2-format';
 import { formatDate, formatTick } from '../lib/date';
@@ -180,6 +181,15 @@ export default function AnalyticsPage() {
           </Section>
         ))}
       </div>
+
+      {org ? (
+        <AttributionUsage
+          orgId={org.id}
+          from={bounds.from}
+          to={bounds.to}
+          dimensions={['end_user']}
+        />
+      ) : null}
 
       <Section
         title={t('s2.analytics.report')}

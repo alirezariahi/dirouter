@@ -201,6 +201,13 @@ export const ERROR_CODES = {
     anthropic: 'billing_error',
     title: 'Budget exceeded',
   },
+  /** The organization blocked the end user named in the request (card 33.2). */
+  end_user_blocked: {
+    status: 403,
+    openai: 'permission_error',
+    anthropic: 'permission_error',
+    title: 'End user is blocked',
+  },
   /** Prepaid wallet cannot cover the request's reservation (card 19.1). */
   insufficient_credit: {
     status: 402,

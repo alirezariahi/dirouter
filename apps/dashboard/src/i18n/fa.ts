@@ -5,6 +5,8 @@ import { guidesFa, organizationFa, providersFa } from './page-messages';
 import { s2Fa } from './s2';
 import { s3Fa } from './s3';
 import { s4Fa } from './s4';
+import { endUsersFa } from './end-users';
+import { attributionFa } from './attribution';
 import { routingRequestsFa } from './routing-requests';
 import { billingFa } from './billing';
 import { mcpPageFa } from './mcp-page';
@@ -35,6 +37,7 @@ export const fa = {
     guides: 'راهنمای اتصال',
     billing: 'صورت‌حساب',
     mcp: 'MCP و ایجنت‌ها',
+    endUsers: 'کاربران نهایی',
   },
   navGroup: {
     monitor: 'پایش',
@@ -258,6 +261,8 @@ export const fa = {
   s2: s2Fa,
   s3: s3Fa,
   s4: s4Fa,
+  endUsers: endUsersFa,
+  attribution: attributionFa,
   routingRequests: routingRequestsFa,
   billing: billingFa,
   mcpPage: mcpPageFa,

@@ -535,6 +535,8 @@ enum LimitScope {
   USER         @map("user")
   MODEL        @map("model")
   PROVIDER     @map("provider")
+  /// Card 33.2: one end user of the organization's own product; scope id `*` holds the defaults.
+  END_USER     @map("end_user")
 }
 
 enum BudgetPeriod {
@@ -654,6 +656,8 @@ model UsageLedger {
   /// Model and provider that served the request, for model and provider budgets (card 33.1).
   modelId        String?  @map("model_id")
   providerId     String?  @map("provider_id")
+  /// End user named by the request (card 33.2), for end-user budgets.
+  endUser        String?  @map("end_user")
   costUsd        Decimal  @map("cost_usd") @db.Decimal(18, 8)
   tokens         Int
   occurredAt     DateTime @map("occurred_at") @db.Timestamptz(3)
@@ -719,6 +723,70 @@ model UsageDaily {
   @@id([bucket, organizationId, projectId, apiKeyId, modelSlug, providerId])
   @@index([organizationId, bucket])
   @@map("usage_daily")
+}
+
+/// An end user of an organization's own product (card 33.2): created when a request first names
+/// it (`user` field or `x-dirouter-end-user` header), or by the API to block it in advance. No FK:
+/// like the usage tables, it outlives what it refers to.
+model EndUser {
+  id             String   @id
+  organizationId String   @map("organization_id")
+  /// The id the organization's product sends.
+  externalId     String   @map("external_id")
+  blocked        Boolean  @default(false)
+  firstSeenAt    DateTime? @map("first_seen_at") @db.Timestamptz(3)
+  lastSeenAt     DateTime? @map("last_seen_at") @db.Timestamptz(3)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@unique([organizationId, externalId])
+  @@index([organizationId, lastSeenAt])
+  @@map("end_users")
+}
+
+/// Hourly usage per attribution dimension (card 33.2 end users; card 33.4 tags and cost centers),
+/// with at most 1000 values per organization, dimension and hour (the rest is `__other__`).
+model UsageDimensionHourly {
+  bucket         DateTime @db.Timestamptz(3)
+  organizationId String   @map("organization_id")
+  dimension      String
+  value          String
+  projectId      String   @map("project_id")
+  apiKeyId       String   @map("api_key_id")
+  modelSlug      String   @map("model_slug")
+  providerId     String   @map("provider_id")
+  requests       Int      @default(0)
+  errors         Int      @default(0)
+  inputTokens    BigInt   @default(0) @map("input_tokens")
+  outputTokens   BigInt   @default(0) @map("output_tokens")
+  costUsd        Decimal  @default(0) @map("cost_usd") @db.Decimal(18, 8)
+  chargeUsd      Decimal  @default(0) @map("charge_usd") @db.Decimal(18, 8)
+
+  @@id([bucket, organizationId, dimension, value, projectId, apiKeyId, modelSlug, providerId])
+  @@index([organizationId, dimension, bucket])
+  @@map("usage_dimension_hourly")
+}
+
+/// Daily usage per attribution dimension, from the hourly table.
+model UsageDimensionDaily {
+  bucket         DateTime @db.Date
+  organizationId String   @map("organization_id")
+  dimension      String
+  value          String
+  projectId      String   @map("project_id")
+  apiKeyId       String   @map("api_key_id")
+  modelSlug      String   @map("model_slug")
+  providerId     String   @map("provider_id")
+  requests       Int      @default(0)
+  errors         Int      @default(0)
+  inputTokens    BigInt   @default(0) @map("input_tokens")
+  outputTokens   BigInt   @default(0) @map("output_tokens")
+  costUsd        Decimal  @default(0) @map("cost_usd") @db.Decimal(18, 8)
+  chargeUsd      Decimal  @default(0) @map("charge_usd") @db.Decimal(18, 8)
+
+  @@id([bucket, organizationId, dimension, value, projectId, apiKeyId, modelSlug, providerId])
+  @@index([organizationId, dimension, bucket])
+  @@map("usage_dimension_daily")
 }
 
 // ───────────── Config & audit ─────────────

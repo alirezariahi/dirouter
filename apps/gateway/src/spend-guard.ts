@@ -5,6 +5,9 @@
  * Scopes:
  * - the key itself, its project and team (card 25.5), the whole organization and the member who
  *   created the key (card 33.1): an exhausted budget or a full rate window rejects the request;
+ * - the end user the request names (card 33.2): its own limits and budgets, or else the
+ *   organization's defaults for every end user (scope id `*`) on counters of its own; a blocked
+ *   end user is refused with 403 before anything is counted;
  * - models and providers of the organization (card 33.1): their budgets only take the matching
  *   candidates out of the route, so a combo falls back to its other targets, and only a route with
  *   no candidate left is rejected. Their rate limits count the target the request goes to first.
@@ -18,6 +21,8 @@
 import {
   budgetPeriodLabel,
   type ConfigSnapshot,
+  END_USER_DEFAULT,
+  endUserCounterId,
   type LimitScopeKind,
   type ScopeLimitConfig,
   type VirtualKeyConfig,
@@ -25,6 +30,7 @@ import {
 import type { Candidate } from '@dirouter/routing';
 import { DiRouterError, RateLimitError } from '@dirouter/shared';
 
+import type { Attribution } from './attribution.js';
 import type { BudgetCheck, BudgetGuard, BudgetTarget, ScopedBudget } from './budget-guard.js';
 import { matchesTarget } from './budget-guard.js';
 import type { LimitScope, RateLimiter } from './rate-limiter.js';
@@ -65,15 +71,48 @@ function limitName(l: ScopeLimitConfig): string {
   }
 }
 
-/** The scopes that reject a request: organization, team, project and the key's member. */
-function requestScopes(snapshot: ConfigSnapshot, key: VirtualKeyConfig): ScopeLimitConfig[] {
+/**
+ * The end user's limits: its own entry, field by field over the organization's defaults. Default
+ * budgets keep their ids but count each end user on a counter of its own.
+ */
+function endUserScope(
+  snapshot: ConfigSnapshot,
+  organizationId: string,
+  endUser: string | undefined,
+): (ScopeLimitConfig & { counterOf?: (budgetId: string) => string }) | undefined {
+  if (!endUser) return undefined;
+  const own = lookup(snapshot, organizationId, 'end_user', endUser);
+  const defaults = lookup(snapshot, organizationId, 'end_user', END_USER_DEFAULT);
+  if (!own && !defaults) return undefined;
+  const ownBudgets = own?.budgets ?? [];
+  const rateLimit = own?.rateLimit ?? defaults?.rateLimit;
+  return {
+    organizationId,
+    scope: 'end_user',
+    scopeId: endUser,
+    ...(rateLimit ? { rateLimit } : {}),
+    budgets: ownBudgets.length > 0 ? ownBudgets : (defaults?.budgets ?? []),
+    ...(own?.blocked ? { blocked: true } : {}),
+    ...(ownBudgets.length > 0
+      ? {}
+      : { counterOf: (budgetId: string) => endUserCounterId(budgetId, endUser) }),
+  };
+}
+
+/** The scopes that reject a request: organization, team, project, member and end user. */
+function requestScopes(
+  snapshot: ConfigSnapshot,
+  key: VirtualKeyConfig,
+  attribution: Attribution = {},
+): (ScopeLimitConfig & { counterOf?: (budgetId: string) => string })[] {
   const org = key.organizationId;
   return [
     lookup(snapshot, org, 'organization', org),
     lookup(snapshot, org, 'team', key.teamId),
     lookup(snapshot, org, 'project', key.projectId),
     lookup(snapshot, org, 'user', key.userId),
-  ].filter((l): l is ScopeLimitConfig => l !== undefined);
+    endUserScope(snapshot, org, attribution.endUser),
+  ].filter((l) => l !== undefined);
 }
 
 /** Model and provider scopes of one candidate, with the target they cover. */
@@ -91,12 +130,16 @@ function candidateScopes(
   return out;
 }
 
-const scoped = (l: ScopeLimitConfig, target?: BudgetTarget): ScopedBudget[] =>
+const scoped = (
+  l: ScopeLimitConfig & { counterOf?: (budgetId: string) => string },
+  target?: BudgetTarget,
+): ScopedBudget[] =>
   l.budgets.map((budget) => ({
     budget,
     scope: l.scope,
     scopeId: l.scopeId,
     organizationId: l.organizationId,
+    ...(l.counterOf ? { counterId: l.counterOf(budget.id) } : {}),
     ...(target ? { target } : {}),
   }));
 
@@ -105,6 +148,7 @@ export function budgetScopes(
   config: { snapshot: ConfigSnapshot },
   key: VirtualKeyConfig,
   candidates: readonly Candidate[] = [],
+  attribution: Attribution = {},
 ): ScopedBudget[] {
   const out: ScopedBudget[] = key.budgets.map((budget) => ({
     budget,
@@ -112,7 +156,7 @@ export function budgetScopes(
     scopeId: key.id,
     organizationId: key.organizationId,
   }));
-  for (const l of requestScopes(config.snapshot, key)) out.push(...scoped(l));
+  for (const l of requestScopes(config.snapshot, key, attribution)) out.push(...scoped(l));
   const seen = new Set<string>();
   for (const c of candidates)
     for (const { limit, target } of candidateScopes(config.snapshot, key, c)) {
@@ -129,18 +173,19 @@ export function limitScopes(
   config: { snapshot: ConfigSnapshot },
   key: VirtualKeyConfig,
   first?: Candidate,
+  attribution: Attribution = {},
 ): LimitScope[] {
   const scopes: LimitScope[] = [];
   if (key.rateLimit) scopes.push({ name: `key:${key.id}`, limit: key.rateLimit });
   const shared = [
-    ...requestScopes(config.snapshot, key),
+    ...requestScopes(config.snapshot, key, attribution),
     ...(first ? candidateScopes(config.snapshot, key, first).map((s) => s.limit) : []),
   ];
   for (const l of shared) if (l.rateLimit) scopes.push({ name: limitName(l), limit: l.rateLimit });
   return scopes;
 }
 
-const SCOPE_LABEL: Record<string, string> = { org: 'organization' };
+const SCOPE_LABEL: Record<string, string> = { org: 'organization', end_user: 'end user' };
 
 /** What a finished request used, for settling rate windows and counting budgets. */
 export interface Spent {
@@ -165,7 +210,7 @@ export type Admission =
       ok: false;
       error: DiRouterError;
       headers: Record<string, string>;
-      metric: { guard: 'rate_limit' | 'budget'; reason: string };
+      metric: { guard: 'rate_limit' | 'budget' | 'end_user'; reason: string };
     };
 
 export interface AdmitInput {
@@ -177,6 +222,8 @@ export interface AdmitInput {
   /** Tokens reserved in the TPM windows (input estimate plus output cap). */
   estimatedTokens: number;
   requestId: string;
+  /** The end user the request names (card 33.2). */
+  attribution?: Attribution;
 }
 
 const retryAfter = (resetAt: Date) =>
@@ -187,7 +234,17 @@ export async function admitRequest(
   input: AdmitInput,
 ): Promise<Admission> {
   const { config, key } = input;
-  const budgets = budgetScopes(config, key, input.candidates);
+  const attribution = input.attribution ?? {};
+  if (endUserScope(config.snapshot, key.organizationId, attribution.endUser)?.blocked)
+    return {
+      ok: false,
+      headers: {},
+      error: new DiRouterError('end_user_blocked', {
+        message: 'This end user is blocked by the organization',
+      }),
+      metric: { guard: 'end_user', reason: 'blocked' },
+    };
+  const budgets = budgetScopes(config, key, input.candidates, attribution);
   const check: BudgetCheck = deps.budgets ? await deps.budgets.check(budgets) : { ok: true };
   if (!check.ok) {
     const what = check.kind === 'usd' ? `USD ${check.limit}` : `${check.limit} tokens`;
@@ -197,7 +254,7 @@ export async function admitRequest(
       error: new DiRouterError('budget_exceeded', {
         message: check.unavailable
           ? 'Budget check unavailable (fail-closed), retry shortly'
-          : `${budgetPeriodLabel(check.period)} ${check.scope} budget exceeded (${what})`,
+          : `${budgetPeriodLabel(check.period)} ${check.scope.replace('_', ' ')} budget exceeded (${what})`,
       }),
       metric: { guard: 'budget', reason: check.unavailable ? 'unavailable' : check.kind },
     };
@@ -233,7 +290,7 @@ export async function admitRequest(
 
   const limiter = deps.limiter
     ? await deps.limiter.acquire(
-        limitScopes(config, key, candidates[0]),
+        limitScopes(config, key, candidates[0], attribution),
         input.estimatedTokens,
         input.requestId,
       )

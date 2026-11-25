@@ -9,7 +9,7 @@
  * gateway keeps counting the current period on the same Valkey counter instead of starting from
  * zero until the worker reconciles it with the ledger.
  */
-import { budgetPeriodRange } from '@dirouter/contracts';
+import { budgetPeriodRange, END_USER_DEFAULT, normalizeEndUser } from '@dirouter/contracts';
 import { Prisma } from '@dirouter/db';
 import { DiRouterError, prefixedId } from '@dirouter/shared';
 import { Inject, Injectable } from '@nestjs/common';
@@ -25,6 +25,7 @@ export const LIMIT_SCOPES = [
   'user',
   'model',
   'provider',
+  'end_user',
 ] as const;
 export type LimitScope = (typeof LIMIT_SCOPES)[number];
 const DB_SCOPE = {
@@ -34,7 +35,11 @@ const DB_SCOPE = {
   user: 'USER',
   model: 'MODEL',
   provider: 'PROVIDER',
+  end_user: 'END_USER',
 } as const satisfies Record<LimitScope, string>;
+
+/** Display name of the end-user defaults (scope id `*`, card 33.2). */
+export const END_USER_DEFAULT_NAME = 'Every end user';
 const FROM_DB = Object.fromEntries(Object.entries(DB_SCOPE).map(([k, v]) => [v, k])) as Record<
   string,
   LimitScope | undefined
@@ -148,6 +153,16 @@ export class LimitsService {
       case 'provider':
         row = await this.db.provider.findFirst({ where, select: { name: true } });
         break;
+      case 'end_user':
+        // End users are the organization's own ids (card 33.2): any valid id, or `*` for the
+        // defaults; one that was never seen can be limited in advance.
+        row =
+          scopeId === END_USER_DEFAULT
+            ? { name: END_USER_DEFAULT_NAME }
+            : normalizeEndUser(scopeId) === scopeId
+              ? { name: scopeId }
+              : null;
+        break;
     }
     if (!row) throw new DiRouterError('not_found', { message: `${scope} not found` });
     return row;
@@ -181,6 +196,9 @@ export class LimitsService {
       }),
     ]);
     return new Map<string, string>([
+      ...of('END_USER').map(
+        (id) => [`END_USER|${id}`, id === END_USER_DEFAULT ? END_USER_DEFAULT_NAME : id] as const,
+      ),
       ...(organization ? [[`ORGANIZATION|${organization.id}`, organization.name] as const] : []),
       ...teams.map((t) => [`TEAM|${t.id}`, t.name] as const),
       ...projects.map((p) => [`PROJECT|${p.id}`, p.name] as const),
@@ -208,7 +226,9 @@ export class LimitsService {
     return [...keys]
       .filter((key) => names.has(key))
       .map((key) => {
-        const [scope = '', scopeId = ''] = key.split('|');
+        // End-user ids may contain `|`; the scope never does.
+        const scope = key.slice(0, key.indexOf('|'));
+        const scopeId = key.slice(key.indexOf('|') + 1);
         const policy = policies.find((p) => `${p.scope}|${p.scopeId}` === key);
         return {
           scope: FROM_DB[scope] ?? 'project',
@@ -316,6 +336,15 @@ export class LimitsService {
           });
         }
       }
+      // An end user limited before it was ever seen shows up in the end-user list (card 33.2).
+      if (scope === 'end_user' && scopeId !== END_USER_DEFAULT)
+        await tx.endUser.upsert({
+          where: {
+            organizationId_externalId: { organizationId: ctx.organizationId, externalId: scopeId },
+          },
+          update: {},
+          create: { id: prefixedId('eu'), organizationId: ctx.organizationId, externalId: scopeId },
+        });
       await tx.auditLog.create({
         data: {
           id: prefixedId('aud'),
@@ -369,6 +398,7 @@ export class LimitsService {
       user: Prisma.sql`(SELECT k."created_by_id" FROM "api_keys" k WHERE k."id" = l."api_key_id")`,
       model: Prisma.sql`l."model_id"`,
       provider: Prisma.sql`l."provider_id"`,
+      end_user: Prisma.sql`l."end_user"`,
     };
     const sums = (scope: LimitScope) => Prisma.sql`
       SELECT ${column[scope]} AS scope_id,
@@ -451,7 +481,13 @@ export class LimitsService {
         ...teams.map((t) => entry('team', t)),
         ...projects.map((p) => entry('project', p)),
         ...limits
-          .filter((l) => l.scope === 'user' || l.scope === 'model' || l.scope === 'provider')
+          .filter(
+            (l) =>
+              l.scope === 'user' ||
+              l.scope === 'model' ||
+              l.scope === 'provider' ||
+              (l.scope === 'end_user' && l.scopeId !== END_USER_DEFAULT),
+          )
           .map((l) => entry(l.scope, { id: l.scopeId, name: l.name })),
       ],
     };

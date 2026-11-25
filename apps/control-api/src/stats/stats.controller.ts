@@ -16,7 +16,7 @@ import { z } from 'zod';
 import { AccessGuard } from '../auth/auth.guard.js';
 import { ApiZodBody, ApiZodOk, ApiZodQuery, JsonObjectSchema, ZodPipe } from '../common/zod.js';
 import { Org, OrgGuard, type OrgContext, RequirePermission } from '../rbac/org.guard.js';
-import { StatsService } from './stats.service.js';
+import { DIMENSIONS, StatsService } from './stats.service.js';
 
 const MAX_RANGE_MS = 400 * 86_400_000;
 const Base = z.object({
@@ -32,6 +32,32 @@ export const TopQuery = Base.extend({
   by: z.enum(['model', 'key', 'project', 'provider']).default('model'),
   metric: z.enum(['cost', 'requests']).default('cost'),
   limit: z.coerce.number().int().min(1).max(100).default(10),
+});
+export const DimensionQuery = Base.extend({
+  dimension: z.enum(DIMENSIONS).describe('end_user'),
+  value: z.string().min(1).max(256).optional().describe('only this value of the dimension'),
+  groupBy: z
+    .enum(['value', 'model', 'key', 'project', 'provider'])
+    .default('value')
+    .describe('value (default) or, usually with `value`, model, key, project or provider'),
+  limit: z.coerce.number().int().min(1).max(1000).default(100),
+});
+const DimensionView = z.object({
+  dimension: z.string(),
+  groupBy: z.string(),
+  value: z.string().optional(),
+  items: z.array(
+    z.object({
+      id: z.string().describe('the value (`__other__` sums the values past the cap) or the group'),
+      requests: z.int(),
+      errors: z.int(),
+      inputTokens: z.int(),
+      outputTokens: z.int(),
+      tokens: z.int(),
+      costUsd: z.string(),
+      chargeUsd: z.string(),
+    }),
+  ),
 });
 export const LogsQuery = Base.extend({
   status: z.enum(['success', 'error']).optional(),
@@ -320,15 +346,29 @@ export class StatsController {
   ) {
     const r = range(q, 7 * 86_400_000);
     const f = filters(q);
-    const [overview, series, byModel, byKey, byProject, byProvider] = await Promise.all([
+    const [overview, series, byModel, byKey, byProject, byProvider, byEndUser] = await Promise.all([
       this.stats.overview(org, r, f),
       this.stats.timeseries(org, r, f, q.granularity),
       this.stats.top(org, r, f, 'model', 'requests', 10),
       this.stats.top(org, r, f, 'key', 'cost', 10),
       this.stats.top(org, r, f, 'project', 'cost', 10),
       this.stats.top(org, r, f, 'provider', 'cost', 10),
+      // Card 33.2: the end users who cost most.
+      this.stats.dimensions(org, r, f, { dimension: 'end_user', groupBy: 'value', limit: 10 }),
     ]);
-    return { overview, series, byModel, byKey, byProject, byProvider };
+    return { overview, series, byModel, byKey, byProject, byProvider, byEndUser };
+  }
+
+  /** Usage per end user (card 33.2), tag and cost center (card 33.4). */
+  @Get('stats/dimensions')
+  @RequirePermission('usage:read')
+  @ApiZodQuery(DimensionQuery)
+  @ApiZodOk(DimensionView, 'Usage per value of an attribution dimension, from its rollups')
+  dimensions(
+    @Org() org: OrgContext,
+    @Query(new ZodPipe(DimensionQuery)) q: z.infer<typeof DimensionQuery>,
+  ) {
+    return this.stats.dimensions(org, range(q, 7 * 86_400_000), filters(q), q);
   }
 
   /** Live view polling (card 16.3): recent request metadata and runtime health only. */

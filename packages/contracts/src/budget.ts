@@ -64,6 +64,10 @@ export const budgetPeriodLabel = (period: BudgetPeriod): string =>
 export const budgetCounterKey = (budgetId: string, periodKey: string): string =>
   `dirouter:budget:${budgetId}:${periodKey}`;
 
+/** Counter id of a default end-user budget for one end user (card 33.2). */
+export const endUserCounterId = (budgetId: string, endUser: string): string =>
+  `${budgetId}:eu:${endUser}`;
+
 /** Decimal dollar string (e.g. `"0.00012345"`) → integer units of 1e-8, without float. */
 export function usdToUnits(usd: string): number {
   const match = /^(-?)(\d*)(?:\.(\d*))?$/.exec(usd.trim());
@@ -78,10 +82,38 @@ export const unitsToUsd = (units: number): string => (units / BUDGET_UNITS_PER_U
 
 /**
  * Where a budget applies: a key, team or project (card 6.3), the whole organization, a member's
- * keys, a model or a provider of the organization (card 33.1).
+ * keys, a model or a provider of the organization (card 33.1), an end user (card 33.2).
  */
 export type BudgetScope =
-  'key' | 'project' | 'team' | 'organization' | 'user' | 'model' | 'provider';
+  'key' | 'project' | 'team' | 'organization' | 'user' | 'model' | 'provider' | 'end_user';
+
+/** Scope id of the limits every end user of an organization gets by default (card 33.2). */
+export const END_USER_DEFAULT = '*';
+
+/** Request header naming the end user, next to the `user` field of the body (card 33.2). */
+export const END_USER_HEADER = 'x-dirouter-end-user';
+
+/** Longest end-user id that is attributed; longer ids are not tracked. */
+export const END_USER_MAX_LENGTH = 256;
+
+/**
+ * An end-user id as DiRouter keeps it: trimmed, 1 to 256 characters, no control characters, and
+ * never the reserved default id. Anything else is not attributed to an end user.
+ */
+export function normalizeEndUser(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  const id = value.trim();
+  if (id.length === 0 || id.length > END_USER_MAX_LENGTH || hasControl(id)) return undefined;
+  return id === END_USER_DEFAULT ? undefined : id;
+}
+
+function hasControl(text: string): boolean {
+  for (let i = 0; i < text.length; i++) {
+    const code = text.charCodeAt(i);
+    if (code < 0x20 || code === 0x7f) return true;
+  }
+  return false;
+}
 
 /** Threshold-crossing event that the worker records in audit_log. */
 export interface BudgetAlertEvent {

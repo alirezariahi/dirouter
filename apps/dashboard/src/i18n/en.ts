@@ -6,6 +6,8 @@ import { guidesEn, organizationEn, providersEn } from './page-messages';
 import { s2En } from './s2';
 import { s3En } from './s3';
 import { s4En } from './s4';
+import { endUsersEn } from './end-users';
+import { attributionEn } from './attribution';
 import { routingRequestsEn } from './routing-requests';
 import { billingEn } from './billing';
 import { mcpPageEn } from './mcp-page';
@@ -39,6 +41,7 @@ export const en: Widen<Messages> = {
     guides: 'Connect your tools',
     billing: 'Billing',
     mcp: 'MCP & agents',
+    endUsers: 'End users',
   },
   navGroup: {
     monitor: 'Monitor',
@@ -261,6 +264,8 @@ export const en: Widen<Messages> = {
   s2: s2En,
   s3: s3En,
   s4: s4En,
+  endUsers: endUsersEn,
+  attribution: attributionEn,
   routingRequests: routingRequestsEn,
   billing: billingEn,
   mcpPage: mcpPageEn,

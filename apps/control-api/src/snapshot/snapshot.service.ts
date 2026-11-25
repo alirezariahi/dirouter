@@ -40,6 +40,7 @@ const SHARED_SCOPE: Record<string, LimitScopeKind | undefined> = {
   USER: 'user',
   MODEL: 'model',
   PROVIDER: 'provider',
+  END_USER: 'end_user',
 };
 
 export { CONFIG_CHANNEL, REBUILD_CHANNEL };
@@ -187,6 +188,7 @@ export class SnapshotService implements OnModuleInit, OnModuleDestroy {
       organizations,
       mcpServers,
       bodyCapture,
+      blockedEndUsers,
       routingRules,
       trafficSplits,
       shadowPolicies,
@@ -229,6 +231,12 @@ export class SnapshotService implements OnModuleInit, OnModuleDestroy {
       db.bodyCaptureSetting.findMany({
         orderBy: [{ organizationId: 'asc' }, { scope: 'asc' }, { scopeId: 'asc' }],
       }),
+      // Blocked end users (card 33.2) travel as end-user limits with `blocked`.
+      db.endUser.findMany({
+        where: { blocked: true },
+        select: { organizationId: true, externalId: true },
+        orderBy: [{ organizationId: 'asc' }, { externalId: 'asc' }],
+      }),
       // Conditional routing rules (card 32.2).
       db.routingRule.findMany({ orderBy: [{ priority: 'asc' }, { id: 'asc' }] }),
       // Canary and percentage traffic splits (card 32.3).
@@ -250,6 +258,12 @@ export class SnapshotService implements OnModuleInit, OnModuleDestroy {
           select: { id: true },
         })
       ).map((o) => o.id),
+    );
+    // `organization|SCOPE|scope id`: only the scope id (an end user's own id) may contain `|`.
+    const scopeKey = (organizationId: string, scope: string, scopeId: string) =>
+      `${organizationId}|${scope}|${scopeId}`;
+    const blocked = new Set(
+      blockedEndUsers.map((e) => scopeKey(e.organizationId, 'END_USER', e.externalId)),
     );
     const walletOf = new Map(wallets.map((w) => [w.organizationId, w.id]));
     const platformId = organizations.find((o) => o.isPlatform)?.id;
@@ -419,13 +433,15 @@ export class SnapshotService implements OnModuleInit, OnModuleDestroy {
       }),
       // Shared limits (cards 25.5 and 33.1): one entry per scope with a rate limit or a budget.
       limits: [
-        ...new Set(
-          [...policies, ...budgets]
+        ...new Set([
+          ...[...policies, ...budgets]
             .filter((p) => p.scope !== 'API_KEY' && SHARED_SCOPE[p.scope])
-            .map((p) => `${p.organizationId}|${p.scope}|${p.scopeId}`),
-        ),
+            .map((p) => scopeKey(p.organizationId, p.scope, p.scopeId)),
+          ...blocked,
+        ]),
       ].map((id) => {
-        const [organizationId = '', scope = '', scopeId = ''] = id.split('|');
+        const [organizationId = '', scope = ''] = id.split('|');
+        const scopeId = id.slice(organizationId.length + scope.length + 2);
         const policy = policies.find(
           (p) => p.organizationId === organizationId && p.scope === scope && p.scopeId === scopeId,
         );
@@ -435,6 +451,7 @@ export class SnapshotService implements OnModuleInit, OnModuleDestroy {
           scopeId,
           ...(policy ? rateLimit(policy) : {}),
           budgets: budgetsFor(scope, scopeId, organizationId),
+          ...(blocked.has(id) ? { blocked: true } : {}),
         };
       }),
       guardrails: guardrails.map((g) => ({

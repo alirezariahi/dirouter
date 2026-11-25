@@ -18,6 +18,7 @@ import {
   Settings2,
   Shield,
   ShieldCheck,
+  UserRound,
   Wallet,
   Waypoints,
 } from 'lucide-react';
@@ -41,6 +42,7 @@ export const NAV = [
   { to: '/alerts', key: 'alerts', icon: Bell, group: 'govern' },
   { to: '/security', key: 'security', icon: Shield, group: 'govern' },
   { to: '/config', key: 'config', icon: Settings2, group: 'govern' },
+  { to: '/end-users', key: 'endUsers', icon: UserRound, group: 'govern' },
   { to: '/organization', key: 'organization', icon: Building2, group: 'workspace' },
   { to: '/guides', key: 'guides', icon: BookOpen, group: 'workspace' },
   // Operator only: shown on the platform organization with billing:read (card 25.1).

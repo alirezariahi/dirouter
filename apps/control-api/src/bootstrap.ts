@@ -25,6 +25,8 @@ export async function createApp(
     // Only the configured proxies may name the client (TRUST_PROXY, default one hop: Traefik).
     trustProxy: env.TRUST_PROXY,
     bodyLimit: 1024 * 1024,
+    // End-user ids (card 33.2) are path parameters of up to 256 characters, URL-encoded.
+    routerOptions: { maxParamLength: 1024 },
     genReqId: (req: IncomingMessage) => {
       const incoming = req.headers['x-request-id'];
       return typeof incoming === 'string' && /^[\w.-]{1,128}$/.test(incoming)
