@@ -157,6 +157,36 @@ describe('automatic canary rollback', () => {
     ).toBe(true);
   });
 
+  it('logs a canary request that fails before reaching a provider with its branch', async () => {
+    const down = split({
+      id: `${id}-down`,
+      canary: 'canary-broken',
+      canaryPercent: 100,
+      stickiness: 'request',
+    });
+    await env.publish({ trafficSplits: [down] });
+    env.gw.health.providerBreaker('broken').force('open', Date.now() + 60_000);
+    try {
+      const start = env.usage.length;
+      const res = await env.chat(KEYS.teamA, 'mid');
+      expect(res.status).toBe(503);
+      expect(res.headers.get('x-dirouter-split')).toBe(`${id}-down; v=1; branch=canary`);
+      const events = env.usage.slice(start);
+      expect(events).toHaveLength(1);
+      expect(events[0]).toMatchObject({
+        status: 'error',
+        httpStatus: 503,
+        virtualKeyId: 'vk-a',
+        resolvedModelId: null,
+        errorCode: 'no_available_provider',
+        policy: { split: { id: `${id}-down`, version: 1, branch: 'canary' } },
+      });
+    } finally {
+      env.gw.health.providerBreaker('broken').force('closed');
+      await env.publish({ trafficSplits: [failing] });
+    }
+  });
+
   it.skipIf(!redis)('shares the rollback with other replicas and the control plane', async () => {
     expect(replica.gw.splits.health.rolledBack(failing)).toBe(false);
     await new Promise((r) => setTimeout(r, 100));

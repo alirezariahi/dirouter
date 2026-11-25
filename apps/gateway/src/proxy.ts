@@ -927,7 +927,27 @@ async function proxyRequest(
       );
     sendError(reply, api, error, requestId);
     finishSpan('error', { 'gateway.error': route.error });
-    observeEarly(reply.statusCode);
+    // A request on a split branch is always logged with its branch, so the split report counts the
+    // canary requests that failed before reaching a provider (its breaker open, say) as errors too.
+    if (policy?.split) {
+      observed = true;
+      emitUsageEvent(deps, config, {
+        api,
+        requestId,
+        key,
+        canonical,
+        started,
+        candidate: undefined,
+        usage: undefined,
+        usageEstimated: false,
+        ok: false,
+        httpStatus: reply.statusCode,
+        ttftMs: undefined,
+        errorCode: route.error,
+        attempts: [],
+        policy,
+      });
+    } else observeEarly(reply.statusCode);
     return;
   }
 
