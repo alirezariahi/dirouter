@@ -151,7 +151,7 @@ The simulator accepts suffixed names and answers with `suffixes`, `reasoningEffo
 }
 ```
 
-The bundled catalog has them for OpenAI's `gpt-4.1` family, `gpt-4o`, `gpt-4o-mini`, `o3` and `o4-mini`, and catalog sync reads LiteLLM's `*_flex` and `*_priority` prices. Models that follow the catalog get them automatically; on `POST`/`PATCH /orgs/:orgId/models` they can be set under `pricing.serviceTiers`.
+The bundled catalog has the prices OpenAI publishes for `gpt-4.1`, `gpt-4.1-mini`, `gpt-4o`, `gpt-4o-mini` and `o3` (OpenAI now calls priority processing Fast mode; flex is published only for `o3`), and catalog sync reads LiteLLM's `*_flex` and `*_priority` prices. Models that follow the catalog get them automatically; on `POST`/`PATCH /orgs/:orgId/models` they can be set under `pricing.serviceTiers`.
 
 A `flex` or `priority` request is priced at the tier's rates: the cost, the sale price, the wallet reservation, the usage event (`serviceTier`) and so the ledger. The tier comes from the provider's answer when it reports one (OpenAI does, and may serve `priority` as `default`), else from the request (streams). A model without tier prices is priced at its standard rate. The request log shows the tier in the details.
 

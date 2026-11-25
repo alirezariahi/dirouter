@@ -173,7 +173,7 @@ curl -X PUT "$ADMIN/orgs/$ORG/routing-policies" -H "authorization: Bearer $TOKEN
 
 </div>
 
-کاتالوگ همراه این قیمت‌ها را برای خانوادهٔ `gpt-4.1`، `gpt-4o`، `gpt-4o-mini`، `o3` و `o4-mini` از OpenAI دارد و همگام‌سازی کاتالوگ قیمت‌های `*_flex` و `*_priority` را از LiteLLM می‌خواند. مدل‌هایی که از کاتالوگ پیروی می‌کنند خودکار آن‌ها را می‌گیرند و در `POST`/`PATCH /orgs/:orgId/models` می‌توان آن‌ها را زیر `pricing.serviceTiers` تعیین کرد.
+کاتالوگ همراه قیمت‌هایی را که OpenAI منتشر کرده برای `gpt-4.1`، `gpt-4.1-mini`، `gpt-4o`، `gpt-4o-mini` و `o3` دارد (OpenAI حالا priority را Fast mode می‌نامد و flex را فقط برای `o3` منتشر کرده) و همگام‌سازی کاتالوگ قیمت‌های `*_flex` و `*_priority` را از LiteLLM می‌خواند. مدل‌هایی که از کاتالوگ پیروی می‌کنند خودکار آن‌ها را می‌گیرند و در `POST`/`PATCH /orgs/:orgId/models` می‌توان آن‌ها را زیر `pricing.serviceTiers` تعیین کرد.
 
 درخواست `flex` یا `priority` با نرخ همان tier قیمت‌گذاری می‌شود: هزینه، قیمت فروش، رزرو کیف پول، رویداد مصرف (`serviceTier`) و در نتیجه ledger. tier از پاسخ ارائه‌دهنده خوانده می‌شود اگر گزارشش کند (OpenAI می‌کند و ممکن است `priority` را با `default` سرویس دهد)، وگرنه از خود درخواست (stream). مدل بدون قیمت tier با نرخ عادی‌اش قیمت‌گذاری می‌شود. جزئیات لاگ درخواست tier را نشان می‌دهد.
 

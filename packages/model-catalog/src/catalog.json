@@ -64,14 +64,7 @@
       "pricing": {
         "inputPerMTok": "0.10",
         "outputPerMTok": "0.40",
-        "cacheReadPerMTok": "0.025",
-        "serviceTiers": {
-          "priority": {
-            "inputPerMTok": "0.20",
-            "outputPerMTok": "0.80",
-            "cacheReadPerMTok": "0.05"
-          }
-        }
+        "cacheReadPerMTok": "0.025"
       },
       "capabilities": {
         "tools": true,
@@ -170,15 +163,7 @@
       "pricing": {
         "inputPerMTok": "1.10",
         "outputPerMTok": "4.40",
-        "cacheReadPerMTok": "0.275",
-        "serviceTiers": {
-          "flex": { "inputPerMTok": "0.55", "outputPerMTok": "2.20", "cacheReadPerMTok": "0.1375" },
-          "priority": {
-            "inputPerMTok": "2.00",
-            "outputPerMTok": "8.00",
-            "cacheReadPerMTok": "0.50"
-          }
-        }
+        "cacheReadPerMTok": "0.275"
       },
       "capabilities": {
         "tools": true,
