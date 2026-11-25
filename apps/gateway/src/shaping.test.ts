@@ -2,12 +2,13 @@
  * Request and answer shaping through the whole gateway against the mock provider (sprint 5,
  * epic 31). The mock rejects broken tool histories with the providers' own 400s.
  */
-import { mkdtemp, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import type { ConfigSnapshotInput } from '@dirouter/contracts';
 import { buildServer as buildMock } from '@dirouter/mock-provider/server';
+import { SseParser } from '@dirouter/translator';
 import { createLogger, encrypt, generateKey, hashApiKey, parseKeyring } from '@dirouter/shared';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
@@ -22,13 +23,23 @@ const STRICT_KEY = 'dr-test-shaping-strict-012345678';
 const logLines: Record<string, unknown>[] = [];
 const BROKEN_JSON = '```json\n{"city": "Tehran", "temp": 21,}\n```';
 const b64 = (text: string) => Buffer.from(text).toString('base64url');
+/** A V4A patch as Codex's apply_patch tool takes it (card 31.2). */
+const PATCH = [
+  '*** Begin Patch',
+  '*** Update File: app.ts',
+  '@@',
+  "-const greeting = 'hi';",
+  "+const greeting = 'hello';",
+  '*** End Patch',
+].join('\n');
+const PATCH_DIRECTIVES = `mock:tool=apply_patch,tool_input_b64=${b64(JSON.stringify({ input: PATCH }))}`;
 
 const mock = buildMock();
 let mockUrl = '';
 let gw: ReturnType<typeof buildGateway>;
 let base = '';
 
-type ProviderType = 'anthropic' | 'openai-compatible';
+type ProviderType = 'anthropic' | 'openai-compatible' | 'gemini';
 
 const provider = (id: string, type: ProviderType, secret: string) => ({
   id,
@@ -82,11 +93,16 @@ beforeAll(async () => {
       provider('oa', 'openai-compatible', 'sk-mock'),
       // The mock reads its directives from the key: this one answers with broken JSON.
       provider('ob', 'openai-compatible', `mock:text_b64=${b64(BROKEN_JSON)}`),
+      // Models that answer with a call to apply_patch carrying PATCH (card 31.2).
+      provider('ap', 'anthropic', PATCH_DIRECTIVES),
+      provider('gp', 'gemini', PATCH_DIRECTIVES),
     ],
     models: [
       model('claude', 'an', 'claude-sonnet-4-5'),
       model('gpt', 'oa', 'mock-small'),
       model('gpt-broken', 'ob', 'mock-small'),
+      model('claude-codex', 'ap', 'claude-sonnet-4-5'),
+      model('gemini-codex', 'gp', 'gemini-2.5-pro'),
       model('claude-cached', 'an', 'claude-sonnet-4-5', { requestPolicy: { autoCache: true } }),
       model('gpt-policy', 'oa', 'mock-small', {
         requestPolicy: {
@@ -436,5 +452,90 @@ describe('card 31.4: parameter policy and drop_params', () => {
       type: 'error',
       error: { message: expect.stringContaining("'top_k'") as string },
     });
+  });
+});
+
+describe('card 31.2: Codex apply_patch with non-GPT models', () => {
+  /** The update hunks of a V4A patch applied to a file, as Codex does it. */
+  async function applyPatch(dir: string, patch: string) {
+    const file = /\*\*\* Update File: (.+)/.exec(patch)?.[1] ?? '';
+    const removed = patch
+      .split('\n')
+      .filter((l) => l.startsWith('-'))
+      .map((l) => l.slice(1));
+    const added = patch
+      .split('\n')
+      .filter((l) => l.startsWith('+'))
+      .map((l) => l.slice(1));
+    const path = join(dir, file);
+    const text = await readFile(path, 'utf8');
+    await writeFile(path, text.replace(removed.join('\n'), added.join('\n')));
+  }
+  const codex = (model: string, input: unknown[], stream = false) => ({
+    model,
+    instructions: 'You are Codex.',
+    input,
+    tools: [
+      {
+        type: 'custom',
+        name: 'apply_patch',
+        description: 'Use the `apply_patch` tool to edit files.',
+        format: {
+          type: 'grammar',
+          syntax: 'lark',
+          definition: 'start: begin_patch hunk+ end_patch',
+        },
+      },
+    ],
+    stream,
+  });
+  const ask = [
+    { type: 'message', role: 'user', content: [{ type: 'input_text', text: 'Say hello' }] },
+  ];
+
+  it.each(['claude-codex', 'gemini-codex'])(
+    '%s answers with a custom_tool_call whose patch edits the file, then gets the result',
+    async (model) => {
+      const res = await post('/v1/responses', codex(model, ask));
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as { output: Record<string, unknown>[] };
+      const call = body.output.find((o) => o.type === 'custom_tool_call');
+      expect(call).toMatchObject({ name: 'apply_patch', input: PATCH, status: 'completed' });
+
+      const dir = await mkdtemp(join(tmpdir(), 'dirouter-codex-'));
+      await writeFile(join(dir, 'app.ts'), "const greeting = 'hi';\n");
+      await applyPatch(dir, String(call?.input));
+      expect(await readFile(join(dir, 'app.ts'), 'utf8')).toBe("const greeting = 'hello';\n");
+
+      // Next turn: Codex replays the call and its output; the provider gets a paired history.
+      const next = await post(
+        '/v1/responses',
+        codex(model, [
+          ...ask,
+          call,
+          { type: 'custom_tool_call_output', call_id: call?.call_id, output: 'Success. M app.ts' },
+        ]),
+      );
+      expect(next.status).toBe(200);
+      const sent = await lastUpstream();
+      expect(JSON.stringify(sent)).toContain('Success. M app.ts');
+    },
+  );
+
+  it('streams the call as custom_tool_call_input events and a finished item', async () => {
+    const res = await post('/v1/responses', codex('claude-codex', ask, true));
+    const parser = new SseParser();
+    const events = [...parser.feed(await res.text()), ...parser.flush()].map(
+      (e) => JSON.parse(e.data) as Record<string, unknown>,
+    );
+    expect(events.find((e) => e.type === 'response.custom_tool_call_input.done')).toMatchObject({
+      input: PATCH,
+    });
+    const done = events.find(
+      (e) =>
+        e.type === 'response.output_item.done' &&
+        (e.item as { type?: string }).type === 'custom_tool_call',
+    );
+    expect(done?.item).toMatchObject({ name: 'apply_patch', input: PATCH });
   });
 });

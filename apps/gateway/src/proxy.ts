@@ -374,12 +374,14 @@ export function encodeResponse(
   api: InboundApi,
   response: CanonicalResponse,
   model: string,
+  /** The request's tools: Responses clients get their coding-tool calls back (card 31.2). */
+  tools?: CanonicalRequest['tools'],
 ): unknown {
   switch (api) {
     case 'gemini.generate':
       return canonicalToGeminiResponse(response, { model });
     case 'openai.responses':
-      return canonicalToResponsesResponse(response, { model });
+      return canonicalToResponsesResponse(response, { model, tools });
     case 'anthropic.messages':
       return canonicalToAnthropicResponse(response, { model });
     default:
@@ -421,7 +423,8 @@ function streamEncoderFor(
   | GeminiInboundStreamEncoder
   | ResponsesStreamEncoder {
   if (api === 'gemini.generate') return new GeminiInboundStreamEncoder({ model: canonical.model });
-  if (api === 'openai.responses') return new ResponsesStreamEncoder({ model: canonical.model });
+  if (api === 'openai.responses')
+    return new ResponsesStreamEncoder({ model: canonical.model, tools: canonical.tools });
   if (api === 'anthropic.messages') return new AnthropicStreamEncoder({ model: canonical.model });
   return new OpenAIStreamEncoder({ model: canonical.model, includeUsage });
 }
@@ -1126,10 +1129,10 @@ async function proxyRequest(
         .status(200)
         .send(body);
     } else {
-      reply.status(200).send(encodeResponse(api, cached, canonical.model));
+      reply.status(200).send(encodeResponse(api, cached, canonical.model, canonical.tools));
     }
     // A replayed stream is kept as the one JSON answer it was built from, like a live stream.
-    capture?.setResponse(encodeResponse(api, cached, canonical.model), {
+    capture?.setResponse(encodeResponse(api, cached, canonical.model, canonical.tools), {
       streamed: canonical.stream,
       finishReason: cached.finishReason,
     });
@@ -1834,7 +1837,9 @@ async function runRoute(
             response: outcome.response,
             ttlSeconds: semantic.ttlSeconds,
           });
-        reply.status(200).send(encodeResponse(api, outcome.response, canonical.model));
+        reply
+          .status(200)
+          .send(encodeResponse(api, outcome.response, canonical.model, canonical.tools));
         ctx.finishSpan('ok', {
           'gateway.provider': result.candidate.provider.slug,
           'gateway.resolved_model': result.candidate.model.slug,
@@ -1852,7 +1857,7 @@ async function runRoute(
       // The streamed answer is stored as the one JSON answer it adds up to (card 24.1).
       const assembled = outcome.result.assembled;
       if (assembled)
-        ctx.capture?.setResponse(encodeResponse(api, assembled, canonical.model), {
+        ctx.capture?.setResponse(encodeResponse(api, assembled, canonical.model, canonical.tools), {
           streamed: true,
           finishReason: assembled.finishReason,
         });

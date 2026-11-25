@@ -134,6 +134,13 @@ export const CanonicalTool = z.object({
   description: z.string().optional(),
   parameters: JsonObject,
   strict: z.boolean().optional(),
+  /**
+   * A Responses tool that is not a function (card 31.2), carried as a function tool so every
+   * model can call it: `custom` (free-form text input, e.g. Codex's `apply_patch`) takes
+   * `{input}`, `apply_patch` (OpenAI's built-in) takes the file operation. The answer is turned
+   * back into `custom_tool_call` / `apply_patch_call`.
+   */
+  kind: z.enum(['custom', 'apply_patch']).optional(),
   ...CacheMarker,
 });
 export type CanonicalTool = z.infer<typeof CanonicalTool>;

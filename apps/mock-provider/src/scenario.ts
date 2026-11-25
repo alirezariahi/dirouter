@@ -21,6 +21,8 @@ export interface Scenario {
   dropAfter?: number;
   /** Respond with a call to this tool. */
   tool?: string;
+  /** Input of that call (default `{"city":"Tehran"}`), from `tool_input_b64` (card 31.2). */
+  toolInput?: unknown;
   text: string;
   /** Context length error (400). */
   contextLength: boolean;
@@ -100,6 +102,15 @@ export function parseScenario(
         break;
       case 'text':
         s.text = value ?? s.text;
+        break;
+      case 'tool_input_b64':
+        try {
+          s.toolInput = JSON.parse(
+            Buffer.from(value ?? '', 'base64url').toString('utf8'),
+          ) as unknown;
+        } catch {
+          // An unreadable input keeps the default.
+        }
         break;
       case 'text_b64':
         // Any text, commas included (base64url or base64), e.g. a broken JSON answer (card 31.1).

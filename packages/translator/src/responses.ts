@@ -31,6 +31,14 @@ import {
   serviceTierIn,
   type TranslateOptions,
 } from './common.js';
+import {
+  applyPatchOutputIn,
+  codingCallIn,
+  codingKindOf,
+  codingOutputItem,
+  codingToolIn,
+  customInputOf,
+} from './coding-tools.js';
 import { encodeSse } from './sse.js';
 
 const FINISH_FROM_RESPONSES: Record<string, 'stop' | 'length' | 'tool_calls'> = {
@@ -200,6 +208,35 @@ export function responsesRequestToCanonical(
         ]);
         continue;
       }
+      // Coding tools (card 31.2): replayed custom / apply_patch calls and their outputs.
+      if (item.type === 'custom_tool_call' || item.type === 'apply_patch_call') {
+        const call = codingCallIn(item);
+        if (call) append(messages, 'assistant', [call]);
+        else onDrop('input[]', `${item.type} without call_id or name`);
+        continue;
+      }
+      if (item.type === 'custom_tool_call_output' && item.call_id) {
+        append(messages, 'tool', [
+          {
+            type: 'tool_result',
+            toolCallId: item.call_id,
+            content: outputParts(item.output, onDrop),
+          },
+        ]);
+        continue;
+      }
+      if (item.type === 'apply_patch_call_output' && item.call_id) {
+        const { text, isError } = applyPatchOutputIn(item);
+        append(messages, 'tool', [
+          {
+            type: 'tool_result',
+            toolCallId: item.call_id,
+            content: [{ type: 'text', text }],
+            ...(isError ? { isError: true } : {}),
+          },
+        ]);
+        continue;
+      }
       if (item.type === 'reasoning') {
         const text = (item.summary ?? [])
           .map((part) => part.text ?? '')
@@ -251,6 +288,11 @@ export function responsesRequestToCanonical(
   for (const tool of req.tools ?? []) {
     // Responses tools are flat; the nested Chat Completions form is tolerated.
     const fn = tool.function ?? tool;
+    const coding = codingToolIn(tool);
+    if (coding) {
+      tools.push(coding);
+      continue;
+    }
     if (tool.type !== 'function' || !fn.name) {
       onDrop('tools[]', `unsupported tool type '${tool.type}'`);
       continue;
@@ -266,8 +308,12 @@ export function responsesRequestToCanonical(
   let toolChoice: CanonicalToolChoice | undefined;
   if (typeof req.tool_choice === 'string') toolChoice = req.tool_choice;
   else if (req.tool_choice) {
-    if (req.tool_choice.type === 'function' && req.tool_choice.name)
+    if (
+      (req.tool_choice.type === 'function' || req.tool_choice.type === 'custom') &&
+      req.tool_choice.name
+    )
       toolChoice = { name: req.tool_choice.name };
+    else if (req.tool_choice.type === 'apply_patch') toolChoice = { name: 'apply_patch' };
     else onDrop('tool_choice', `unsupported tool choice '${req.tool_choice.type}'`);
   }
 
@@ -395,7 +441,7 @@ function functionCallItem(callId: string, name: string, args: string, status: st
  */
 export function canonicalToResponsesResponse(
   response: CanonicalResponse,
-  options: { model: string },
+  options: { model: string; tools?: readonly CanonicalTool[] | undefined },
 ) {
   const output: OutputItem[] = [];
   const texts: string[] = [];
@@ -422,7 +468,10 @@ export function canonicalToResponsesResponse(
       );
     } else if (part.type === 'tool_call') {
       closeMessage();
-      output.push(functionCallItem(part.id, part.name, part.arguments, 'completed'));
+      output.push(
+        codingOutputItem(part, codingKindOf(part.name, options.tools), 'completed') ??
+          functionCallItem(part.id, part.name, part.arguments, 'completed'),
+      );
     }
   }
   closeMessage();
@@ -449,6 +498,8 @@ type OpenItem =
       name: string;
       args: string;
       canonical: number;
+      /** A translated coding tool (card 31.2): announced and finished as its own item type. */
+      coding?: 'custom' | 'apply_patch';
     };
 
 /**
@@ -461,6 +512,7 @@ type OpenItem =
  */
 export class ResponsesStreamEncoder {
   readonly #model: string;
+  readonly #tools: readonly CanonicalTool[] | undefined;
   #base = 'dirouter';
   #created = Math.floor(Date.now() / 1000);
   #usage: CanonicalUsage | undefined;
@@ -473,8 +525,9 @@ export class ResponsesStreamEncoder {
   readonly #output: OutputItem[] = [];
   #open: OpenItem[] = [];
 
-  constructor(options: { model: string }) {
+  constructor(options: { model: string; tools?: readonly CanonicalTool[] | undefined }) {
     this.#model = options.model;
+    this.#tools = options.tools;
   }
 
   get usage(): CanonicalUsage | undefined {
@@ -561,15 +614,41 @@ export class ResponsesStreamEncoder {
       case 'tool_call_start': {
         // Message and reasoning items end when a call starts; other calls may still be streaming.
         const closed = this.#closeWhere((open) => open.kind !== 'function_call');
+        const coding = codingKindOf(event.name, this.#tools);
+        const outputIndex = this.#output.length;
         const item: OpenItem = {
           kind: 'function_call',
-          outputIndex: this.#output.length,
-          id: `fc_${event.id}`,
+          outputIndex,
+          id:
+            coding === 'custom'
+              ? `ctc_${event.id}`
+              : coding === 'apply_patch'
+                ? `apc_${event.id}`
+                : `fc_${event.id}`,
           callId: event.id,
           name: event.name,
           args: '',
           canonical: event.index,
+          ...(coding ? { coding } : {}),
         };
+        if (coding === 'custom')
+          return (
+            closed +
+            this.#add(item, {
+              type: 'custom_tool_call',
+              id: item.id,
+              call_id: event.id,
+              name: event.name,
+              input: '',
+              status: 'in_progress',
+            })
+          );
+        if (coding === 'apply_patch') {
+          // The operation is only known once the arguments are complete: announced on close.
+          this.#output[outputIndex] = {};
+          this.#open.push(item);
+          return closed + this.#begin();
+        }
         return closed + this.#add(item, functionCallItem(event.id, event.name, '', 'in_progress'));
       }
       case 'tool_call_delta': {
@@ -578,6 +657,8 @@ export class ResponsesStreamEncoder {
         );
         if (item?.kind !== 'function_call' || event.argumentsDelta === '') return '';
         item.args += event.argumentsDelta;
+        // Coding tools carry JSON arguments here; their own input is sent whole on close.
+        if (item.coding) return '';
         return this.#emit('response.function_call_arguments.delta', {
           item_id: item.id,
           output_index: item.outputIndex,
@@ -685,6 +766,21 @@ export class ResponsesStreamEncoder {
         summary_index: 0,
         part: { type: 'summary_text', text: item.text },
       });
+    } else if (item.coding) {
+      const call = { id: item.callId, name: item.name, arguments: item.args };
+      const coded = codingOutputItem(call, item.coding, 'completed');
+      if (coded && item.coding === 'custom') {
+        const input = customInputOf(item.args);
+        out += this.#emit('response.custom_tool_call_input.delta', { ...at, delta: input });
+        out += this.#emit('response.custom_tool_call_input.done', { ...at, input });
+      }
+      wire = coded ?? functionCallItem(item.callId, item.name, item.args, 'completed');
+      if (!coded) wire = { ...wire, id: item.id };
+      if (item.coding === 'apply_patch')
+        out += this.#emit('response.output_item.added', {
+          output_index: item.outputIndex,
+          item: { ...wire, status: 'in_progress' },
+        });
     } else {
       wire = functionCallItem(item.callId, item.name, item.args, 'completed');
       out += this.#emit('response.function_call_arguments.done', {

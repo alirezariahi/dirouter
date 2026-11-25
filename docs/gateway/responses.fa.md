@@ -103,6 +103,19 @@ event: response.completed
 - شناسهٔ ناشناخته یا منقضی → خطای ۴۰۰ با `param: "previous_response_id"`.
 - بدون Valkey، فیلد نادیده گرفته می‌شود و فقط پیام‌های همان درخواست استفاده می‌شوند.
 
+## ابزارهای کدنویسی: `apply_patch` با هر مدل
+
+> کارت ۳۱.۲. Codex فایل‌ها را با `apply_patch` ویرایش می‌کند، یک ابزار `custom` که ورودی‌اش متن آزاد است (یک patch در قالب V4A که با گرامر Lark توصیف شده)؛ OpenAI یک ابزار داخلی `apply_patch` هم دارد که هر فراخوانی‌اش یک عملیات فایل است. فقط مدل‌های OpenAI این‌ها را می‌شناسند، پس گیت‌وی هر دو را به‌صورت function tool معمولی می‌فرستد و فراخوانی‌ها را به همان چیزی که کلاینت انتظار دارد برمی‌گرداند. کد: `packages/translator/src/coding-tools.ts`. چیزی لازم نیست روشن شود: هر کلاینت Responses که این ابزارها را بفرستد، از جمله پروفایل Codex صفحهٔ پروفایل‌های ایجنت، از آن بهره می‌برد.
+
+| کلاینت می‌فرستد                                                     | مدل می‌بیند                                                                                                              | کلاینت دریافت می‌کند                                                                                                                                                                                    |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `{type: "custom", name, description, format: {type: "grammar", …}}` | function با نام `name` و ورودی `{input: string}`، گرامر در توضیحش                                                        | `custom_tool_call` `{id: "ctc_…", call_id, name, input, status}`؛ در stream با `response.output_item.added`، `response.custom_tool_call_input.delta` / `.done` (کل ورودی) و `response.output_item.done` |
+| `{type: "apply_patch"}`                                             | function `apply_patch` با ورودی `{type, path, diff}` (`create_file`، `update_file`، `delete_file`) و قواعد V4A در توضیحش | `apply_patch_call` `{id: "apc_…", call_id, status, operation: {type, path, diff?}}`؛ در stream یک جفت `output_item.added` / `.done` وقتی عملیات کامل شد                                                 |
+| `custom_tool_call` / `apply_patch_call` تکرارشده                    | فراخوانی ابزار assistant                                                                                                 |                                                                                                                                                                                                         |
+| `custom_tool_call_output` / `apply_patch_call_output`               | نتیجهٔ ابزار (`status: "failed"` آن را نتیجهٔ خطا می‌کند)                                                                |                                                                                                                                                                                                         |
+
+`tool_choice` به شکل `{type: "custom", name}` و `{type: "apply_patch"}` ابزار را اجباری می‌کند. تست‌ها: `packages/translator/src/coding-tools.test.ts` (درخواست‌های golden به Claude و Gemini، پاسخ‌ها، نوبت‌های تکرارشده و رویدادهای stream) و `apps/gateway/src/shaping.test.ts` (یک درخواست Codex از راه گیت‌وی به مدل Claude و Gemini: patch برگشتی روی یک فایل اعمال می‌شود و فراخوانی و خروجی تکرارشده در نوبت بعد به‌صورت تاریخچهٔ جفت‌شده به provider می‌رسد). اجرای خود Codex CLI در برابر provider واقعی Claude یا Gemini به کلید آن providerها نیاز دارد و جزو تست‌های خودکار نبود.
+
 ## سازگاری
 
 - اکثر SDKها و ابزارهایی که `openai.responses.create(...)` را صدا می‌زنند بدون تغییر کار می‌کنند؛ فقط `baseURL` را روی DiRouter بگذارید.

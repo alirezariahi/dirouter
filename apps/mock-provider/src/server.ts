@@ -291,7 +291,10 @@ export function buildServer(options: MockServerOptions = {}) {
         ? {
             id: 'call_mock1',
             type: 'function',
-            function: { name: s.tool, arguments: '{"city":"Tehran"}' },
+            function: {
+              name: s.tool,
+              arguments: JSON.stringify(s.toolInput ?? { city: 'Tehran' }),
+            },
           }
         : undefined;
 
@@ -356,7 +359,8 @@ export function buildServer(options: MockServerOptions = {}) {
         }),
       );
       const args = toolCall.function.arguments;
-      for (const part of [args.slice(0, 9), args.slice(9)]) {
+      const half = Math.ceil(args.length / 2);
+      for (const part of [args.slice(0, half), args.slice(half)]) {
         if (drop()) return res.destroy();
         await sleep(s.chunkDelayMs);
         send(chunk({ tool_calls: [{ index: 0, function: { arguments: part } }] }));
@@ -577,7 +581,10 @@ export function buildServer(options: MockServerOptions = {}) {
     const nativeSchema = anthropicNativeSchema(raw);
     const fallbackSchema = s.tool ? undefined : anthropicFallbackSchema(raw);
     const tool = s.tool ?? (fallbackSchema !== undefined ? STRUCTURED_OUTPUT_TOOL : undefined);
-    const toolInput = fallbackSchema !== undefined ? sampleFor(fallbackSchema) : { city: 'Tehran' };
+    const toolInput =
+      fallbackSchema !== undefined
+        ? sampleFor(fallbackSchema)
+        : (s.toolInput ?? { city: 'Tehran' });
     const toolJson = JSON.stringify(toolInput);
     const text = nativeSchema !== undefined ? JSON.stringify(sampleFor(nativeSchema)) : s.text;
     const pieces = chunksOf(text, s.chunks);
@@ -734,7 +741,7 @@ export function buildServer(options: MockServerOptions = {}) {
     const responseId = `mockgem${Date.now().toString(36)}`;
     const functionPart = s.tool
       ? {
-          functionCall: { name: s.tool, args: { city: 'Tehran' } },
+          functionCall: { name: s.tool, args: s.toolInput ?? { city: 'Tehran' } },
           thoughtSignature: 'c2lnLW1vY2s=',
         }
       : undefined;

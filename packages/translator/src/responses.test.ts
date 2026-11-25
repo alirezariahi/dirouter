@@ -272,12 +272,15 @@ describe('Responses request → canonical', () => {
       },
       { onDrop: (field, reason) => drops.push(`${field}: ${reason}`) },
     );
-    expect(out.tools).toEqual([{ name: 'nested', parameters: { type: 'object' } }]);
+    // A custom tool is carried as a function since card 31.2.
+    expect(out.tools).toEqual([
+      { name: 'nested', parameters: { type: 'object' } },
+      expect.objectContaining({ name: 'apply_patch', kind: 'custom' }),
+    ]);
     expect(out.toolChoice).toBeUndefined();
     expect(drops).toEqual([
       "tools[]: unsupported tool type 'web_search'",
       "tools[]: unsupported tool type 'local_shell'",
-      "tools[]: unsupported tool type 'custom'",
       "tool_choice: unsupported tool choice 'allowed_tools'",
     ]);
   });
@@ -390,6 +393,8 @@ describe('Responses request → canonical', () => {
         strict: false,
         parameters: { type: 'object', properties: { command: { type: 'string' } } },
       },
+      // Codex's apply_patch, carried as a function (card 31.2).
+      expect.objectContaining({ name: 'apply_patch', kind: 'custom' }),
     ]);
     expect(out.toolChoice).toBe('auto');
     expect(out.reasoning).toEqual({ effort: 'high' });
@@ -426,7 +431,6 @@ describe('Responses request → canonical', () => {
       "input[]: unsupported item 'local_shell_call_output'",
       "input[]: unsupported item 'tool_search_call'",
       "tools[]: unsupported tool type 'web_search'",
-      "tools[]: unsupported tool type 'custom'",
     ]);
   });
 
