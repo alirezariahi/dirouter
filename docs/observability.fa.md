@@ -234,6 +234,6 @@ dirouter_queue_metrics_up == 0
 | `logs.endpoint`           | ندارد   | URL لاگ OTLP/HTTP                                         |
 | `logs.level`              | `info`  | پایین‌ترین سطح ارسالی: `debug`، `info`، `warn` یا `error` |
 
-مانند traceها، ارسال متریک و لاگ هرگز درخواست را معطل نمی‌کند: ارسال ناموفق دور ریخته و شمرده می‌شود و آخرین دسته هنگام خاموشی ارسال می‌شود. backendهایی که GenAI conventions را می‌خوانند (Langfuse، Phoenix، Datadog LLM Observability و دیگران) هر span upstream را به‌عنوان یک فراخوانی LLM با مدل، provider و توکن نشان می‌دهند، بدون نگاشت دستی.
+مانند traceها، ارسال متریک و لاگ هرگز درخواست را معطل نمی‌کند: ارسال ناموفق دور ریخته و شمرده می‌شود و آخرین دسته هنگام خاموشی ارسال می‌شود. backendهایی که GenAI conventions را می‌خوانند (Langfuse، Phoenix، Datadog LLM Observability و دیگران) هر span upstream را به‌عنوان یک فراخوانی LLM با مدل، provider و توکن نشان می‌دهند، بدون نگاشت دستی. روش بررسی: تست‌ها یک درخواست را از یک گیت‌وی واقعی به یک collector محلی OTLP می‌فرستند و span و متریک‌های ارسالی را با نام و نوع attributeهای semantic conventions نسخهٔ v1.41.0 مقایسه می‌کنند؛ در یک backend واقعی Langfuse، Phoenix یا Datadog بارگذاری نشده‌اند.
 
 </div>

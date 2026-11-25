@@ -171,18 +171,19 @@ sequenceDiagram
 
 ## 7. Technology choices
 
-| Layer                    | Choice                                                                      | ADR                                           |
-| ------------------------ | --------------------------------------------------------------------------- | --------------------------------------------- |
-| gateway                  | NestJS with the Fastify adapter and a lightweight hot path                  | [ADR-001](adr/0001-gateway-nestjs-fastify.md) |
-| control-api, worker      | NestJS                                                                      | [ADR-001](adr/0001-gateway-nestjs-fastify.md) |
-| Database                 | PostgreSQL 17 + Prisma                                                      | [ADR-002](adr/0002-postgresql-prisma.md)      |
-| Counters, cache, pub/sub | Valkey                                                                      | [ADR-003](adr/0003-valkey.md)                 |
-| Reverse proxy            | Traefik v3                                                                  | [ADR-004](adr/0004-traefik-reverse-proxy.md)  |
-| Event queue              | BullMQ on Valkey                                                            | [ADR-005](adr/0005-bullmq-event-queue.md)     |
-| Dashboard                | React + Vite + TypeScript, TanStack Router/Query, shadcn/ui, Tailwind (RTL) | None                                          |
-| Schemas                  | Zod in `@dirouter/contracts`, with JSON Schema export                       | None                                          |
-| Monorepo                 | pnpm workspaces + Turborepo, strict TypeScript, ESM                         | None                                          |
-| Deployment               | Docker and Docker Compose (development, production, HA)                     | None                                          |
+| Layer                    | Choice                                                                      | ADR                                                               |
+| ------------------------ | --------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| gateway                  | Plain Fastify (no NestJS) with a lightweight hot path                       | [ADR-001](adr/0001-gateway-nestjs-fastify.md) (2026-11-25 update) |
+| control-api              | NestJS on the Fastify adapter                                               | [ADR-001](adr/0001-gateway-nestjs-fastify.md)                     |
+| worker                   | Plain Node process with BullMQ consumers                                    | [ADR-005](adr/0005-bullmq-event-queue.md)                         |
+| Database                 | PostgreSQL 17 + Prisma                                                      | [ADR-002](adr/0002-postgresql-prisma.md)                          |
+| Counters, cache, pub/sub | Valkey                                                                      | [ADR-003](adr/0003-valkey.md)                                     |
+| Reverse proxy            | Traefik v3                                                                  | [ADR-004](adr/0004-traefik-reverse-proxy.md)                      |
+| Event queue              | BullMQ on Valkey                                                            | [ADR-005](adr/0005-bullmq-event-queue.md)                         |
+| Dashboard                | React + Vite + TypeScript, TanStack Router/Query, shadcn/ui, Tailwind (RTL) | None                                                              |
+| Schemas                  | Zod in `@dirouter/contracts`, with JSON Schema export                       | None                                                              |
+| Monorepo                 | pnpm workspaces + Turborepo, strict TypeScript, ESM                         | None                                                              |
+| Deployment               | Docker and Docker Compose (development, production, HA)                     | None                                                              |
 
 ## 8. Shared packages
 

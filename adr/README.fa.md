@@ -6,15 +6,15 @@
 
 تصمیم‌ها از قالب [MADR](https://adr.github.io/madr/) پیروی می‌کنند. هر ADR سه بخش اصلی دارد: **Context** (زمینه)، **Decision** (تصمیم) و **Consequences** (پیامدها).
 
-| شماره                                      | عنوان                                                        | وضعیت       |
-| ------------------------------------------ | ------------------------------------------------------------ | ----------- |
-| [001](0001-gateway-nestjs-fastify.fa.md)   | Gateway با NestJS روی Fastify و مسیر پرترافیک سبک            | پذیرفته‌شده |
-| [002](0002-postgresql-prisma.fa.md)        | PostgreSQL 17 + Prisma                                       | پذیرفته‌شده |
-| [003](0003-valkey.fa.md)                   | Valkey برای شمارنده‌ها، cache و pub/sub                      | پذیرفته‌شده |
-| [004](0004-traefik-reverse-proxy.fa.md)    | Traefik v3 به‌عنوان reverse proxy                            | پذیرفته‌شده |
-| [005](0005-bullmq-event-queue.fa.md)       | BullMQ برای صف رویدادها                                      | پذیرفته‌شده |
-| [006](0006-data-plane-independence.fa.md)  | استقلال صفحه داده از صفحه کنترل                              | پذیرفته‌شده |
-| [007](0007-data-plane-stays-on-node.fa.md) | data plane در v1 روی Node می‌ماند و با replica مقیاس می‌گیرد | پذیرفته‌شده |
+| شماره                                      | عنوان                                                        | وضعیت                                                          |
+| ------------------------------------------ | ------------------------------------------------------------ | -------------------------------------------------------------- |
+| [001](0001-gateway-nestjs-fastify.fa.md)   | Gateway با NestJS روی Fastify و مسیر پرترافیک سبک            | پذیرفته‌شده، اصلاح‌شده در 2026-11-25 (گیت‌وی Fastify خالص است) |
+| [002](0002-postgresql-prisma.fa.md)        | PostgreSQL 17 + Prisma                                       | پذیرفته‌شده                                                    |
+| [003](0003-valkey.fa.md)                   | Valkey برای شمارنده‌ها، cache و pub/sub                      | پذیرفته‌شده                                                    |
+| [004](0004-traefik-reverse-proxy.fa.md)    | Traefik v3 به‌عنوان reverse proxy                            | پذیرفته‌شده                                                    |
+| [005](0005-bullmq-event-queue.fa.md)       | BullMQ برای صف رویدادها                                      | پذیرفته‌شده                                                    |
+| [006](0006-data-plane-independence.fa.md)  | استقلال صفحه داده از صفحه کنترل                              | پذیرفته‌شده                                                    |
+| [007](0007-data-plane-stays-on-node.fa.md) | data plane در v1 روی Node می‌ماند و با replica مقیاس می‌گیرد | پذیرفته‌شده                                                    |
 
 ## افزودن یک ADR
 

@@ -196,16 +196,17 @@ flowchart LR
 
 ## اجزا
 
-| جزء               | مسئولیت‌ها                                                                       | وابستگی‌های سخت زمان اجرا                                      |
-| ----------------- | -------------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| **Traefik**       | TLS، مسیریابی مسیرها، health check و SSE بدون بافر                               | ندارد                                                          |
-| **gateway**       | سازگاری API، مسیریابی، فال‌بک، circuit breaker، محدودیت‌ها، بودجه و انتشار usage | ندارد، وقتی snapshot معتبر موجود باشد؛ Valkey فال‌بک محلی دارد |
-| **control-api**   | API مدیریت، احراز هویت داشبورد، RBAC، رمزنگاری credential و انتشار snapshot      | PostgreSQL، Valkey                                             |
-| **worker**        | مصرف رویداد usage، نوشتن ledger و لاگ، جدول‌های جمع‌بندی و نگه‌داری partition    | PostgreSQL، Valkey                                             |
-| **dashboard**     | رابط مدیریتی فارسی RTL                                                           | control-api                                                    |
-| **mock-provider** | upstream ساختگی با خطاهای 429 و 5xx و تأخیر تزریقی برای تست                      | ندارد                                                          |
-| **Valkey**        | شمارنده‌ها، وضعیت cooldown و breaker، pub/sub پیکربندی، صف BullMQ                | ندارد                                                          |
-| **PostgreSQL 17** | منبع حقیقت پیکربندی، کاربران، ledger و لاگ‌های partitioned درخواست‌ها            | ندارد                                                          |
+| جزء               | مسئولیت‌ها                                                                                                     | وابستگی‌های سخت زمان اجرا                                      |
+| ----------------- | -------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| **Traefik**       | TLS، مسیریابی مسیرها، health check و SSE بدون بافر                                                             | ندارد                                                          |
+| **gateway**       | سازگاری API، مسیریابی، فال‌بک، circuit breaker، محدودیت‌ها، بودجه و انتشار usage                               | ندارد، وقتی snapshot معتبر موجود باشد؛ Valkey فال‌بک محلی دارد |
+| **control-api**   | API مدیریت، احراز هویت داشبورد، RBAC، رمزنگاری credential و انتشار snapshot                                    | PostgreSQL، Valkey                                             |
+| **worker**        | مصرف رویداد usage، نوشتن ledger و لاگ، جدول‌های جمع‌بندی، نگه‌داری partition، هشدارها، همگام‌سازی قیمت کاتالوگ | PostgreSQL، Valkey                                             |
+| **dashboard**     | رابط مدیریتی فارسی RTL                                                                                         | control-api                                                    |
+| **portal**        | پرتال سلف‌سرویس فارسی برای مشتری‌ها: ثبت‌نام، کلید، کیف پول، مصرف و فاکتور                                     | control-api                                                    |
+| **mock-provider** | upstream ساختگی با خطاهای 429 و 5xx و تأخیر تزریقی برای تست                                                    | ندارد                                                          |
+| **Valkey**        | شمارنده‌ها، وضعیت cooldown و breaker، pub/sub پیکربندی، صف BullMQ                                              | ندارد                                                          |
+| **PostgreSQL 17** | منبع حقیقت پیکربندی، کاربران، ledger و لاگ‌های partitioned درخواست‌ها                                          | ندارد                                                          |
 
 ## ساختار مخزن
 
@@ -216,6 +217,8 @@ code/
 │  ├─ control-api/    احراز هویت، مدیریت پیکربندی، انتشار snapshot
 │  ├─ worker/         مصرف صف usage، جمع‌بندی، نگه‌داری داده و تطبیق بودجه
 │  ├─ dashboard/      داشبورد فارسی RTL (React + Vite)
+│  ├─ portal/         پرتال سلف‌سرویس مشتری (React + Vite)
+│  ├─ docs/           سایت مستندات، ساخته‌شده از docs/ و adr/ (Astro)
 │  ├─ website/        سایت عمومی فارسی و دموی مسیریابی
 │  └─ mock-provider/  upstream ساختگی با تزریق خطا برای توسعه و تست
 ├─ packages/          contracts، shared، db، model-catalog، providers، translator، routing، ui، پیکربندی‌ها
@@ -228,9 +231,8 @@ code/
 ```mermaid
 flowchart TB
   gw["gateway"] --> contracts & shared & catalog["model-catalog"] & providers & routing & translator
-  api["control-api"] --> contracts & shared & db & catalog
-  wk["worker"] --> contracts & shared & db
-  dash["dashboard"] --> ui
+  api["control-api"] --> contracts & shared & db & catalog & providers
+  wk["worker"] --> contracts & shared & db & catalog
   routing --> contracts & providers
   providers --> contracts & translator
   translator --> contracts
@@ -242,18 +244,19 @@ flowchart TB
 
 ## پشتهٔ فناوری
 
-| لایه                       | انتخاب                                                                      | مرجع                                             |
-| -------------------------- | --------------------------------------------------------------------------- | ------------------------------------------------ |
-| Gateway                    | NestJS با آداپتر Fastify و مسیر داغ سبک                                     | [ADR-001](adr/0001-gateway-nestjs-fastify.fa.md) |
-| control-api و worker       | NestJS                                                                      | [ADR-001](adr/0001-gateway-nestjs-fastify.fa.md) |
-| پایگاه داده                | PostgreSQL 17 با Prisma                                                     | [ADR-002](adr/0002-postgresql-prisma.fa.md)      |
-| شمارنده‌ها، cache، pub/sub | Valkey                                                                      | [ADR-003](adr/0003-valkey.fa.md)                 |
-| پراکسی معکوس               | Traefik v3                                                                  | [ADR-004](adr/0004-traefik-reverse-proxy.fa.md)  |
-| صف رویدادها                | BullMQ روی Valkey                                                           | [ADR-005](adr/0005-bullmq-event-queue.fa.md)     |
-| داشبورد                    | React، Vite، TypeScript، TanStack Router و Query، shadcn/ui، Tailwind (RTL) | —                                                |
-| schemaها                   | Zod در `@dirouter/contracts` با خروجی JSON Schema                           | —                                                |
-| مونorepo                   | pnpm workspaces، Turborepo، TypeScript strict، ESM                          | —                                                |
-| استقرار                    | Docker و Docker Compose (توسعه، production، HA)                             | —                                                |
+| لایه                       | انتخاب                                                                      | مرجع                                                                                                                                       |
+| -------------------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| Gateway                    | Fastify خالص (بدون NestJS) با مسیر داغ سبک                                  | [ADR-001](adr/0001-gateway-nestjs-fastify.fa.md) (به‌روزرسانی 2026-11-25 آن را ببینید)، [ADR-007](adr/0007-data-plane-stays-on-node.fa.md) |
+| control-api                | NestJS روی آداپتر Fastify                                                   | [ADR-001](adr/0001-gateway-nestjs-fastify.fa.md)                                                                                           |
+| worker                     | پروسهٔ Node ساده با مصرف‌کننده‌های BullMQ                                   | [ADR-005](adr/0005-bullmq-event-queue.fa.md)                                                                                               |
+| پایگاه داده                | PostgreSQL 17 با Prisma                                                     | [ADR-002](adr/0002-postgresql-prisma.fa.md)                                                                                                |
+| شمارنده‌ها، cache، pub/sub | Valkey                                                                      | [ADR-003](adr/0003-valkey.fa.md)                                                                                                           |
+| پراکسی معکوس               | Traefik v3                                                                  | [ADR-004](adr/0004-traefik-reverse-proxy.fa.md)                                                                                            |
+| صف رویدادها                | BullMQ روی Valkey                                                           | [ADR-005](adr/0005-bullmq-event-queue.fa.md)                                                                                               |
+| داشبورد                    | React، Vite، TypeScript، TanStack Router و Query، shadcn/ui، Tailwind (RTL) | —                                                                                                                                          |
+| schemaها                   | Zod در `@dirouter/contracts` با خروجی JSON Schema                           | —                                                                                                                                          |
+| مونorepo                   | pnpm workspaces، Turborepo، TypeScript strict، ESM                          | —                                                                                                                                          |
+| استقرار                    | Docker و Docker Compose (توسعه، production، HA)                             | —                                                                                                                                          |
 
 ## شروع سریع با Docker
 
@@ -371,6 +374,7 @@ flowchart LR
 
 - [فهرست مستندات](DOCUMENTATION.fa.md) و [راهنمای مشارکت](CONTRIBUTING.fa.md)
 - [استقرار production](docs/deploy-production.fa.md)، [مرجع متغیرهای محیطی](docs/env-reference.fa.md) و [Runbook](docs/runbook.fa.md)
+- [Changelog](CHANGELOG.md) و یادداشت‌های ارتقا [به v1.0](docs/upgrade-v1.fa.md) و [به v1.1](docs/upgrade-v1.1.fa.md)
 - [راهنمای قابلیت‌های اسپرینت ۲](docs/sprint-2.fa.md)، [استقرار HA](docs/deploy-ha.fa.md)، [امنیت](docs/security.fa.md) و [SSO](docs/sso.fa.md)
 - [مشاهده‌پذیری](docs/observability.fa.md)، [مسیر usage](docs/usage-pipeline.fa.md) و [داده‌های seed](docs/seed.fa.md)
 

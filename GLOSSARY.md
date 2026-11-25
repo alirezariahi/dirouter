@@ -24,7 +24,7 @@ An alternative name supplied in the client's `model` field that resolves to a Mo
 
 ### Combo
 
-An ordered group of models with a selection strategy, retry policy, and timeouts. MVP contracts define `priority`, `round-robin`, and `weighted`; other strategies belong to later work. When a target fails, gateway may fall back to the next target. Combos are central to DiRouter's resilience.
+An ordered group of models with a selection strategy, retry policy, and timeouts. The gateway implements seven strategies: `priority`, `weighted`, `round-robin`, `latency`, `cost`, `least-used`, and `headroom`. When a target fails, gateway may fall back to the next target. Combos are central to DiRouter's resilience.
 
 ### Virtual Key
 

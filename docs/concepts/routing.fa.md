@@ -175,11 +175,13 @@ curl -X POST $A/aliases -H "authorization: Bearer $TOKEN" -H 'content-type: appl
 
 ## کاتالوگ قیمت بدون migration
 
+> از کارت ۲۷.۵ کاتالوگ با worker از منبع‌های قیمت بیرونی هم همگام می‌شود؛ [catalog-sync.fa.md](../catalog-sync.fa.md) را ببینید. `catalog.json` همراه کد نقطهٔ شروع و پشتیبان است.
+
 - `packages/model-catalog/src/catalog.json` فایل نسخه‌دار (`version: YYYY.MM.DD`) قیمت و قابلیت مدل‌های اصلی است. `GET /orgs/:orgId/catalog` آن را نشان می‌دهد.
 - مدلی که با `catalogKey` ساخته شده، با `POST /orgs/:orgId/models/sync-catalog` به قیمت و context نسخهٔ تازهٔ کاتالوگ به‌روز می‌شود. پس به‌روزرسانی قیمت فقط تغییر JSON و deploy است و migration لازم ندارد.
-- قیمت دستی (`PATCH` با `pricing`) مدل را از کاتالوگ جدا می‌کند (`catalogKey: null`) تا sync آن را بازنویسی نکند.
+- قیمت دستی (`PATCH` با `pricing`) مدل را `priceOverride: true` می‌کند و `catalogKey` آن را نگه می‌دارد، تا نه `sync-catalog` و نه همگام‌سازی قیمت کاتالوگ آن را بازنویسی کند؛ `PATCH` با `followCatalog: true` آن را به قیمت کاتالوگ برمی‌گرداند.
 - قابلیت‌های `documents` و `audioInput` (کارت ۲۷.۲) می‌گویند مدل در چت ورودی PDF/فایل و صوت می‌پذیرد یا نه. `false` چنین درخواست‌هایی را از مدل دور نگه می‌دارد؛ مقدار خالی تصمیم را به توان ترجمهٔ نوع provider می‌سپارد. [ترجمه](../gateway/translation.fa.md#documents-and-audio) را ببینید.
-- control-api فقط `@dirouter/model-catalog/catalog` را import می‌کند. js-tiktoken برای این پکیج peer اختیاری است و در ایمیج control-api نصب نمی‌شود.
+- js-tiktoken برای `@dirouter/model-catalog` یک peer اختیاری است. گیت‌وی و control-api (که تست زندهٔ guardrail در آن توکن‌ها را مثل گیت‌وی می‌شمارد) آن را اعلام کرده‌اند و در ایمیجشان نگه می‌دارند؛ بقیهٔ اپ‌ها فقط `@dirouter/model-catalog/catalog` را import می‌کنند.
 
 ## مسیریابی پیشرفته (اسپرینت ۲)
 

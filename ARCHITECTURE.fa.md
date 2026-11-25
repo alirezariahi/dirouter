@@ -173,18 +173,19 @@ sequenceDiagram
 
 ## 7. انتخاب فناوری‌ها
 
-| لایه                       | انتخاب                                                                      | ADR                                              |
-| -------------------------- | --------------------------------------------------------------------------- | ------------------------------------------------ |
-| gateway                    | NestJS با adapter نوع Fastify و مسیر پرترافیک سبک                           | [ADR-001](adr/0001-gateway-nestjs-fastify.fa.md) |
-| control-api، worker        | NestJS                                                                      | [ADR-001](adr/0001-gateway-nestjs-fastify.fa.md) |
-| پایگاه داده                | PostgreSQL 17 + Prisma                                                      | [ADR-002](adr/0002-postgresql-prisma.fa.md)      |
-| شمارنده‌ها، cache، pub/sub | Valkey                                                                      | [ADR-003](adr/0003-valkey.fa.md)                 |
-| Reverse proxy              | Traefik v3                                                                  | [ADR-004](adr/0004-traefik-reverse-proxy.fa.md)  |
-| صف رویدادها                | BullMQ روی Valkey                                                           | [ADR-005](adr/0005-bullmq-event-queue.fa.md)     |
-| داشبورد                    | React + Vite + TypeScript، TanStack Router/Query، shadcn/ui، Tailwind (RTL) | ندارد                                            |
-| Schemaها                   | Zod در `@dirouter/contracts`، با خروجی JSON Schema                          | ندارد                                            |
-| Monorepo                   | pnpm workspaces + Turborepo، TypeScript سخت‌گیرانه، ESM                     | ندارد                                            |
-| استقرار                    | Docker و Docker Compose (توسعه، تولید، HA)                                  | ندارد                                            |
+| لایه                       | انتخاب                                                                      | ADR                                                                       |
+| -------------------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| gateway                    | Fastify خالص (بدون NestJS) با مسیر پرترافیک سبک                             | [ADR-001](adr/0001-gateway-nestjs-fastify.fa.md) (به‌روزرسانی 2026-11-25) |
+| control-api                | NestJS روی adapter نوع Fastify                                              | [ADR-001](adr/0001-gateway-nestjs-fastify.fa.md)                          |
+| worker                     | پروسهٔ Node ساده با مصرف‌کننده‌های BullMQ                                   | [ADR-005](adr/0005-bullmq-event-queue.fa.md)                              |
+| پایگاه داده                | PostgreSQL 17 + Prisma                                                      | [ADR-002](adr/0002-postgresql-prisma.fa.md)                               |
+| شمارنده‌ها، cache، pub/sub | Valkey                                                                      | [ADR-003](adr/0003-valkey.fa.md)                                          |
+| Reverse proxy              | Traefik v3                                                                  | [ADR-004](adr/0004-traefik-reverse-proxy.fa.md)                           |
+| صف رویدادها                | BullMQ روی Valkey                                                           | [ADR-005](adr/0005-bullmq-event-queue.fa.md)                              |
+| داشبورد                    | React + Vite + TypeScript، TanStack Router/Query، shadcn/ui، Tailwind (RTL) | ندارد                                                                     |
+| Schemaها                   | Zod در `@dirouter/contracts`، با خروجی JSON Schema                          | ندارد                                                                     |
+| Monorepo                   | pnpm workspaces + Turborepo، TypeScript سخت‌گیرانه، ESM                     | ندارد                                                                     |
+| استقرار                    | Docker و Docker Compose (توسعه، تولید، HA)                                  | ندارد                                                                     |
 
 ## 8. بسته‌های مشترک
 

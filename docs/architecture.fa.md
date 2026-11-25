@@ -173,18 +173,19 @@ sequenceDiagram
 
 ## ۷. فناوری‌ها
 
-| لایه                 | انتخاب                                                                      | ADR                                              |
-| -------------------- | --------------------------------------------------------------------------- | ------------------------------------------------ |
-| gateway              | NestJS روی Fastify adapter با مسیر داغ سبک                                  | [ADR-001](adr/0001-gateway-nestjs-fastify.fa.md) |
-| control-api، worker  | NestJS                                                                      | [ADR-001](adr/0001-gateway-nestjs-fastify.fa.md) |
-| دیتابیس              | PostgreSQL 17 + Prisma                                                      | [ADR-002](adr/0002-postgresql-prisma.fa.md)      |
-| شمارنده، کش، pub/sub | Valkey                                                                      | [ADR-003](adr/0003-valkey.fa.md)                 |
-| ریورس پراکسی         | Traefik v3                                                                  | [ADR-004](adr/0004-traefik-reverse-proxy.fa.md)  |
-| صف رویداد            | BullMQ روی Valkey                                                           | [ADR-005](adr/0005-bullmq-event-queue.fa.md)     |
-| داشبورد              | React + Vite + TypeScript، TanStack Router/Query، shadcn/ui، Tailwind (RTL) | —                                                |
-| اسکیماها             | zod در `@dirouter/contracts` با خروجی JSON Schema                           | —                                                |
-| مونوریپو             | pnpm workspaces + Turborepo، TypeScript strict، ESM                         | —                                                |
-| استقرار              | Docker و docker compose (dev، prod، HA)                                     | —                                                |
+| لایه                 | انتخاب                                                                      | ADR                                                                       |
+| -------------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| gateway              | Fastify خالص (بدون NestJS) با مسیر داغ سبک                                  | [ADR-001](adr/0001-gateway-nestjs-fastify.fa.md) (به‌روزرسانی 2026-11-25) |
+| control-api          | NestJS روی Fastify adapter                                                  | [ADR-001](adr/0001-gateway-nestjs-fastify.fa.md)                          |
+| worker               | پروسهٔ Node ساده با مصرف‌کننده‌های BullMQ                                   | [ADR-005](adr/0005-bullmq-event-queue.fa.md)                              |
+| دیتابیس              | PostgreSQL 17 + Prisma                                                      | [ADR-002](adr/0002-postgresql-prisma.fa.md)                               |
+| شمارنده، کش، pub/sub | Valkey                                                                      | [ADR-003](adr/0003-valkey.fa.md)                                          |
+| ریورس پراکسی         | Traefik v3                                                                  | [ADR-004](adr/0004-traefik-reverse-proxy.fa.md)                           |
+| صف رویداد            | BullMQ روی Valkey                                                           | [ADR-005](adr/0005-bullmq-event-queue.fa.md)                              |
+| داشبورد              | React + Vite + TypeScript، TanStack Router/Query، shadcn/ui، Tailwind (RTL) | —                                                                         |
+| اسکیماها             | zod در `@dirouter/contracts` با خروجی JSON Schema                           | —                                                                         |
+| مونوریپو             | pnpm workspaces + Turborepo، TypeScript strict، ESM                         | —                                                                         |
+| استقرار              | Docker و docker compose (dev، prod، HA)                                     | —                                                                         |
 
 ## ۸. پکیج‌های مشترک
 

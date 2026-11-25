@@ -14,4 +14,4 @@ together with [Changesets](https://github.com/changesets/changesets) (`.changese
    as `ghcr.io/alirezariahi/dirouter/<app>:<version>` with its SBOM attestation. A tag that is not
    on `main` or is not valid semver is refused.
 5. Write the upgrade notes when a release needs any operator action (see
-   [upgrade-v1.md](upgrade-v1.md)).
+   [upgrade-v1.md](upgrade-v1.md) and [upgrade-v1.1.md](upgrade-v1.1.md)).

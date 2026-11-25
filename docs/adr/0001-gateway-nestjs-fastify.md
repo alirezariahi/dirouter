@@ -2,9 +2,28 @@
 
 # ADR-0001: Gateway with NestJS on Fastify and overhead reduction strategies
 
-- **Status:** Accepted
+- **Status:** Accepted; amended 2026-11-25 (the gateway is plain Fastify, see the update below)
 - **Date:** 2026-11-07
 - **Deciders:** DiRouter team
+
+## Update (2026-11-25): what was actually built
+
+This record is kept as written, but the code took a different split than the decision below:
+
+- **The gateway is plain Fastify, not NestJS.** From its first commit (2026-11-07) `apps/gateway`
+  has used Fastify directly, without `@nestjs/*`: no DI container, no modules, no pipes or guards
+  anywhere, not only on `/v1/*`. This is option 2 of the considered options. The hot-path rules
+  below (services created once at startup, Zod validation once, `reply.raw` streaming, an
+  `undici` pool per provider, no database on the hot path, pino logging, the k6 benchmark) apply
+  unchanged, and the management, health and metrics routes are ordinary Fastify routes too.
+- **control-api is NestJS on the Fastify adapter** (`NestFactory.create<NestFastifyApplication>`),
+  as decided.
+- **The worker is a plain Node process** (BullMQ consumers and timers), with neither NestJS nor an
+  HTTP framework.
+
+The reasons for the decision (one language, shared contracts, translators and pricing) hold for
+this split as well. ADR-0007 (`adr/0007-data-plane-stays-on-node.md` at the repository root) records the v1 benchmark of the
+gateway as built and keeps the data plane on Node.
 
 ## Context
 

@@ -171,18 +171,19 @@ sequenceDiagram
 
 ## 7. Technologies
 
-| Layer                    | Choice                                                                      | ADR                                           |
-| ------------------------ | --------------------------------------------------------------------------- | --------------------------------------------- |
-| gateway                  | NestJS on the Fastify adapter with a lightweight hot path                   | [ADR-001](adr/0001-gateway-nestjs-fastify.md) |
-| control-api, worker      | NestJS                                                                      | [ADR-001](adr/0001-gateway-nestjs-fastify.md) |
-| database                 | PostgreSQL 17 + Prisma                                                      | [ADR-002](adr/0002-postgresql-prisma.md)      |
-| counters, cache, pub/sub | Valkey                                                                      | [ADR-003](adr/0003-valkey.md)                 |
-| reverse proxy            | Traefik v3                                                                  | [ADR-004](adr/0004-traefik-reverse-proxy.md)  |
-| event queue              | BullMQ on Valkey                                                            | [ADR-005](adr/0005-bullmq-event-queue.md)     |
-| dashboard                | React + Vite + TypeScript, TanStack Router/Query, shadcn/ui, Tailwind (RTL) | —                                             |
-| schemas                  | zod in `@dirouter/contracts` with JSON Schema output                        | —                                             |
-| monorepo                 | pnpm workspaces + Turborepo, strict TypeScript, ESM                         | —                                             |
-| deployment               | Docker and docker compose (dev, prod, HA)                                   | —                                             |
+| Layer                    | Choice                                                                      | ADR                                                               |
+| ------------------------ | --------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| gateway                  | Plain Fastify (no NestJS) with a lightweight hot path                       | [ADR-001](adr/0001-gateway-nestjs-fastify.md) (2026-11-25 update) |
+| control-api              | NestJS on the Fastify adapter                                               | [ADR-001](adr/0001-gateway-nestjs-fastify.md)                     |
+| worker                   | Plain Node process with BullMQ consumers                                    | [ADR-005](adr/0005-bullmq-event-queue.md)                         |
+| database                 | PostgreSQL 17 + Prisma                                                      | [ADR-002](adr/0002-postgresql-prisma.md)                          |
+| counters, cache, pub/sub | Valkey                                                                      | [ADR-003](adr/0003-valkey.md)                                     |
+| reverse proxy            | Traefik v3                                                                  | [ADR-004](adr/0004-traefik-reverse-proxy.md)                      |
+| event queue              | BullMQ on Valkey                                                            | [ADR-005](adr/0005-bullmq-event-queue.md)                         |
+| dashboard                | React + Vite + TypeScript, TanStack Router/Query, shadcn/ui, Tailwind (RTL) | —                                                                 |
+| schemas                  | zod in `@dirouter/contracts` with JSON Schema output                        | —                                                                 |
+| monorepo                 | pnpm workspaces + Turborepo, strict TypeScript, ESM                         | —                                                                 |
+| deployment               | Docker and docker compose (dev, prod, HA)                                   | —                                                                 |
 
 ## 8. Shared packages
 

@@ -26,7 +26,7 @@
 
 ### Combo (ترکیب)
 
-گروه مرتبی از مدل‌ها همراه با استراتژی انتخاب، سیاست retry و timeoutها. قراردادهای MVP سه مورد `priority`، `round-robin` و `weighted` را تعریف می‌کنند؛ سایر استراتژی‌ها به کارهای بعدی تعلق دارند. وقتی یک target شکست می‌خورد، gateway ممکن است به target بعدی fallback کند. comboها محور تاب‌آوری DiRouter هستند.
+گروه مرتبی از مدل‌ها همراه با استراتژی انتخاب، سیاست retry و timeoutها. گیت‌وی هفت استراتژی را پیاده می‌کند: `priority`، `weighted`، `round-robin`، `latency`، `cost`، `least-used` و `headroom`. وقتی یک target شکست می‌خورد، gateway ممکن است به target بعدی fallback کند. comboها محور تاب‌آوری DiRouter هستند.
 
 ### Virtual Key (کلید مجازی)
 

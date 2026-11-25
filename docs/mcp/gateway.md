@@ -70,6 +70,8 @@ The callback refuses a state minted for another server, organization or older th
 
 Per-user OAuth (each end user's own token in a token vault) is not part of this card.
 
+The authorization-code connection is **API-only** in v1.1: the dashboard's MCP page has no OAuth form or connect button, so store the credential and run the three calls above with a management token or an administrator's session.
+
 ## Decision: stdio servers
 
 **Decision (card 28.1): the gateway never spawns stdio MCP servers, for any organization, the platform organization included.**

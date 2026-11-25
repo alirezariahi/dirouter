@@ -173,11 +173,13 @@ If `fallbackOn` is empty, `DEFAULT_FALLBACK_ON` is used.
 
 ## Price catalog without migration
 
+> Since card 27.5 the catalog is also synced from external price sources by the worker; see [catalog-sync.md](../catalog-sync.md). The bundled `catalog.json` is the starting point and the fallback.
+
 - `packages/model-catalog/src/catalog.json` is a versioned file (`version: YYYY.MM.DD`) with the prices and capabilities of the main models. `GET /orgs/:orgId/catalog` displays it.
 - A model created with a `catalogKey` is updated to the new catalog price and context with `POST /orgs/:orgId/models/sync-catalog`. So a price update is just a JSON change and a deploy, and needs no migration.
-- A manual price (`PATCH` with `pricing`) detaches the model from the catalog (`catalogKey: null`), so the sync does not overwrite it.
+- A manual price (`PATCH` with `pricing`) marks the model `priceOverride: true` and keeps its `catalogKey`, so neither `sync-catalog` nor the catalog price sync overwrites it; `PATCH` with `followCatalog: true` returns it to the catalog price.
 - Capabilities `documents` and `audioInput` (card 27.2) say whether a model takes PDF/file and audio input in chat. `false` keeps such requests away from the model; unset leaves it to what the provider type can translate. See [translation](../gateway/translation.md#documents-and-audio).
-- control-api only imports `@dirouter/model-catalog/catalog`. js-tiktoken is an optional peer of this package and is not installed in the control-api image.
+- js-tiktoken is an optional peer of `@dirouter/model-catalog`. The gateway and control-api (whose guardrail live test counts tokens like the gateway) declare it and keep it in their images; the other apps only import `@dirouter/model-catalog/catalog`.
 
 ## Advanced routing (Sprint 2)
 

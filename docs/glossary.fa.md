@@ -28,7 +28,7 @@
 
 ### Combo
 
-یک گروه مرتب از Modelها با یک استراتژی انتخاب (`priority`، `round-robin`، `weighted`، `random`)، سیاست retry و timeout. اگر هدف اول شکست بخورد، گیت‌وی به هدف بعدی فال‌بک می‌کند. Combo هستهٔ تاب‌آوری DiRouter است.
+یک گروه مرتب از Modelها با یک استراتژی انتخاب (`priority`، `weighted`، `round-robin`، `latency`، `cost`، `least-used`، `headroom`)، سیاست retry و timeout. اگر هدف اول شکست بخورد، گیت‌وی به هدف بعدی فال‌بک می‌کند. Combo هستهٔ تاب‌آوری DiRouter است.
 
 ### Virtual Key
 

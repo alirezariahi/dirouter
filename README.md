@@ -192,16 +192,17 @@ flowchart LR
 
 ## Components
 
-| Component         | Responsibilities                                                                                | Hard runtime dependencies                                      |
-| ----------------- | ----------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| **Traefik**       | TLS, path routing, health checks, unbuffered SSE                                                | None                                                           |
-| **gateway**       | API compatibility, routing, fallback, circuit breakers, limits, budgets, usage publication      | None when a valid snapshot exists; Valkey has a local fallback |
-| **control-api**   | Administrative API, dashboard authentication, RBAC, credential encryption, snapshot publication | PostgreSQL, Valkey                                             |
-| **worker**        | Usage event consumption, ledger and log writes, aggregate tables, partition maintenance         | PostgreSQL, Valkey                                             |
-| **dashboard**     | Persian RTL administrative interface                                                            | control-api                                                    |
-| **mock-provider** | Synthetic upstream with injected 429 and 5xx responses and delays for tests                     | None                                                           |
-| **Valkey**        | Counters, cooldown and breaker state, config pub/sub, BullMQ queue                              | None                                                           |
-| **PostgreSQL 17** | Source of truth for configuration, users, the ledger, and partitioned request logs              | None                                                           |
+| Component         | Responsibilities                                                                                                    | Hard runtime dependencies                                      |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| **Traefik**       | TLS, path routing, health checks, unbuffered SSE                                                                    | None                                                           |
+| **gateway**       | API compatibility, routing, fallback, circuit breakers, limits, budgets, usage publication                          | None when a valid snapshot exists; Valkey has a local fallback |
+| **control-api**   | Administrative API, dashboard authentication, RBAC, credential encryption, snapshot publication                     | PostgreSQL, Valkey                                             |
+| **worker**        | Usage event consumption, ledger and log writes, aggregate tables, partition maintenance, alerts, catalog price sync | PostgreSQL, Valkey                                             |
+| **dashboard**     | Persian RTL administrative interface                                                                                | control-api                                                    |
+| **portal**        | Persian self-service portal for customers: sign-up, keys, wallet, usage and invoices                                | control-api                                                    |
+| **mock-provider** | Synthetic upstream with injected 429 and 5xx responses and delays for tests                                         | None                                                           |
+| **Valkey**        | Counters, cooldown and breaker state, config pub/sub, BullMQ queue                                                  | None                                                           |
+| **PostgreSQL 17** | Source of truth for configuration, users, the ledger, and partitioned request logs                                  | None                                                           |
 
 ## Repository layout
 
@@ -212,6 +213,8 @@ code/
 │  ├─ control-api/    Authentication, configuration management, snapshot publication
 │  ├─ worker/         Usage queue consumer, aggregation, retention, budget reconciliation
 │  ├─ dashboard/      Persian RTL dashboard (React + Vite)
+│  ├─ portal/         Customer self-service portal (React + Vite)
+│  ├─ docs/           Documentation site, generated from docs/ and adr/ (Astro)
 │  ├─ website/        Public Persian site and routing demo
 │  └─ mock-provider/  Synthetic upstream with fault injection for development and tests
 ├─ packages/          contracts, shared, db, model-catalog, providers, translator, routing, ui, configs
@@ -224,9 +227,8 @@ code/
 ```mermaid
 flowchart TB
   gw["gateway"] --> contracts & shared & catalog["model-catalog"] & providers & routing & translator
-  api["control-api"] --> contracts & shared & db & catalog
-  wk["worker"] --> contracts & shared & db
-  dash["dashboard"] --> ui
+  api["control-api"] --> contracts & shared & db & catalog & providers
+  wk["worker"] --> contracts & shared & db & catalog
   routing --> contracts & providers
   providers --> contracts & translator
   translator --> contracts
@@ -238,18 +240,19 @@ Apps may depend on packages; packages never depend on apps. `contracts` has no i
 
 ## Technology stack
 
-| Layer                    | Choice                                                                        | Record                                        |
-| ------------------------ | ----------------------------------------------------------------------------- | --------------------------------------------- |
-| Gateway                  | NestJS with the Fastify adapter and a lightweight hot path                    | [ADR-001](adr/0001-gateway-nestjs-fastify.md) |
-| control-api and worker   | NestJS                                                                        | [ADR-001](adr/0001-gateway-nestjs-fastify.md) |
-| Database                 | PostgreSQL 17 with Prisma                                                     | [ADR-002](adr/0002-postgresql-prisma.md)      |
-| Counters, cache, pub/sub | Valkey                                                                        | [ADR-003](adr/0003-valkey.md)                 |
-| Reverse proxy            | Traefik v3                                                                    | [ADR-004](adr/0004-traefik-reverse-proxy.md)  |
-| Event queue              | BullMQ on Valkey                                                              | [ADR-005](adr/0005-bullmq-event-queue.md)     |
-| Dashboard                | React, Vite, TypeScript, TanStack Router and Query, shadcn/ui, Tailwind (RTL) | —                                             |
-| Schemas                  | Zod in `@dirouter/contracts`, with JSON Schema export                         | —                                             |
-| Monorepo                 | pnpm workspaces, Turborepo, strict TypeScript, ESM                            | —                                             |
-| Deployment               | Docker and Docker Compose (development, production, HA)                       | —                                             |
+| Layer                    | Choice                                                                        | Record                                                                                                                     |
+| ------------------------ | ----------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Gateway                  | Plain Fastify (no NestJS) with a lightweight hot path                         | [ADR-001](adr/0001-gateway-nestjs-fastify.md) (see its 2026-11-25 update), [ADR-007](adr/0007-data-plane-stays-on-node.md) |
+| control-api              | NestJS on the Fastify adapter                                                 | [ADR-001](adr/0001-gateway-nestjs-fastify.md)                                                                              |
+| worker                   | Plain Node process with BullMQ consumers                                      | [ADR-005](adr/0005-bullmq-event-queue.md)                                                                                  |
+| Database                 | PostgreSQL 17 with Prisma                                                     | [ADR-002](adr/0002-postgresql-prisma.md)                                                                                   |
+| Counters, cache, pub/sub | Valkey                                                                        | [ADR-003](adr/0003-valkey.md)                                                                                              |
+| Reverse proxy            | Traefik v3                                                                    | [ADR-004](adr/0004-traefik-reverse-proxy.md)                                                                               |
+| Event queue              | BullMQ on Valkey                                                              | [ADR-005](adr/0005-bullmq-event-queue.md)                                                                                  |
+| Dashboard                | React, Vite, TypeScript, TanStack Router and Query, shadcn/ui, Tailwind (RTL) | —                                                                                                                          |
+| Schemas                  | Zod in `@dirouter/contracts`, with JSON Schema export                         | —                                                                                                                          |
+| Monorepo                 | pnpm workspaces, Turborepo, strict TypeScript, ESM                            | —                                                                                                                          |
+| Deployment               | Docker and Docker Compose (development, production, HA)                       | —                                                                                                                          |
 
 ## Quick start with Docker
 
@@ -367,6 +370,7 @@ flowchart LR
 
 - [Documentation index](DOCUMENTATION.md) and the [contributing guide](CONTRIBUTING.md)
 - [Production deployment](docs/deploy-production.md), [environment reference](docs/env-reference.md), and [runbook](docs/runbook.md)
+- [Changelog](CHANGELOG.md) and upgrade notes [to v1.0](docs/upgrade-v1.md) and [to v1.1](docs/upgrade-v1.1.md)
 - [Sprint 2 feature guide](docs/sprint-2.md), [HA deployment](docs/deploy-ha.md), [security](docs/security.md) and [SSO](docs/sso.md)
 - [Observability](docs/observability.md), [usage pipeline](docs/usage-pipeline.md), and [seed data](docs/seed.md)
 

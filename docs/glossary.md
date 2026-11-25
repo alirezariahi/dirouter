@@ -26,7 +26,7 @@ An alternative name that the client sends in the `model` field, pointing to a Mo
 
 ### Combo
 
-An ordered group of Models with a selection strategy (`priority`, `round-robin`, `weighted`, `random`), a retry policy, and a timeout. If the first target fails, the gateway falls back to the next target. Combo is the core of DiRouter's resilience.
+An ordered group of Models with a selection strategy (`priority`, `weighted`, `round-robin`, `latency`, `cost`, `least-used`, `headroom`), a retry policy, and a timeout. If the first target fails, the gateway falls back to the next target. Combo is the core of DiRouter's resilience.
 
 ### Virtual Key
 
