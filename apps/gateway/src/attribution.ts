@@ -50,8 +50,10 @@ export function requestAttribution(
 ): Attribution {
   const endUser = normalizeEndUser(first(headers[END_USER_HEADER]) ?? bodyUser);
   const tags = normalizeTags([...(key?.tags ?? []), ...all(headers[TAGS_HEADER])]);
+  // A key's own cost center is fixed: its holder cannot move spend out of that cost center's
+  // budget with the header. Only a key without one may name a cost center per request.
   const asked = first(headers[COST_CENTER_HEADER])?.trim();
-  const costCenter = asked && TAG_PATTERN.test(asked) ? asked : key?.costCenter;
+  const costCenter = key?.costCenter || (asked && TAG_PATTERN.test(asked) ? asked : undefined);
   return {
     ...(endUser ? { endUser } : {}),
     ...(tags.length > 0 ? { tags } : {}),

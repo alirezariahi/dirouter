@@ -33,10 +33,14 @@ describe('tag and cost-center attribution', () => {
     expect(requestAttribution({ 'x-dirouter-tags': ['a', 'b,c'] }).tags).toEqual(['a', 'b', 'c']);
   });
 
-  it('takes the cost center from the header, else from the key', () => {
+  it("keeps the key's cost center; only a key without one takes the header's", () => {
+    // The header cannot move a key's spend out of its cost center (and its budget).
     expect(
       requestAttribution({ 'x-dirouter-cost-center': 'cc-42' }, undefined, { costCenter: 'cc-1' }),
-    ).toEqual({ costCenter: 'cc-42' });
+    ).toEqual({ costCenter: 'cc-1' });
+    expect(requestAttribution({ 'x-dirouter-cost-center': 'cc-42' }, undefined, {})).toEqual({
+      costCenter: 'cc-42',
+    });
     expect(requestAttribution({}, undefined, { costCenter: 'cc-1' })).toEqual({
       costCenter: 'cc-1',
     });

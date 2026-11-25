@@ -6,14 +6,16 @@ can group and filter by them and export the result, and budgets and rate limits 
 
 ## Setting them
 
-| source                      | tags                                              | cost center                        |
-| --------------------------- | ------------------------------------------------- | ---------------------------------- |
-| the key (`POST/PATCH keys`) | `tags: ["team:search", "prod"]`, on every request | `costCenter: "cc-42"`, the default |
-| the request                 | `x-dirouter-tags: feature:summary,beta`           | `x-dirouter-cost-center: cc-17`    |
+| source                      | tags                                              | cost center                     |
+| --------------------------- | ------------------------------------------------- | ------------------------------- |
+| the key (`POST/PATCH keys`) | `tags: ["team:search", "prod"]`, on every request | `costCenter: "cc-42"`, fixed    |
+| the request                 | `x-dirouter-tags: feature:summary,beta`           | `x-dirouter-cost-center: cc-17` |
 
 - A request's tags are the key's tags followed by the header's (comma separated; the header may be
   repeated), without duplicates and **at most 10**; the rest are dropped.
-- The header's cost center replaces the key's.
+- A key with a cost center always keeps it: the header is ignored, so the key's holder cannot move
+  spend out of that cost center's budget. A key without one may name a cost center per request
+  with the header.
 - A tag or cost center is 1 to 64 letters, digits or `._:/-`, starting with a letter or digit
   (`team:search`, `customer/acme`). Invalid names in a request are ignored; the keys API refuses
   them with 422.
