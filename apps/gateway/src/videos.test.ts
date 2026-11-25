@@ -8,7 +8,7 @@
  * shape is what DiRouter serves, so the deprecation does not apply here.
  */
 /* eslint-disable @typescript-eslint/no-deprecated */
-import { createHmac } from 'node:crypto';
+import { createHmac, randomUUID } from 'node:crypto';
 import { createServer, type IncomingHttpHeaders } from 'node:http';
 import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -29,6 +29,9 @@ const logger = createLogger({ service: 'test', level: 'silent' });
 const pepper = 'p'.repeat(32);
 const KEY = 'dr-video-key-00001';
 const OTHER = 'dr-video-other-0001';
+const ZDR_KEY = 'dr-video-zdr-key-001';
+const MODEL_BUDGET_KEY = 'dr-video-mbudget-001';
+const VALKEY_URL = process.env.INTEGRATION_VALKEY_URL;
 const MP4_HEAD = '0000001c66747970';
 
 interface Delivery {
@@ -57,6 +60,8 @@ describe('video tasks', () => {
   let mockRoot = '';
   let client: OpenAI;
   let other: OpenAI;
+  /** Budgets and rate limits on Valkey, with INTEGRATION_VALKEY_URL. */
+  let limiterRedis: Redis | undefined;
 
   beforeAll(async () => {
     await mock.listen({ port: 0, host: '127.0.0.1' });
@@ -128,10 +133,34 @@ describe('video tasks', () => {
         model('veo', 'fal', 'fal-ai/veo3', { perSecondUsd: '0.5' }),
         model('veo-google', 'gemini', 'veo-3.0-generate-001', { perSecondUsd: '0.4' }),
         model('chat', 'openai', 'gpt-4o-mini', { inputPerMTok: '1' }, false),
+        model('sora-budget', 'openai', 'sora-2', { perSecondUsd: '0.1', perRequestUsd: '0.05' }),
       ],
       combos: [],
       aliases: [],
-      virtualKeys: [key('vk', KEY, 'org'), key('vk-other', OTHER, 'org-b')],
+      virtualKeys: [
+        key('vk', KEY, 'org'),
+        key('vk-other', OTHER, 'org-b'),
+        key('vk-zdr', ZDR_KEY, 'org'),
+        key('vk-mbudget', MODEL_BUDGET_KEY, 'org'),
+      ],
+      // A "ZDR only" key (card 32.5); none of the video providers offers zero data retention.
+      routingPolicies: [
+        {
+          organizationId: 'org',
+          scope: 'key',
+          scopeId: 'vk-zdr',
+          dataPolicy: { requireZdr: true },
+        },
+      ],
+      limits: [
+        { organizationId: 'org', scope: 'end_user', scopeId: 'banned', blocked: true, budgets: [] },
+        {
+          organizationId: 'org',
+          scope: 'model',
+          scopeId: 'm-sora-budget',
+          budgets: [{ id: `vb-${randomUUID()}`, period: 'daily', limitUsd: '0.5' }],
+        },
+      ],
       settings: {},
     };
     const dataDir = await mkdtemp(join(tmpdir(), 'dirouter-video-'));
@@ -144,8 +173,11 @@ describe('video tasks', () => {
       emitUsage: (e) => usage.push(e),
       jobs: { pollIntervalMs: 0, pollerTickMs: 60_000, webhookRetryDelaysMs: [0, 0] },
       // With INTEGRATION_VALKEY_URL the same flows run on the Valkey job store.
-      ...(process.env.INTEGRATION_VALKEY_URL
-        ? { stateRedis: new Redis(process.env.INTEGRATION_VALKEY_URL) }
+      ...(VALKEY_URL
+        ? {
+            stateRedis: new Redis(VALKEY_URL),
+            limiterRedis: (limiterRedis = new Redis(VALKEY_URL)),
+          }
         : {}),
     });
     await gw.start();
@@ -159,6 +191,7 @@ describe('video tasks', () => {
     await gw.app.close();
     await mock.close();
     await gw.jobs.stateRedis?.quit();
+    await limiterRedis?.quit();
     receiver.close();
   });
 
@@ -418,6 +451,56 @@ describe('video tasks', () => {
     expect((await other.videos.list()).data).toEqual([]);
     expect((await client.videos.retrieve(id)).id).toBe(id);
   });
+
+  it('keeps the data policy: a ZDR-only key never sends a video prompt to a provider without ZDR', async () => {
+    const before = (
+      (await (await fetch(`${mockRoot}/__mock/videos`)).json()) as { created?: number }
+    ).created;
+    const res = await create({ model: 'sora-2', prompt: 'private', seconds: 4 }, ZDR_KEY);
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as { error: { code: string } }).error.code).toBe(
+      'no_provider_matches_data_policy',
+    );
+    const after = (
+      (await (await fetch(`${mockRoot}/__mock/videos`)).json()) as { created?: number }
+    ).created;
+    expect(after).toBe(before);
+  });
+
+  it('refuses a blocked end user before anything starts', async () => {
+    const res = await fetch(`${base}/v1/videos`, {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${KEY}`,
+        'content-type': 'application/json',
+        'x-dirouter-end-user': 'banned',
+      },
+      body: JSON.stringify({ model: 'sora-2', prompt: 'nope' }),
+    });
+    expect(res.status).toBe(403);
+    expect(((await res.json()) as { error: { code: string } }).error.code).toBe('end_user_blocked');
+  });
+
+  it.skipIf(!VALKEY_URL)(
+    "counts a completed video in the model's budget, and refuses new ones once it is used up",
+    async () => {
+      const first = await create(
+        { model: 'sora-budget', prompt: 'one', seconds: 8 },
+        MODEL_BUDGET_KEY,
+      );
+      expect(first.status).toBe(200);
+      const { id } = (await first.json()) as { id: string };
+      for (let i = 0; i < 10 && !usage.some((e) => e.requestId === id); i++) await gw.poller.tick();
+      // 8 s × 0.1 + 0.05 against a $0.50 daily model budget.
+      expect(usage.find((e) => e.requestId === id)).toMatchObject({ costUsd: '0.85000000' });
+      await new Promise((r) => setTimeout(r, 100));
+      const second = await create({ model: 'sora-budget', prompt: 'two' }, MODEL_BUDGET_KEY);
+      expect(second.status).toBe(429);
+      expect(((await second.json()) as { error: { code: string } }).error.code).toBe(
+        'budget_exceeded',
+      );
+    },
+  );
 
   it('the job poller follows a task nobody polls', async () => {
     const { id } = (await (await create({ model: 'sora-2', prompt: 'background' })).json()) as {

@@ -208,3 +208,43 @@ describe.skipIf(!VALKEY_URL)('shadow cost', () => {
     expect(env.gw.shadow.stats.overBudget).toBe(1);
   });
 });
+
+describe('shadow traffic under a data policy', () => {
+  let env: PolicyGateway;
+
+  beforeAll(async () => {
+    env = await policyGateway({
+      shadowPolicies: [policy({ id: 'shd_zdr', match: 'mid', target: 'shadow-slow' })],
+      // "ZDR only" for the whole organization (card 32.5).
+      routingPolicies: [
+        {
+          organizationId: 'org',
+          scope: 'organization',
+          scopeId: 'org',
+          dataPolicy: { requireZdr: true },
+        },
+      ],
+    });
+    const config = env.gw.store.current;
+    if (!config) throw new Error('no config');
+    // The primary's provider offers zero data retention; the shadow model's does not.
+    await env.publish({
+      providers: config.snapshot.providers.map((p) =>
+        p.id === 'p' ? { ...p, dataPolicy: { zdr: true } } : p,
+      ),
+    });
+  });
+  afterAll(async () => {
+    await env.close();
+  });
+
+  it('never sends the copy to a provider the policy rules out, and counts it as skipped', async () => {
+    const res = await env.chat(KEYS.teamA, 'mid');
+    expect(res.status).toBe(200);
+    const primary = env.usage.at(-1);
+    await until(() => env.gw.shadow.stats.policySkipped === 1);
+    await until(() => env.gw.shadow.inFlight === 0);
+    expect(env.gw.shadow.stats.started).toBe(0);
+    expect(env.usage.some((e) => e.shadow?.primaryRequestId === primary?.requestId)).toBe(false);
+  });
+});

@@ -8,6 +8,9 @@
  *   or wallet, the provider bulkheads, the breakers, the routing statistics, the caches or the
  *   body capture: a slow or failing shadow model cannot change what any client sees.
  * - At most MAX_IN_FLIGHT copies run at once on a replica; more are dropped, not queued.
+ * - The data policy (card 32.5) holds for the copy as for the request: a target whose provider the
+ *   key's, project's or organization's policy (or the request's own, when the caller passes it)
+ *   rules out is skipped, never sent, and counted in `stats.policySkipped`.
  * - The copy is billed apart: a usage event with `shadow` set and `chargeUsd` 0, stored by the
  *   worker in its own table. The organization pays its own provider (the target must be one of its
  *   own models), and each policy stops for the day once its `dailyBudgetUsd` is spent.
@@ -15,12 +18,14 @@
 import type {
   CanonicalRequest,
   ConfigSnapshot,
+  DataPolicy,
   ModelConfig,
   ShadowPolicyConfig,
   UsageEvent,
   VirtualKeyConfig,
 } from '@dirouter/contracts';
 import {
+  mergeDataPolicies,
   shadowSpendKey,
   unitsToUsd,
   USAGE_EVENT_SCHEMA_VERSION,
@@ -28,11 +33,13 @@ import {
 } from '@dirouter/contracts';
 import { computeCostUsd, estimateUsage } from '@dirouter/model-catalog';
 import { adapterForProvider, classifyNetworkError } from '@dirouter/providers';
+import { dataPolicyViolation, isDataPolicyEmpty } from '@dirouter/routing';
 import { type Logger, ulid } from '@dirouter/shared';
 import type { Redis } from 'ioredis';
 
 import type { LoadedConfig } from './config-store.js';
 import { resolveCredentialKey } from './credential-tokens.js';
+import { routingFromRequest } from './route-request.js';
 import { callUpstream, mergeTimeouts, UpstreamTimeout } from './upstream.js';
 
 export const MAX_IN_FLIGHT = 32;
@@ -44,6 +51,8 @@ export interface PrimaryOutcome {
   status: number;
   latencyMs: number;
   costUsd: string;
+  /** The request's data policy (its own `provider` object merged with the key's), when known. */
+  dataPolicy?: DataPolicy | undefined;
 }
 
 /** The policy of the key's organization that mirrors this request, if any (no I/O). */
@@ -89,7 +98,15 @@ export class ShadowRunner {
   #inFlight = 0;
   /** Spend per policy and day when there is no Valkey (a single replica). */
   readonly #localSpend = new Map<string, number>();
-  readonly stats = { started: 0, dropped: 0, overBudget: 0, failed: 0, succeeded: 0 };
+  readonly stats = {
+    started: 0,
+    dropped: 0,
+    overBudget: 0,
+    /** Copies not sent because the target's provider breaks the data policy (card 32.5). */
+    policySkipped: 0,
+    failed: 0,
+    succeeded: 0,
+  };
 
   constructor(
     private readonly options: {
@@ -171,6 +188,22 @@ export class ShadowRunner {
     const credential = provider?.credentials.find((c) => c.enabled);
     if (!model || !provider?.enabled || !credential) {
       this.stats.failed++;
+      return;
+    }
+    // The copy carries the caller's data: a provider the data policy rules out never gets it.
+    const dataPolicy = mergeDataPolicies(
+      routingFromRequest(config.snapshot.routingPolicies, key, undefined).dataPolicy,
+      primary.dataPolicy,
+    );
+    const violation = isDataPolicyEmpty(dataPolicy)
+      ? undefined
+      : dataPolicyViolation(provider, dataPolicy);
+    if (violation) {
+      this.stats.policySkipped++;
+      this.options.logger.info(
+        { policy: policy.id, provider: provider.slug, reason: violation },
+        'shadow copy skipped: the target does not satisfy the data policy',
+      );
       return;
     }
     this.stats.started++;

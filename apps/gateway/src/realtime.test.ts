@@ -38,6 +38,8 @@ const KEY = 'dr-realtime-key-0001';
 const ONE_KEY = 'dr-realtime-key-one1';
 const BUDGET_KEY = 'dr-realtime-key-bud1';
 const WALLET_KEY = 'dr-realtime-key-wal1';
+const ZDR_KEY = 'dr-realtime-key-zdr1';
+const MODEL_BUDGET_KEY = 'dr-realtime-key-mbu1';
 const VALKEY_URL = process.env.INTEGRATION_VALKEY_URL;
 /** One second of PCM16 at 24 kHz: 10 audio tokens at the mock. */
 const SECOND_OF_AUDIO = Buffer.alloc(48_000).toString('base64');
@@ -62,7 +64,7 @@ const mockStats = async () =>
   ).realtime;
 
 function snapshot(walletId?: string): ConfigSnapshotInput {
-  const provider = (id: string, secret: string) => ({
+  const provider = (id: string, secret: string, extra = {}) => ({
     id,
     organizationId: 'org',
     slug: id,
@@ -71,6 +73,7 @@ function snapshot(walletId?: string): ConfigSnapshotInput {
     baseUrl: `${mockRoot}/v1`,
     enabled: true,
     options: {},
+    ...extra,
     credentials: [
       { id: `${id}-k`, name: id, secret: encrypt(keyring, secret, `${id}-k`), enabled: true },
     ],
@@ -122,12 +125,16 @@ function snapshot(walletId?: string): ConfigSnapshotInput {
       provider('up', 'sk-upstream'),
       provider('down', 'mock:status=503'),
       provider('slow', 'mock:chunks=12,chunk_delay=60'),
+      provider('zdr', 'sk-upstream', { dataPolicy: { region: 'eu', zdr: true } }),
     ],
     models: [
       model('rt', 'up', { realtime: true }),
       model('rt-down', 'down', { realtime: true }),
       model('rt-slow', 'slow', { realtime: true }),
       model('chat', 'up', {}),
+      model('rt-zdr', 'zdr', { realtime: true }),
+      model('rt-capped', 'up', { realtime: true }),
+      model('rt-model-budget', 'up', { realtime: true }),
     ],
     combos: [
       {
@@ -150,6 +157,35 @@ function snapshot(walletId?: string): ConfigSnapshotInput {
         budgets: [{ id: `b-${randomUUID()}`, period: 'daily', limitUsd: '0.001' }],
       }),
       key(WALLET_KEY, 'vk-wallet', walletId ? { walletId } : {}),
+      key(ZDR_KEY, 'vk-zdr'),
+      key(MODEL_BUDGET_KEY, 'vk-model-budget'),
+    ],
+    // A "ZDR only" key (card 32.5), and limits beyond the key's own (cards 32.6, 33.1 to 33.4).
+    routingPolicies: [
+      { organizationId: 'org', scope: 'key', scopeId: 'vk-zdr', dataPolicy: { requireZdr: true } },
+    ],
+    limits: [
+      { organizationId: 'org', scope: 'end_user', scopeId: 'banned', blocked: true, budgets: [] },
+      {
+        organizationId: 'org',
+        scope: 'model',
+        scopeId: 'rt-capped',
+        rateLimit: { requestsPerMinute: 1 },
+        budgets: [],
+      },
+      {
+        organizationId: 'org',
+        scope: 'tag',
+        scopeId: 'rt-tag',
+        rateLimit: { requestsPerMinute: 1 },
+        budgets: [],
+      },
+      {
+        organizationId: 'org',
+        scope: 'model',
+        scopeId: 'rt-model-budget',
+        budgets: [{ id: `mb-${randomUUID()}`, period: 'daily', limitUsd: '0.001' }],
+      },
     ],
     settings: {},
   };
@@ -565,6 +601,53 @@ describe('realtime sessions', () => {
     expect(rt.usage.at(-1)).toMatchObject({ status: 'error', costUsd: '0', httpStatus: 502 });
   });
 
+  it('keeps the data policy: a ZDR-only key never reaches a provider without ZDR', async () => {
+    const zdr = { authorization: `Bearer ${ZDR_KEY}` };
+    await fetch(`${mockRoot}/__mock/reset`, { method: 'POST' });
+    const refused = client(`${rt.ws}/v1/realtime?model=rt`, { headers: zdr });
+    expect(await refused.status).toBe(400);
+    expect((await mockStats()).sessions).toBe(0);
+    // A client secret cannot be minted for it either.
+    const secret = await fetch(`${rt.http}/v1/realtime/client_secrets`, {
+      method: 'POST',
+      headers: { ...zdr, 'content-type': 'application/json' },
+      body: JSON.stringify({ session: { type: 'realtime', model: 'rt' } }),
+    });
+    expect(secret.status).toBe(400);
+    expect(((await secret.json()) as { error: { code: string } }).error.code).toBe(
+      'no_provider_matches_data_policy',
+    );
+    // A compliant provider serves it.
+    const ok = client(`${rt.ws}/v1/realtime?model=rt-zdr`, { headers: zdr });
+    expect(await ok.status).toBe(101);
+    await ok.next('session.created');
+    ok.socket.close();
+    await ok.closed;
+  });
+
+  it('admits a session like any request: end-user block, model and tag limits', async () => {
+    const auth = { authorization: `Bearer ${KEY}` };
+    const statusOf = async (model: string, headers: Record<string, string> = {}) => {
+      const session = client(`${rt.ws}/v1/realtime?model=${model}`, {
+        headers: { ...auth, ...headers },
+      });
+      const status = await session.status;
+      if (status === 101) {
+        session.socket.close();
+        await session.closed;
+      }
+      return status;
+    };
+    expect(await statusOf('rt', { 'x-dirouter-end-user': 'banned' })).toBe(403);
+    // The organization's rate limit on one model (card 33.1).
+    expect(await statusOf('rt-capped')).toBe(101);
+    expect(await statusOf('rt-capped')).toBe(429);
+    // A tag's rate limit (card 33.4).
+    expect(await statusOf('rt', { 'x-dirouter-tags': 'rt-tag' })).toBe(101);
+    expect(await statusOf('rt', { 'x-dirouter-tags': 'rt-tag' })).toBe(429);
+    expect(await statusOf('rt')).toBe(101);
+  });
+
   it('falls back to the next target only before the session is established', async () => {
     const before = rt.usage.length;
     const session = client(`${rt.ws}/v1/realtime?model=rt-combo`, {
@@ -732,6 +815,31 @@ describe.skipIf(!VALKEY_URL)('realtime budgets and wallets on real Valkey', () =
       expect(await session.closed).toMatchObject({ code: 1008, reason: 'budget exceeded' });
       const again = client(`${gw.ws}/v1/realtime?model=rt`, {
         headers: { authorization: `Bearer ${BUDGET_KEY}` },
+      });
+      expect(await again.status).toBe(429);
+    } finally {
+      await gw.gw.app.close();
+    }
+  });
+
+  it("a model budget counts the session's responses and closes it once used up", async () => {
+    const gw = await startGateway({ limiterRedis: conn() });
+    try {
+      const session = client(`${gw.ws}/v1/realtime?model=rt-model-budget`, {
+        headers: { authorization: `Bearer ${MODEL_BUDGET_KEY}` },
+      });
+      expect(await session.status).toBe(101);
+      await session.next('session.created');
+      session.send({ type: 'input_audio_buffer.append', audio: SECOND_OF_AUDIO });
+      session.send({ type: 'input_audio_buffer.commit' });
+      session.send({ type: 'response.create' });
+      await session.next('response.done');
+      const error = await session.next('error');
+      expect(error.error).toMatchObject({ code: 'budget_exceeded' });
+      expect((error.error as { message: string }).message).toMatch(/model budget/);
+      expect(await session.closed).toMatchObject({ code: 1008, reason: 'budget exceeded' });
+      const again = client(`${gw.ws}/v1/realtime?model=rt-model-budget`, {
+        headers: { authorization: `Bearer ${MODEL_BUDGET_KEY}` },
       });
       expect(await again.status).toBe(429);
     } finally {

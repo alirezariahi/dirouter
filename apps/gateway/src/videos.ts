@@ -27,11 +27,13 @@ import {
   type VideoState,
   type VideoVariant,
 } from '@dirouter/providers';
-import { type Candidate, isRouteError } from '@dirouter/routing';
+import { applyDataPolicy, type Candidate, isRouteError } from '@dirouter/routing';
 import { DiRouterError, ForbiddenError, formatUsd, NotFoundError, ulid } from '@dirouter/shared';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 
-import { admitJob, releaseJob } from './jobs/admission.js';
+import { type Attribution, attributionFields, requestAttribution } from './attribution.js';
+import type { LoadedConfig } from './config-store.js';
+import { releaseJob } from './jobs/admission.js';
 import {
   authed,
   invalid,
@@ -47,7 +49,8 @@ import {
 import { checkJobWebhookUrl, enqueueWebhook, webhookSecret } from './jobs/webhooks.js';
 import { parseMultipart } from './media.js';
 import { chargeUnits } from './pricing.js';
-import { budgetScopes } from './spend-guard.js';
+import { planErrorToClient, routingFromRequest } from './route-request.js';
+import { admitRequest, budgetScopes, quotaRefs, servedTarget } from './spend-guard.js';
 import { callUpstream, mergeTimeouts, readErrorBody } from './upstream.js';
 
 /** A task record is kept a week; the provider may drop the video itself sooner. */
@@ -91,6 +94,8 @@ export interface TaskRecord {
   costUsd?: string;
   chargeUsd?: string;
   webhookUrl?: string;
+  /** End user, tags and cost center of the create request (cards 33.2 and 33.4). */
+  attribution?: Attribution;
   settled: boolean;
   checkedAt: number;
 }
@@ -167,6 +172,9 @@ async function create(req: FastifyRequest, reply: FastifyReply, deps: JobsDeps) 
   const model = typeof body.model === 'string' ? body.model : 'sora-2';
   const prompt = body.prompt;
 
+  // The data policy (card 32.5): the key's, project's and organization's, made stricter by the
+  // request's own `provider` object, like for chat.
+  const { dataPolicy } = routingFromRequest(config.snapshot.routingPolicies, key, body);
   const route = config.router.resolve(key, model, { estimatedInputTokens: 0 });
   if (isRouteError(route))
     throw route.error === 'model_not_found'
@@ -177,13 +185,40 @@ async function create(req: FastifyRequest, reply: FastifyReply, deps: JobsDeps) 
       : route.error === 'model_not_allowed'
         ? new ForbiddenError('model_not_allowed', { param: 'model' })
         : new DiRouterError('service_unavailable', { message: `No provider can serve '${model}'` });
-  const candidates = route.candidates.filter(
+  const capable = route.candidates.filter(
     (c) => c.model.capabilities.video === true && videoAdapterFor(c.provider.type) !== undefined,
   );
-  if (candidates.length === 0)
-    throw invalid(`'${model}' does not support video generation`, 'model');
+  if (capable.length === 0) throw invalid(`'${model}' does not support video generation`, 'model');
+  let allowed = capable;
+  if (dataPolicy) {
+    const filtered = applyDataPolicy({ ...route, candidates: capable }, dataPolicy);
+    if ('error' in filtered) throw planErrorToClient(filtered, model);
+    allowed = filtered.candidates;
+  }
 
+  // Admission as for any request (spend-guard.ts): a blocked end user, every budget and rate limit
+  // of the key, its attribution and the candidates (models, providers, upstream accounts and their
+  // quota windows); used-up targets leave the route. The task counts as one request, so its rate
+  // windows are released at once; the spend is recorded when it completes.
   const id = `video_${ulid()}`;
+  const attribution = requestAttribution(req.headers, body.user, key);
+  const admission = await admitRequest(deps, {
+    config,
+    key,
+    candidates: allowed,
+    requested: model,
+    estimatedTokens: 0,
+    requestId: id,
+    attribution,
+  });
+  if (!admission.ok) {
+    deps.metrics?.reject(admission.metric.guard, admission.metric.reason);
+    void reply.headers(admission.headers);
+    throw admission.error;
+  }
+  admission.cancel();
+  const candidates = admission.candidates;
+
   const lengthOf = (c: Candidate) =>
     seconds ?? videoAdapterFor(c.provider.type)?.defaultSeconds ?? 8;
   let worst = 0;
@@ -192,12 +227,18 @@ async function create(req: FastifyRequest, reply: FastifyReply, deps: JobsDeps) 
       worst,
       Number(taskAmounts(c.model, lengthOf(c), key.priceMultiplier).chargeUsd),
     );
-  await admitJob(deps, config, key, {
-    id,
-    what: 'video',
-    worstUsd: worst.toFixed(8),
-    holdMs: TASK_HOLD_MS,
-  });
+  // Prepaid wallet: a hold of the worst case until the task ends.
+  if (key.walletId && deps.wallets) {
+    const hold = await deps.wallets.reserve(key.walletId, id, worst.toFixed(8), TASK_HOLD_MS);
+    if (!hold.ok) {
+      deps.metrics?.reject('wallet', hold.unavailable ? 'unavailable' : 'insufficient');
+      throw new DiRouterError('insufficient_credit', {
+        message: hold.unavailable
+          ? 'Wallet check unavailable (fail-closed), retry shortly'
+          : `Insufficient credit: this video may cost up to USD ${hold.neededUsd}, available USD ${hold.availableUsd}`,
+      });
+    }
+  }
 
   let started: { candidate: Candidate; job: UpstreamVideoJob; state: VideoState } | undefined;
   let failure: DiRouterError | undefined;
@@ -268,6 +309,7 @@ async function create(req: FastifyRequest, reply: FastifyReply, deps: JobsDeps) 
     createdAt: now,
     expiresAt: now + TASK_TTL_SECONDS,
     ...(webhookUrl ? { webhookUrl } : {}),
+    ...(Object.keys(attribution).length > 0 ? { attribution } : {}),
     settled: false,
     checkedAt: Date.now(),
   };
@@ -391,6 +433,7 @@ async function settle(
     projectId: record.projectId,
     virtualKeyId: record.virtualKeyId,
     ...(record.walletId ? { walletId: record.walletId } : {}),
+    ...attributionFields(record.attribution ?? {}),
     inboundApi: 'openai.videos',
     requestedModel: record.model,
     resolvedModelId: record.modelId,
@@ -414,7 +457,18 @@ async function settle(
   const key = config.snapshot.virtualKeys.find(
     (k: VirtualKeyConfig) => k.id === record.virtualKeyId,
   );
-  if (key && ok) deps.budgets?.record(budgetScopes(config, key), costUsd, 0);
+  if (key && ok) {
+    // The same scopes as the admission, for the target that made the video.
+    const served = servedCandidate(config, record);
+    const candidates = served ? [served] : [];
+    deps.budgets?.record(
+      budgetScopes(config, key, candidates, record.attribution ?? {}, record.model),
+      costUsd,
+      0,
+      served ? servedTarget(served) : undefined,
+      quotaRefs(candidates),
+    );
+  }
   record.settled = true;
   if (record.webhookUrl)
     await enqueueWebhook(deps, {
@@ -427,6 +481,14 @@ async function settle(
     { taskId: record.id, status: record.status, costUsd, chargeUsd },
     'video task settled',
   );
+}
+
+/** The model, provider and credential a task ran on, as they are in the current configuration. */
+function servedCandidate(config: LoadedConfig, record: TaskRecord): Candidate | undefined {
+  const model = config.router.index.modelsById.get(record.modelId);
+  const provider = config.router.index.providersById.get(record.providerId);
+  const credential = provider?.credentials.find((c) => c.id === record.credentialId);
+  return model && provider && credential ? { model, provider, credential } : undefined;
 }
 
 // ───────────── Routes ─────────────

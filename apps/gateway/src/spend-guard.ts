@@ -546,3 +546,41 @@ export async function admitRequest(
     },
   };
 }
+
+/** The budget target of the candidate that served a request, for `BudgetGuard.record`. */
+export const servedTarget = (c: Candidate): BudgetTarget => ({
+  modelId: c.model.id,
+  providerId: c.provider.id,
+  credentialId: c.credential.id,
+});
+
+/**
+ * Why the target a long-lived request is bound to (a realtime session) may not go on, after a
+ * budget check of `budgetScopes(…, [served], …)` and `quotaRefs([served])`: its model, provider,
+ * provider-account or credential budget, or a quota window of its credential, is used up (cards
+ * 32.6 and 33.1). Those budgets never fail the check itself, they only take targets out.
+ */
+export function servedExhausted(
+  check: BudgetCheck,
+  served: Candidate,
+): { message: string; resetAt?: Date } | undefined {
+  if (!check.ok) return undefined;
+  const target = servedTarget(served);
+  const budget = check.exhausted?.find(
+    ({ budget: b }) => b.target !== undefined && matchesTarget(b.target, target),
+  );
+  if (budget)
+    return {
+      message: `${budgetPeriodLabel(budget.budget.budget.period)} ${budget.budget.scope.replace('_', ' ')} budget exceeded`,
+      resetAt: budget.resetAt,
+    };
+  const quota = check.quotas?.find(
+    (q) => q.exhausted && q.ref.credentialId === target.credentialId,
+  );
+  if (quota)
+    return {
+      message: 'Quota window of the credential used up',
+      ...(quota.resetAt ? { resetAt: quota.resetAt } : {}),
+    };
+  return undefined;
+}

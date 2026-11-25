@@ -210,6 +210,17 @@ describe('web search and fetch through the gateway', () => {
         key(KEY, 'vk'),
         key(KEY_RPM, 'vk-rpm', { rateLimit: { requestsPerMinute: 1 } }),
       ],
+      // Limits beyond the key's own (cards 33.2 and 33.4).
+      limits: [
+        { organizationId: 'org', scope: 'end_user', scopeId: 'banned', blocked: true, budgets: [] },
+        {
+          organizationId: 'org',
+          scope: 'tag',
+          scopeId: 'web-tag',
+          rateLimit: { requestsPerMinute: 1 },
+          budgets: [],
+        },
+      ],
       settings: { webSearch: { order: ['searxng', 'brave', 'tavily'], fetchTimeoutMs: 1_000 } },
     };
     const dataDir = await mkdtemp(join(tmpdir(), 'dirouter-web-'));
@@ -318,6 +329,33 @@ describe('web search and fetch through the gateway', () => {
   it('keeps the key rate limit for searches', async () => {
     expect((await post('/v1/search', { query: 'limited a' }, KEY_RPM)).status).toBe(200);
     expect((await post('/v1/search', { query: 'limited b' }, KEY_RPM)).status).toBe(429);
+  });
+
+  it('admits searches like any request: end-user block and tag limits, recorded on the event', async () => {
+    const search = (query: string, headers: Record<string, string>) =>
+      fetch(`${base}/v1/search`, {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${KEY}`,
+          'content-type': 'application/json',
+          ...headers,
+        },
+        body: JSON.stringify({ query }),
+      });
+    const blocked = await search('blocked one', { 'x-dirouter-end-user': 'banned' });
+    expect(blocked.status).toBe(403);
+    expect(((await blocked.json()) as { error: { code: string } }).error.code).toBe(
+      'end_user_blocked',
+    );
+    const tagged = { 'x-dirouter-tags': 'web-tag', 'x-dirouter-end-user': 'alice' };
+    expect((await search('tagged a', tagged)).status).toBe(200);
+    expect((await search('tagged b', tagged)).status).toBe(429);
+    expect(usage.find((e) => e.status === 'success')).toMatchObject({
+      endUser: 'alice',
+      tags: ['web-tag'],
+    });
+    // An untagged search is not covered by the tag's limit.
+    expect((await search('untagged', {})).status).toBe(200);
   });
 
   it('/v1/fetch returns readable text, follows redirects and is size and type bounded', async () => {

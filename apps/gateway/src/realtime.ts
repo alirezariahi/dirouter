@@ -41,6 +41,7 @@ import { USAGE_EVENT_SCHEMA_VERSION } from '@dirouter/contracts';
 import { audioTokenCost, computeCost } from '@dirouter/model-catalog';
 import { realtimeTarget, supportsRealtime } from '@dirouter/providers';
 import {
+  applyDataPolicy,
   type AttemptRecord,
   type Candidate,
   executeWithFallback,
@@ -65,7 +66,16 @@ import type { LoadedConfig } from './config-store.js';
 import { resolveCredentialKey, tokenFailure } from './credential-tokens.js';
 import { chargeUnits, chargeUsd } from './pricing.js';
 import { type ProxyDeps, toClientError } from './proxy.js';
-import { budgetScopes, limitScopes } from './spend-guard.js';
+import { type Attribution, attributionFields, requestAttribution } from './attribution.js';
+import { planErrorToClient, routingFromRequest } from './route-request.js';
+import {
+  admitRequest,
+  budgetScopes,
+  limitScopes,
+  quotaRefs,
+  servedExhausted,
+  servedTarget,
+} from './spend-guard.js';
 import { MAX_REALTIME_MESSAGE_BYTES, openUpstream } from './realtime-upstream.js';
 import {
   type ClientSecretClaims,
@@ -251,6 +261,8 @@ interface SessionContext {
   candidate: Candidate;
   connectAttempts: AttemptRecord[];
   started: number;
+  /** End user, tags and cost center of the handshake (cards 33.2 and 33.4). */
+  attribution: Attribution;
 }
 
 type EndKind = 'wait' | 'cancel';
@@ -443,6 +455,7 @@ class RealtimeSession {
       projectId: key.projectId,
       virtualKeyId: key.id,
       ...(key.walletId ? { walletId: key.walletId } : {}),
+      ...attributionFields(this.ctx.attribution),
       inboundApi: 'openai.realtime',
       requestedModel: this.ctx.requested,
       resolvedModelId: model.id,
@@ -793,7 +806,7 @@ export class RealtimeGateway {
       refuse(socket, selected, sessionId);
       return;
     }
-    const { candidates, fallbackOn, retry } = selected;
+    const { fallbackOn, retry } = selected;
 
     if (this.#sessions.size >= this.settings.maxSessions) {
       deps.metrics?.reject('concurrency', 'realtime');
@@ -808,33 +821,27 @@ export class RealtimeGateway {
       return;
     }
 
-    // Rate limit: the session counts as one request; its tokens are counted per response.
-    const admission = deps.limiter
-      ? await deps.limiter.acquire(limitScopes(config, key), 0, sessionId)
-      : undefined;
-    if (admission && !admission.ok) {
-      deps.metrics?.reject('rate_limit', admission.unavailable ? 'unavailable' : admission.kind);
-      refuse(
-        socket,
-        new RateLimitError({
-          message: `Rate limit exceeded for ${admission.scope.split(':')[0] ?? 'key'} (${admission.kind})`,
-          retryAfterMs: admission.retryAfterMs,
-        }),
-        sessionId,
-        admission.headers,
-      );
+    // Admission as for any request (spend-guard.ts): a blocked end user, every budget and rate
+    // limit that covers the key, its attribution and the candidates (models, providers, upstream
+    // accounts and their quota windows); used-up targets leave the route. The session counts as
+    // one request, so its rate windows are released at once; its tokens are counted per response.
+    const attribution = requestAttribution(req.headers, undefined, key);
+    const admission = await admitRequest(deps, {
+      config,
+      key,
+      candidates: selected.candidates,
+      requested: model,
+      estimatedTokens: 0,
+      requestId: sessionId,
+      attribution,
+    });
+    if (!admission.ok) {
+      deps.metrics?.reject(admission.metric.guard, admission.metric.reason);
+      refuse(socket, admission.error, sessionId, admission.headers);
       return;
     }
-    admission?.settle(0);
-    admission?.release();
-
-    const budgets = budgetScopes(config, key);
-    const budgetCheck = deps.budgets ? await deps.budgets.check(budgets) : { ok: true as const };
-    if (!budgetCheck.ok) {
-      deps.metrics?.reject('budget', budgetCheck.unavailable ? 'unavailable' : budgetCheck.kind);
-      refuse(socket, budgetError(budgetCheck), sessionId);
-      return;
-    }
+    admission.cancel();
+    const candidates = admission.candidates;
 
     // Wallet: a hold for one response at the most expensive candidate's price.
     const walletId = key.walletId;
@@ -1003,6 +1010,7 @@ export class RealtimeGateway {
           candidate: result.candidate,
           connectAttempts: result.attempts,
           started,
+          attribution,
         },
         client,
         upstream,
@@ -1039,6 +1047,14 @@ export class RealtimeGateway {
   ):
     | { candidates: Candidate[]; fallbackOn: UpstreamErrorClass[]; retry?: RetryPolicy }
     | DiRouterError {
+    // The data policy (card 32.5) holds for realtime audio like for any call with the caller's
+    // data: the key's, project's and organization's policy (a handshake has no body to add to it).
+    let dataPolicy;
+    try {
+      dataPolicy = routingFromRequest(config.snapshot.routingPolicies, key, undefined).dataPolicy;
+    } catch (error) {
+      return error as DiRouterError;
+    }
     const route = config.router.resolve(key, model, { estimatedInputTokens: 0 });
     if (isRouteError(route))
       return route.error === 'model_not_found'
@@ -1051,7 +1067,7 @@ export class RealtimeGateway {
           : new DiRouterError('service_unavailable', {
               message: `No provider can serve '${model}'`,
             });
-    const candidates = route.candidates.filter(
+    let candidates = route.candidates.filter(
       (c) => c.model.capabilities.realtime === true && supportsRealtime(c.provider.type),
     );
     if (candidates.length === 0)
@@ -1060,6 +1076,11 @@ export class RealtimeGateway {
         param: 'model',
         status: 400,
       });
+    if (dataPolicy) {
+      const allowed = applyDataPolicy({ ...route, candidates }, dataPolicy);
+      if ('error' in allowed) return planErrorToClient(allowed, model);
+      candidates = allowed.candidates;
+    }
     return {
       candidates,
       fallbackOn: route.fallbackOn,
@@ -1103,8 +1124,11 @@ export class RealtimeGateway {
   ): Promise<{ reason: string; error: DiRouterError; errorCode: string } | undefined> {
     const deps = this.deps;
     const { key, config } = ctx;
-    const budgets = budgetScopes(config, key);
-    deps.budgets?.record(budgets, bill.costUsd, bill.tokens);
+    // The same scopes as the admission, for the target the session is bound to.
+    const served = [ctx.candidate];
+    const budgets = budgetScopes(config, key, served, ctx.attribution, ctx.requested);
+    const quotas = quotaRefs(served);
+    deps.budgets?.record(budgets, bill.costUsd, bill.tokens, servedTarget(ctx.candidate), quotas);
 
     let stop: { reason: string; error: DiRouterError; errorCode: string } | undefined;
     const walletId = key.walletId;
@@ -1130,7 +1154,7 @@ export class RealtimeGateway {
     }
     if (!stop && deps.limiter) {
       const admission = await deps.limiter.acquire(
-        limitScopes(config, key),
+        limitScopes(config, key, ctx.candidate, ctx.attribution, ctx.requested),
         bill.tokens,
         requestId,
       );
@@ -1149,14 +1173,25 @@ export class RealtimeGateway {
         };
       }
     }
-    if (!stop && deps.budgets && budgets.length > 0) {
-      const check = await deps.budgets.check(budgets);
+    if (!stop && deps.budgets && (budgets.length > 0 || quotas.length > 0)) {
+      const check = await deps.budgets.check(budgets, quotas);
+      const target = servedExhausted(check, ctx.candidate);
       if (!check.ok) {
         deps.metrics?.reject('budget', check.unavailable ? 'unavailable' : check.kind);
         stop = {
           reason: 'budget exceeded',
           errorCode: 'budget_exceeded',
           error: budgetError(check),
+        };
+      } else if (target) {
+        // The session cannot move to another target, so a used-up target ends it.
+        deps.metrics?.reject('budget', 'target');
+        stop = {
+          reason: 'budget exceeded',
+          errorCode: 'budget_exceeded',
+          error: new DiRouterError('budget_exceeded', {
+            message: `${target.message}; the realtime session is closed`,
+          }),
         };
       }
     }

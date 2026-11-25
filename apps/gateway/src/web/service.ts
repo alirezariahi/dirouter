@@ -29,9 +29,10 @@ import { DiRouterError, formatUsd, parseUsd, RateLimitError, ulid } from '@dirou
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 
+import { type Attribution, attributionFields, requestAttribution } from '../attribution.js';
 import { authenticate, extractApiKey } from '../auth.js';
 import { errorPayload, handleProxy, type ProxyDeps } from '../proxy.js';
-import { budgetScopes, limitScopes } from '../spend-guard.js';
+import { admitRequest } from '../spend-guard.js';
 import type { WebSearchExtension } from '../web-search.js';
 import { FetchRefused, type FetchedPage, fetchPage } from './fetch.js';
 import {
@@ -66,6 +67,18 @@ const DROPPED_INNER_HEADERS = new Set([
 type Metered<T> =
   | { ok: true; value: T; costUsd: string }
   | { ok: false; error: DiRouterError; headers?: Record<string, string> };
+
+/** Refusals of a search that stop the request around it instead of answering without results. */
+const stopsRequest = (error: DiRouterError) =>
+  error.status === 429 ||
+  error.code === 'budget_exceeded' ||
+  error.code === 'insufficient_credit' ||
+  error.code === 'end_user_blocked';
+
+/** Who a chat request is for: the end user it names in its body (OpenAI `user`, Anthropic metadata). */
+function requestUser(body: Record<string, unknown>): unknown {
+  return body.user ?? (body.metadata as { user_id?: unknown } | undefined)?.user_id;
+}
 
 /** The last user message's text, the query of online mode. */
 export function lastUserText(messages: unknown): string {
@@ -138,14 +151,18 @@ export class WebServices {
   // ───────────── metering ─────────────
 
   /**
-   * Charges one search or fetch to a key: rate limit (one request), budgets, the wallet, and a
-   * usage event of its own (request id `<parent>:web_search:<n>` inside a chat request).
+   * Charges one search or fetch to a key: the same admission as any request (spend-guard.ts: a
+   * blocked end user, the rate limits and budgets of the key, its project, team, organization and
+   * member, and of the end user, tags and cost center it is attributed to; there is no upstream
+   * model, so no model or provider scope), the wallet, and a usage event of its own (request id
+   * `<parent>:web_search:<n>` inside a chat request).
    */
   async #metered<T>(
     kind: 'web.search' | 'web.fetch',
     key: VirtualKeyConfig,
     requestId: string,
     run: () => Promise<{ value: T; label: string; cached?: boolean }>,
+    attribution: Attribution = {},
   ): Promise<Metered<T>> {
     const deps = this.#deps;
     const config = deps.store.current;
@@ -160,39 +177,24 @@ export class WebServices {
     const multiplier = key.priceMultiplier ? parseUsd(key.priceMultiplier) : ONE;
     const listCharge = (parseUsd(price) * multiplier + ONE / 2n) / ONE;
 
-    const admission = deps.limiter
-      ? await deps.limiter.acquire(limitScopes(config, key), 0, requestId)
-      : undefined;
-    if (admission && !admission.ok) {
-      deps.metrics?.reject('rate_limit', admission.unavailable ? 'unavailable' : admission.kind);
-      return {
-        ok: false,
-        headers: admission.headers,
-        error: new RateLimitError({
-          message: `Rate limit exceeded for ${admission.scope.split(':')[0] ?? 'key'} (${admission.kind})`,
-          retryAfterMs: admission.retryAfterMs,
-        }),
-      };
-    }
-    const budgets = budgetScopes(config, key);
-    const budgetCheck = deps.budgets ? await deps.budgets.check(budgets) : { ok: true as const };
-    if (!budgetCheck.ok) {
-      admission?.settle(0);
-      admission?.release();
-      deps.metrics?.reject('budget', budgetCheck.unavailable ? 'unavailable' : budgetCheck.kind);
-      return {
-        ok: false,
-        error: new DiRouterError('budget_exceeded', {
-          message: `${budgetCheck.period === 'daily' ? 'Daily' : 'Monthly'} ${budgetCheck.scope} budget exceeded`,
-        }),
-      };
+    const admission = await admitRequest(deps, {
+      config,
+      key,
+      candidates: [],
+      requested: kind === 'web.search' ? 'web_search' : 'web_fetch',
+      estimatedTokens: 0,
+      requestId,
+      attribution,
+    });
+    if (!admission.ok) {
+      deps.metrics?.reject(admission.metric.guard, admission.metric.reason);
+      return { ok: false, headers: admission.headers, error: admission.error };
     }
     const walletId = key.walletId;
     if (walletId && deps.wallets) {
       const reservation = await deps.wallets.reserve(walletId, requestId, formatUsd(listCharge));
       if (!reservation.ok) {
-        admission?.settle(0);
-        admission?.release();
+        admission.cancel();
         deps.metrics?.reject('wallet', reservation.unavailable ? 'unavailable' : 'insufficient');
         return {
           ok: false,
@@ -236,6 +238,7 @@ export class WebServices {
       projectId: key.projectId,
       virtualKeyId: key.id,
       ...(walletId ? { walletId } : {}),
+      ...attributionFields(attribution),
       inboundApi: kind,
       requestedModel: outcome?.label ?? (kind === 'web.search' ? 'web_search' : 'web_fetch'),
       resolvedModelId: null,
@@ -263,9 +266,8 @@ export class WebServices {
     deps.onRequestComplete?.(event);
     deps.emitUsage(event);
     if (walletId) deps.wallets?.settle(walletId, requestId, formatUsd(charged));
-    admission?.settle(0);
-    admission?.release();
-    deps.budgets?.record(budgets, costUsd, 0);
+    // Releases the rate windows and counts the cost in every budget the admission checked.
+    admission.finish({ tokens: 0, costUsd });
     return outcome
       ? { ok: true, value: outcome.value, costUsd }
       : { ok: false, error: failure ?? new DiRouterError('upstream_error') };
@@ -293,15 +295,17 @@ export class WebServices {
         if (!key) throw new DiRouterError('unauthenticated');
         const query = lastUserText(request.messages).slice(0, 400);
         if (!query) return request;
-        const found = await this.search(key, query, `${context.requestId}:web_search:1`);
+        const found = await this.search(
+          key,
+          query,
+          `${context.requestId}:web_search:1`,
+          undefined,
+          context.attribution ?? requestAttribution({}, request.user, key),
+        );
         if (!found.ok) {
-          // Limits and money stop the request; a backend failure answers without results.
-          if (
-            found.error.status === 429 ||
-            found.error.code === 'budget_exceeded' ||
-            found.error.code === 'insufficient_credit'
-          )
-            throw found.error;
+          // Limits, money and a blocked end user stop the request; a backend failure answers
+          // without results.
+          if (stopsRequest(found.error)) throw found.error;
           return request;
         }
         if (found.value.results.length === 0) return request;
@@ -322,17 +326,24 @@ export class WebServices {
     query: string,
     requestId: string,
     maxResults?: number,
+    attribution?: Attribution,
   ): Promise<Metered<SearchAnswer>> {
     const settings = this.settings();
-    return this.#metered('web.search', key, requestId, async () => {
-      if (!this.available) throw new SearchUnavailable('Web search is not enabled');
-      const answer = await this.backends.search(query, {
-        order: settings.order,
-        max: Math.min(maxResults ?? settings.maxResults, 20),
-        cacheTtlSeconds: settings.cacheTtlSeconds,
-      });
-      return { value: answer, label: `web_search:${answer.backend}`, cached: answer.cached };
-    });
+    return this.#metered(
+      'web.search',
+      key,
+      requestId,
+      async () => {
+        if (!this.available) throw new SearchUnavailable('Web search is not enabled');
+        const answer = await this.backends.search(query, {
+          order: settings.order,
+          max: Math.min(maxResults ?? settings.maxResults, 20),
+          cacheTtlSeconds: settings.cacheTtlSeconds,
+        });
+        return { value: answer, label: `web_search:${answer.backend}`, cached: answer.cached };
+      },
+      attribution,
+    );
   }
 
   fetch(
@@ -341,17 +352,24 @@ export class WebServices {
     requestId: string,
     maxBytes?: number,
     signal?: AbortSignal,
+    attribution?: Attribution,
   ): Promise<Metered<FetchedPage>> {
     const settings = this.settings();
-    return this.#metered('web.fetch', key, requestId, async () => {
-      if (!settings.enabled) throw new FetchRefused('Web fetch is not enabled', 503);
-      const page = await fetchPage(url, {
-        maxBytes: Math.min(maxBytes ?? settings.fetchMaxBytes, settings.fetchMaxBytes),
-        timeoutMs: settings.fetchTimeoutMs,
-        ...(signal ? { signal } : {}),
-      });
-      return { value: page, label: 'web_fetch' };
-    });
+    return this.#metered(
+      'web.fetch',
+      key,
+      requestId,
+      async () => {
+        if (!settings.enabled) throw new FetchRefused('Web fetch is not enabled', 503);
+        const page = await fetchPage(url, {
+          maxBytes: Math.min(maxBytes ?? settings.fetchMaxBytes, settings.fetchMaxBytes),
+          timeoutMs: settings.fetchTimeoutMs,
+          ...(signal ? { signal } : {}),
+        });
+        return { value: page, label: 'web_fetch' };
+      },
+      attribution,
+    );
   }
 
   // ───────────── routes ─────────────
@@ -401,7 +419,13 @@ export class WebServices {
             param: 'query',
           }),
         );
-      const result = await this.search(key, parsed.data.query, req.id, parsed.data.max_results);
+      const result = await this.search(
+        key,
+        parsed.data.query,
+        req.id,
+        parsed.data.max_results,
+        requestAttribution(req.headers, undefined, key),
+      );
       if (!result.ok) return this.#fail(reply, req, result.error, result.headers);
       return {
         object: 'web_search',
@@ -436,6 +460,7 @@ export class WebServices {
         req.id,
         parsed.data.max_bytes,
         gone.signal,
+        requestAttribution(req.headers, undefined, key),
       );
       if (!result.ok) return this.#fail(reply, req, result.error, result.headers);
       const page = result.value;
@@ -574,13 +599,14 @@ export class WebServices {
     const query = lastUserText(body.messages).slice(0, 400);
     let results: SearchResult[] = [];
     if (query) {
-      const found = await this.search(key, query, `${req.id}:web_search:1`, maxResults);
-      if (
-        !found.ok &&
-        (found.error.status === 429 ||
-          found.error.code === 'budget_exceeded' ||
-          found.error.code === 'insufficient_credit')
-      )
+      const found = await this.search(
+        key,
+        query,
+        `${req.id}:web_search:1`,
+        maxResults,
+        requestAttribution(req.headers, requestUser(body), key),
+      );
+      if (!found.ok && stopsRequest(found.error))
         return this.#fail(reply, req, found.error, found.headers);
       if (found.ok) results = found.value.results;
       void reply.header('x-dirouter-web-search', found.ok ? found.value.backend : 'unavailable');
@@ -707,13 +733,14 @@ export class WebServices {
             ? input.query.trim().slice(0, 400)
             : lastUserText(messages).slice(0, 400);
         searches++;
-        const found = await this.search(key, query, `${req.id}:web_search:${String(searches)}`);
-        if (
-          !found.ok &&
-          (found.error.status === 429 ||
-            found.error.code === 'budget_exceeded' ||
-            found.error.code === 'insufficient_credit')
-        )
+        const found = await this.search(
+          key,
+          query,
+          `${req.id}:web_search:${String(searches)}`,
+          undefined,
+          requestAttribution(req.headers, requestUser(body), key),
+        );
+        if (!found.ok && stopsRequest(found.error))
           return this.#fail(reply, req, found.error, found.headers);
         const results = found.ok ? found.value.results : [];
         const id = `srvtoolu_${randomBytes(12).toString('hex')}`;
