@@ -132,6 +132,8 @@ export interface SignInput {
   region: string;
   credentials: AwsCredentials;
   now?: Date;
+  /** SigV4 service name; `bedrock` by default, `sagemaker` for SageMaker (card 31.6). */
+  service?: string;
 }
 
 interface SigningParts {
@@ -181,13 +183,14 @@ export function awsCanonicalRequest(input: SignInput): string {
 export function signAwsRequest(input: SignInput): Record<string, string> {
   const { headers, amzDate, signedHeaders, canonicalRequest } = signingParts(input);
   const date = amzDate.slice(0, 8);
-  const scope = `${date}/${input.region}/${SERVICE}/aws4_request`;
+  const service = input.service ?? SERVICE;
+  const scope = `${date}/${input.region}/${service}/aws4_request`;
   const stringToSign = ['AWS4-HMAC-SHA256', amzDate, scope, sha256Hex(canonicalRequest)].join('\n');
 
   let key: Buffer = Buffer.from(`AWS4${input.credentials.secretAccessKey}`, 'utf8');
   key = hmac(key, date).digest();
   key = hmac(key, input.region).digest();
-  key = hmac(key, SERVICE).digest();
+  key = hmac(key, service).digest();
   key = hmac(key, 'aws4_request').digest();
   const signature = hmac(key, stringToSign).digest('hex');
 

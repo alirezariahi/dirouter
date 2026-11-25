@@ -40,7 +40,8 @@ import {
   classified,
   classifyHttpError,
 } from './errors.js';
-import { presetFor } from './presets.js';
+import { presetFor, protocolPresetOf } from './presets.js';
+import { PROTOCOL_ADAPTERS } from './protocol-presets.js';
 import { BedrockAdapter } from './bedrock.js';
 import { MediaOnlyAdapter } from './media.js';
 import { MissingPluginAdapter } from './plugins/adapter.js';
@@ -212,8 +213,11 @@ export interface ProviderAdapter {
   classifyError(input: HttpErrorInput): ClassifiedError;
   /** Model list request for model discovery (control-api). */
   listModelsRequest(provider: ProviderConfig, apiKey: string): UpstreamRequest;
-  /** Extract model IDs from a list models response. */
-  parseModelList(json: unknown): string[];
+  /** Extract model IDs from a list models response (`provider` for preset-specific shapes). */
+  parseModelList(
+    json: unknown,
+    provider?: Pick<ProviderConfig, 'type' | 'options' | 'name' | 'baseUrl'>,
+  ): string[];
   /** Provider supports `/v1/embeddings` (card 11.4). */
   buildEmbeddingsRequest?(ctx: EmbeddingsBuildContext): UpstreamRequest;
   parseEmbeddingsResponse?(json: unknown): EmbeddingsResult;
@@ -301,17 +305,26 @@ class OpenAICompatibleAdapter implements ProviderAdapter {
   }
 
   listModelsRequest(provider: ProviderConfig, apiKey: string): UpstreamRequest {
+    const preset = presetFor(provider);
     return {
-      url: `${trimSlash(provider.baseUrl)}/models`,
+      url: preset.modelsUrl?.(provider.baseUrl) ?? `${trimSlash(provider.baseUrl)}/models`,
       method: 'GET',
       headers: {
         ...(apiKey ? { authorization: `Bearer ${apiKey}` } : {}),
-        ...presetFor(provider).headers,
+        ...preset.headers,
       },
     };
   }
 
-  parseModelList = parseOpenAIModels;
+  /** OpenAI's list, or the preset's own shape; a preset's fixed models are always offered. */
+  parseModelList(
+    json: unknown,
+    provider?: Pick<ProviderConfig, 'type' | 'options' | 'name' | 'baseUrl'>,
+  ): string[] {
+    const preset = provider ? presetFor(provider) : undefined;
+    const ids = preset?.parseModels ? preset.parseModels(json) : parseOpenAIModels(json);
+    return [...new Set([...ids, ...(preset?.staticModels ?? [])])];
+  }
 
   buildEmbeddingsRequest(ctx: EmbeddingsBuildContext): UpstreamRequest {
     const body: Record<string, unknown> = {
@@ -1321,6 +1334,9 @@ export function clearPluginAdapters(): void {
 export function adapterForProvider(
   provider: Pick<ProviderConfig, 'type' | 'options'>,
 ): ProviderAdapter {
+  // Providers with their own protocol behind an openai-compatible preset (card 31.6).
+  const protocol = protocolPresetOf(provider);
+  if (protocol) return PROTOCOL_ADAPTERS[protocol];
   if (provider.type !== 'plugin') return adapterFor(provider.type);
   const name = typeof provider.options.plugin === 'string' ? provider.options.plugin : '';
   return PLUGIN_ADAPTERS.get(name) ?? new MissingPluginAdapter(name);

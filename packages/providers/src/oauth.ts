@@ -139,7 +139,10 @@ export function buildServiceAccountJwt(
 }
 
 /** Which OAuth flow, if any, a provider/credential pair uses. */
-export type OAuthKind = 'google-service-account' | 'entra-client-credentials';
+export type OAuthKind = 'google-service-account' | 'entra-client-credentials' | 'ibm-iam';
+
+/** IBM Cloud IAM: an API key is exchanged for a bearer token (watsonx.ai, card 31.6). */
+export const IBM_IAM_TOKEN_URL = 'https://iam.cloud.ibm.com/identity/token';
 
 /**
  * Vertex uses the service-account flow when `options.authMode` is `serviceAccount` or the secret
@@ -156,6 +159,8 @@ export function oauthKind(
       return 'google-service-account';
   }
   if (provider.type === 'azure-openai' && mode === 'entra') return 'entra-client-credentials';
+  if (provider.type === 'openai-compatible' && provider.options.preset === 'watsonx')
+    return 'ibm-iam';
   return undefined;
 }
 
@@ -213,6 +218,20 @@ export function oauthTokenPlan(
             nowS: Math.floor(nowMs / 1000),
           }),
         }),
+      }),
+    };
+  }
+
+  if (kind === 'ibm-iam') {
+    const url = option(provider, 'tokenUrl') ?? IBM_IAM_TOKEN_URL;
+    return {
+      kind,
+      cacheKey,
+      build: () => ({
+        url,
+        method: 'POST',
+        headers,
+        body: form({ grant_type: 'urn:ibm:params:oauth:grant-type:apikey', apikey: secret }),
       }),
     };
   }

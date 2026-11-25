@@ -118,6 +118,14 @@ export const providersEn = {
     cerebras: 'Cerebras',
     ollama: 'Ollama',
     vllm: 'vLLM',
+    perplexity: 'Perplexity',
+    deepinfra: 'DeepInfra',
+    nvidia: 'NVIDIA NIM',
+    huggingface: 'Hugging Face',
+    databricks: 'Databricks',
+    replicate: 'Replicate',
+    watsonx: 'IBM watsonx.ai',
+    sagemaker: 'Amazon SageMaker',
   },
 };
 
@@ -320,6 +328,14 @@ export const providersFa: typeof providersEn = {
     cerebras: 'Cerebras',
     ollama: 'Ollama',
     vllm: 'vLLM',
+    perplexity: 'Perplexity',
+    deepinfra: 'DeepInfra',
+    nvidia: 'NVIDIA NIM',
+    huggingface: 'Hugging Face',
+    databricks: 'Databricks',
+    replicate: 'Replicate',
+    watsonx: 'IBM watsonx.ai',
+    sagemaker: 'Amazon SageMaker',
   },
 };
 

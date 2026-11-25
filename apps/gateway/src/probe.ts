@@ -66,7 +66,8 @@ export async function probeProvider(body: unknown, keyring: Keyring): Promise<Pr
   try {
     const call = await callUpstream(
       provider,
-      { ...req, method: 'GET' },
+      // A list is usually a GET; SageMaker's ListEndpoints is a signed POST (card 31.6).
+      req,
       timeouts,
       new AbortController().signal,
       false,
@@ -88,7 +89,7 @@ export async function probeProvider(body: unknown, keyring: Keyring): Promise<Pr
           models: [],
         };
       }
-      const ids = adapter.parseModelList(await call.response.json());
+      const ids = adapter.parseModelList(await call.response.json(), provider);
       // Catalog name: a preset (e.g. groq) or the provider type itself.
       const catalogProvider =
         typeof provider.options.preset === 'string'

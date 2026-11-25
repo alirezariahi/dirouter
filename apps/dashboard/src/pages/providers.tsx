@@ -156,6 +156,15 @@ const PRESETS = [
   { id: 'cerebras', type: 'openai-compatible', baseUrl: 'https://api.cerebras.ai/v1' },
   { id: 'ollama', type: 'openai-compatible', baseUrl: 'http://localhost:11434/v1' },
   { id: 'vllm', type: 'openai-compatible', baseUrl: 'http://localhost:8000/v1' },
+  // Card 31.6.
+  { id: 'perplexity', type: 'openai-compatible', baseUrl: 'https://api.perplexity.ai' },
+  { id: 'deepinfra', type: 'openai-compatible', baseUrl: 'https://api.deepinfra.com/v1/openai' },
+  { id: 'nvidia', type: 'openai-compatible', baseUrl: 'https://integrate.api.nvidia.com/v1' },
+  { id: 'huggingface', type: 'openai-compatible', baseUrl: 'https://router.huggingface.co/v1' },
+  { id: 'databricks', type: 'openai-compatible', baseUrl: '' },
+  { id: 'replicate', type: 'openai-compatible', baseUrl: 'https://api.replicate.com/v1' },
+  { id: 'watsonx', type: 'openai-compatible', baseUrl: 'https://us-south.ml.cloud.ibm.com' },
+  { id: 'sagemaker', type: 'openai-compatible', baseUrl: '' },
 ] as const;
 type PresetId = (typeof PRESETS)[number]['id'];
 const CUSTOM_PRESET = PRESETS.find((p) => p.id === 'custom') ?? PRESETS[0];

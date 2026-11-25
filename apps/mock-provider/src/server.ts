@@ -32,6 +32,7 @@ import { registerMedia, registerWorkersAi } from './media.js';
 import { registerCatalog } from './catalog.js';
 import { newRealtimeStats, type RealtimeStats, registerRealtime } from './realtime.js';
 import { registerOAuth } from './oauth.js';
+import { registerPresets } from './presets.js';
 import { anthropicToolPairingError, openAIToolPairingError } from './tool-pairing.js';
 import { type PaymentMockOptions, registerPayments } from './payments.js';
 import { registerWeb } from './web.js';
@@ -895,6 +896,7 @@ export function buildServer(options: MockServerOptions = {}) {
   registerRerank(app);
   registerWorkersAi(app);
   registerBedrock(app, { record });
+  registerPresets(app, { openai, record });
   registerCatalog(app);
   registerRealtime(app, {
     scenario: (headers) => scenarioFor({ headers }),
