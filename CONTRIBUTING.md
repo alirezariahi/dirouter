@@ -8,6 +8,16 @@ This guide explains how to set up a development environment, write code that mat
 
 > **Important:** every change must keep code, comments, and documentation consistent. Documentation is English only; see [Documentation policy](#documentation-policy).
 
+## Your first contribution
+
+1. Pick an issue labelled
+   [`good first issue`](https://github.com/alirezariahi/dirouter/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22).
+   Each one names the files to touch and how to check the result. Comment on it so nobody else
+   starts the same work.
+2. Run the stack with `make quickstart` (one command; see the [README](README.md#quick-start-with-docker)),
+   or only the gateway and mock provider as in [section 3](#3-development-environment).
+3. Open a pull request early, as a draft if you like. Questions are welcome on the issue itself.
+
 ## Contents
 
 1. [Contribution lifecycle](#1-contribution-lifecycle)

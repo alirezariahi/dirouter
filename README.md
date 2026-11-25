@@ -3,28 +3,35 @@
 </p>
 
 <p align="center">
-  <strong>DiRouter</strong> · LLM gateway for resilient routing, fallback, limits, budgets, and usage accounting
+  <strong>DiRouter</strong> · open-source LLM gateway for resilient routing, fallback, limits, budgets, and usage accounting
 </p>
 
 <p align="center">
-  <a href="https://dirouter.ir/">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="https://dirouter.ir/brand/logo-dark.svg" />
-      <source media="(prefers-color-scheme: light)" srcset="https://dirouter.ir/brand/logo.svg" />
-      <img src="https://dirouter.ir/brand/logo.svg" alt="DiRouter sponsor logo" width="320" />
-    </picture>
-  </a>
-  <br/>
-  <strong>Sponsor:</strong> <a href="https://dirouter.ir/">https://dirouter.ir/</a>
+  <a href="LICENSE"><img alt="License: Apache-2.0" src="https://img.shields.io/badge/license-Apache--2.0-blue" /></a>
+  <a href="https://github.com/alirezariahi/dirouter/releases"><img alt="Latest release" src="https://img.shields.io/github/v/release/alirezariahi/dirouter" /></a>
+  <a href="https://github.com/alirezariahi/dirouter/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/alirezariahi/dirouter/actions/workflows/ci.yml/badge.svg?branch=main" /></a>
+  <a href="https://github.com/alirezariahi/dirouter/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22"><img alt="Good first issues" src="https://img.shields.io/github/issues/alirezariahi/dirouter/good%20first%20issue" /></a>
 </p>
 
 # DiRouter
 
-DiRouter is a resilient gateway for Large Language Models. It exposes OpenAI- and Anthropic-compatible endpoints and adds the operational features production traffic needs: provider and credential fallback, circuit breakers, distributed rate limits, budgets, and usage accounting.
+DiRouter is a self-hosted gateway for Large Language Models. It exposes OpenAI- and Anthropic-compatible endpoints and adds the operational features production traffic needs: provider and credential fallback, circuit breakers, distributed rate limits, budgets, and usage accounting.
+
+<p align="center">
+  <img src="assets/demo-fallback.svg" alt="Recorded run: the primary provider is killed after five requests; every request still answers 200 through the Anthropic-format fallback, and after three requests the gateway stops retrying the dead provider" width="100%" />
+  <br/>
+  <sub>A recorded run of <a href="scripts/demo/fallback.mjs"><code>scripts/demo/fallback.mjs</code></a>: the primary provider's process is killed mid-run and the client never sees an error. Run it yourself after <code>pnpm build</code>.</sub>
+</p>
+
+```bash
+make quickstart   # .env, the full stack against a mock provider, seed data, and a first request
+```
 
 ## Contents
 
 - [Why DiRouter](#why-dirouter)
+- [How it compares](#how-it-compares)
+- [Performance](#performance)
 - [Core principles](#core-principles)
 - [Request lifecycle](#request-lifecycle)
 - [Configuration lifecycle](#configuration-lifecycle)
@@ -39,6 +46,7 @@ DiRouter is a resilient gateway for Large Language Models. It exposes OpenAI- an
 - [Commands](#commands)
 - [Continuous integration](#continuous-integration)
 - [Documentation and contributing](#documentation-and-contributing)
+- [License and sponsor](#license-and-sponsor)
 
 ## Why DiRouter
 
@@ -51,6 +59,47 @@ Teams that call LLM providers directly face recurring problems:
 | Costs grow without control              | Spend is visible only in the provider console | Per-key and per-project budgets stop overspending                     |
 | Each SDK speaks a different format      | Code is tied to one provider                  | One endpoint translates between OpenAI and Anthropic formats          |
 | Configuration changes need a deployment | Restarts and risky rollouts                   | A versioned snapshot is pushed to running gateways                    |
+
+## How it compares
+
+LiteLLM and Portkey are mature, widely used gateways, and both are good choices. The table shows
+where DiRouter differs, as read from each project's own documentation and code on 2026-11-25. If
+a cell is wrong or out of date, please [open an issue](https://github.com/alirezariahi/dirouter/issues).
+
+|                                    | DiRouter                                                              | LiteLLM Proxy                                                          | Portkey Gateway (open source, `main`)                                     |
+| ---------------------------------- | --------------------------------------------------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| License                            | Apache-2.0, the whole repository                                      | MIT, except `enterprise/` (commercial key)                             | MIT; the hosted product is proprietary                                    |
+| Runtime                            | TypeScript on Node.js                                                 | Python                                                                 | TypeScript (Node, Workers, Docker)                                        |
+| OpenAI + Anthropic `/v1/messages`  | Both, translated in either direction                                  | Both                                                                   | Both                                                                      |
+| Fallback, retries, key cooldown    | Yes                                                                   | Yes                                                                    | Fallback and retries; load balancing across keys                          |
+| Circuit breaker                    | Per provider and per model                                            | Cooldown after failures (no breaker by that name)                      | Hosted product; present on the pre-release 2.0 branch                     |
+| Distributed rate limits (RPM/TPM)  | Yes, in Valkey, with a local mode if Valkey is down                   | Yes, in Redis                                                          | Hosted product                                                            |
+| Budgets per key / team / project   | Yes                                                                   | Yes; per-model and tag budgets are Enterprise                          | Hosted product                                                            |
+| Admin dashboard                    | Yes                                                                   | Yes                                                                    | Log console only; dashboard is hosted                                     |
+| SSO, SCIM, custom roles, audit log | Included                                                              | SSO free up to 5 users; the rest is Enterprise                         | Enterprise                                                                |
+| Config changes without a restart   | Versioned snapshot pushed to running gateways                         | Models stored in the database apply live; `config.yaml` needs a reload | Config object sent with each request                                      |
+| Guardrails, semantic cache, MCP    | Yes (semantic cache needs pgvector)                                   | Yes; several built-in guardrails are Enterprise                        | Guardrails in OSS; semantic cache and MCP are hosted or announced for 2.0 |
+| Needs to self-host                 | PostgreSQL, Valkey                                                    | PostgreSQL for keys; Redis with several instances                      | Nothing (stateless); Redis optional for cache                             |
+| Published gateway overhead         | p50 +1.1 ms, p99 +2.8 ms at 250 RPS ([method](docs/benchmarks/v1.md)) | p50 2 ms, p95 8 ms ([method](https://docs.litellm.ai/docs/benchmarks)) | "<1 ms" claimed, no method published                                      |
+
+The overhead figures come from different hardware and methods, so read them as orders of
+magnitude, not a ranking. LiteLLM has a far larger provider list and community; if you need a
+provider DiRouter does not have, LiteLLM is likely to have it. Moving over: [from LiteLLM](docs/migrate-from-litellm.md) and
+[from OpenRouter](docs/migrate-from-openrouter.md).
+
+## Performance
+
+Gateway overhead measured against a mock provider, one gateway process, non-streaming, on an
+Apple M1 Pro (full method, CPU profile and caveats in [docs/benchmarks/v1.md](docs/benchmarks/v1.md)):
+
+| Rate      | Overhead p50 | Overhead p95 | Overhead p99 | Failed |
+| --------- | ------------ | ------------ | ------------ | ------ |
+| 250 RPS   | +1.1 ms      | +2.3 ms      | +2.8 ms      | 0      |
+| 500 RPS   | +0.6 ms      | +2.0 ms      | +7.2 ms      | 0      |
+| 1 000 RPS | +0.2 ms      | +3.1 ms      | +31.3 ms     | 0      |
+
+Streaming at 500 RPS adds no measurable latency. Reproduce with
+`python3 scripts/bench/run-v1.py --output .bench/v1`.
 
 ## Core principles
 
@@ -254,9 +303,16 @@ Apps may depend on packages; packages never depend on apps. `contracts` has no i
 
 ## Quick start with Docker
 
-**Setup time:** a few minutes, depending on image downloads and the first build. This path runs against a mock provider and is not for production.
+**Setup time:** one command. The first run builds the development image, which takes a few minutes depending on your machine and network; later runs start in seconds. This path runs against a mock provider and is not for production.
 
 Requirements: Docker Engine with Docker Compose, `curl`, and OpenSSL. Ports 80 and 443 must be free.
+
+```bash
+git clone https://github.com/alirezariahi/dirouter.git && cd dirouter
+make quickstart
+```
+
+`make quickstart` ([scripts/quickstart.sh](scripts/quickstart.sh)) creates `.env`, starts the stack, seeds demo data, and sends a first request through the gateway. The same steps by hand:
 
 ```mermaid
 flowchart LR
@@ -264,7 +320,6 @@ flowchart LR
 ```
 
 ```bash
-cd code
 ./scripts/bootstrap.sh
 docker compose -f compose.yaml -f compose.dev.yaml up -d --build --wait
 make seed
@@ -373,3 +428,21 @@ flowchart LR
 - [Observability](docs/observability.md), [usage pipeline](docs/usage-pipeline.md), and [seed data](docs/seed.md)
 
 All documentation in this repository is in English. See the [documentation policy](CONTRIBUTING.md#documentation-policy).
+
+## License and sponsor
+
+DiRouter is released under the [Apache License 2.0](LICENSE). Every feature in this repository,
+SSO, SCIM, audit log and billing included, is under that license; there is no separate
+enterprise edition of the code.
+
+Development is sponsored by [dirouter.ir](https://dirouter.ir/).
+
+<p align="center">
+  <a href="https://dirouter.ir/">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://dirouter.ir/brand/logo-dark.svg" />
+      <source media="(prefers-color-scheme: light)" srcset="https://dirouter.ir/brand/logo.svg" />
+      <img src="https://dirouter.ir/brand/logo.svg" alt="dirouter.ir logo" width="200" />
+    </picture>
+  </a>
+</p>

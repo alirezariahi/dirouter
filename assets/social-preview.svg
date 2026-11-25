@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 640" width="1280" height="640">
+  <!-- GitHub social preview (Settings → General → Social preview). PNG: headless Chrome --window-size=1280,640 --screenshot -->
+  <rect width="1280" height="640" fill="#fbf8f4"/>
+  <rect x="0" y="0" width="16" height="640" fill="#b8432b"/>
+  <g font-family="Helvetica Neue, Helvetica, Arial, sans-serif" fill="#1f1d1a">
+    <text x="96" y="170" font-size="92" font-weight="800" letter-spacing="-2">DiRouter</text>
+    <text x="96" y="236" font-size="38" fill="#6b6459">Open-source LLM gateway</text>
+    <text x="96" y="330" font-size="30">Fallback across providers and keys · circuit breakers</text>
+    <text x="96" y="376" font-size="30">Rate limits · budgets · usage accounting</text>
+    <text x="96" y="422" font-size="30">OpenAI- and Anthropic-compatible endpoints</text>
+    <text x="96" y="560" font-size="26" fill="#6b6459" font-family="Menlo, Consolas, monospace">github.com/alirezariahi/dirouter</text>
+  </g>
+  <g font-family="Helvetica Neue, Helvetica, Arial, sans-serif" text-anchor="middle">
+    <rect x="910" y="250" width="200" height="96" rx="16" fill="#b8432b"/>
+    <text x="1010" y="306" font-size="26" font-weight="700" fill="#fff">Gateway</text>
+    <rect x="930" y="430" width="160" height="64" rx="12" fill="#fff" stroke="#2b5db8" stroke-width="3"/>
+    <text x="1010" y="470" font-size="22" fill="#1f1d1a">Provider B</text>
+    <rect x="930" y="102" width="160" height="64" rx="12" fill="#fff" stroke="#c9c2b8" stroke-width="3" stroke-dasharray="8 6"/>
+    <text x="1010" y="142" font-size="22" fill="#a39b90">Provider A</text>
+    <path d="M1010 250 L1010 166" stroke="#c9c2b8" stroke-width="4" stroke-dasharray="8 8"/>
+    <text x="1036" y="216" font-size="28" fill="#b8432b" font-weight="700">✕</text>
+    <path d="M1010 346 L1010 430" stroke="#2b5db8" stroke-width="4"/>
+    <path d="M1000 418 L1010 430 L1020 418" fill="none" stroke="#2b5db8" stroke-width="4"/>
+  </g>
+</svg>
