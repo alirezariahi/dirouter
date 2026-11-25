@@ -47,7 +47,8 @@ import { MissingPluginAdapter } from './plugins/adapter.js';
 
 export interface UpstreamRequest {
   url: string;
-  method: 'POST' | 'GET';
+  /** `DELETE` and `PUT` only for job steps (cancel, delete) of batches and tasks (card 30.1). */
+  method: 'POST' | 'GET' | 'DELETE' | 'PUT';
   headers: Record<string, string>;
   body?: string;
   /** Binary body (multipart form or raw audio), sent instead of `body` (card 21.1). */

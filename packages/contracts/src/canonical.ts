@@ -166,6 +166,8 @@ export const InboundApi = z.enum([
   'openai.images',
   'openai.speech',
   'openai.transcriptions',
+  /** A finished batch (card 30.1): one event with the batch's summed usage. */
+  'openai.batches',
   /** One model response of a Realtime WebSocket session (card 30.5). */
   'openai.realtime',
   /** Legacy `/v1/completions` and `/v1/audio/translations` (card 30.4). */

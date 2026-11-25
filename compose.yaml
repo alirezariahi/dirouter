@@ -176,6 +176,19 @@ services:
       SHUTDOWN_DRAIN_MS: ${GATEWAY_SHUTDOWN_DRAIN_MS:-30000}
       # More than two Traefik health check rounds (2 seconds), so the replica leaves rotation before it closes.
       SHUTDOWN_READY_DELAY_MS: ${GATEWAY_SHUTDOWN_READY_DELAY_MS:-5000}
+      # Files and batches (card 30.1): bytes on the /data volume unless FILES_STORAGE=s3.
+      FILES_STORAGE: ${FILES_STORAGE:-local}
+      FILES_DIR: ${FILES_DIR:-/data/files}
+      FILES_MAX_BYTES: ${FILES_MAX_BYTES:-104857600}
+      FILES_RETENTION_DAYS: ${FILES_RETENTION_DAYS:-30}
+      FILES_S3_ENDPOINT: ${FILES_S3_ENDPOINT:-}
+      FILES_S3_BUCKET: ${FILES_S3_BUCKET:-}
+      FILES_S3_REGION: ${FILES_S3_REGION:-us-east-1}
+      FILES_S3_ACCESS_KEY_ID: ${FILES_S3_ACCESS_KEY_ID:-}
+      FILES_S3_SECRET_ACCESS_KEY: ${FILES_S3_SECRET_ACCESS_KEY:-}
+      FILES_S3_PREFIX: ${FILES_S3_PREFIX:-}
+      FILES_S3_PATH_STYLE: ${FILES_S3_PATH_STYLE:-true}
+      JOBS_POLL_INTERVAL_MS: ${JOBS_POLL_INTERVAL_MS:-15000}
       # Realtime WebSocket sessions (card 30.5): longest session and open sessions per replica.
       REALTIME_MAX_SESSION_SECONDS: ${REALTIME_MAX_SESSION_SECONDS:-1800}
       REALTIME_MAX_SESSIONS: ${REALTIME_MAX_SESSIONS:-1000}

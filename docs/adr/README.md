@@ -4,14 +4,15 @@
 
 Architecture decisions are recorded using the [MADR](https://adr.github.io/madr/) template. Each ADR has three main sections: **Context**, **Decision** and **Consequences**.
 
-| #                                      | Title                                                            | Status                                                  |
-| -------------------------------------- | ---------------------------------------------------------------- | ------------------------------------------------------- |
-| [001](0001-gateway-nestjs-fastify.md)  | Gateway with NestJS on Fastify and overhead reduction strategies | Accepted, amended 2026-11-25 (gateway is plain Fastify) |
-| [002](0002-postgresql-prisma.md)       | PostgreSQL 17 + Prisma                                           | Accepted                                                |
-| [003](0003-valkey.md)                  | Valkey for counters, cache and pub/sub                           | Accepted                                                |
-| [004](0004-traefik-reverse-proxy.md)   | Traefik v3 as reverse proxy                                      | Accepted                                                |
-| [005](0005-bullmq-event-queue.md)      | BullMQ for the event queue                                       | Accepted                                                |
-| [006](0006-data-plane-independence.md) | the data plane does not depend on the control plane              | Accepted                                                |
+| #                                      | Title                                                                                | Status                                                  |
+| -------------------------------------- | ------------------------------------------------------------------------------------ | ------------------------------------------------------- |
+| [001](0001-gateway-nestjs-fastify.md)  | Gateway with NestJS on Fastify and overhead reduction strategies                     | Accepted, amended 2026-11-25 (gateway is plain Fastify) |
+| [002](0002-postgresql-prisma.md)       | PostgreSQL 17 + Prisma                                                               | Accepted                                                |
+| [003](0003-valkey.md)                  | Valkey for counters, cache and pub/sub                                               | Accepted                                                |
+| [004](0004-traefik-reverse-proxy.md)   | Traefik v3 as reverse proxy                                                          | Accepted                                                |
+| [005](0005-bullmq-event-queue.md)      | BullMQ for the event queue                                                           | Accepted                                                |
+| [006](0006-data-plane-independence.md) | the data plane does not depend on the control plane                                  | Accepted                                                |
+| [007](0007-job-state-in-valkey.md)     | State of files, batches and async tasks lives in Valkey and is driven by the gateway | Accepted                                                |
 
 ## Adding a new ADR
 

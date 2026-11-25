@@ -98,6 +98,8 @@ export class WalletGuard {
     walletId: string,
     requestId: string,
     amountUsd: string,
+    /** How long the hold lasts; batches and async tasks (cards 30.1, 30.6) hold for hours. */
+    holdMs: number = WALLET_HOLD_TTL_MS,
   ): Promise<WalletReservation> {
     const redis = this.#redis;
     // Single node without Valkey: nothing to reserve against; the worker still debits the ledger.
@@ -110,7 +112,7 @@ export class WalletGuard {
           walletHoldsKey(walletId),
           requestId,
           units,
-          this.#now() + WALLET_HOLD_TTL_MS,
+          this.#now() + holdMs,
         ),
         this.#timeoutMs,
       );

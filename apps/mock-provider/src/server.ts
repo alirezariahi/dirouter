@@ -23,6 +23,7 @@ import {
   sampleFor,
 } from './structured.js';
 import { registerMcp } from './mcp.js';
+import { registerBatches } from './batches.js';
 import { registerMedia, registerWorkersAi } from './media.js';
 import { registerCatalog } from './catalog.js';
 import { newRealtimeStats, type RealtimeStats, registerRealtime } from './realtime.js';
@@ -738,6 +739,7 @@ export function buildServer(options: MockServerOptions = {}) {
   registerMcp(app);
   registerA2a(app);
   registerMedia(app);
+  registerBatches(app);
   registerWorkersAi(app);
   registerBedrock(app, { record });
   registerCatalog(app);

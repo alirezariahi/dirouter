@@ -46,6 +46,12 @@ import { handleCompletions } from './completions.js';
 import { handleEmbeddings, handleGeminiEmbeddings } from './embeddings.js';
 import { registerMediaRoutes } from './media.js';
 import { DEFAULT_REALTIME_SETTINGS, RealtimeGateway, type RealtimeSettings } from './realtime.js';
+import { refreshBatch, registerBatchRoutes } from './batches.js';
+import { expireFile, registerFileRoutes } from './files.js';
+import { type BlobStorage, LocalBlobStorage } from './jobs/blobs.js';
+import { DEFAULT_JOBS_OPTIONS, type JobsDeps, type JobsOptions } from './jobs/context.js';
+import { JobPoller } from './jobs/poller.js';
+import { MemoryJobStore, RedisJobStore } from './jobs/store.js';
 import { configureUpstreamGuard } from './upstream.js';
 import { credentialTokens } from './credential-tokens.js';
 import { Tracer } from './tracing.js';
@@ -91,6 +97,8 @@ export interface GatewayOptions {
   blockPrivateUpstreams?: boolean;
   /** Tests only: delays between A2A push notification retries (card 28.2). */
   a2aPushRetryDelaysMs?: readonly number[];
+  /** Files, batches and async tasks (cards 30.1 and 30.6): limits and where bytes are kept. */
+  jobs?: Partial<JobsOptions> & { storage?: BlobStorage; pollerTickMs?: number };
   /** Realtime session limits (card 30.5). */
   realtime?: Partial<RealtimeSettings>;
 }
@@ -302,6 +310,31 @@ export function buildGateway(opts: GatewayOptions) {
   // Realtime API over WebSocket (card 30.5).
   const realtime = new RealtimeGateway(deps, { ...DEFAULT_REALTIME_SETTINGS, ...opts.realtime });
   realtime.register(app);
+
+  // Files and batches (card 30.1): state in Valkey (or memory on a single node), bytes in the
+  // configured storage, followed upstream by the job poller (ADR-0007).
+  const jobsRedis = opts.stateRedis ?? opts.limiterRedis;
+  const jobDeps: JobsDeps = {
+    ...deps,
+    jobs: jobsRedis ? new RedisJobStore(jobsRedis) : new MemoryJobStore(),
+    blobs: opts.jobs?.storage ?? new LocalBlobStorage(`${opts.dataDir}/files`),
+    jobOptions: { ...DEFAULT_JOBS_OPTIONS, ...opts.jobs },
+    keyring: opts.keyring,
+  };
+  registerFileRoutes(app, jobDeps);
+  registerBatchRoutes(app, jobDeps);
+  const poller = new JobPoller({
+    store: jobDeps.jobs,
+    logger: opts.logger,
+    ...(opts.jobs?.pollerTickMs ? { tickMs: opts.jobs.pollerTickMs } : {}),
+    handlers: {
+      file: (id) => expireFile(jobDeps, id),
+      batch: (id) => refreshBatch(jobDeps, id),
+    },
+  });
+  app.addHook('onClose', async () => {
+    await poller.stop();
+  });
   app.post('/v1beta/models/:modelAction', (req, reply) => {
     const param = (req.params as { modelAction?: string }).modelAction ?? '';
     const [rawModel = '', action = ''] = param.split(':');
@@ -619,6 +652,8 @@ export function buildGateway(opts: GatewayOptions) {
     budgets: deps.budgets,
     a2a,
     mcp,
+    jobs: jobDeps,
+    poller,
     realtime,
     async start() {
       if (opts.plugins) {
@@ -639,6 +674,7 @@ export function buildGateway(opts: GatewayOptions) {
       }
       await store.start();
       if (opts.limiterRedis) deps.limiter.startNodeCount();
+      poller.start();
     },
     /** Number of open proxy requests (including streams). */
     get inFlight() {
@@ -659,6 +695,7 @@ export function buildGateway(opts: GatewayOptions) {
     async drain(options: { readyDelayMs: number; drainMs: number }): Promise<{ forced: number }> {
       lifecycle.draining = true;
       store.stop();
+      void poller.stop();
       deps.limiter.stop();
       await sleep(options.readyDelayMs);
       const closing = app.close();

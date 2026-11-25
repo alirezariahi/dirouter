@@ -112,3 +112,18 @@ export function computeCostUsd(
 ): string {
   return formatUsd(computeCost(usage, pricing, media).total);
 }
+
+/**
+ * A price at the batch rate (card 30.1): `units × (1 − batchDiscount)`, rounded half up. Without a
+ * discount in the catalog the batch price is the normal price.
+ */
+export function batchPrice(
+  units: UsdUnits,
+  pricing: Pick<ModelPricing, 'batchDiscount'>,
+): UsdUnits {
+  if (!pricing.batchDiscount) return units;
+  const one = parseUsd('1');
+  const keep = one - parseUsd(pricing.batchDiscount);
+  if (keep <= 0n) return 0n;
+  return (units * keep + one / 2n) / one;
+}

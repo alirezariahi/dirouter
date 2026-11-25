@@ -4,6 +4,7 @@ import {
   baseEnvSchema,
   connectValkey,
   createLogger,
+  envBoolean,
   envKeyring,
   envPort,
   loadEnvOrExit,
@@ -13,6 +14,7 @@ import { z } from 'zod';
 
 import { HealthProber } from './health-probe.js';
 import { HealthSync } from './health-sync.js';
+import { storageFromEnv } from './jobs/blobs.js';
 import { buildGateway } from './server.js';
 import { UsageSink } from './usage-sink.js';
 import { McpCallSink } from './mcp/call-sink.js';
@@ -40,6 +42,24 @@ const env = loadEnvOrExit(
     /** Provider plugins (card 21.2): folder, and the names to load (none by default). */
     PLUGINS_DIR: z.string().default('./plugins'),
     PLUGINS_ENABLED: z.string().default(''),
+    /** Files and batches (card 30.1): where bytes are kept, upload cap, retention, polling. */
+    FILES_STORAGE: z.enum(['local', 's3']).default('local'),
+    FILES_DIR: z.string().optional(),
+    FILES_MAX_BYTES: z.coerce
+      .number()
+      .int()
+      .min(1024)
+      .max(512 * 1024 * 1024)
+      .default(100 * 1024 * 1024),
+    FILES_RETENTION_DAYS: z.coerce.number().int().min(1).max(365).default(30),
+    FILES_S3_ENDPOINT: z.string().optional(),
+    FILES_S3_BUCKET: z.string().optional(),
+    FILES_S3_REGION: z.string().default('us-east-1'),
+    FILES_S3_ACCESS_KEY_ID: z.string().optional(),
+    FILES_S3_SECRET_ACCESS_KEY: z.string().optional(),
+    FILES_S3_PREFIX: z.string().optional(),
+    FILES_S3_PATH_STYLE: envBoolean(true),
+    JOBS_POLL_INTERVAL_MS: z.coerce.number().int().min(1_000).max(3_600_000).default(15_000),
     /** Realtime sessions (card 30.5): longest session, and open sessions per replica. */
     REALTIME_MAX_SESSION_SECONDS: z.coerce.number().int().min(10).default(1_800),
     REALTIME_MAX_SESSIONS: z.coerce.number().int().min(0).default(1_000),
@@ -146,6 +166,12 @@ const gateway = buildGateway({
   pepper: env.KEY_PEPPER,
   dataDir: env.DATA_DIR,
   plugins: { dir: env.PLUGINS_DIR, enabled: env.PLUGINS_ENABLED },
+  jobs: {
+    storage: storageFromEnv(env, env.DATA_DIR),
+    maxFileBytes: env.FILES_MAX_BYTES,
+    fileRetentionSeconds: env.FILES_RETENTION_DAYS * 86_400,
+    pollIntervalMs: env.JOBS_POLL_INTERVAL_MS,
+  },
   blockPrivateUpstreams: env.NODE_ENV === 'production',
   realtime: {
     maxSessionSeconds: env.REALTIME_MAX_SESSION_SECONDS,

@@ -1,7 +1,8 @@
 /** Media prices (card 21.1) on top of token prices. */
+import { formatUsd, parseUsd } from '@dirouter/shared';
 import { describe, expect, it } from 'vitest';
 
-import { audioTokenCost, computeCost, computeCostUsd, mediaCost } from './cost.js';
+import { audioTokenCost, batchPrice, computeCost, computeCostUsd, mediaCost } from './cost.js';
 
 const none = {
   inputTokens: 0,
@@ -61,5 +62,19 @@ describe('realtime audio token cost (card 30.5)', () => {
       ),
     ).toBe(300_000_000n);
     expect(audioTokenCost(undefined, pricing)).toBe(0n);
+  });
+});
+
+describe('batch price (card 30.1)', () => {
+  it('takes the catalog discount off and rounds half up', () => {
+    expect(formatUsd(batchPrice(parseUsd('1'), { batchDiscount: '0.5' }))).toBe('0.50000000');
+    expect(formatUsd(batchPrice(parseUsd('0.00000003'), { batchDiscount: '0.5' }))).toBe(
+      '0.00000002',
+    );
+    expect(formatUsd(batchPrice(parseUsd('2'), { batchDiscount: '1' }))).toBe('0.00000000');
+  });
+
+  it('is the normal price without a discount', () => {
+    expect(batchPrice(parseUsd('1.5'), {})).toBe(parseUsd('1.5'));
   });
 });
