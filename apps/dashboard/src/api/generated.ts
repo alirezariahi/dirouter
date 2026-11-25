@@ -5046,6 +5046,7 @@ export const ServiceAccountsControllerCreateTokenBodyScopesItem = {
   'mcp:read': 'mcp:read',
   'mcp:write': 'mcp:write',
   'health:write': 'health:write',
+  'logs:bodies': 'logs:bodies',
 } as const;
 
 export type ServiceAccountsControllerCreateTokenBody = {
@@ -5056,7 +5057,7 @@ export type ServiceAccountsControllerCreateTokenBody = {
   name: string;
   /**
      * @minItems 1
-     * @maxItems 29
+     * @maxItems 30
      */
   scopes: ServiceAccountsControllerCreateTokenBodyScopesItem[];
   /**
@@ -5843,6 +5844,393 @@ export type BodiesControllerBody200 = {
      * @nullable
      */
   replay: BodiesControllerBody200Replay;
+};
+
+export type LimitsControllerList200ItemScope = typeof LimitsControllerList200ItemScope[keyof typeof LimitsControllerList200ItemScope];
+
+
+export const LimitsControllerList200ItemScope = {
+  team: 'team',
+  project: 'project',
+} as const;
+
+export type LimitsControllerList200ItemBudgetsItemPeriod = typeof LimitsControllerList200ItemBudgetsItemPeriod[keyof typeof LimitsControllerList200ItemBudgetsItemPeriod];
+
+
+export const LimitsControllerList200ItemBudgetsItemPeriod = {
+  daily: 'daily',
+  monthly: 'monthly',
+} as const;
+
+export type LimitsControllerList200ItemBudgetsItem = {
+  id: string;
+  period: LimitsControllerList200ItemBudgetsItemPeriod;
+  /** @nullable */
+  limitUsd: string | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  limitTokens: number | null;
+  /**
+     * @items.minimum -9007199254740991
+     * @items.maximum 9007199254740991
+     */
+  alertThresholds: number[];
+};
+
+export type LimitsControllerList200Item = {
+  scope: LimitsControllerList200ItemScope;
+  scopeId: string;
+  name: string;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  rpm: number | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  tpm: number | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  maxConcurrency: number | null;
+  budgets: LimitsControllerList200ItemBudgetsItem[];
+};
+
+export type LimitsControllerUsage200ScopesItemScope = typeof LimitsControllerUsage200ScopesItemScope[keyof typeof LimitsControllerUsage200ScopesItemScope];
+
+
+export const LimitsControllerUsage200ScopesItemScope = {
+  team: 'team',
+  project: 'project',
+} as const;
+
+export type LimitsControllerUsage200ScopesItemToday = {
+  usd: string;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     */
+  tokens: number;
+};
+
+export type LimitsControllerUsage200ScopesItemMonth = {
+  usd: string;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     */
+  tokens: number;
+};
+
+/**
+ * @nullable
+ */
+export type LimitsControllerUsage200ScopesItemRateLimit = {
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  rpm: number | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  tpm: number | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  maxConcurrency: number | null;
+} | null;
+
+export type LimitsControllerUsage200ScopesItemBudgetsItemPeriod = typeof LimitsControllerUsage200ScopesItemBudgetsItemPeriod[keyof typeof LimitsControllerUsage200ScopesItemBudgetsItemPeriod];
+
+
+export const LimitsControllerUsage200ScopesItemBudgetsItemPeriod = {
+  daily: 'daily',
+  monthly: 'monthly',
+} as const;
+
+export type LimitsControllerUsage200ScopesItemBudgetsItem = {
+  id: string;
+  period: LimitsControllerUsage200ScopesItemBudgetsItemPeriod;
+  /** @nullable */
+  limitUsd: string | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  limitTokens: number | null;
+  /**
+     * @items.minimum -9007199254740991
+     * @items.maximum 9007199254740991
+     */
+  alertThresholds: number[];
+  spentUsd: string;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     */
+  spentTokens: number;
+  /** @nullable */
+  usedPercent: number | null;
+};
+
+export type LimitsControllerUsage200ScopesItem = {
+  scope: LimitsControllerUsage200ScopesItemScope;
+  scopeId: string;
+  name: string;
+  /** @nullable */
+  teamId?: string | null;
+  today: LimitsControllerUsage200ScopesItemToday;
+  month: LimitsControllerUsage200ScopesItemMonth;
+  /** @nullable */
+  rateLimit: LimitsControllerUsage200ScopesItemRateLimit;
+  budgets: LimitsControllerUsage200ScopesItemBudgetsItem[];
+};
+
+export type LimitsControllerUsage200 = {
+  dayStart: string;
+  monthStart: string;
+  scopes: LimitsControllerUsage200ScopesItem[];
+};
+
+export type LimitsControllerGet200Scope = typeof LimitsControllerGet200Scope[keyof typeof LimitsControllerGet200Scope];
+
+
+export const LimitsControllerGet200Scope = {
+  team: 'team',
+  project: 'project',
+} as const;
+
+export type LimitsControllerGet200BudgetsItemPeriod = typeof LimitsControllerGet200BudgetsItemPeriod[keyof typeof LimitsControllerGet200BudgetsItemPeriod];
+
+
+export const LimitsControllerGet200BudgetsItemPeriod = {
+  daily: 'daily',
+  monthly: 'monthly',
+} as const;
+
+export type LimitsControllerGet200BudgetsItem = {
+  id: string;
+  period: LimitsControllerGet200BudgetsItemPeriod;
+  /** @nullable */
+  limitUsd: string | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  limitTokens: number | null;
+  /**
+     * @items.minimum -9007199254740991
+     * @items.maximum 9007199254740991
+     */
+  alertThresholds: number[];
+};
+
+export type LimitsControllerGet200 = {
+  scope: LimitsControllerGet200Scope;
+  scopeId: string;
+  name: string;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  rpm: number | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  tpm: number | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  maxConcurrency: number | null;
+  budgets: LimitsControllerGet200BudgetsItem[];
+};
+
+export type LimitsControllerSetBodyBudgetsItemPeriod = typeof LimitsControllerSetBodyBudgetsItemPeriod[keyof typeof LimitsControllerSetBodyBudgetsItemPeriod];
+
+
+export const LimitsControllerSetBodyBudgetsItemPeriod = {
+  daily: 'daily',
+  monthly: 'monthly',
+} as const;
+
+export type LimitsControllerSetBodyBudgetsItem = {
+  period: LimitsControllerSetBodyBudgetsItemPeriod;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  limitUsd?: string;
+  /**
+     * @maximum 9007199254740991
+     * @exclusiveMinimum 0
+     */
+  limitTokens?: number;
+  /**
+     * @maxItems 10
+     * @items.minimum 1
+     * @items.maximum 100
+     */
+  alertThresholds?: number[];
+};
+
+export type LimitsControllerSetBody = {
+  /**
+     * @maximum 9007199254740991
+     * @exclusiveMinimum 0
+     * @nullable
+     */
+  rpm?: number | null;
+  /**
+     * @maximum 9007199254740991
+     * @exclusiveMinimum 0
+     * @nullable
+     */
+  tpm?: number | null;
+  /**
+     * @maximum 9007199254740991
+     * @exclusiveMinimum 0
+     * @nullable
+     */
+  maxConcurrency?: number | null;
+  /** @maxItems 2 */
+  budgets?: LimitsControllerSetBodyBudgetsItem[];
+};
+
+export type LimitsControllerSet200Scope = typeof LimitsControllerSet200Scope[keyof typeof LimitsControllerSet200Scope];
+
+
+export const LimitsControllerSet200Scope = {
+  team: 'team',
+  project: 'project',
+} as const;
+
+export type LimitsControllerSet200BudgetsItemPeriod = typeof LimitsControllerSet200BudgetsItemPeriod[keyof typeof LimitsControllerSet200BudgetsItemPeriod];
+
+
+export const LimitsControllerSet200BudgetsItemPeriod = {
+  daily: 'daily',
+  monthly: 'monthly',
+} as const;
+
+export type LimitsControllerSet200BudgetsItem = {
+  id: string;
+  period: LimitsControllerSet200BudgetsItemPeriod;
+  /** @nullable */
+  limitUsd: string | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  limitTokens: number | null;
+  /**
+     * @items.minimum -9007199254740991
+     * @items.maximum 9007199254740991
+     */
+  alertThresholds: number[];
+};
+
+export type LimitsControllerSet200 = {
+  scope: LimitsControllerSet200Scope;
+  scopeId: string;
+  name: string;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  rpm: number | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  tpm: number | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  maxConcurrency: number | null;
+  budgets: LimitsControllerSet200BudgetsItem[];
+};
+
+export type LimitsControllerRemove200Scope = typeof LimitsControllerRemove200Scope[keyof typeof LimitsControllerRemove200Scope];
+
+
+export const LimitsControllerRemove200Scope = {
+  team: 'team',
+  project: 'project',
+} as const;
+
+export type LimitsControllerRemove200BudgetsItemPeriod = typeof LimitsControllerRemove200BudgetsItemPeriod[keyof typeof LimitsControllerRemove200BudgetsItemPeriod];
+
+
+export const LimitsControllerRemove200BudgetsItemPeriod = {
+  daily: 'daily',
+  monthly: 'monthly',
+} as const;
+
+export type LimitsControllerRemove200BudgetsItem = {
+  id: string;
+  period: LimitsControllerRemove200BudgetsItemPeriod;
+  /** @nullable */
+  limitUsd: string | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  limitTokens: number | null;
+  /**
+     * @items.minimum -9007199254740991
+     * @items.maximum 9007199254740991
+     */
+  alertThresholds: number[];
+};
+
+export type LimitsControllerRemove200 = {
+  scope: LimitsControllerRemove200Scope;
+  scopeId: string;
+  name: string;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  rpm: number | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  tpm: number | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  maxConcurrency: number | null;
+  budgets: LimitsControllerRemove200BudgetsItem[];
 };
 
 type AwaitedInput<T> = PromiseLike<T> | T;
@@ -28341,3 +28729,508 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       > => {
       return useMutation(getBodiesControllerBodyMutationOptions(options), queryClient);
     }
+
+export type limitsControllerListResponse200 = {
+  data: LimitsControllerList200Item[]
+  status: 200
+}
+
+export type limitsControllerListResponseSuccess = (limitsControllerListResponse200) & {
+  headers: Headers;
+};
+;
+
+export type limitsControllerListResponse = (limitsControllerListResponseSuccess)
+
+export const getLimitsControllerListUrl = (orgId: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/limits`
+}
+
+export const limitsControllerList = async (orgId: string, options?: Parameters<typeof orvalFetch>[1]): Promise<limitsControllerListResponse> => {
+
+  return orvalFetch<limitsControllerListResponse>(getLimitsControllerListUrl(orgId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getLimitsControllerListMutationKey = () => ['limitsControllerList'] as const;
+
+export const getLimitsControllerListMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof limitsControllerList>>, TError,LimitsControllerListMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof limitsControllerList>>, TError,LimitsControllerListMutationVariables, TContext> => {
+
+const mutationKey = getLimitsControllerListMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof limitsControllerList>>, LimitsControllerListMutationVariables> = (props) => {
+          const {orgId} = props ?? {};
+
+          return  limitsControllerList(orgId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type LimitsControllerListMutationResult = NonNullable<Awaited<ReturnType<typeof limitsControllerList>>>
+
+    export type LimitsControllerListMutationError = unknown
+    export type LimitsControllerListMutationVariables = {orgId: string}
+
+    export const useLimitsControllerList = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof limitsControllerList>>, TError,LimitsControllerListMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof limitsControllerList>>,
+        TError,
+        LimitsControllerListMutationVariables,
+        TContext
+      > => {
+      return useMutation(getLimitsControllerListMutationOptions(options), queryClient);
+    }
+
+export type limitsControllerUsageResponse200 = {
+  data: LimitsControllerUsage200
+  status: 200
+}
+
+export type limitsControllerUsageResponseSuccess = (limitsControllerUsageResponse200) & {
+  headers: Headers;
+};
+;
+
+export type limitsControllerUsageResponse = (limitsControllerUsageResponseSuccess)
+
+export const getLimitsControllerUsageUrl = (orgId: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/limits/usage`
+}
+
+export const limitsControllerUsage = async (orgId: string, options?: Parameters<typeof orvalFetch>[1]): Promise<limitsControllerUsageResponse> => {
+
+  return orvalFetch<limitsControllerUsageResponse>(getLimitsControllerUsageUrl(orgId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getLimitsControllerUsageMutationKey = () => ['limitsControllerUsage'] as const;
+
+export const getLimitsControllerUsageMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof limitsControllerUsage>>, TError,LimitsControllerUsageMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof limitsControllerUsage>>, TError,LimitsControllerUsageMutationVariables, TContext> => {
+
+const mutationKey = getLimitsControllerUsageMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof limitsControllerUsage>>, LimitsControllerUsageMutationVariables> = (props) => {
+          const {orgId} = props ?? {};
+
+          return  limitsControllerUsage(orgId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type LimitsControllerUsageMutationResult = NonNullable<Awaited<ReturnType<typeof limitsControllerUsage>>>
+
+    export type LimitsControllerUsageMutationError = unknown
+    export type LimitsControllerUsageMutationVariables = {orgId: string}
+
+    export const useLimitsControllerUsage = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof limitsControllerUsage>>, TError,LimitsControllerUsageMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof limitsControllerUsage>>,
+        TError,
+        LimitsControllerUsageMutationVariables,
+        TContext
+      > => {
+      return useMutation(getLimitsControllerUsageMutationOptions(options), queryClient);
+    }
+
+export type limitsControllerGetResponse200 = {
+  data: LimitsControllerGet200
+  status: 200
+}
+
+export type limitsControllerGetResponseSuccess = (limitsControllerGetResponse200) & {
+  headers: Headers;
+};
+;
+
+export type limitsControllerGetResponse = (limitsControllerGetResponseSuccess)
+
+export const getLimitsControllerGetUrl = (orgId: string,
+    scope: string,
+    scopeId: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/limits/${scope}/${scopeId}`
+}
+
+export const limitsControllerGet = async (orgId: string,
+    scope: string,
+    scopeId: string, options?: Parameters<typeof orvalFetch>[1]): Promise<limitsControllerGetResponse> => {
+
+  return orvalFetch<limitsControllerGetResponse>(getLimitsControllerGetUrl(orgId,scope,scopeId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getLimitsControllerGetMutationKey = () => ['limitsControllerGet'] as const;
+
+export const getLimitsControllerGetMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof limitsControllerGet>>, TError,LimitsControllerGetMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof limitsControllerGet>>, TError,LimitsControllerGetMutationVariables, TContext> => {
+
+const mutationKey = getLimitsControllerGetMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof limitsControllerGet>>, LimitsControllerGetMutationVariables> = (props) => {
+          const {orgId,scope,scopeId} = props ?? {};
+
+          return  limitsControllerGet(orgId,scope,scopeId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type LimitsControllerGetMutationResult = NonNullable<Awaited<ReturnType<typeof limitsControllerGet>>>
+
+    export type LimitsControllerGetMutationError = unknown
+    export type LimitsControllerGetMutationVariables = {orgId: string;scope: string;scopeId: string}
+
+    export const useLimitsControllerGet = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof limitsControllerGet>>, TError,LimitsControllerGetMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof limitsControllerGet>>,
+        TError,
+        LimitsControllerGetMutationVariables,
+        TContext
+      > => {
+      return useMutation(getLimitsControllerGetMutationOptions(options), queryClient);
+    }
+
+export type limitsControllerSetResponse200 = {
+  data: LimitsControllerSet200
+  status: 200
+}
+
+export type limitsControllerSetResponseSuccess = (limitsControllerSetResponse200) & {
+  headers: Headers;
+};
+;
+
+export type limitsControllerSetResponse = (limitsControllerSetResponseSuccess)
+
+export const getLimitsControllerSetUrl = (orgId: string,
+    scope: string,
+    scopeId: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/limits/${scope}/${scopeId}`
+}
+
+export const limitsControllerSet = async (orgId: string,
+    scope: string,
+    scopeId: string,
+    limitsControllerSetBody: LimitsControllerSetBody, options?: Parameters<typeof orvalFetch>[1]): Promise<limitsControllerSetResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return orvalFetch<limitsControllerSetResponse>(getLimitsControllerSetUrl(orgId,scope,scopeId),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(limitsControllerSetBody)
+  }
+);}
+
+
+
+
+
+export const getLimitsControllerSetQueryKey = (orgId: string,
+    scope: string,
+    scopeId: string,
+    limitsControllerSetBody?: LimitsControllerSetBody,) => {
+    return [
+    'PUT', `/api/v1/orgs/${orgId}/limits/${scope}/${scopeId}`, limitsControllerSetBody
+    ] as const;
+    }
+
+
+export const getLimitsControllerSetQueryOptions = <TData = Awaited<ReturnType<typeof limitsControllerSet>>, TError = unknown>(orgId: string,
+    scope: string,
+    scopeId: string,
+    limitsControllerSetBody: LimitsControllerSetBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof limitsControllerSet>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getLimitsControllerSetQueryKey(orgId,scope,scopeId,limitsControllerSetBody);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof limitsControllerSet>>> = ({ signal }) => limitsControllerSet(orgId,scope,scopeId,limitsControllerSetBody, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: orgId !== null && orgId !== undefined && scope !== null && scope !== undefined && scopeId !== null && scopeId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof limitsControllerSet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type LimitsControllerSetQueryResult = NonNullable<Awaited<ReturnType<typeof limitsControllerSet>>>
+export type LimitsControllerSetQueryError = unknown
+
+
+export function useLimitsControllerSet<TData = Awaited<ReturnType<typeof limitsControllerSet>>, TError = unknown>(
+ orgId: string,
+    scope: string,
+    scopeId: string,
+    limitsControllerSetBody: LimitsControllerSetBody, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof limitsControllerSet>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof limitsControllerSet>>,
+          TError,
+          Awaited<ReturnType<typeof limitsControllerSet>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useLimitsControllerSet<TData = Awaited<ReturnType<typeof limitsControllerSet>>, TError = unknown>(
+ orgId: string,
+    scope: string,
+    scopeId: string,
+    limitsControllerSetBody: LimitsControllerSetBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof limitsControllerSet>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof limitsControllerSet>>,
+          TError,
+          Awaited<ReturnType<typeof limitsControllerSet>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useLimitsControllerSet<TData = Awaited<ReturnType<typeof limitsControllerSet>>, TError = unknown>(
+ orgId: string,
+    scope: string,
+    scopeId: string,
+    limitsControllerSetBody: LimitsControllerSetBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof limitsControllerSet>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useLimitsControllerSet<TData = Awaited<ReturnType<typeof limitsControllerSet>>, TError = unknown>(
+ orgId: string,
+    scope: string,
+    scopeId: string,
+    limitsControllerSetBody: LimitsControllerSetBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof limitsControllerSet>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getLimitsControllerSetQueryOptions(orgId,scope,scopeId,limitsControllerSetBody,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export type limitsControllerRemoveResponse200 = {
+  data: LimitsControllerRemove200
+  status: 200
+}
+
+export type limitsControllerRemoveResponseSuccess = (limitsControllerRemoveResponse200) & {
+  headers: Headers;
+};
+;
+
+export type limitsControllerRemoveResponse = (limitsControllerRemoveResponseSuccess)
+
+export const getLimitsControllerRemoveUrl = (orgId: string,
+    scope: string,
+    scopeId: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/limits/${scope}/${scopeId}`
+}
+
+export const limitsControllerRemove = async (orgId: string,
+    scope: string,
+    scopeId: string, options?: Parameters<typeof orvalFetch>[1]): Promise<limitsControllerRemoveResponse> => {
+
+  return orvalFetch<limitsControllerRemoveResponse>(getLimitsControllerRemoveUrl(orgId,scope,scopeId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getLimitsControllerRemoveQueryKey = (orgId: string,
+    scope: string,
+    scopeId: string,) => {
+    return [
+    'DELETE', `/api/v1/orgs/${orgId}/limits/${scope}/${scopeId}`
+    ] as const;
+    }
+
+
+export const getLimitsControllerRemoveQueryOptions = <TData = Awaited<ReturnType<typeof limitsControllerRemove>>, TError = unknown>(orgId: string,
+    scope: string,
+    scopeId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof limitsControllerRemove>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getLimitsControllerRemoveQueryKey(orgId,scope,scopeId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof limitsControllerRemove>>> = ({ signal }) => limitsControllerRemove(orgId,scope,scopeId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: orgId !== null && orgId !== undefined && scope !== null && scope !== undefined && scopeId !== null && scopeId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof limitsControllerRemove>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type LimitsControllerRemoveQueryResult = NonNullable<Awaited<ReturnType<typeof limitsControllerRemove>>>
+export type LimitsControllerRemoveQueryError = unknown
+
+
+export function useLimitsControllerRemove<TData = Awaited<ReturnType<typeof limitsControllerRemove>>, TError = unknown>(
+ orgId: string,
+    scope: string,
+    scopeId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof limitsControllerRemove>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof limitsControllerRemove>>,
+          TError,
+          Awaited<ReturnType<typeof limitsControllerRemove>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useLimitsControllerRemove<TData = Awaited<ReturnType<typeof limitsControllerRemove>>, TError = unknown>(
+ orgId: string,
+    scope: string,
+    scopeId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof limitsControllerRemove>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof limitsControllerRemove>>,
+          TError,
+          Awaited<ReturnType<typeof limitsControllerRemove>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useLimitsControllerRemove<TData = Awaited<ReturnType<typeof limitsControllerRemove>>, TError = unknown>(
+ orgId: string,
+    scope: string,
+    scopeId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof limitsControllerRemove>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useLimitsControllerRemove<TData = Awaited<ReturnType<typeof limitsControllerRemove>>, TError = unknown>(
+ orgId: string,
+    scope: string,
+    scopeId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof limitsControllerRemove>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getLimitsControllerRemoveQueryOptions(orgId,scope,scopeId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}

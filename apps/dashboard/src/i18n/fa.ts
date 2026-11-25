@@ -6,6 +6,7 @@ import { s3Fa } from './s3';
 import { s4Fa } from './s4';
 import { billingFa } from './billing';
 import { mcpPageFa } from './mcp-page';
+import { scopeLimitsFa } from './scope-limits';
 export const fa = {
   app: { name: 'دی‌روتر', tagline: 'درگاه هوشمند مدل‌های زبانی' },
   nav: {
@@ -252,6 +253,7 @@ export const fa = {
   s4: s4Fa,
   billing: billingFa,
   mcpPage: mcpPageFa,
+  scopeLimits: scopeLimitsFa,
 } as const;
 
 export type Messages = typeof fa;

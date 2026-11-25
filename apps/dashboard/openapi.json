@@ -15239,7 +15239,7 @@
                   },
                   "scopes": {
                     "minItems": 1,
-                    "maxItems": 29,
+                    "maxItems": 30,
                     "type": "array",
                     "items": {
                       "type": "string",
@@ -15272,7 +15272,8 @@
                         "billing:write",
                         "mcp:read",
                         "mcp:write",
-                        "health:write"
+                        "health:write",
+                        "logs:bodies"
                       ]
                     }
                   },
@@ -17862,6 +17863,807 @@
         ],
         "tags": [
           "stats & logs"
+        ]
+      }
+    },
+    "/api/v1/orgs/{orgId}/limits": {
+      "get": {
+        "operationId": "LimitsController_list",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Teams and projects that have a rate limit or a budget",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "scope": {
+                        "type": "string",
+                        "enum": [
+                          "team",
+                          "project"
+                        ]
+                      },
+                      "scopeId": {
+                        "type": "string"
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "rpm": {
+                        "nullable": true,
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "tpm": {
+                        "nullable": true,
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "maxConcurrency": {
+                        "nullable": true,
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "budgets": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "period": {
+                              "type": "string",
+                              "enum": [
+                                "daily",
+                                "monthly"
+                              ]
+                            },
+                            "limitUsd": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "limitTokens": {
+                              "nullable": true,
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "alertThresholds": {
+                              "type": "array",
+                              "items": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              }
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "period",
+                            "limitUsd",
+                            "limitTokens",
+                            "alertThresholds"
+                          ]
+                        }
+                      }
+                    },
+                    "required": [
+                      "scope",
+                      "scopeId",
+                      "name",
+                      "rpm",
+                      "tpm",
+                      "maxConcurrency",
+                      "budgets"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "limits"
+        ]
+      }
+    },
+    "/api/v1/orgs/{orgId}/limits/usage": {
+      "get": {
+        "operationId": "LimitsController_usage",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Spend of every team and project today and this month, with their limits",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "dayStart": {
+                      "type": "string"
+                    },
+                    "monthStart": {
+                      "type": "string"
+                    },
+                    "scopes": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "scope": {
+                            "type": "string",
+                            "enum": [
+                              "team",
+                              "project"
+                            ]
+                          },
+                          "scopeId": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "teamId": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "today": {
+                            "type": "object",
+                            "properties": {
+                              "usd": {
+                                "type": "string"
+                              },
+                              "tokens": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              }
+                            },
+                            "required": [
+                              "usd",
+                              "tokens"
+                            ]
+                          },
+                          "month": {
+                            "type": "object",
+                            "properties": {
+                              "usd": {
+                                "type": "string"
+                              },
+                              "tokens": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              }
+                            },
+                            "required": [
+                              "usd",
+                              "tokens"
+                            ]
+                          },
+                          "rateLimit": {
+                            "nullable": true,
+                            "type": "object",
+                            "properties": {
+                              "rpm": {
+                                "nullable": true,
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "tpm": {
+                                "nullable": true,
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "maxConcurrency": {
+                                "nullable": true,
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              }
+                            },
+                            "required": [
+                              "rpm",
+                              "tpm",
+                              "maxConcurrency"
+                            ]
+                          },
+                          "budgets": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "period": {
+                                  "type": "string",
+                                  "enum": [
+                                    "daily",
+                                    "monthly"
+                                  ]
+                                },
+                                "limitUsd": {
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "limitTokens": {
+                                  "nullable": true,
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "alertThresholds": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  }
+                                },
+                                "spentUsd": {
+                                  "type": "string"
+                                },
+                                "spentTokens": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "usedPercent": {
+                                  "nullable": true,
+                                  "type": "number"
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "period",
+                                "limitUsd",
+                                "limitTokens",
+                                "alertThresholds",
+                                "spentUsd",
+                                "spentTokens",
+                                "usedPercent"
+                              ]
+                            }
+                          }
+                        },
+                        "required": [
+                          "scope",
+                          "scopeId",
+                          "name",
+                          "today",
+                          "month",
+                          "rateLimit",
+                          "budgets"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "dayStart",
+                    "monthStart",
+                    "scopes"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "limits"
+        ]
+      }
+    },
+    "/api/v1/orgs/{orgId}/limits/{scope}/{scopeId}": {
+      "get": {
+        "operationId": "LimitsController_get",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "scope",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "scopeId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "scope": {
+                      "type": "string",
+                      "enum": [
+                        "team",
+                        "project"
+                      ]
+                    },
+                    "scopeId": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "rpm": {
+                      "nullable": true,
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "tpm": {
+                      "nullable": true,
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "maxConcurrency": {
+                      "nullable": true,
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "budgets": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "period": {
+                            "type": "string",
+                            "enum": [
+                              "daily",
+                              "monthly"
+                            ]
+                          },
+                          "limitUsd": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "limitTokens": {
+                            "nullable": true,
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "alertThresholds": {
+                            "type": "array",
+                            "items": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            }
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "period",
+                          "limitUsd",
+                          "limitTokens",
+                          "alertThresholds"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "scope",
+                    "scopeId",
+                    "name",
+                    "rpm",
+                    "tpm",
+                    "maxConcurrency",
+                    "budgets"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "limits"
+        ]
+      },
+      "put": {
+        "operationId": "LimitsController_set",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "scope",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "scopeId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "rpm": {
+                    "nullable": true,
+                    "type": "integer",
+                    "minimum": 0,
+                    "exclusiveMinimum": true,
+                    "maximum": 9007199254740991
+                  },
+                  "tpm": {
+                    "nullable": true,
+                    "type": "integer",
+                    "minimum": 0,
+                    "exclusiveMinimum": true,
+                    "maximum": 9007199254740991
+                  },
+                  "maxConcurrency": {
+                    "nullable": true,
+                    "type": "integer",
+                    "minimum": 0,
+                    "exclusiveMinimum": true,
+                    "maximum": 9007199254740991
+                  },
+                  "budgets": {
+                    "maxItems": 2,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "period": {
+                          "type": "string",
+                          "enum": [
+                            "daily",
+                            "monthly"
+                          ]
+                        },
+                        "limitUsd": {
+                          "type": "string",
+                          "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
+                        },
+                        "limitTokens": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "exclusiveMinimum": true,
+                          "maximum": 9007199254740991
+                        },
+                        "alertThresholds": {
+                          "maxItems": 10,
+                          "type": "array",
+                          "items": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 100
+                          }
+                        }
+                      },
+                      "required": [
+                        "period"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "202 with the change request when a budget change waits for approval",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "scope": {
+                      "type": "string",
+                      "enum": [
+                        "team",
+                        "project"
+                      ]
+                    },
+                    "scopeId": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "rpm": {
+                      "nullable": true,
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "tpm": {
+                      "nullable": true,
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "maxConcurrency": {
+                      "nullable": true,
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "budgets": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "period": {
+                            "type": "string",
+                            "enum": [
+                              "daily",
+                              "monthly"
+                            ]
+                          },
+                          "limitUsd": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "limitTokens": {
+                            "nullable": true,
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "alertThresholds": {
+                            "type": "array",
+                            "items": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            }
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "period",
+                          "limitUsd",
+                          "limitTokens",
+                          "alertThresholds"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "scope",
+                    "scopeId",
+                    "name",
+                    "rpm",
+                    "tpm",
+                    "maxConcurrency",
+                    "budgets"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "limits"
+        ]
+      },
+      "delete": {
+        "operationId": "LimitsController_remove",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "scope",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "scopeId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "All limits removed; 202 when removing budgets waits for approval",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "scope": {
+                      "type": "string",
+                      "enum": [
+                        "team",
+                        "project"
+                      ]
+                    },
+                    "scopeId": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "rpm": {
+                      "nullable": true,
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "tpm": {
+                      "nullable": true,
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "maxConcurrency": {
+                      "nullable": true,
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "budgets": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "period": {
+                            "type": "string",
+                            "enum": [
+                              "daily",
+                              "monthly"
+                            ]
+                          },
+                          "limitUsd": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "limitTokens": {
+                            "nullable": true,
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "alertThresholds": {
+                            "type": "array",
+                            "items": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            }
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "period",
+                          "limitUsd",
+                          "limitTokens",
+                          "alertThresholds"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "scope",
+                    "scopeId",
+                    "name",
+                    "rpm",
+                    "tpm",
+                    "maxConcurrency",
+                    "budgets"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "limits"
         ]
       }
     }

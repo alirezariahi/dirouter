@@ -11,11 +11,11 @@ DiRouter has two layers of limits:
 
 ## Scopes and configuration
 
-| scope       | table / API                                   | fields                          |
-| ----------- | --------------------------------------------- | ------------------------------- |
-| virtual key | `virtual_keys` (`POST/PATCH /orgs/:org/keys`) | `rpm`, `tpm`, `maxConcurrency`  |
-| project     | `rate_limit_policies` with scope=PROJECT      | `rpm`, `tpm`, `max_concurrency` |
-| team        | `rate_limit_policies` with scope=TEAM         | same                            |
+| scope       | table / API                                                                               | fields                          |
+| ----------- | ----------------------------------------------------------------------------------------- | ------------------------------- |
+| virtual key | `virtual_keys` (`POST/PATCH /orgs/:org/keys`)                                             | `rpm`, `tpm`, `maxConcurrency`  |
+| project     | `rate_limit_policies` with scope=PROJECT (`PUT /orgs/:org/limits/project/:id`, card 25.5) | `rpm`, `tpm`, `max_concurrency` |
+| team        | `rate_limit_policies` with scope=TEAM (`PUT /orgs/:org/limits/team/:id`)                  | same                            |
 
 Each request must be under the limit of **all** its scopes (the key, the key's project, and the project's team). All are checked with one atomic Lua script, and if one rejects, none is consumed. Config comes from the snapshot (card 3.9), and a change reaches the gateway in less than one second.
 
@@ -101,10 +101,10 @@ Status in `GET /internal/health` (with INTERNAL_TOKEN):
 
 A budget is a dollar or token cap for a period:
 
-| scope          | setting                                                                          |
-| -------------- | -------------------------------------------------------------------------------- |
-| key            | `budgets` in `POST/PATCH /orgs/:org/keys` (up to two budgets: daily and monthly) |
-| project / team | `budgets` table with scope=PROJECT or TEAM                                       |
+| scope          | setting                                                                                                 |
+| -------------- | ------------------------------------------------------------------------------------------------------- |
+| key            | `budgets` in `POST/PATCH /orgs/:org/keys` (up to two budgets: daily and monthly)                        |
+| project / team | `budgets` in `PUT /orgs/:org/limits/:scope/:id` (card 25.5; `budgets` table with scope=PROJECT or TEAM) |
 
 Each budget has these fields: `period` (`daily` or `monthly`), `limitUsd` and/or `limitTokens`, and `alertThresholds` (default `[50, 80, 100]`).
 
@@ -172,3 +172,40 @@ Corrections are logged with `budget counters reconciled with ledger` and the dri
   - the counter (1120 units, 72 tokens) exactly equaled the ledger sum (0.0000112 dollars, 72)
   - audit_logs had three rows, for 50, 80 and 100%
 - **Counter deletion** (simulating loss): one request passed. The `budget-reconcile` job raised the counter from 280 to 1400 units (equal to the ledger), and the next request got 429 again.
+
+# Team and project limits API (card 25.5)
+
+The gateway enforced team and project limits from the snapshot since cards 6.1 and 6.3, but nothing
+wrote them. `orgs/:orgId/limits` does, and the dashboard uses it on the **Organization** page
+(edit) and the **Cost** page (current usage).
+
+| Method and path                 | Permission   | What it does                                                                                                                                                       |
+| ------------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `GET limits`                    | `org:read`   | every team and project that has a rate limit or a budget                                                                                                           |
+| `GET limits/:scope/:scopeId`    | `org:read`   | the limits of one team (`scope=team`) or project (`scope=project`); empty values when none are set                                                                 |
+| `PUT limits/:scope/:scopeId`    | `org:write`  | `rpm`, `tpm`, `maxConcurrency` (a number, or `null` to remove; absent keeps it) and `budgets` (replaces every budget of the scope; absent keeps them)              |
+| `DELETE limits/:scope/:scopeId` | `org:write`  | removes every rate limit and budget of the scope                                                                                                                   |
+| `GET limits/usage`              | `usage:read` | every team and project with its spend today and this month (UTC) from the ledger, its rate limit, and each budget with `spentUsd`, `spentTokens` and `usedPercent` |
+
+```json
+PUT /api/v1/orgs/org_1/limits/project/prj_search
+{
+  "rpm": 120,
+  "tpm": 50000,
+  "maxConcurrency": null,
+  "budgets": [{ "period": "monthly", "limitUsd": "25.50", "alertThresholds": [50, 90] }]
+}
+```
+
+- A budget has the same shape as a key budget: `period`, `limitUsd` (up to 8 decimals) and/or
+  `limitTokens`, and `alertThresholds` (1-100, default `[50, 80, 100]`); one budget per period.
+- A budget keeps its id when its amount changes (upsert by scope, scope id and period), so the
+  gateway keeps counting the current period on the same Valkey counter.
+- **Four-eyes (card 22.2):** when the organization requires approval, a `PUT` or `DELETE` that
+  changes the budgets answers `202` with the pending change request (kind `limit.budgets`) and
+  nothing changes until a second person approves it. Changing only rate limits, or sending the
+  same budgets again, is applied at once.
+- Every change is audited as `limit.updated` and reaches the gateway with the next snapshot.
+- Once a project's (or team's) budget is reached, every key of that project (or of every project
+  of that team) gets `429 budget_exceeded`, e.g. `Monthly project budget exceeded (USD 25.5)`;
+  keys of other projects are not affected (`apps/gateway/src/scope-budget.test.ts`).

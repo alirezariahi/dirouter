@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { ScopeLimitsCard } from '../components/scope-limits';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
 import { Field, FormError } from '../components/ui/field';
@@ -630,6 +631,15 @@ export default function OrganizationPage() {
           <p className="text-sm text-muted">{t('organization.noProjects')}</p>
         )}
       </Card>
+
+      {orgId ? (
+        <ScopeLimitsCard
+          orgId={orgId}
+          teams={teams.data ?? []}
+          projects={projects.data ?? []}
+          canManage={canManage}
+        />
+      ) : null}
     </section>
   );
 }

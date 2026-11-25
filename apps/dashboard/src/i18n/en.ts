@@ -7,6 +7,7 @@ import { s3En } from './s3';
 import { s4En } from './s4';
 import { billingEn } from './billing';
 import { mcpPageEn } from './mcp-page';
+import { scopeLimitsEn } from './scope-limits';
 
 type Widen<T> = { [K in keyof T]: T[K] extends string ? string : Widen<T[K]> };
 
@@ -255,4 +256,5 @@ export const en: Widen<Messages> = {
   s4: s4En,
   billing: billingEn,
   mcpPage: mcpPageEn,
+  scopeLimits: scopeLimitsEn,
 };

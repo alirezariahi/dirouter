@@ -13,11 +13,11 @@ DiRouter دو لایه محدودیت دارد:
 
 ## scopeها و تنظیم
 
-| scope      | جدول / API                                    | فیلدها                          |
-| ---------- | --------------------------------------------- | ------------------------------- |
-| کلید مجازی | `virtual_keys` (`POST/PATCH /orgs/:org/keys`) | `rpm`، `tpm`، `maxConcurrency`  |
-| پروژه      | `rate_limit_policies` با scope=PROJECT        | `rpm`، `tpm`، `max_concurrency` |
-| تیم        | `rate_limit_policies` با scope=TEAM           | همان                            |
+| scope      | جدول / API                                                                              | فیلدها                          |
+| ---------- | --------------------------------------------------------------------------------------- | ------------------------------- |
+| کلید مجازی | `virtual_keys` (`POST/PATCH /orgs/:org/keys`)                                           | `rpm`، `tpm`، `maxConcurrency`  |
+| پروژه      | `rate_limit_policies` با scope=PROJECT (`PUT /orgs/:org/limits/project/:id`، کارت 25.5) | `rpm`، `tpm`، `max_concurrency` |
+| تیم        | `rate_limit_policies` با scope=TEAM (`PUT /orgs/:org/limits/team/:id`)                  | همان                            |
 
 هر درخواست باید زیر سقف **همهٔ** scopeهایش باشد (کلید، پروژهٔ کلید، و تیم پروژه). همه با یک اسکریپت Lua اتمیک بررسی می‌شوند و اگر یکی رد کند هیچ‌کدام مصرف نمی‌شود. config از snapshot می‌آید (کارت ۳.۹) و تغییرش در کمتر از یک ثانیه به گیت‌وی می‌رسد.
 
@@ -103,10 +103,10 @@ limiter از اتصال جدای Valkey با `enableOfflineQueue: false` و مه
 
 بودجه سقف هزینه (دلار) یا توکن در یک دوره است:
 
-| scope       | تنظیم                                                                        |
-| ----------- | ---------------------------------------------------------------------------- |
-| کلید        | `budgets` در `POST/PATCH /orgs/:org/keys` (حداکثر دو بودجه: روزانه و ماهانه) |
-| پروژه / تیم | جدول `budgets` با scope=PROJECT یا TEAM                                      |
+| scope       | تنظیم                                                                                                |
+| ----------- | ---------------------------------------------------------------------------------------------------- |
+| کلید        | `budgets` در `POST/PATCH /orgs/:org/keys` (حداکثر دو بودجه: روزانه و ماهانه)                         |
+| پروژه / تیم | `budgets` در `PUT /orgs/:org/limits/:scope/:id` (کارت 25.5؛ جدول `budgets` با scope=PROJECT یا TEAM) |
 
 هر بودجه این فیلدها را دارد: `period` (`daily` یا `monthly`)، `limitUsd` و/یا `limitTokens`، و `alertThresholds` (پیش‌فرض `[50, 80, 100]`).
 
@@ -174,5 +174,41 @@ job `budget-reconcile` در worker هر ۵ دقیقه، برای هر بودجه
   - شمارنده (۱۱۲۰ واحد، ۷۲ توکن) دقیقاً برابر جمع ledger بود (۰٫۰۰۰۰۱۱۲۰ دلار، ۷۲)
   - audit_logs سه ردیف برای ۵۰، ۸۰ و ۱۰۰٪ داشت
 - **حذف شمارنده** (شبیه‌سازی از دست رفتن): یک درخواست عبور کرد. job `budget-reconcile` شمارنده را از ۲۸۰ به ۱۴۰۰ واحد (برابر ledger) رساند و درخواست بعدی دوباره 429 گرفت.
+
+# API سقف تیم و پروژه (کارت 25.5)
+
+گیت‌وی از کارت‌های 6.1 و 6.3 سقف تیم و پروژه را از snapshot اعمال می‌کرد، ولی چیزی آن را
+نمی‌نوشت. `orgs/:orgId/limits` این کار را می‌کند و داشبورد در صفحهٔ **سازمان** (ویرایش) و صفحهٔ
+**هزینه** (مصرف فعلی) از آن استفاده می‌کند.
+
+| متد و مسیر                      | مجوز         | کار                                                                                                                                               |
+| ------------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET limits`                    | `org:read`   | همهٔ تیم‌ها و پروژه‌هایی که rate limit یا بودجه دارند                                                                                             |
+| `GET limits/:scope/:scopeId`    | `org:read`   | سقف‌های یک تیم (`scope=team`) یا پروژه (`scope=project`)؛ اگر چیزی تنظیم نشده مقدارها خالی است                                                    |
+| `PUT limits/:scope/:scopeId`    | `org:write`  | `rpm`، `tpm`، `maxConcurrency` (عدد، یا `null` برای حذف؛ نبودن یعنی بدون تغییر) و `budgets` (جایگزین همهٔ بودجه‌های scope؛ نبودن یعنی بدون تغییر) |
+| `DELETE limits/:scope/:scopeId` | `org:write`  | حذف همهٔ rate limitها و بودجه‌های scope                                                                                                           |
+| `GET limits/usage`              | `usage:read` | همهٔ تیم‌ها و پروژه‌ها با خرج امروز و این ماه (UTC) از ledger، rate limit و هر بودجه با `spentUsd`، `spentTokens` و `usedPercent`                 |
+
+```json
+PUT /api/v1/orgs/org_1/limits/project/prj_search
+{
+  "rpm": 120,
+  "tpm": 50000,
+  "maxConcurrency": null,
+  "budgets": [{ "period": "monthly", "limitUsd": "25.50", "alertThresholds": [50, 90] }]
+}
+```
+
+- شکل بودجه مثل بودجهٔ کلید است: `period`، `limitUsd` (حداکثر ۸ رقم اعشار) و/یا `limitTokens`، و
+  `alertThresholds` (۱ تا ۱۰۰، پیش‌فرض `[50, 80, 100]`)؛ برای هر دوره یک بودجه.
+- وقتی مبلغ بودجه عوض می‌شود شناسه‌اش ثابت می‌ماند (upsert بر اساس scope، شناسهٔ scope و دوره)، پس
+  گیت‌وی دورهٔ جاری را روی همان شمارندهٔ Valkey ادامه می‌دهد.
+- **تأیید دونفره (کارت 22.2):** اگر سازمان تأیید را لازم کرده باشد، `PUT` یا `DELETE`ی که بودجه‌ها را
+  تغییر دهد با `202` و change request در انتظار (نوع `limit.budgets`) پاسخ می‌دهد و تا تأیید نفر دوم
+  چیزی عوض نمی‌شود. تغییر فقط rate limit یا فرستادن همان بودجه‌ها بی‌درنگ اعمال می‌شود.
+- هر تغییر با `limit.updated` در audit ثبت می‌شود و با snapshot بعدی به گیت‌وی می‌رسد.
+- وقتی بودجهٔ یک پروژه (یا تیم) پر شود، همهٔ کلیدهای آن پروژه (یا همهٔ پروژه‌های آن تیم)
+  `429 budget_exceeded` می‌گیرند، مثلاً `Monthly project budget exceeded (USD 25.5)`؛ کلیدهای
+  پروژه‌های دیگر اثری نمی‌بینند (`apps/gateway/src/scope-budget.test.ts`).
 
 </div>

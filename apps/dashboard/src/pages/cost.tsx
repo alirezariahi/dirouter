@@ -17,6 +17,7 @@ import { BarList } from '../components/charts/bar-list';
 import { TrendChart } from '../components/charts/trend-chart';
 import { PageHeader, RangeTabs, Section, Stat } from '../components/s2/common';
 import { SemanticCacheSection } from '../components/s2/semantic-cache';
+import { ScopeUsageSection } from '../components/scope-usage';
 import { ErrorState, Loading } from '../components/ui/states';
 import { api } from '../lib/api';
 import { useFormat } from '../lib/s2-format';
@@ -283,6 +284,8 @@ export default function CostPage() {
           </ul>
         )}
       </Section>
+
+      {org ? <ScopeUsageSection orgId={org.id} /> : null}
 
       {org ? <SemanticCacheSection orgId={org.id} /> : null}
 

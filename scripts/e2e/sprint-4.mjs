@@ -598,6 +598,97 @@ try {
     },
   );
 
+  await scenario(
+    '25.5 a project monthly budget set through the limits API stops that project’s keys with budget_exceeded; usage shows the spend',
+    async () => {
+      const suffix = randomUUID().slice(0, 6);
+      const project = async (name) => {
+        const body = (
+          await org(
+            'POST',
+            'projects',
+            { name: `S4 ${name} ${suffix}`, slug: `s4-${name}-${suffix}` },
+            201,
+          )
+        ).body;
+        cleanups.push(() => org('DELETE', `projects/${body.id}`, undefined, null));
+        return body;
+      };
+      const limited = await project('limited');
+      const free = await project('free');
+      const keyIn = async (projectId) => {
+        const { body } = await published(() =>
+          org('POST', 'keys', { name: `s4-budget-${randomUUID().slice(0, 6)}`, projectId }, 201),
+        );
+        cleanups.push(() => org('POST', `keys/${body.id}/revoke`, undefined, null));
+        return body;
+      };
+      const [first, second, other] = [
+        await keyIn(limited.id),
+        await keyIn(limited.id),
+        await keyIn(free.id),
+      ];
+      await waitFor('gateway to know the new keys', async () => {
+        const probe = await fetch(`${urls.gateway}/v1/models`, {
+          headers: { authorization: `Bearer ${other.key}` },
+        });
+        return probe.status === 200;
+      });
+
+      // The smallest budget the API accepts: one request of mock/small already spends more.
+      const set = await published(() =>
+        org(
+          'PUT',
+          `limits/project/${limited.id}`,
+          {
+            rpm: 1000,
+            budgets: [{ period: 'monthly', limitUsd: '0.00000001', alertThresholds: [100] }],
+          },
+          200,
+        ),
+      );
+      cleanups.push(() => org('DELETE', `limits/project/${limited.id}`, undefined, null));
+      assert.equal(set.body.budgets[0].limitUsd, '0.00000001');
+      assert.ok(
+        (await org('GET', 'limits', undefined, 200)).body.some((l) => l.scopeId === limited.id),
+      );
+
+      const ask = (key) =>
+        chat(key.key, {
+          model: 'mock/small',
+          max_tokens: 8,
+          messages: [{ role: 'user', content: 'spend a little' }],
+        });
+      assert.equal((await ask(first)).response.status, 200, 'the first request still runs');
+      const refused = await waitFor('the project budget to stop the key', async () => {
+        const res = await ask(first);
+        return res.response.status === 429 ? res : undefined;
+      });
+      assert.equal(refused.body.error.code, 'budget_exceeded');
+      assert.match(refused.body.error.message, /Monthly project budget exceeded/);
+      // The other key of the same project never spent anything and is stopped too.
+      const sibling = await ask(second);
+      assert.equal(sibling.response.status, 429, sibling.text);
+      assert.equal(sibling.body.error.code, 'budget_exceeded');
+      // A key of another project is not affected.
+      assert.equal((await ask(other)).response.status, 200);
+
+      // The cost page's usage shows the project's spend once the worker wrote the ledger.
+      const usage = await waitFor('the spend in the usage report', async () => {
+        const body = (await org('GET', 'limits/usage', undefined, 200)).body;
+        const row = body.scopes.find((s) => s.scopeId === limited.id);
+        return row && Number(row.month.usd) > 0 ? row : undefined;
+      });
+      assert.equal(usage.budgets[0].period, 'monthly');
+      assert.ok(usage.budgets[0].usedPercent >= 100, JSON.stringify(usage.budgets));
+      assert.deepEqual(usage.rateLimit, { rpm: 1000, tpm: null, maxConcurrency: null });
+
+      // Removing the limits lets the keys through again.
+      await published(() => org('DELETE', `limits/project/${limited.id}`, undefined, 200));
+      assert.equal((await ask(second)).response.status, 200);
+    },
+  );
+
   // ───────────── Epic 24: observability ─────────────
 
   await scenario(
