@@ -76,7 +76,7 @@ Guardrail قانونی است که گیت‌وی روی درخواست (پیش �
 
 `block` با `content_filter` رد می‌کند؛ `flag` برخورد را با دسته‌ها ثبت می‌کند؛ `redact` مثل `flag` رفتار می‌کند. با `stage: both` درخواست پیش از مسیریابی و پاسخ پس از آن سنجیده می‌شود. در stream با `block` کل پاسخ تا کامل شدن نگه داشته و بعد سنجیده می‌شود؛ با `flag` متن جریان دارد و حکم در پایان ثبت می‌شود.
 
-کلاینت‌ها هم می‌توانند همین مدل‌ها را مستقیم با `POST /v1/moderations` (قالب OpenAI) صدا بزنند.
+کلاینت‌ها هم می‌توانند همین مدل‌ها را مستقیم با `POST /v1/moderations` (قالب OpenAI، ببینید [endpoint نظارت محتوا](../gateway/moderations.fa.md)) صدا بزنند.
 
 هر فراخوانی در `dirouter_gateway_guardrail_calls_total{type, outcome}` (`pass`، `flagged`، `timeout`، `error`) شمرده می‌شود و timeout یا خطا در لاگ سطح `warn` هم ثبت می‌شود.
 

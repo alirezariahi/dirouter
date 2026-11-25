@@ -138,12 +138,18 @@ export function maxEmbeddingBatch(
 
 // ───────────── Moderation (card 23.2) ─────────────
 
+/** One part of a multimodal moderation input (OpenAI's omni moderation models, card 30.3). */
+export type ModerationPart =
+  { type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } };
+
 export interface ModerationBuildContext {
   provider: ProviderConfig;
   model: ModelConfig;
   apiKey: string;
   credentialHeaders?: Record<string, string>;
   texts: string[];
+  /** Multimodal input, sent as is instead of `texts` (one result for all parts). */
+  parts?: ModerationPart[];
 }
 
 export interface ModerationResult {
@@ -151,6 +157,8 @@ export interface ModerationResult {
     flagged: boolean;
     categories: Record<string, boolean>;
     scores: Record<string, number>;
+    /** Which input types (`text`, `image`) each category was applied to (omni models). */
+    appliedInputTypes?: Record<string, string[]>;
   }[];
 }
 
@@ -161,6 +169,7 @@ export function parseModerationJson(json: unknown): ModerationResult {
       flagged?: unknown;
       categories?: Record<string, unknown>;
       category_scores?: Record<string, unknown>;
+      category_applied_input_types?: Record<string, unknown>;
     }[];
   };
   if (!Array.isArray(body.results)) throw new Error('moderation response has no results');
@@ -175,6 +184,16 @@ export function parseModerationJson(json: unknown): ModerationResult {
           (e): e is [string, number] => typeof e[1] === 'number',
         ),
       ),
+      ...(r.category_applied_input_types
+        ? {
+            appliedInputTypes: Object.fromEntries(
+              Object.entries(r.category_applied_input_types).map(([k, v]) => [
+                k,
+                Array.isArray(v) ? v.filter((t): t is string => typeof t === 'string') : [],
+              ]),
+            ),
+          }
+        : {}),
     })),
   };
 }
@@ -343,7 +362,7 @@ class OpenAICompatibleAdapter implements ProviderAdapter {
         ...presetFor(ctx.provider).headers,
         ...ctx.credentialHeaders,
       },
-      body: JSON.stringify({ model: ctx.model.upstreamModel, input: ctx.texts }),
+      body: JSON.stringify({ model: ctx.model.upstreamModel, input: ctx.parts ?? ctx.texts }),
     };
   }
 

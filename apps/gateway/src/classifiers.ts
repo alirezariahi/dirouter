@@ -18,7 +18,11 @@ import {
   moderationConfig,
   type ModerationConfig,
 } from '@dirouter/contracts';
-import { adapterForProvider, type ModerationResult } from '@dirouter/providers';
+import {
+  adapterForProvider,
+  type ModerationPart,
+  type ModerationResult,
+} from '@dirouter/providers';
 import type { Candidate } from '@dirouter/routing';
 import { DiRouterError, ValidationError } from '@dirouter/shared';
 import type { FastifyReply, FastifyRequest } from 'fastify';
@@ -36,11 +40,15 @@ export function moderate(
   input: {
     model: string;
     texts: string[];
+    /** Multimodal input (text and image parts), sent to the provider as is (card 30.3). */
+    parts?: ModerationPart[];
     nested?: { requestId: string };
     signal?: AbortSignal;
   },
 ): Promise<MeteredResult<ModerationResult>> {
-  const estimated = roughTokens(input.texts);
+  // An image counts as a short text for rate limits and the usage estimate.
+  const images = input.parts?.filter((p) => p.type === 'image_url').length ?? 0;
+  const estimated = roughTokens(input.texts) + images * 85;
   return runMetered<ModerationResult>(req, deps, {
     inboundApi: 'openai.moderations',
     model: input.model,
@@ -59,6 +67,7 @@ export function moderate(
         model: candidate.model,
         apiKey,
         texts: input.texts,
+        ...(input.parts ? { parts: input.parts } : {}),
         credentialHeaders: candidate.credential.headers,
       }),
     read: async (response, candidate) => {
@@ -301,6 +310,32 @@ export async function externalVerdicts(
   return verdicts;
 }
 
+/**
+ * The `input` of a moderation request: a string, an array of strings, or (omni moderation models)
+ * an array of `{type: "text", text}` and `{type: "image_url", image_url: {url}}` parts, which the
+ * provider judges together and answers with one result.
+ */
+export function readModerationInput(
+  input: unknown,
+): { texts: string[]; parts?: ModerationPart[] } | undefined {
+  if (typeof input === 'string') return { texts: [input] };
+  if (!Array.isArray(input) || input.length === 0) return undefined;
+  if (input.every((x) => typeof x === 'string')) return { texts: input };
+  const parts: ModerationPart[] = [];
+  for (const raw of input as unknown[]) {
+    const part = (raw ?? {}) as { type?: unknown; text?: unknown; image_url?: { url?: unknown } };
+    if (part.type === 'text' && typeof part.text === 'string')
+      parts.push({ type: 'text', text: part.text });
+    else if (part.type === 'image_url' && typeof part.image_url?.url === 'string')
+      parts.push({ type: 'image_url', image_url: { url: part.image_url.url } });
+    else return undefined;
+  }
+  return {
+    texts: parts.flatMap((p) => (p.type === 'text' ? [p.text] : [])),
+    parts,
+  };
+}
+
 /** `POST /v1/moderations`: OpenAI-compatible, through routing, limits, wallet and usage. */
 export async function handleModerations(
   req: FastifyRequest,
@@ -308,21 +343,20 @@ export async function handleModerations(
   deps: ProxyDeps,
 ): Promise<void> {
   const body = (req.body ?? {}) as { model?: unknown; input?: unknown };
-  const texts =
-    typeof body.input === 'string'
-      ? [body.input]
-      : Array.isArray(body.input) && body.input.every((x) => typeof x === 'string')
-        ? body.input
-        : undefined;
-  if (texts === undefined || texts.length === 0) {
+  const input = readModerationInput(body.input);
+  if (input === undefined) {
     const e = new ValidationError([
-      { path: 'input', message: 'input must be a string or an array of strings' },
+      {
+        path: 'input',
+        message:
+          'input must be a string, an array of strings, or an array of text and image_url parts',
+      },
     ]);
     reply.status(e.status).send(e.toOpenAI());
     return;
   }
   const model = typeof body.model === 'string' ? body.model : 'omni-moderation-latest';
-  const result = await moderate(req, deps, { model, texts });
+  const result = await moderate(req, deps, { model, ...input });
   for (const [name, value] of Object.entries(result.headers ?? {})) void reply.header(name, value);
   if (!result.ok) {
     const e =
@@ -340,6 +374,7 @@ export async function handleModerations(
       flagged: r.flagged,
       categories: r.categories,
       category_scores: r.scores,
+      ...(r.appliedInputTypes ? { category_applied_input_types: r.appliedInputTypes } : {}),
     })),
   });
 }

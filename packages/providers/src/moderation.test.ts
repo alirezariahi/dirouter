@@ -62,4 +62,34 @@ describe('moderation', () => {
     ).toBeUndefined();
     expect('buildModerationRequest' in adapterFor('anthropic')).toBe(false);
   });
+
+  it('sends multimodal parts as is and reads the input types each category applied to (card 30.3)', () => {
+    const adapter = adapterFor('openai');
+    const parts = [
+      { type: 'text' as const, text: 'a cat' },
+      { type: 'image_url' as const, image_url: { url: 'https://example.com/cat.png' } },
+    ];
+    const built = adapter.buildModerationRequest?.({
+      provider: provider('openai'),
+      model,
+      apiKey: 'k',
+      texts: ['a cat'],
+      parts,
+    });
+    expect(JSON.parse(built?.body ?? '{}')).toEqual({
+      model: 'omni-moderation-latest',
+      input: parts,
+    });
+    const parsed = adapter.parseModerationResponse?.({
+      results: [
+        {
+          flagged: false,
+          categories: { violence: false },
+          category_scores: { violence: 0.01 },
+          category_applied_input_types: { violence: ['text', 'image'] },
+        },
+      ],
+    });
+    expect(parsed?.results[0]?.appliedInputTypes).toEqual({ violence: ['text', 'image'] });
+  });
 });

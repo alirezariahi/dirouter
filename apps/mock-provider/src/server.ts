@@ -322,8 +322,24 @@ export function buildServer(options: MockServerOptions = {}) {
     const s = scenarioFor(req);
     await sleep(sampleLatency(s.latency));
     if (await maybeFail('openai', s, req, reply)) return;
-    const body = (req.body ?? {}) as { model?: string; input?: string | string[] };
-    const inputs = Array.isArray(body.input) ? body.input : [body.input ?? ''];
+    const body = (req.body ?? {}) as {
+      model?: string;
+      input?: string | string[] | { type?: string; text?: string }[];
+    };
+    // Multimodal input (card 30.3): all parts are judged together, as one result.
+    const multimodal =
+      Array.isArray(body.input) && body.input.some((part) => typeof part !== 'string');
+    const parts = (Array.isArray(body.input) ? body.input : []) as {
+      type?: string;
+      text?: string;
+    }[];
+    const inputs = multimodal
+      ? [parts.map((part) => part.text ?? '').join(' ')]
+      : Array.isArray(body.input)
+        ? (body.input as string[])
+        : [body.input ?? ''];
+    const types =
+      multimodal && parts.some((part) => part.type === 'image_url') ? ['text', 'image'] : ['text'];
     record(req, 200);
     return reply.send({
       id: `modr-mock${Date.now().toString(36)}`,
@@ -337,6 +353,9 @@ export function buildServer(options: MockServerOptions = {}) {
           flagged: Object.values(categories).some(Boolean),
           categories,
           category_scores: scores,
+          category_applied_input_types: Object.fromEntries(
+            Object.keys(scores).map((name) => [name, types]),
+          ),
         };
       }),
     });

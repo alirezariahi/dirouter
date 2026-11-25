@@ -74,7 +74,7 @@ A `moderation` policy (card 23.2, since v1.1) sends the text to a moderation mod
 
 `block` rejects with `content_filter`; `flag` records the hit with the categories; `redact` behaves like `flag`. With `stage: both` the request is checked before routing and the answer after it. In a stream with `block` the whole answer is held until it is complete and then judged; with `flag` the text flows and the verdict is recorded at the end.
 
-Clients can call the same moderation models directly with `POST /v1/moderations` (OpenAI format).
+Clients can call the same moderation models directly with `POST /v1/moderations` (OpenAI format, see [the moderations endpoint](../gateway/moderations.md)).
 
 Every call is counted in `dirouter_gateway_guardrail_calls_total{type, outcome}` (`pass`, `flagged`, `timeout`, `error`); a timeout or failure is also logged at `warn` (`guardrail model call timed out` / `failed`).
 
