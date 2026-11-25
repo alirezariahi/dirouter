@@ -506,7 +506,13 @@ try {
       const tested = (await org('POST', `mcp/servers/${server.id}/test`, undefined, 200)).body;
       assert.equal(tested.ok, true, JSON.stringify(tested));
       assert.ok(tested.latencyMs >= 0);
-      assert.deepEqual(tested.tools.map((t) => t.name).sort(), ['add', 'echo', 'fail', 'whoami']);
+      assert.deepEqual(tested.tools.map((t) => t.name).sort(), [
+        'add',
+        'echo',
+        'fail',
+        'link',
+        'whoami',
+      ]);
 
       // A broken address is a failed test, not an error of the page.
       const broken = (
@@ -714,7 +720,8 @@ try {
       const chunks = (list) => list.filter((e) => e.event === 'chunk').map((e) => e.data);
 
       // Four models at once, as the dashboard does: one stream per column.
-      const models = ['mock/small', 'mock/long', 'mock/claude', 'mock/gemini'];
+      // Four different providers. Not mock/long: it streams for ten minutes by design.
+      const models = ['mock/small', 'mock/azure', 'mock/claude', 'mock/gemini'];
       const columns = await Promise.all(
         models.map((model) => play({ model, topP: 0.9, reasoningEffort: 'low' })),
       );
@@ -916,7 +923,7 @@ try {
           ...compose,
           'exec',
           '-T',
-          'dev-deps',
+          'mock-provider',
           'node',
           '-e',
           `require('http').createServer((q,s)=>{let b='';q.on('data',c=>b+=c);q.on('end',()=>{require('fs').appendFileSync('/repo/${file}',JSON.stringify({url:q.url,body:b})+'\\n');s.writeHead(200,{'content-type':'application/json'});s.end('{}')})}).listen(4319,'0.0.0.0')`,
@@ -929,12 +936,12 @@ try {
         collector.kill('SIGTERM');
         await exec(
           'docker',
-          [...compose, 'exec', '-T', 'dev-deps', 'sh', '-c', "pkill -f 'listen(4319' || true"],
+          [...compose, 'exec', '-T', 'mock-provider', 'sh', '-c', "pkill -f 'listen(4319' || true"],
           { cwd: root, env: composeEnv },
         ).catch(() => undefined);
       });
       await new Promise((r) => setTimeout(r, 1_500));
-      const otlp = 'http://dev-deps:4319/v1';
+      const otlp = 'http://mock-provider:4319/v1';
       const settings = (attributes) =>
         published(() =>
           org(
@@ -2192,8 +2199,13 @@ try {
         'Mozilla/5.0 (X11; Linux x86_64) Firefox/140.0',
       );
       const memberSessions = (await org('GET', `members/${member.user.id}/sessions`)).body;
+      // An organization admin sees that the member has sessions, not their devices or addresses:
+      // sessions are per user and can belong to other organizations (review fix).
       assert.ok(
-        memberSessions.some((s) => s.device === 'Firefox on Linux'),
+        memberSessions.length > 0 &&
+          memberSessions.every(
+            (s) => s.device === 'Hidden' && s.ip === null && s.userAgent === null,
+          ),
         JSON.stringify(memberSessions),
       );
       const ended = (await org('POST', `members/${member.user.id}/sessions/revoke`)).body;
