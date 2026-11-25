@@ -83,4 +83,38 @@ request.estimated_tokens > 100000 && key.team == ''  → رد (۴۰۰)
 هر درخواست کار قانون‌ها را در `policy.rules` رویداد مصرف (`matched`، `decidedBy`، `target`، `tags`)
 ثبت می‌کند و پاسخ هدر `x-dirouter-rule` را با قانون تصمیم‌گیرنده دارد.
 
+## ۲. canary و تقسیم درصدی ترافیک (کارت ۳۲.۳)
+
+هر تقسیم، درخواست‌های یک نام (`match`، چیزی که مشتری یا یک قانون می‌خواهد) را به اندازهٔ
+`canaryPercent` از ترافیک (۰ تا ۱۰۰، دو رقم اعشار) به مقصد `canary` و بقیه را به `stable` می‌فرستد.
+درست بعد از قانون‌ها اجرا می‌شود، پس مقصد یک قانون هم می‌تواند تقسیم شود.
+
+- **چسبندگی.** `key` (پیش‌فرض) هر کلید را روی شاخه‌اش نگه می‌دارد، `session` هر نشست را (هدر
+  session affinity، پیش‌فرض `x-dirouter-session`، و در نبودش کلید) و `request` برای هر درخواست
+  قرعه می‌کشد. شاخه از hash شناسهٔ تقسیم و شناسهٔ هویت در ۱۰٬۰۰۰ سطل به دست می‌آید: بالا بردن درصد
+  فقط هویت‌های پایدار را به canary می‌برد. در ۱۰٬۰۰۰ هویت، سهم واقعی در ±۱٪ مقدار تنظیم‌شده است
+  (`split.test.ts`، `traffic-split.test.ts` و سناریوی end-to-end).
+- **نسخه‌ها.** هر تغییر یک نسخهٔ تازه با دلیلش است (`created`، `updated`، `rollback`،
+  `auto_rollback`، `restore`). `POST …/rollback` بدون بدنه همه‌چیز را فوراً به پایدار برمی‌گرداند
+  (وضعیت `rolled_back`)؛ با `{ toVersion }` تنظیمات آن نسخه نسخهٔ تازه می‌شود. تغییر canary یا سهم
+  آن، یا `PATCH { state: 'active' }`، تقسیم برگشت‌خورده را از سر می‌گیرد.
+- **بازگشت خودکار.** با `autoRollback` (`errorRate` پیش‌فرض ۰٫۲، `minRequests` پیش‌فرض ۲۰،
+  `windowSeconds` پیش‌فرض ۶۰) گیت‌وی شکست‌های canary (هر پاسخ 5xx، از جمله نبود provider در دسترس)
+  را در پنجرهٔ غلتان می‌پاید. با عبور نرخ از آستانه، همان replica فوراً canary را کنار می‌گذارد،
+  پرچم `dirouter:split:rolledback:<id>:<version>` را در Valkey می‌گذارد (replicaهای دیگر هر دو ثانیه
+  این پرچم‌ها را می‌خوانند) و رویدادی در `dirouter:splits:rollbacks` می‌گذارد که control-api در چند
+  ثانیه به نسخهٔ تازهٔ `rolled_back` تبدیلش می‌کند. شاخهٔ پایدار هرگز برگشت نمی‌خورد.
+- **مقایسه.** `GET …/splits/:id/report?from&to&version` دو شاخه را مقایسه می‌کند: تعداد درخواست،
+  خطا و نرخ خطا، میانگین و p95 تأخیر، میانگین زمان تا اولین توکن، توکن‌ها و هزینهٔ کل و میانگین، از
+  لاگ درخواست (`policy.split`).
+
+پاسخ‌ها هدر `x-dirouter-split: <id>; v=<version>; branch=<stable|canary>` دارند؛ نام مدلی که مشتری
+می‌بیند همان است که فرستاده.
+
+| متد و مسیر                                                                          | مجوز           |
+| ----------------------------------------------------------------------------------- | -------------- |
+| `GET /orgs/:orgId/routing/splits` و `GET …/:id/versions`                            | `models:read`  |
+| `POST /orgs/:orgId/routing/splits` و `PATCH`/`DELETE …/:id` و `POST …/:id/rollback` | `models:write` |
+| `GET /orgs/:orgId/routing/splits/:id/report`                                        | `usage:read`   |
+
 </div>

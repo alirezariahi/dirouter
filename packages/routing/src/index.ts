@@ -8,6 +8,7 @@ export * from './classifier.js';
 export * from './auto.js';
 export * from './rules-expr.js';
 export * from './rules.js';
+export * from './split.js';
 export * from './preferences.js';
 export * from './policy.js';
 export * from './plan.js';

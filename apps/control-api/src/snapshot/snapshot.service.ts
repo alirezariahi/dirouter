@@ -176,6 +176,7 @@ export class SnapshotService implements OnModuleInit, OnModuleDestroy {
       mcpServers,
       bodyCapture,
       routingRules,
+      trafficSplits,
       routingPolicies,
     ] = await Promise.all([
       db.provider.findMany({
@@ -216,6 +217,8 @@ export class SnapshotService implements OnModuleInit, OnModuleDestroy {
       }),
       // Conditional routing rules (card 32.2).
       db.routingRule.findMany({ orderBy: [{ priority: 'asc' }, { id: 'asc' }] }),
+      // Canary and percentage traffic splits (card 32.3).
+      db.trafficSplit.findMany({ orderBy: { id: 'asc' } }),
       // Routing policies (cards 32.1, 32.5 and 32.7).
       db.routingPolicySetting.findMany({
         orderBy: [{ organizationId: 'asc' }, { scope: 'asc' }, { scopeId: 'asc' }],
@@ -473,6 +476,25 @@ export class SnapshotService implements OnModuleInit, OnModuleDestroy {
               ...(r.projectId ? { projectId: r.projectId } : {}),
               condition: r.condition,
               action: r.action as never,
+            })),
+          }
+        : {}),
+      // Traffic splits (card 32.3); absent while nobody has one.
+      ...(trafficSplits.length > 0
+        ? {
+            trafficSplits: trafficSplits.map((s) => ({
+              id: s.id,
+              organizationId: s.organizationId,
+              name: s.name,
+              enabled: s.enabled,
+              version: s.version,
+              match: s.match,
+              stable: s.stable,
+              canary: s.canary,
+              canaryPercent: Number(s.canaryPercent),
+              stickiness: s.stickiness as 'key' | 'session' | 'request',
+              ...(s.autoRollback ? { autoRollback: s.autoRollback as never } : {}),
+              state: s.state as 'active' | 'rolled_back',
             })),
           }
         : {}),

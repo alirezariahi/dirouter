@@ -82,3 +82,40 @@ and `budget: { key, project, team }` and returns the matched rules and the final
 
 Each request records what the rules did in the usage event's `policy.rules` (`matched`,
 `decidedBy`, `target`, `tags`) and the response carries `x-dirouter-rule` with the deciding rule.
+
+## 2. Canary and percentage traffic splits (card 32.3)
+
+A split sends requests for one name (`match`, what clients or a rule ask for) to a `canary` target
+for `canaryPercent` of the traffic (0–100, two decimals) and to `stable` for the rest. It runs
+right after the rules, so a rule's target can be split too.
+
+- **Stickiness.** `key` (default) keeps a key on its branch, `session` keeps a session (the
+  session-affinity header, default `x-dirouter-session`, falling back to the key) and `request`
+  draws per request. The branch comes from a hash of the split id and the identity into 10,000
+  buckets: raising the percentage only moves stable identities to the canary. Over 10,000
+  identities the observed share is within ±1% of the setting (`split.test.ts`,
+  `traffic-split.test.ts` and the end-to-end scenario).
+- **Versions.** Every change is a new version with its reason (`created`, `updated`, `rollback`,
+  `auto_rollback`, `restore`). `POST …/rollback` without a body sends everything back to stable at
+  once (state `rolled_back`); with `{ toVersion }` that version's settings become the newest
+  version. Changing the canary or its share, or `PATCH { state: 'active' }`, resumes a rolled-back
+  split.
+- **Automatic rollback.** With `autoRollback` (`errorRate`, default 0.2; `minRequests`, default
+  20; `windowSeconds`, default 60) the gateway watches the canary's failures (any 5xx answer,
+  including no available provider) in a rolling window. When the rate crosses the threshold the
+  replica stops using the canary at once, sets `dirouter:split:rolledback:<id>:<version>` in Valkey
+  (the other replicas read these flags every two seconds) and queues an event on
+  `dirouter:splits:rollbacks`; control-api turns it into a new `rolled_back` version within seconds.
+  The stable branch is never rolled back.
+- **Comparison.** `GET …/splits/:id/report?from&to&version` compares the branches: requests,
+  errors and error rate, average and p95 latency, average time to first token, tokens and total and
+  average cost, from the request log (`policy.split`).
+
+Responses carry `x-dirouter-split: <id>; v=<version>; branch=<stable|canary>`; the client-facing
+model name stays the one the client sent.
+
+| Method and path                                                                   | Permission     |
+| --------------------------------------------------------------------------------- | -------------- |
+| `GET /orgs/:orgId/routing/splits`, `GET …/:id/versions`                           | `models:read`  |
+| `POST /orgs/:orgId/routing/splits`, `PATCH`/`DELETE …/:id`, `POST …/:id/rollback` | `models:write` |
+| `GET /orgs/:orgId/routing/splits/:id/report`                                      | `usage:read`   |

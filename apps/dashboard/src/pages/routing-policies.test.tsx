@@ -144,6 +144,73 @@ describe('routing policies page', () => {
     });
   });
 
+  it('shows splits with the branch comparison and rolls back or restores (card 32.3)', async () => {
+    const split = {
+      id: 'spl_1',
+      version: 3,
+      name: 'big to next',
+      match: 'big',
+      stable: 'big',
+      canary: 'next',
+      canaryPercent: 10,
+      stickiness: 'key',
+      autoRollback: { enabled: true, errorRate: 0.2 },
+      state: 'active',
+    };
+    const branch = (model: string, errorRate: number) => ({
+      model,
+      requests: 10,
+      errors: 0,
+      errorRate,
+      avgLatencyMs: 120,
+      p95LatencyMs: 300,
+      costUsd: '0.5',
+      avgCostUsd: '0.05',
+    });
+    const calls = mockApi((path, method) => {
+      if (path.endsWith('/routing/splits') && method === 'GET')
+        return { status: 200, body: [split] };
+      if (path.endsWith('/report'))
+        return { status: 200, body: { stable: branch('big', 0), canary: branch('next', 0.25) } };
+      if (path.endsWith('/versions'))
+        return {
+          status: 200,
+          body: [
+            {
+              version: 3,
+              reason: 'auto_rollback',
+              createdAt: '',
+              config: { canary: 'next', canaryPercent: 10 },
+            },
+            {
+              version: 1,
+              reason: 'created',
+              createdAt: '',
+              config: { canary: 'next', canaryPercent: 5 },
+            },
+          ],
+        };
+      if (path.endsWith('/rollback')) return { status: 200, body: split };
+      return undefined;
+    });
+    await renderPage();
+    fireEvent.click(await screen.findByRole('radio', { name: 'Canary and splits' }));
+    expect((await screen.findByTestId('split-canary')).textContent).toContain('25%');
+    expect((await screen.findByTestId('split-stable')).textContent).toContain('big');
+    fireEvent.click(screen.getByRole('button', { name: 'Roll back to stable now' }));
+    await vi.waitFor(() => {
+      expect(calls.find((c) => c.path.endsWith('/rollback'))?.body).toEqual({});
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Versions' }));
+    expect(await screen.findByText('rolled back automatically')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Restore this version' }));
+    await vi.waitFor(() => {
+      expect(calls.filter((c) => c.path.endsWith('/rollback')).at(-1)?.body).toEqual({
+        toVersion: 1,
+      });
+    });
+  });
+
   it('is read only without models:write', async () => {
     mockApi(
       (path) => (path.endsWith('/routing/rules') ? { status: 200, body: [RULE] } : undefined),

@@ -80,6 +80,7 @@ model Organization {
   serviceAccounts  ServiceAccount[]
   managementTokens ManagementToken[]
   routingRules     RoutingRule[]
+  trafficSplits    TrafficSplit[]
   @@map("organizations")
 }
 
@@ -1627,6 +1628,51 @@ model RoutingRule {
 
   @@index([organizationId, priority])
   @@map("routing_rules")
+}
+
+/// Canary / percentage traffic split (card 32.3); every change is a new version.
+model TrafficSplit {
+  id             String   @id
+  organizationId String   @map("organization_id")
+  name           String
+  enabled        Boolean  @default(true)
+  version        Int      @default(1)
+  /// The name clients ask for; one split per name and organization.
+  match          String
+  stable         String
+  canary         String
+  canaryPercent  Decimal  @map("canary_percent") @db.Decimal(5, 2)
+  /// `key`, `session` or `request`
+  stickiness     String   @default("key")
+  /// `{ enabled, errorRate, minRequests, windowSeconds }` or null for no automatic rollback.
+  autoRollback   Json?    @map("auto_rollback")
+  /// `active` or `rolled_back` (everything goes to `stable`).
+  state          String   @default("active")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  versions     TrafficSplitVersion[]
+
+  @@unique([organizationId, match])
+  @@map("traffic_splits")
+}
+
+/// History of a traffic split: the configuration of each version and why it was made.
+model TrafficSplitVersion {
+  id          String   @id
+  splitId     String   @map("split_id")
+  version     Int
+  config      Json
+  /// `created`, `updated`, `rollback`, `auto_rollback` or `restore`
+  reason      String
+  createdById String?  @map("created_by_id")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  split TrafficSplit @relation(fields: [splitId], references: [id], onDelete: Cascade)
+
+  @@unique([splitId, version])
+  @@map("traffic_split_versions")
 }
 
 /// Routing policies per organization, project or key (cards 32.1, 32.5 and 32.7): provider

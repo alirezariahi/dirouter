@@ -9,13 +9,21 @@ import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { ConfigSnapshot, type VirtualKeyConfig } from '@dirouter/contracts';
-import { type HealthRegistry, RouteIndex, Router, RulesEngine } from '@dirouter/routing';
+import {
+  type HealthRegistry,
+  RouteIndex,
+  Router,
+  RulesEngine,
+  SplitIndex,
+} from '@dirouter/routing';
 import { decrypt, type Keyring, type Logger } from '@dirouter/shared';
 
 export class LoadedConfig {
   readonly router: Router;
   /** Conditional routing rules, compiled once per snapshot (card 32.2). */
   readonly rules: RulesEngine;
+  /** Canary and percentage traffic splits (card 32.3). */
+  readonly splits: SplitIndex;
   readonly keysByHash = new Map<string, VirtualKeyConfig>();
   readonly #secrets = new Map<string, string>();
 
@@ -26,6 +34,7 @@ export class LoadedConfig {
   ) {
     this.router = new Router(new RouteIndex(snapshot), health);
     this.rules = new RulesEngine(snapshot.routingRules);
+    this.splits = new SplitIndex(snapshot.trafficSplits);
     for (const key of snapshot.virtualKeys) this.keysByHash.set(key.hash, key);
   }
 

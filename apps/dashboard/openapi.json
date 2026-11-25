@@ -21766,6 +21766,1047 @@
           "models & routing"
         ]
       }
+    },
+    "/api/v1/orgs/{orgId}/routing/splits": {
+      "get": {
+        "operationId": "TrafficSplitsController_list",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "version": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "enabled": {
+                        "type": "boolean"
+                      },
+                      "match": {
+                        "type": "string"
+                      },
+                      "stable": {
+                        "type": "string"
+                      },
+                      "canary": {
+                        "type": "string"
+                      },
+                      "canaryPercent": {
+                        "type": "number"
+                      },
+                      "stickiness": {
+                        "type": "string",
+                        "enum": [
+                          "key",
+                          "session",
+                          "request"
+                        ]
+                      },
+                      "autoRollback": {
+                        "nullable": true,
+                        "type": "object",
+                        "properties": {
+                          "enabled": {
+                            "type": "boolean"
+                          },
+                          "errorRate": {
+                            "type": "number"
+                          },
+                          "minRequests": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "windowSeconds": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          }
+                        },
+                        "required": [
+                          "enabled",
+                          "errorRate",
+                          "minRequests",
+                          "windowSeconds"
+                        ]
+                      },
+                      "state": {
+                        "type": "string",
+                        "enum": [
+                          "active",
+                          "rolled_back"
+                        ]
+                      },
+                      "createdAt": {
+                        "type": "string"
+                      },
+                      "updatedAt": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "version",
+                      "name",
+                      "enabled",
+                      "match",
+                      "stable",
+                      "canary",
+                      "canaryPercent",
+                      "stickiness",
+                      "autoRollback",
+                      "state",
+                      "createdAt",
+                      "updatedAt"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "routing policies"
+        ]
+      },
+      "post": {
+        "operationId": "TrafficSplitsController_create",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "match": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "description": "the name clients ask for"
+                  },
+                  "stable": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "canary": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "canaryPercent": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 100
+                  },
+                  "stickiness": {
+                    "type": "string",
+                    "enum": [
+                      "key",
+                      "session",
+                      "request"
+                    ]
+                  },
+                  "autoRollback": {
+                    "description": "null turns it off",
+                    "nullable": true,
+                    "type": "object",
+                    "properties": {
+                      "enabled": {
+                        "type": "boolean"
+                      },
+                      "errorRate": {
+                        "type": "number",
+                        "minimum": 0,
+                        "exclusiveMinimum": true,
+                        "maximum": 1
+                      },
+                      "minRequests": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 100000
+                      },
+                      "windowSeconds": {
+                        "type": "integer",
+                        "minimum": 10,
+                        "maximum": 3600
+                      }
+                    }
+                  }
+                },
+                "required": [
+                  "name",
+                  "match",
+                  "stable",
+                  "canary",
+                  "canaryPercent"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "version": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "enabled": {
+                      "type": "boolean"
+                    },
+                    "match": {
+                      "type": "string"
+                    },
+                    "stable": {
+                      "type": "string"
+                    },
+                    "canary": {
+                      "type": "string"
+                    },
+                    "canaryPercent": {
+                      "type": "number"
+                    },
+                    "stickiness": {
+                      "type": "string",
+                      "enum": [
+                        "key",
+                        "session",
+                        "request"
+                      ]
+                    },
+                    "autoRollback": {
+                      "nullable": true,
+                      "type": "object",
+                      "properties": {
+                        "enabled": {
+                          "type": "boolean"
+                        },
+                        "errorRate": {
+                          "type": "number"
+                        },
+                        "minRequests": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "windowSeconds": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "enabled",
+                        "errorRate",
+                        "minRequests",
+                        "windowSeconds"
+                      ]
+                    },
+                    "state": {
+                      "type": "string",
+                      "enum": [
+                        "active",
+                        "rolled_back"
+                      ]
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "updatedAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "version",
+                    "name",
+                    "enabled",
+                    "match",
+                    "stable",
+                    "canary",
+                    "canaryPercent",
+                    "stickiness",
+                    "autoRollback",
+                    "state",
+                    "createdAt",
+                    "updatedAt"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "routing policies"
+        ]
+      }
+    },
+    "/api/v1/orgs/{orgId}/routing/splits/{id}": {
+      "patch": {
+        "operationId": "TrafficSplitsController_update",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "match": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "description": "the name clients ask for"
+                  },
+                  "stable": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "canary": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "canaryPercent": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 100
+                  },
+                  "stickiness": {
+                    "type": "string",
+                    "enum": [
+                      "key",
+                      "session",
+                      "request"
+                    ]
+                  },
+                  "autoRollback": {
+                    "description": "null turns it off",
+                    "nullable": true,
+                    "type": "object",
+                    "properties": {
+                      "enabled": {
+                        "type": "boolean"
+                      },
+                      "errorRate": {
+                        "type": "number",
+                        "minimum": 0,
+                        "exclusiveMinimum": true,
+                        "maximum": 1
+                      },
+                      "minRequests": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 100000
+                      },
+                      "windowSeconds": {
+                        "type": "integer",
+                        "minimum": 10,
+                        "maximum": 3600
+                      }
+                    }
+                  },
+                  "state": {
+                    "type": "string",
+                    "enum": [
+                      "active"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "version": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "enabled": {
+                      "type": "boolean"
+                    },
+                    "match": {
+                      "type": "string"
+                    },
+                    "stable": {
+                      "type": "string"
+                    },
+                    "canary": {
+                      "type": "string"
+                    },
+                    "canaryPercent": {
+                      "type": "number"
+                    },
+                    "stickiness": {
+                      "type": "string",
+                      "enum": [
+                        "key",
+                        "session",
+                        "request"
+                      ]
+                    },
+                    "autoRollback": {
+                      "nullable": true,
+                      "type": "object",
+                      "properties": {
+                        "enabled": {
+                          "type": "boolean"
+                        },
+                        "errorRate": {
+                          "type": "number"
+                        },
+                        "minRequests": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "windowSeconds": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "enabled",
+                        "errorRate",
+                        "minRequests",
+                        "windowSeconds"
+                      ]
+                    },
+                    "state": {
+                      "type": "string",
+                      "enum": [
+                        "active",
+                        "rolled_back"
+                      ]
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "updatedAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "version",
+                    "name",
+                    "enabled",
+                    "match",
+                    "stable",
+                    "canary",
+                    "canaryPercent",
+                    "stickiness",
+                    "autoRollback",
+                    "state",
+                    "createdAt",
+                    "updatedAt"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "routing policies"
+        ]
+      },
+      "delete": {
+        "operationId": "TrafficSplitsController_remove",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "routing policies"
+        ]
+      }
+    },
+    "/api/v1/orgs/{orgId}/routing/splits/{id}/rollback": {
+      "post": {
+        "operationId": "TrafficSplitsController_rollback",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "toVersion": {
+                    "description": "restore this version; without it everything goes back to stable",
+                    "type": "integer",
+                    "minimum": 0,
+                    "exclusiveMinimum": true,
+                    "maximum": 9007199254740991
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "version": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "enabled": {
+                      "type": "boolean"
+                    },
+                    "match": {
+                      "type": "string"
+                    },
+                    "stable": {
+                      "type": "string"
+                    },
+                    "canary": {
+                      "type": "string"
+                    },
+                    "canaryPercent": {
+                      "type": "number"
+                    },
+                    "stickiness": {
+                      "type": "string",
+                      "enum": [
+                        "key",
+                        "session",
+                        "request"
+                      ]
+                    },
+                    "autoRollback": {
+                      "nullable": true,
+                      "type": "object",
+                      "properties": {
+                        "enabled": {
+                          "type": "boolean"
+                        },
+                        "errorRate": {
+                          "type": "number"
+                        },
+                        "minRequests": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "windowSeconds": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "enabled",
+                        "errorRate",
+                        "minRequests",
+                        "windowSeconds"
+                      ]
+                    },
+                    "state": {
+                      "type": "string",
+                      "enum": [
+                        "active",
+                        "rolled_back"
+                      ]
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "updatedAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "version",
+                    "name",
+                    "enabled",
+                    "match",
+                    "stable",
+                    "canary",
+                    "canaryPercent",
+                    "stickiness",
+                    "autoRollback",
+                    "state",
+                    "createdAt",
+                    "updatedAt"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "routing policies"
+        ]
+      }
+    },
+    "/api/v1/orgs/{orgId}/routing/splits/{id}/versions": {
+      "get": {
+        "operationId": "TrafficSplitsController_versions",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "version": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "reason": {
+                        "type": "string"
+                      },
+                      "config": {
+                        "type": "object",
+                        "additionalProperties": {}
+                      },
+                      "createdById": {
+                        "nullable": true,
+                        "type": "string"
+                      },
+                      "createdAt": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "version",
+                      "reason",
+                      "config",
+                      "createdById",
+                      "createdAt"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "routing policies"
+        ]
+      }
+    },
+    "/api/v1/orgs/{orgId}/routing/splits/{id}/report": {
+      "get": {
+        "operationId": "TrafficSplitsController_report",
+        "parameters": [
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+            }
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+            }
+          },
+          {
+            "name": "version",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "exclusiveMinimum": true,
+              "maximum": 9007199254740991
+            }
+          },
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "version": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "state": {
+                      "type": "string"
+                    },
+                    "from": {
+                      "type": "string"
+                    },
+                    "to": {
+                      "type": "string"
+                    },
+                    "stable": {
+                      "type": "object",
+                      "properties": {
+                        "model": {
+                          "type": "string"
+                        },
+                        "requests": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "errors": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "errorRate": {
+                          "type": "number"
+                        },
+                        "avgLatencyMs": {
+                          "nullable": true,
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "p95LatencyMs": {
+                          "nullable": true,
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "avgTtftMs": {
+                          "nullable": true,
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "costUsd": {
+                          "type": "string"
+                        },
+                        "avgCostUsd": {
+                          "type": "string"
+                        },
+                        "tokens": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "model",
+                        "requests",
+                        "errors",
+                        "errorRate",
+                        "avgLatencyMs",
+                        "p95LatencyMs",
+                        "avgTtftMs",
+                        "costUsd",
+                        "avgCostUsd",
+                        "tokens"
+                      ]
+                    },
+                    "canary": {
+                      "type": "object",
+                      "properties": {
+                        "model": {
+                          "type": "string"
+                        },
+                        "requests": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "errors": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "errorRate": {
+                          "type": "number"
+                        },
+                        "avgLatencyMs": {
+                          "nullable": true,
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "p95LatencyMs": {
+                          "nullable": true,
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "avgTtftMs": {
+                          "nullable": true,
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "costUsd": {
+                          "type": "string"
+                        },
+                        "avgCostUsd": {
+                          "type": "string"
+                        },
+                        "tokens": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "model",
+                        "requests",
+                        "errors",
+                        "errorRate",
+                        "avgLatencyMs",
+                        "p95LatencyMs",
+                        "avgTtftMs",
+                        "costUsd",
+                        "avgCostUsd",
+                        "tokens"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "version",
+                    "state",
+                    "from",
+                    "to",
+                    "stable",
+                    "canary"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "routing policies"
+        ]
+      }
     }
   },
   "info": {

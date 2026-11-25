@@ -1,4 +1,5 @@
-/** Routing policies over HTTP (sprint 5): rules (32.2). */
+/** Routing policies over HTTP (sprint 5): rules (32.2) and traffic splits (32.3). */
+import { SPLIT_ROLLBACKS_KEY, splitRolledBackKey } from '@dirouter/contracts';
 import { generateKey } from '@dirouter/shared';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -7,7 +8,9 @@ import { hashPassword } from '../auth/crypto.js';
 import { createApp } from '../bootstrap.js';
 import { envSchema } from '../env.js';
 import { PrismaService } from '../infra/prisma.service.js';
+import { ValkeyService } from '../infra/valkey.service.js';
 import { SnapshotService } from '../snapshot/snapshot.service.js';
+import { TrafficSplitsService } from './splits.service.js';
 
 const DATABASE_URL = process.env.INTEGRATION_DATABASE_URL;
 const VALKEY_URL = process.env.INTEGRATION_VALKEY_URL;
@@ -103,7 +106,7 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('routing policies over HTTP', () =
       }),
     );
     await db().$executeRawUnsafe(
-      'TRUNCATE refresh_tokens, memberships, audit_logs, users, api_keys, projects, teams, providers, models, routing_rules, request_log, change_requests, organizations CASCADE',
+      'TRUNCATE refresh_tokens, memberships, audit_logs, users, api_keys, projects, teams, providers, models, routing_rules, traffic_splits, request_log, change_requests, organizations CASCADE',
     );
     await app.init();
     await app.getHttpAdapter().getInstance().ready();
@@ -127,6 +130,7 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('routing policies over HTTP', () =
     team = (await call('POST', 'teams', { name: 'Search' })).json<{ id: string }>().id;
     await addModel(org, 'cheap', '0.1');
     await addModel(org, 'big', '30');
+    await addModel(org, 'next', '1');
     await addModel(otherOrg, 'theirs', '1');
     await member('viewer', 'VIEWER');
     await member('member', 'MEMBER');
@@ -291,6 +295,197 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('routing policies over HTTP', () =
           (r) => r.organizationId === org,
         ),
       ).toEqual([]);
+    });
+  });
+
+  describe('traffic splits (card 32.3)', () => {
+    let splitId = '';
+    const body = {
+      name: 'big to next',
+      match: 'big',
+      stable: 'big',
+      canary: 'next',
+      canaryPercent: 10,
+      stickiness: 'session',
+      autoRollback: { errorRate: 0.3, minRequests: 5 },
+    };
+
+    it('creates a split as version 1 and publishes it', async () => {
+      const res = await call('POST', 'routing/splits', body);
+      expect(res.statusCode).toBe(201);
+      const created = res.json<{ id: string; version: number; autoRollback: unknown }>();
+      splitId = created.id;
+      expect(created).toMatchObject({ version: 1, state: 'active', canaryPercent: 10 });
+      expect(created.autoRollback).toEqual({
+        enabled: true,
+        errorRate: 0.3,
+        minRequests: 5,
+        windowSeconds: 60,
+      });
+      const image = await snapshot();
+      expect(image.trafficSplits).toEqual([
+        expect.objectContaining({ id: splitId, organizationId: org, version: 1, canary: 'next' }),
+      ]);
+    });
+
+    it('refuses bad splits', async () => {
+      for (const bad of [
+        { ...body, match: 'x1', canary: 'big' },
+        { ...body, match: 'x2', canary: 'theirs' },
+        { ...body, match: 'x3', canaryPercent: 10.555 },
+        body,
+      ])
+        expect((await call('POST', 'routing/splits', bad)).statusCode).toBe(400);
+      expect(
+        (await call('POST', 'routing/splits', { ...body, canaryPercent: 101 })).statusCode,
+      ).toBe(422);
+    });
+
+    it('versions every change, rolls back instantly and restores an older version', async () => {
+      const v2 = (
+        await call('PATCH', `routing/splits/${splitId}`, { canaryPercent: 25 })
+      ).json<unknown>();
+      expect(v2).toMatchObject({ version: 2, canaryPercent: 25, state: 'active' });
+      const v3 = (await call('POST', `routing/splits/${splitId}/rollback`, {})).json<unknown>();
+      expect(v3).toMatchObject({ version: 3, canaryPercent: 25, state: 'rolled_back' });
+      expect(
+        ((await snapshot()).trafficSplits as { state: string; version: number }[])[0],
+      ).toMatchObject({ version: 3, state: 'rolled_back' });
+      const v4 = (
+        await call('POST', `routing/splits/${splitId}/rollback`, { toVersion: 1 })
+      ).json<unknown>();
+      expect(v4).toMatchObject({ version: 4, canaryPercent: 10, state: 'active' });
+      const versions = (await call('GET', `routing/splits/${splitId}/versions`)).json<
+        { version: number; reason: string }[]
+      >();
+      expect(versions.map((v) => [v.version, v.reason])).toEqual([
+        [4, 'restore'],
+        [3, 'rollback'],
+        [2, 'updated'],
+        [1, 'created'],
+      ]);
+      expect(
+        (await call('POST', `routing/splits/${splitId}/rollback`, { toVersion: 99 })).statusCode,
+      ).toBe(404);
+    });
+
+    it("turns the gateway's automatic rollback into a new rolled-back version", async () => {
+      const valkey = app.get(ValkeyService).client;
+      const event = (version: number) =>
+        JSON.stringify({
+          splitId,
+          organizationId: org,
+          version,
+          errorRate: 0.6,
+          requests: 20,
+          at: new Date().toISOString(),
+        });
+      // A stale version (already superseded) and a forged organization change nothing.
+      await valkey.lpush(
+        SPLIT_ROLLBACKS_KEY,
+        event(2),
+        JSON.stringify({ ...JSON.parse(event(4)), organizationId: otherOrg }),
+        'not json',
+        event(4),
+      );
+      await valkey.set(splitRolledBackKey(splitId, 4), '1');
+      expect(await app.get(TrafficSplitsService).consumeRollbacks()).toBe(1);
+      const split = (await call('GET', 'routing/splits')).json<
+        { version: number; state: string }[]
+      >()[0];
+      expect(split).toMatchObject({ version: 5, state: 'rolled_back' });
+      const versions = (await call('GET', `routing/splits/${splitId}/versions`)).json<
+        { reason: string }[]
+      >();
+      expect(versions[0]?.reason).toBe('auto_rollback');
+      // Resuming re-arms it as a new version.
+      expect(
+        (await call('PATCH', `routing/splits/${splitId}`, { state: 'active' })).json(),
+      ).toMatchObject({ version: 6, state: 'active' });
+      await valkey.del(splitRolledBackKey(splitId, 4));
+    });
+
+    it('compares latency, errors and cost of the two branches', async () => {
+      const now = new Date();
+      const row = (n: number, branch: string, status: string, latencyMs: number, cost: string) => ({
+        id: `req_split_${String(n)}`,
+        createdAt: now,
+        organizationId: org,
+        projectId: 'prj',
+        apiKeyId: 'vk',
+        inboundApi: 'openai.chat',
+        requestedModel: 'big',
+        stream: false,
+        status,
+        httpStatus: status === 'success' ? 200 : 502,
+        inputTokens: 10,
+        outputTokens: 5,
+        costUsd: cost,
+        latencyMs,
+        configVersion: 1,
+        gatewayInstance: 'gw',
+        policy: { split: { id: splitId, version: 6, branch } },
+      });
+      await db().requestLog.createMany({
+        data: [
+          row(1, 'stable', 'success', 100, '0.001'),
+          row(2, 'stable', 'success', 300, '0.003'),
+          row(3, 'canary', 'success', 50, '0.0001'),
+          row(4, 'canary', 'error', 10, '0'),
+        ],
+      });
+      const report = (await call('GET', `routing/splits/${splitId}/report`)).json<unknown>();
+      expect(report).toMatchObject({
+        stable: { model: 'big', requests: 2, errors: 0, avgLatencyMs: 200, costUsd: '0.00400000' },
+        canary: { model: 'next', requests: 2, errors: 1, errorRate: 0.5, avgLatencyMs: 30 },
+      });
+      const other = (await call('GET', `routing/splits/${splitId}/report?version=5`)).json<{
+        stable: { requests: number };
+      }>();
+      expect(other.stable.requests).toBe(0);
+    });
+
+    it('keeps splits to their organization', async () => {
+      await db().trafficSplit.create({
+        data: {
+          id: 'spl_other',
+          organizationId: otherOrg,
+          name: 'x',
+          match: 'theirs',
+          stable: 'theirs',
+          canary: 'theirs2',
+          canaryPercent: 50,
+        },
+      });
+      expect(
+        (await call('GET', 'routing/splits')).json<{ id: string }[]>().map((x) => x.id),
+      ).toEqual([splitId]);
+      for (const [method, url] of [
+        ['PATCH', 'routing/splits/spl_other'],
+        ['POST', 'routing/splits/spl_other/rollback'],
+        ['GET', 'routing/splits/spl_other/report'],
+        ['GET', 'routing/splits/spl_other/versions'],
+        ['DELETE', 'routing/splits/spl_other'],
+      ] as const)
+        expect(
+          (
+            await call(
+              method,
+              url,
+              method === 'PATCH' ? { name: 'y' } : method === 'POST' ? {} : undefined,
+            )
+          ).statusCode,
+        ).toBe(404);
+      expect(
+        (
+          await inject(
+            tokens.member ?? '',
+            'POST',
+            `orgs/${org}/routing/splits/${splitId}/rollback`,
+            {},
+          )
+        ).statusCode,
+      ).toBe(403);
     });
   });
 });

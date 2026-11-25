@@ -6,13 +6,14 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { RulesPanel } from '../components/routing-policies/rules-panel';
+import { SplitsPanel } from '../components/routing-policies/splits-panel';
 import { PageHeader, Segmented } from '../components/s2/common';
 import { can, currentOrg, useSession } from '../lib/session';
 
-const TABS = ['rules'] as const;
+const TABS = ['rules', 'splits'] as const;
 type Tab = (typeof TABS)[number];
 
-const PANELS: Record<Tab, typeof RulesPanel> = { rules: RulesPanel };
+const PANELS: Record<Tab, typeof RulesPanel> = { rules: RulesPanel, splits: SplitsPanel };
 
 export default function RoutingPoliciesPage() {
   const { t } = useTranslation();

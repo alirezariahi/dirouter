@@ -7917,6 +7917,504 @@ export type RoutingPoliciesControllerSet200 = {
   configVersion: number;
 };
 
+export type TrafficSplitsControllerList200ItemStickiness = typeof TrafficSplitsControllerList200ItemStickiness[keyof typeof TrafficSplitsControllerList200ItemStickiness];
+
+
+export const TrafficSplitsControllerList200ItemStickiness = {
+  key: 'key',
+  session: 'session',
+  request: 'request',
+} as const;
+
+/**
+ * @nullable
+ */
+export type TrafficSplitsControllerList200ItemAutoRollback = {
+  enabled: boolean;
+  errorRate: number;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     */
+  minRequests: number;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     */
+  windowSeconds: number;
+} | null;
+
+export type TrafficSplitsControllerList200ItemState = typeof TrafficSplitsControllerList200ItemState[keyof typeof TrafficSplitsControllerList200ItemState];
+
+
+export const TrafficSplitsControllerList200ItemState = {
+  active: 'active',
+  rolled_back: 'rolled_back',
+} as const;
+
+export type TrafficSplitsControllerList200Item = {
+  id: string;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     */
+  version: number;
+  name: string;
+  enabled: boolean;
+  match: string;
+  stable: string;
+  canary: string;
+  canaryPercent: number;
+  stickiness: TrafficSplitsControllerList200ItemStickiness;
+  /** @nullable */
+  autoRollback: TrafficSplitsControllerList200ItemAutoRollback;
+  state: TrafficSplitsControllerList200ItemState;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type TrafficSplitsControllerCreateBodyStickiness = typeof TrafficSplitsControllerCreateBodyStickiness[keyof typeof TrafficSplitsControllerCreateBodyStickiness];
+
+
+export const TrafficSplitsControllerCreateBodyStickiness = {
+  key: 'key',
+  session: 'session',
+  request: 'request',
+} as const;
+
+/**
+ * null turns it off
+ * @nullable
+ */
+export type TrafficSplitsControllerCreateBodyAutoRollback = {
+  enabled?: boolean;
+  /**
+     * @maximum 1
+     * @exclusiveMinimum 0
+     */
+  errorRate?: number;
+  /**
+     * @minimum 1
+     * @maximum 100000
+     */
+  minRequests?: number;
+  /**
+     * @minimum 10
+     * @maximum 3600
+     */
+  windowSeconds?: number;
+} | null;
+
+export type TrafficSplitsControllerCreateBody = {
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  name: string;
+  enabled?: boolean;
+  /**
+     * the name clients ask for
+     * @minLength 1
+     * @maxLength 200
+     */
+  match: string;
+  /**
+     * @minLength 1
+     * @maxLength 200
+     */
+  stable: string;
+  /**
+     * @minLength 1
+     * @maxLength 200
+     */
+  canary: string;
+  /**
+     * @minimum 0
+     * @maximum 100
+     */
+  canaryPercent: number;
+  stickiness?: TrafficSplitsControllerCreateBodyStickiness;
+  /**
+     * null turns it off
+     * @nullable
+     */
+  autoRollback?: TrafficSplitsControllerCreateBodyAutoRollback;
+};
+
+export type TrafficSplitsControllerCreate200Stickiness = typeof TrafficSplitsControllerCreate200Stickiness[keyof typeof TrafficSplitsControllerCreate200Stickiness];
+
+
+export const TrafficSplitsControllerCreate200Stickiness = {
+  key: 'key',
+  session: 'session',
+  request: 'request',
+} as const;
+
+/**
+ * @nullable
+ */
+export type TrafficSplitsControllerCreate200AutoRollback = {
+  enabled: boolean;
+  errorRate: number;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     */
+  minRequests: number;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     */
+  windowSeconds: number;
+} | null;
+
+export type TrafficSplitsControllerCreate200State = typeof TrafficSplitsControllerCreate200State[keyof typeof TrafficSplitsControllerCreate200State];
+
+
+export const TrafficSplitsControllerCreate200State = {
+  active: 'active',
+  rolled_back: 'rolled_back',
+} as const;
+
+export type TrafficSplitsControllerCreate200 = {
+  id: string;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     */
+  version: number;
+  name: string;
+  enabled: boolean;
+  match: string;
+  stable: string;
+  canary: string;
+  canaryPercent: number;
+  stickiness: TrafficSplitsControllerCreate200Stickiness;
+  /** @nullable */
+  autoRollback: TrafficSplitsControllerCreate200AutoRollback;
+  state: TrafficSplitsControllerCreate200State;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type TrafficSplitsControllerUpdateBodyStickiness = typeof TrafficSplitsControllerUpdateBodyStickiness[keyof typeof TrafficSplitsControllerUpdateBodyStickiness];
+
+
+export const TrafficSplitsControllerUpdateBodyStickiness = {
+  key: 'key',
+  session: 'session',
+  request: 'request',
+} as const;
+
+/**
+ * null turns it off
+ * @nullable
+ */
+export type TrafficSplitsControllerUpdateBodyAutoRollback = {
+  enabled?: boolean;
+  /**
+     * @maximum 1
+     * @exclusiveMinimum 0
+     */
+  errorRate?: number;
+  /**
+     * @minimum 1
+     * @maximum 100000
+     */
+  minRequests?: number;
+  /**
+     * @minimum 10
+     * @maximum 3600
+     */
+  windowSeconds?: number;
+} | null;
+
+export type TrafficSplitsControllerUpdateBodyState = typeof TrafficSplitsControllerUpdateBodyState[keyof typeof TrafficSplitsControllerUpdateBodyState];
+
+
+export const TrafficSplitsControllerUpdateBodyState = {
+  active: 'active',
+} as const;
+
+export type TrafficSplitsControllerUpdateBody = {
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  name?: string;
+  enabled?: boolean;
+  /**
+     * the name clients ask for
+     * @minLength 1
+     * @maxLength 200
+     */
+  match?: string;
+  /**
+     * @minLength 1
+     * @maxLength 200
+     */
+  stable?: string;
+  /**
+     * @minLength 1
+     * @maxLength 200
+     */
+  canary?: string;
+  /**
+     * @minimum 0
+     * @maximum 100
+     */
+  canaryPercent?: number;
+  stickiness?: TrafficSplitsControllerUpdateBodyStickiness;
+  /**
+     * null turns it off
+     * @nullable
+     */
+  autoRollback?: TrafficSplitsControllerUpdateBodyAutoRollback;
+  state?: TrafficSplitsControllerUpdateBodyState;
+};
+
+export type TrafficSplitsControllerUpdate200Stickiness = typeof TrafficSplitsControllerUpdate200Stickiness[keyof typeof TrafficSplitsControllerUpdate200Stickiness];
+
+
+export const TrafficSplitsControllerUpdate200Stickiness = {
+  key: 'key',
+  session: 'session',
+  request: 'request',
+} as const;
+
+/**
+ * @nullable
+ */
+export type TrafficSplitsControllerUpdate200AutoRollback = {
+  enabled: boolean;
+  errorRate: number;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     */
+  minRequests: number;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     */
+  windowSeconds: number;
+} | null;
+
+export type TrafficSplitsControllerUpdate200State = typeof TrafficSplitsControllerUpdate200State[keyof typeof TrafficSplitsControllerUpdate200State];
+
+
+export const TrafficSplitsControllerUpdate200State = {
+  active: 'active',
+  rolled_back: 'rolled_back',
+} as const;
+
+export type TrafficSplitsControllerUpdate200 = {
+  id: string;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     */
+  version: number;
+  name: string;
+  enabled: boolean;
+  match: string;
+  stable: string;
+  canary: string;
+  canaryPercent: number;
+  stickiness: TrafficSplitsControllerUpdate200Stickiness;
+  /** @nullable */
+  autoRollback: TrafficSplitsControllerUpdate200AutoRollback;
+  state: TrafficSplitsControllerUpdate200State;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type TrafficSplitsControllerRollbackBody = {
+  /**
+     * restore this version; without it everything goes back to stable
+     * @maximum 9007199254740991
+     * @exclusiveMinimum 0
+     */
+  toVersion?: number;
+};
+
+export type TrafficSplitsControllerRollback200Stickiness = typeof TrafficSplitsControllerRollback200Stickiness[keyof typeof TrafficSplitsControllerRollback200Stickiness];
+
+
+export const TrafficSplitsControllerRollback200Stickiness = {
+  key: 'key',
+  session: 'session',
+  request: 'request',
+} as const;
+
+/**
+ * @nullable
+ */
+export type TrafficSplitsControllerRollback200AutoRollback = {
+  enabled: boolean;
+  errorRate: number;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     */
+  minRequests: number;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     */
+  windowSeconds: number;
+} | null;
+
+export type TrafficSplitsControllerRollback200State = typeof TrafficSplitsControllerRollback200State[keyof typeof TrafficSplitsControllerRollback200State];
+
+
+export const TrafficSplitsControllerRollback200State = {
+  active: 'active',
+  rolled_back: 'rolled_back',
+} as const;
+
+export type TrafficSplitsControllerRollback200 = {
+  id: string;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     */
+  version: number;
+  name: string;
+  enabled: boolean;
+  match: string;
+  stable: string;
+  canary: string;
+  canaryPercent: number;
+  stickiness: TrafficSplitsControllerRollback200Stickiness;
+  /** @nullable */
+  autoRollback: TrafficSplitsControllerRollback200AutoRollback;
+  state: TrafficSplitsControllerRollback200State;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type TrafficSplitsControllerVersions200ItemConfig = {[key: string]: unknown};
+
+export type TrafficSplitsControllerVersions200Item = {
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     */
+  version: number;
+  reason: string;
+  config: TrafficSplitsControllerVersions200ItemConfig;
+  /** @nullable */
+  createdById: string | null;
+  createdAt: string;
+};
+
+export type TrafficSplitsControllerReportParams = {
+  /** @pattern ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d+)?(?:Z|([+-](?:[01]\d|2[0-3]):[0-5]\d)))$ */
+  from?: string;
+  /** @pattern ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d+)?(?:Z|([+-](?:[01]\d|2[0-3]):[0-5]\d)))$ */
+  to?: string;
+  /**
+   * @maximum 9007199254740991
+   * @exclusiveMinimum 0
+   */
+  version?: number;
+};
+
+export type TrafficSplitsControllerReport200Stable = {
+  model: string;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     */
+  requests: number;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     */
+  errors: number;
+  errorRate: number;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  avgLatencyMs: number | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  p95LatencyMs: number | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  avgTtftMs: number | null;
+  costUsd: string;
+  avgCostUsd: string;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     */
+  tokens: number;
+};
+
+export type TrafficSplitsControllerReport200Canary = {
+  model: string;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     */
+  requests: number;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     */
+  errors: number;
+  errorRate: number;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  avgLatencyMs: number | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  p95LatencyMs: number | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  avgTtftMs: number | null;
+  costUsd: string;
+  avgCostUsd: string;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     */
+  tokens: number;
+};
+
+export type TrafficSplitsControllerReport200 = {
+  id: string;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     */
+  version: number;
+  state: string;
+  from: string;
+  to: string;
+  stable: TrafficSplitsControllerReport200Stable;
+  canary: TrafficSplitsControllerReport200Canary;
+};
+
 type AwaitedInput<T> = PromiseLike<T> | T;
 
       type Awaited<O> = O extends AwaitedInput<infer T> ? T : never;
@@ -32266,3 +32764,777 @@ export function useRoutingPoliciesControllerSet<TData = Awaited<ReturnType<typeo
 
   return withQueryKey(query, queryOptions.queryKey);
 }
+
+
+
+
+
+
+
+export type trafficSplitsControllerListResponse200 = {
+  data: TrafficSplitsControllerList200Item[]
+  status: 200
+}
+
+export type trafficSplitsControllerListResponseSuccess = (trafficSplitsControllerListResponse200) & {
+  headers: Headers;
+};
+;
+
+export type trafficSplitsControllerListResponse = (trafficSplitsControllerListResponseSuccess)
+
+export const getTrafficSplitsControllerListUrl = (orgId: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/routing/splits`
+}
+
+export const trafficSplitsControllerList = async (orgId: string, options?: Parameters<typeof orvalFetch>[1]): Promise<trafficSplitsControllerListResponse> => {
+
+  return orvalFetch<trafficSplitsControllerListResponse>(getTrafficSplitsControllerListUrl(orgId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getTrafficSplitsControllerListMutationKey = () => ['trafficSplitsControllerList'] as const;
+
+export const getTrafficSplitsControllerListMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof trafficSplitsControllerList>>, TError,TrafficSplitsControllerListMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof trafficSplitsControllerList>>, TError,TrafficSplitsControllerListMutationVariables, TContext> => {
+
+const mutationKey = getTrafficSplitsControllerListMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof trafficSplitsControllerList>>, TrafficSplitsControllerListMutationVariables> = (props) => {
+          const {orgId} = props ?? {};
+
+          return  trafficSplitsControllerList(orgId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type TrafficSplitsControllerListMutationResult = NonNullable<Awaited<ReturnType<typeof trafficSplitsControllerList>>>
+
+    export type TrafficSplitsControllerListMutationError = unknown
+    export type TrafficSplitsControllerListMutationVariables = {orgId: string}
+
+    export const useTrafficSplitsControllerList = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof trafficSplitsControllerList>>, TError,TrafficSplitsControllerListMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof trafficSplitsControllerList>>,
+        TError,
+        TrafficSplitsControllerListMutationVariables,
+        TContext
+      > => {
+      return useMutation(getTrafficSplitsControllerListMutationOptions(options), queryClient);
+    }
+
+export type trafficSplitsControllerCreateResponse200 = {
+  data: TrafficSplitsControllerCreate200
+  status: 200
+}
+
+export type trafficSplitsControllerCreateResponseSuccess = (trafficSplitsControllerCreateResponse200) & {
+  headers: Headers;
+};
+;
+
+export type trafficSplitsControllerCreateResponse = (trafficSplitsControllerCreateResponseSuccess)
+
+export const getTrafficSplitsControllerCreateUrl = (orgId: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/routing/splits`
+}
+
+export const trafficSplitsControllerCreate = async (orgId: string,
+    trafficSplitsControllerCreateBody: TrafficSplitsControllerCreateBody, options?: Parameters<typeof orvalFetch>[1]): Promise<trafficSplitsControllerCreateResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return orvalFetch<trafficSplitsControllerCreateResponse>(getTrafficSplitsControllerCreateUrl(orgId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(trafficSplitsControllerCreateBody)
+  }
+);}
+
+
+
+
+
+export const getTrafficSplitsControllerCreateQueryKey = (orgId: string,
+    trafficSplitsControllerCreateBody?: TrafficSplitsControllerCreateBody,) => {
+    return [
+    'POST', `/api/v1/orgs/${orgId}/routing/splits`, trafficSplitsControllerCreateBody
+    ] as const;
+    }
+
+
+export const getTrafficSplitsControllerCreateQueryOptions = <TData = Awaited<ReturnType<typeof trafficSplitsControllerCreate>>, TError = unknown>(orgId: string,
+    trafficSplitsControllerCreateBody: TrafficSplitsControllerCreateBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof trafficSplitsControllerCreate>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getTrafficSplitsControllerCreateQueryKey(orgId,trafficSplitsControllerCreateBody);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof trafficSplitsControllerCreate>>> = ({ signal }) => trafficSplitsControllerCreate(orgId,trafficSplitsControllerCreateBody, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: orgId !== null && orgId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof trafficSplitsControllerCreate>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type TrafficSplitsControllerCreateQueryResult = NonNullable<Awaited<ReturnType<typeof trafficSplitsControllerCreate>>>
+export type TrafficSplitsControllerCreateQueryError = unknown
+
+
+export function useTrafficSplitsControllerCreate<TData = Awaited<ReturnType<typeof trafficSplitsControllerCreate>>, TError = unknown>(
+ orgId: string,
+    trafficSplitsControllerCreateBody: TrafficSplitsControllerCreateBody, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof trafficSplitsControllerCreate>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof trafficSplitsControllerCreate>>,
+          TError,
+          Awaited<ReturnType<typeof trafficSplitsControllerCreate>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useTrafficSplitsControllerCreate<TData = Awaited<ReturnType<typeof trafficSplitsControllerCreate>>, TError = unknown>(
+ orgId: string,
+    trafficSplitsControllerCreateBody: TrafficSplitsControllerCreateBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof trafficSplitsControllerCreate>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof trafficSplitsControllerCreate>>,
+          TError,
+          Awaited<ReturnType<typeof trafficSplitsControllerCreate>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useTrafficSplitsControllerCreate<TData = Awaited<ReturnType<typeof trafficSplitsControllerCreate>>, TError = unknown>(
+ orgId: string,
+    trafficSplitsControllerCreateBody: TrafficSplitsControllerCreateBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof trafficSplitsControllerCreate>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useTrafficSplitsControllerCreate<TData = Awaited<ReturnType<typeof trafficSplitsControllerCreate>>, TError = unknown>(
+ orgId: string,
+    trafficSplitsControllerCreateBody: TrafficSplitsControllerCreateBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof trafficSplitsControllerCreate>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getTrafficSplitsControllerCreateQueryOptions(orgId,trafficSplitsControllerCreateBody,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export type trafficSplitsControllerUpdateResponse200 = {
+  data: TrafficSplitsControllerUpdate200
+  status: 200
+}
+
+export type trafficSplitsControllerUpdateResponseSuccess = (trafficSplitsControllerUpdateResponse200) & {
+  headers: Headers;
+};
+;
+
+export type trafficSplitsControllerUpdateResponse = (trafficSplitsControllerUpdateResponseSuccess)
+
+export const getTrafficSplitsControllerUpdateUrl = (orgId: string,
+    id: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/routing/splits/${id}`
+}
+
+export const trafficSplitsControllerUpdate = async (orgId: string,
+    id: string,
+    trafficSplitsControllerUpdateBody: TrafficSplitsControllerUpdateBody, options?: Parameters<typeof orvalFetch>[1]): Promise<trafficSplitsControllerUpdateResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return orvalFetch<trafficSplitsControllerUpdateResponse>(getTrafficSplitsControllerUpdateUrl(orgId,id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(trafficSplitsControllerUpdateBody)
+  }
+);}
+
+
+
+
+
+export const getTrafficSplitsControllerUpdateQueryKey = (orgId: string,
+    id: string,
+    trafficSplitsControllerUpdateBody?: TrafficSplitsControllerUpdateBody,) => {
+    return [
+    'PATCH', `/api/v1/orgs/${orgId}/routing/splits/${id}`, trafficSplitsControllerUpdateBody
+    ] as const;
+    }
+
+
+export const getTrafficSplitsControllerUpdateQueryOptions = <TData = Awaited<ReturnType<typeof trafficSplitsControllerUpdate>>, TError = unknown>(orgId: string,
+    id: string,
+    trafficSplitsControllerUpdateBody: TrafficSplitsControllerUpdateBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof trafficSplitsControllerUpdate>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getTrafficSplitsControllerUpdateQueryKey(orgId,id,trafficSplitsControllerUpdateBody);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof trafficSplitsControllerUpdate>>> = ({ signal }) => trafficSplitsControllerUpdate(orgId,id,trafficSplitsControllerUpdateBody, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: orgId !== null && orgId !== undefined && id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof trafficSplitsControllerUpdate>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type TrafficSplitsControllerUpdateQueryResult = NonNullable<Awaited<ReturnType<typeof trafficSplitsControllerUpdate>>>
+export type TrafficSplitsControllerUpdateQueryError = unknown
+
+
+export function useTrafficSplitsControllerUpdate<TData = Awaited<ReturnType<typeof trafficSplitsControllerUpdate>>, TError = unknown>(
+ orgId: string,
+    id: string,
+    trafficSplitsControllerUpdateBody: TrafficSplitsControllerUpdateBody, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof trafficSplitsControllerUpdate>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof trafficSplitsControllerUpdate>>,
+          TError,
+          Awaited<ReturnType<typeof trafficSplitsControllerUpdate>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useTrafficSplitsControllerUpdate<TData = Awaited<ReturnType<typeof trafficSplitsControllerUpdate>>, TError = unknown>(
+ orgId: string,
+    id: string,
+    trafficSplitsControllerUpdateBody: TrafficSplitsControllerUpdateBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof trafficSplitsControllerUpdate>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof trafficSplitsControllerUpdate>>,
+          TError,
+          Awaited<ReturnType<typeof trafficSplitsControllerUpdate>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useTrafficSplitsControllerUpdate<TData = Awaited<ReturnType<typeof trafficSplitsControllerUpdate>>, TError = unknown>(
+ orgId: string,
+    id: string,
+    trafficSplitsControllerUpdateBody: TrafficSplitsControllerUpdateBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof trafficSplitsControllerUpdate>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useTrafficSplitsControllerUpdate<TData = Awaited<ReturnType<typeof trafficSplitsControllerUpdate>>, TError = unknown>(
+ orgId: string,
+    id: string,
+    trafficSplitsControllerUpdateBody: TrafficSplitsControllerUpdateBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof trafficSplitsControllerUpdate>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getTrafficSplitsControllerUpdateQueryOptions(orgId,id,trafficSplitsControllerUpdateBody,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export type trafficSplitsControllerRemoveResponse204 = {
+  data: void
+  status: 204
+}
+
+export type trafficSplitsControllerRemoveResponseSuccess = (trafficSplitsControllerRemoveResponse204) & {
+  headers: Headers;
+};
+;
+
+export type trafficSplitsControllerRemoveResponse = (trafficSplitsControllerRemoveResponseSuccess)
+
+export const getTrafficSplitsControllerRemoveUrl = (orgId: string,
+    id: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/routing/splits/${id}`
+}
+
+export const trafficSplitsControllerRemove = async (orgId: string,
+    id: string, options?: Parameters<typeof orvalFetch>[1]): Promise<trafficSplitsControllerRemoveResponse> => {
+
+  return orvalFetch<trafficSplitsControllerRemoveResponse>(getTrafficSplitsControllerRemoveUrl(orgId,id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getTrafficSplitsControllerRemoveQueryKey = (orgId: string,
+    id: string,) => {
+    return [
+    'DELETE', `/api/v1/orgs/${orgId}/routing/splits/${id}`
+    ] as const;
+    }
+
+
+export const getTrafficSplitsControllerRemoveQueryOptions = <TData = Awaited<ReturnType<typeof trafficSplitsControllerRemove>>, TError = unknown>(orgId: string,
+    id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof trafficSplitsControllerRemove>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getTrafficSplitsControllerRemoveQueryKey(orgId,id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof trafficSplitsControllerRemove>>> = ({ signal }) => trafficSplitsControllerRemove(orgId,id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: orgId !== null && orgId !== undefined && id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof trafficSplitsControllerRemove>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type TrafficSplitsControllerRemoveQueryResult = NonNullable<Awaited<ReturnType<typeof trafficSplitsControllerRemove>>>
+export type TrafficSplitsControllerRemoveQueryError = unknown
+
+
+export function useTrafficSplitsControllerRemove<TData = Awaited<ReturnType<typeof trafficSplitsControllerRemove>>, TError = unknown>(
+ orgId: string,
+    id: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof trafficSplitsControllerRemove>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof trafficSplitsControllerRemove>>,
+          TError,
+          Awaited<ReturnType<typeof trafficSplitsControllerRemove>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useTrafficSplitsControllerRemove<TData = Awaited<ReturnType<typeof trafficSplitsControllerRemove>>, TError = unknown>(
+ orgId: string,
+    id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof trafficSplitsControllerRemove>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof trafficSplitsControllerRemove>>,
+          TError,
+          Awaited<ReturnType<typeof trafficSplitsControllerRemove>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useTrafficSplitsControllerRemove<TData = Awaited<ReturnType<typeof trafficSplitsControllerRemove>>, TError = unknown>(
+ orgId: string,
+    id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof trafficSplitsControllerRemove>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useTrafficSplitsControllerRemove<TData = Awaited<ReturnType<typeof trafficSplitsControllerRemove>>, TError = unknown>(
+ orgId: string,
+    id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof trafficSplitsControllerRemove>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getTrafficSplitsControllerRemoveQueryOptions(orgId,id,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export type trafficSplitsControllerRollbackResponse200 = {
+  data: TrafficSplitsControllerRollback200
+  status: 200
+}
+
+export type trafficSplitsControllerRollbackResponseSuccess = (trafficSplitsControllerRollbackResponse200) & {
+  headers: Headers;
+};
+;
+
+export type trafficSplitsControllerRollbackResponse = (trafficSplitsControllerRollbackResponseSuccess)
+
+export const getTrafficSplitsControllerRollbackUrl = (orgId: string,
+    id: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/routing/splits/${id}/rollback`
+}
+
+export const trafficSplitsControllerRollback = async (orgId: string,
+    id: string,
+    trafficSplitsControllerRollbackBody: TrafficSplitsControllerRollbackBody, options?: Parameters<typeof orvalFetch>[1]): Promise<trafficSplitsControllerRollbackResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return orvalFetch<trafficSplitsControllerRollbackResponse>(getTrafficSplitsControllerRollbackUrl(orgId,id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(trafficSplitsControllerRollbackBody)
+  }
+);}
+
+
+
+
+
+export const getTrafficSplitsControllerRollbackQueryKey = (orgId: string,
+    id: string,
+    trafficSplitsControllerRollbackBody?: TrafficSplitsControllerRollbackBody,) => {
+    return [
+    'POST', `/api/v1/orgs/${orgId}/routing/splits/${id}/rollback`, trafficSplitsControllerRollbackBody
+    ] as const;
+    }
+
+
+export const getTrafficSplitsControllerRollbackQueryOptions = <TData = Awaited<ReturnType<typeof trafficSplitsControllerRollback>>, TError = unknown>(orgId: string,
+    id: string,
+    trafficSplitsControllerRollbackBody: TrafficSplitsControllerRollbackBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof trafficSplitsControllerRollback>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getTrafficSplitsControllerRollbackQueryKey(orgId,id,trafficSplitsControllerRollbackBody);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof trafficSplitsControllerRollback>>> = ({ signal }) => trafficSplitsControllerRollback(orgId,id,trafficSplitsControllerRollbackBody, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: orgId !== null && orgId !== undefined && id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof trafficSplitsControllerRollback>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type TrafficSplitsControllerRollbackQueryResult = NonNullable<Awaited<ReturnType<typeof trafficSplitsControllerRollback>>>
+export type TrafficSplitsControllerRollbackQueryError = unknown
+
+
+export function useTrafficSplitsControllerRollback<TData = Awaited<ReturnType<typeof trafficSplitsControllerRollback>>, TError = unknown>(
+ orgId: string,
+    id: string,
+    trafficSplitsControllerRollbackBody: TrafficSplitsControllerRollbackBody, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof trafficSplitsControllerRollback>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof trafficSplitsControllerRollback>>,
+          TError,
+          Awaited<ReturnType<typeof trafficSplitsControllerRollback>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useTrafficSplitsControllerRollback<TData = Awaited<ReturnType<typeof trafficSplitsControllerRollback>>, TError = unknown>(
+ orgId: string,
+    id: string,
+    trafficSplitsControllerRollbackBody: TrafficSplitsControllerRollbackBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof trafficSplitsControllerRollback>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof trafficSplitsControllerRollback>>,
+          TError,
+          Awaited<ReturnType<typeof trafficSplitsControllerRollback>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useTrafficSplitsControllerRollback<TData = Awaited<ReturnType<typeof trafficSplitsControllerRollback>>, TError = unknown>(
+ orgId: string,
+    id: string,
+    trafficSplitsControllerRollbackBody: TrafficSplitsControllerRollbackBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof trafficSplitsControllerRollback>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useTrafficSplitsControllerRollback<TData = Awaited<ReturnType<typeof trafficSplitsControllerRollback>>, TError = unknown>(
+ orgId: string,
+    id: string,
+    trafficSplitsControllerRollbackBody: TrafficSplitsControllerRollbackBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof trafficSplitsControllerRollback>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getTrafficSplitsControllerRollbackQueryOptions(orgId,id,trafficSplitsControllerRollbackBody,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export type trafficSplitsControllerVersionsResponse200 = {
+  data: TrafficSplitsControllerVersions200Item[]
+  status: 200
+}
+
+export type trafficSplitsControllerVersionsResponseSuccess = (trafficSplitsControllerVersionsResponse200) & {
+  headers: Headers;
+};
+;
+
+export type trafficSplitsControllerVersionsResponse = (trafficSplitsControllerVersionsResponseSuccess)
+
+export const getTrafficSplitsControllerVersionsUrl = (orgId: string,
+    id: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/routing/splits/${id}/versions`
+}
+
+export const trafficSplitsControllerVersions = async (orgId: string,
+    id: string, options?: Parameters<typeof orvalFetch>[1]): Promise<trafficSplitsControllerVersionsResponse> => {
+
+  return orvalFetch<trafficSplitsControllerVersionsResponse>(getTrafficSplitsControllerVersionsUrl(orgId,id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getTrafficSplitsControllerVersionsMutationKey = () => ['trafficSplitsControllerVersions'] as const;
+
+export const getTrafficSplitsControllerVersionsMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof trafficSplitsControllerVersions>>, TError,TrafficSplitsControllerVersionsMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof trafficSplitsControllerVersions>>, TError,TrafficSplitsControllerVersionsMutationVariables, TContext> => {
+
+const mutationKey = getTrafficSplitsControllerVersionsMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof trafficSplitsControllerVersions>>, TrafficSplitsControllerVersionsMutationVariables> = (props) => {
+          const {orgId,id} = props ?? {};
+
+          return  trafficSplitsControllerVersions(orgId,id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type TrafficSplitsControllerVersionsMutationResult = NonNullable<Awaited<ReturnType<typeof trafficSplitsControllerVersions>>>
+
+    export type TrafficSplitsControllerVersionsMutationError = unknown
+    export type TrafficSplitsControllerVersionsMutationVariables = {orgId: string;id: string}
+
+    export const useTrafficSplitsControllerVersions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof trafficSplitsControllerVersions>>, TError,TrafficSplitsControllerVersionsMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof trafficSplitsControllerVersions>>,
+        TError,
+        TrafficSplitsControllerVersionsMutationVariables,
+        TContext
+      > => {
+      return useMutation(getTrafficSplitsControllerVersionsMutationOptions(options), queryClient);
+    }
+
+export type trafficSplitsControllerReportResponse200 = {
+  data: TrafficSplitsControllerReport200
+  status: 200
+}
+
+export type trafficSplitsControllerReportResponseSuccess = (trafficSplitsControllerReportResponse200) & {
+  headers: Headers;
+};
+;
+
+export type trafficSplitsControllerReportResponse = (trafficSplitsControllerReportResponseSuccess)
+
+export const getTrafficSplitsControllerReportUrl = (orgId: string,
+    id: string,
+    params?: TrafficSplitsControllerReportParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/v1/orgs/${orgId}/routing/splits/${id}/report?${stringifiedParams}` : `/api/v1/orgs/${orgId}/routing/splits/${id}/report`
+}
+
+export const trafficSplitsControllerReport = async (orgId: string,
+    id: string,
+    params?: TrafficSplitsControllerReportParams, options?: Parameters<typeof orvalFetch>[1]): Promise<trafficSplitsControllerReportResponse> => {
+
+  return orvalFetch<trafficSplitsControllerReportResponse>(getTrafficSplitsControllerReportUrl(orgId,id,params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getTrafficSplitsControllerReportMutationKey = () => ['trafficSplitsControllerReport'] as const;
+
+export const getTrafficSplitsControllerReportMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof trafficSplitsControllerReport>>, TError,TrafficSplitsControllerReportMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof trafficSplitsControllerReport>>, TError,TrafficSplitsControllerReportMutationVariables, TContext> => {
+
+const mutationKey = getTrafficSplitsControllerReportMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof trafficSplitsControllerReport>>, TrafficSplitsControllerReportMutationVariables> = (props) => {
+          const {orgId,id,params} = props ?? {};
+
+          return  trafficSplitsControllerReport(orgId,id,params,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type TrafficSplitsControllerReportMutationResult = NonNullable<Awaited<ReturnType<typeof trafficSplitsControllerReport>>>
+
+    export type TrafficSplitsControllerReportMutationError = unknown
+    export type TrafficSplitsControllerReportMutationVariables = {orgId: string;id: string;params?: TrafficSplitsControllerReportParams}
+
+    export const useTrafficSplitsControllerReport = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof trafficSplitsControllerReport>>, TError,TrafficSplitsControllerReportMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof trafficSplitsControllerReport>>,
+        TError,
+        TrafficSplitsControllerReportMutationVariables,
+        TContext
+      > => {
+      return useMutation(getTrafficSplitsControllerReportMutationOptions(options), queryClient);
+    }

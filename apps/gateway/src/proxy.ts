@@ -55,6 +55,7 @@ import {
   type RetryBudget,
   type RouteExplanation,
   withAttempts,
+  type SplitHealth,
   type TaskType,
 } from '@dirouter/routing';
 import {
@@ -138,7 +139,7 @@ import {
 } from './genai.js';
 import { resolveCredentialKey, tokenFailure } from './credential-tokens.js';
 import { callUpstream, mergeTimeouts, readErrorBody, UpstreamTimeout } from './upstream.js';
-import { applyRoutingRules } from './routing-policy.js';
+import { applyRoutingRules, applyTrafficSplit } from './routing-policy.js';
 import type { WebSearchExtension } from './web-search.js';
 import {
   planErrorToClient,
@@ -186,6 +187,8 @@ export interface ProxyDeps {
   tracer?: Tracer;
   /** Destination of captured request bodies (card 24.1); never the usage path. */
   recordBody?: RecordBody;
+  /** Canary error rates and rollbacks, kept across snapshots (card 32.3). */
+  splitHealth?: SplitHealth;
   /**
    * Web search and fetch (card 30.8). `web.serveOnline(api, req, reply)` answers a chat request in
    * online mode (search, inject the results, return the sources) for the `:online` suffix.
@@ -798,8 +801,15 @@ async function proxyRequest(
     }
     if (rules.decision.target) routeName = rules.decision.target;
   }
-  // The rule's target is the organization's choice: the key's allow-list applied to the name the
-  // client sent (checked before the rules ran), not to where a rule sends it.
+  // Canary and percentage split (card 32.3) of the name the rules left; the branch is sticky per
+  // key or session, and a failing canary rolls itself back.
+  const split = applyTrafficSplit(config, deps.splitHealth, key, routeName, req, reply);
+  if (split) {
+    policy = { ...policy, split: split.trace };
+    routeName = split.target;
+  }
+  // The rule's or split's target is the organization's choice: the key's allow-list applied to the
+  // name the client sent (checked before the rules ran), not to where a policy sends it.
   const ruleRouted = routeName !== canonical.model;
 
   // Automatic model choice for the `auto*` aliases (card 20.4), unless the organization defines a

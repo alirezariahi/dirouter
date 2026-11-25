@@ -232,5 +232,60 @@ export const PolicyTrace = z.object({
       tags: z.record(z.string(), z.string()).optional(),
     })
     .optional(),
+  /** The traffic split that chose the branch (card 32.3). */
+  split: z
+    .object({ id: z.string(), version: z.int(), branch: z.enum(['stable', 'canary']) })
+    .optional(),
 });
 export type PolicyTrace = z.infer<typeof PolicyTrace>;
+
+/** Automatic rollback of a canary (card 32.3): the canary's error rate over a rolling window. */
+export const SplitAutoRollback = z.object({
+  enabled: z.boolean().default(true),
+  /** Share of failed canary requests (0..1) that rolls the split back. */
+  errorRate: z.number().gt(0).max(1).default(0.2),
+  /** Canary requests the window needs before it may decide. */
+  minRequests: z.int().min(1).max(100_000).default(20),
+  windowSeconds: z.int().min(10).max(3_600).default(60),
+});
+export type SplitAutoRollback = z.infer<typeof SplitAutoRollback>;
+
+/**
+ * Canary and percentage traffic split (card 32.3): requests for `match` go to `canary` for
+ * `canaryPercent` of the traffic and to `stable` for the rest. The branch is sticky per key, per
+ * session or chosen per request. Every change is a new `version`; a rolled-back split sends
+ * everything to `stable`.
+ */
+export const TrafficSplitConfig = z.object({
+  id: z.string(),
+  organizationId: z.string(),
+  name: z.string().min(1).max(100),
+  enabled: z.boolean().default(true),
+  version: z.int().positive(),
+  /** The name clients (or a routing rule) ask for. */
+  match: z.string().min(1).max(200),
+  stable: z.string().min(1).max(200),
+  canary: z.string().min(1).max(200),
+  /** 0..100 with up to two decimals. */
+  canaryPercent: z.number().min(0).max(100),
+  stickiness: z.enum(['key', 'session', 'request']).default('key'),
+  autoRollback: SplitAutoRollback.optional(),
+  state: z.enum(['active', 'rolled_back']).default('active'),
+});
+export type TrafficSplitConfig = z.infer<typeof TrafficSplitConfig>;
+
+/** Valkey list the gateway pushes automatic rollbacks to; control-api persists them. */
+export const SPLIT_ROLLBACKS_KEY = 'dirouter:splits:rollbacks';
+/** Valkey flag of a rolled-back split version, read by every gateway replica. */
+export const splitRolledBackKey = (splitId: string, version: number): string =>
+  `dirouter:split:rolledback:${splitId}:${String(version)}`;
+
+export const SplitRollbackEvent = z.object({
+  splitId: z.string(),
+  organizationId: z.string(),
+  version: z.int(),
+  errorRate: z.number(),
+  requests: z.int(),
+  at: z.string(),
+});
+export type SplitRollbackEvent = z.infer<typeof SplitRollbackEvent>;

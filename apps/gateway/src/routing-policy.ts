@@ -5,10 +5,11 @@
  * name, reject it, or tag it. The stage runs after authentication, guardrails and compression and
  * before automatic routing and the resolver, so everything downstream sees the rule's target as if
  * the client had asked for it (the key's allow-list was checked against what the client asked).
+ * A traffic split (card 32.3) then picks the stable or the canary branch of the resulting name.
  */
 import type { CanonicalRequest, PolicyTrace, VirtualKeyConfig } from '@dirouter/contracts';
-import type { RuleDecision } from '@dirouter/routing';
-import type { FastifyRequest } from 'fastify';
+import { applySplit, type RuleDecision, type SplitHealth } from '@dirouter/routing';
+import type { FastifyReply, FastifyRequest } from 'fastify';
 
 import type { BudgetUsage } from './budget-guard.js';
 import type { LoadedConfig } from './config-store.js';
@@ -58,5 +59,42 @@ export async function applyRoutingRules(
       ...(decision.target ? { target: decision.target } : {}),
       ...(Object.keys(decision.tags).length > 0 ? { tags: decision.tags } : {}),
     },
+  };
+}
+
+/**
+ * The canary or stable branch of a split name (card 32.3). The outcome of a canary request is
+ * recorded once the response has gone out: a 5xx (no provider, upstream failure, timeout) counts
+ * as an error; a client that went away counts as nothing.
+ */
+export function applyTrafficSplit(
+  config: LoadedConfig,
+  health: SplitHealth | undefined,
+  key: VirtualKeyConfig,
+  name: string,
+  req: FastifyRequest,
+  reply: FastifyReply,
+): { target: string; trace: NonNullable<PolicyTrace['split']> } | undefined {
+  if (!health || config.splits.size === 0) return undefined;
+  const header = config.snapshot.settings.sessionAffinity?.header ?? 'x-dirouter-session';
+  const session = req.headers[header.toLowerCase()];
+  const decision = applySplit(config.splits, health, key.organizationId, name, {
+    key: key.id,
+    ...(typeof session === 'string' && session.length <= 200 ? { session } : {}),
+  });
+  if (!decision) return undefined;
+  const { split, branch } = decision;
+  void reply.header(
+    'x-dirouter-split',
+    `${split.id}; v=${String(split.version)}; branch=${branch}`,
+  );
+  if (branch === 'canary')
+    reply.raw.once('close', () => {
+      if (!reply.raw.writableFinished && !reply.raw.headersSent) return;
+      health.record(split, reply.statusCode < 500);
+    });
+  return {
+    target: decision.target,
+    trace: { id: split.id, version: split.version, branch },
   };
 }

@@ -75,6 +75,7 @@ import { credentialTokens } from './credential-tokens.js';
 import { Tracer } from './tracing.js';
 import type { RecordBody } from './body-capture.js';
 import { type OtlpLogBuffer, OtlpExporter } from './otlp-export.js';
+import { SplitSync } from './split-sync.js';
 import { geminiRequestToCanonical } from '@dirouter/translator';
 import { estimateRequestTokens, pricingForServiceTier } from '@dirouter/model-catalog';
 import { enabledPlugins, loadPlugins } from '@dirouter/providers';
@@ -181,8 +182,11 @@ export function buildGateway(opts: GatewayOptions) {
       // The default log is metadata only; usage does not include prompt/response or secrets.
       opts.logger.info({ requestId: event.requestId }, 'usage event emitted locally');
     });
+  // Canary rollbacks shared between replicas (card 32.3).
+  const splits = new SplitSync({ store, redis: opts.limiterRedis, logger: opts.logger });
   const deps = {
     store,
+    splitHealth: splits.health,
     ...(opts.onlineSearch ? { webSearch: opts.onlineSearch } : {}),
     budget: new RetryBudget(),
     // One rolling hedge budget per (ratio, window) pair, shared by every request (card 12.2).
@@ -519,6 +523,7 @@ export function buildGateway(opts: GatewayOptions) {
   });
   app.addHook('onClose', () => {
     mcp.close();
+    splits.stop();
   });
 
   // A2A (card 20.3): DiRouter as an agent, and registered external agents behind the same key.
@@ -839,6 +844,7 @@ export function buildGateway(opts: GatewayOptions) {
     metrics,
     limiter: deps.limiter,
     budgets: deps.budgets,
+    splits,
     a2a,
     mcp,
     jobs: jobDeps,
@@ -863,6 +869,7 @@ export function buildGateway(opts: GatewayOptions) {
       }
       await store.start();
       if (opts.limiterRedis) deps.limiter.startNodeCount();
+      splits.start();
       poller.start();
     },
     /** Number of open proxy requests (including streams). */
