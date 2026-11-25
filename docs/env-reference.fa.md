@@ -80,6 +80,18 @@
 | `STRIPE_WEBHOOK_SECRET`     | control-api          | اختیاری/خالی                                                      | راز امضای endpoint وبهوک `https://<admin>/api/v1/payments/stripe/webhook`. راز.                                                                                    |
 | `STRIPE_BASE_URL`           | control-api          | `https://api.stripe.com`                                          | origin API Stripe؛ فقط برای تست و mock عوض می‌شود.                                                                                                                 |
 
+## جستجوی وب (کارت ۳۰.۸)
+
+| متغیر                       | مصرف‌کننده | الزامی/پیش‌فرض                                                             | قالب و اثر                                                                          |
+| --------------------------- | ---------- | -------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `WEB_SEARCH_SEARXNG_URL`    | gateway    | اختیاری/خالی؛ Compose توسعه mock (`http://mock-provider:8090/web/searxng`) | Base URL یک SearXNG خودمیزبان با قالب JSON روشن. خالی یعنی SearXNG استفاده نمی‌شود. |
+| `WEB_SEARCH_BRAVE_API_KEY`  | gateway    | اختیاری/خالی؛ Compose توسعه یک توکن mock                                   | توکن اشتراک Brave Search API. خالی یعنی Brave استفاده نمی‌شود. راز.                 |
+| `WEB_SEARCH_BRAVE_URL`      | gateway    | `https://api.search.brave.com`                                             | origin API Brave؛ فقط برای تست و mock عوض می‌شود.                                   |
+| `WEB_SEARCH_TAVILY_API_KEY` | gateway    | اختیاری/خالی؛ Compose توسعه یک توکن mock                                   | کلید API Tavily. خالی یعنی Tavily استفاده نمی‌شود. راز.                             |
+| `WEB_SEARCH_TAVILY_URL`     | gateway    | `https://api.tavily.com`                                                   | origin API Tavily؛ فقط برای تست و mock عوض می‌شود.                                  |
+
+ترتیب، قیمت، کش و سقف‌های fetch در تنظیمات گیت‌وی (`settings.webSearch`) هستند؛ [gateway/web-search.fa.md](gateway/web-search.fa.md) را ببینید.
+
 ## لبه، DNS و TLS
 
 | متغیر                     | مصرف‌کننده                                                                             | لازم؟ / پیش‌فرض                              | قالب و اثر                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |

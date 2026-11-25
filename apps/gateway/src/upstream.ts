@@ -194,6 +194,20 @@ export function tenantFetch(
 ): (url: string, init?: RequestInit) => Promise<Response> {
   if (!guardedOrganization(organizationId))
     return (url, init) => globalThis.fetch(url, { ...init, redirect: 'manual' });
+  return publicOnlyFetch();
+}
+
+/**
+ * `fetch` for any address a client hands the web fetch service (card 30.8): with the guard on,
+ * public addresses only for every organization, the platform one included, since the address
+ * comes from an API caller rather than an operator. Redirects are never followed.
+ */
+export function webFetch(): (url: string, init?: RequestInit) => Promise<Response> {
+  if (!guard.enabled) return (url, init) => globalThis.fetch(url, { ...init, redirect: 'manual' });
+  return publicOnlyFetch();
+}
+
+function publicOnlyFetch(): (url: string, init?: RequestInit) => Promise<Response> {
   const connect = { timeout: 10_000, lookup: publicOnlyLookup };
   publicOnlyAgent ??= new Agent({ connect });
   const agent = publicOnlyAgent;

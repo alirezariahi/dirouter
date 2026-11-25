@@ -107,6 +107,7 @@ import {
   StreamGuardrailBuffer,
 } from './guardrails.js';
 import type { Tracer, TraceSpan } from './tracing.js';
+import type { WebServices } from './web/service.js';
 import {
   type Attributes,
   genAiOperation,
@@ -153,6 +154,11 @@ export interface ProxyDeps {
   tracer?: Tracer;
   /** Destination of captured request bodies (card 24.1); never the usage path. */
   recordBody?: RecordBody;
+  /**
+   * Web search and fetch (card 30.8). `web.serveOnline(api, req, reply)` answers a chat request in
+   * online mode (search, inject the results, return the sources) for the `:online` suffix.
+   */
+  web?: WebServices;
   /** Asks a small model for the task type when the rules are unsure (card 20.4). */
   classifyWithModel?: (
     model: string,

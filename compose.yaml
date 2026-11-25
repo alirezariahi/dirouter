@@ -173,6 +173,12 @@ services:
       # Provider plugins (card 21.2): none load unless named in PLUGINS_ENABLED.
       PLUGINS_DIR: /plugins
       PLUGINS_ENABLED: ${PLUGINS_ENABLED:-}
+      # Web search backends (card 30.8): SearXNG (self-hosted), Brave and Tavily; empty = unused.
+      WEB_SEARCH_SEARXNG_URL: ${WEB_SEARCH_SEARXNG_URL:-}
+      WEB_SEARCH_BRAVE_API_KEY: ${WEB_SEARCH_BRAVE_API_KEY:-}
+      WEB_SEARCH_BRAVE_URL: ${WEB_SEARCH_BRAVE_URL:-}
+      WEB_SEARCH_TAVILY_API_KEY: ${WEB_SEARCH_TAVILY_API_KEY:-}
+      WEB_SEARCH_TAVILY_URL: ${WEB_SEARCH_TAVILY_URL:-}
       SHUTDOWN_DRAIN_MS: ${GATEWAY_SHUTDOWN_DRAIN_MS:-30000}
       # More than two Traefik health check rounds (2 seconds), so the replica leaves rotation before it closes.
       SHUTDOWN_READY_DELAY_MS: ${GATEWAY_SHUTDOWN_READY_DELAY_MS:-5000}

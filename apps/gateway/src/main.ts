@@ -42,6 +42,12 @@ const env = loadEnvOrExit(
     /** Provider plugins (card 21.2): folder, and the names to load (none by default). */
     PLUGINS_DIR: z.string().default('./plugins'),
     PLUGINS_ENABLED: z.string().default(''),
+    /** Web search backends (card 30.8); a backend without its address or key is skipped. */
+    WEB_SEARCH_SEARXNG_URL: z.string().optional(),
+    WEB_SEARCH_BRAVE_API_KEY: z.string().optional(),
+    WEB_SEARCH_BRAVE_URL: z.string().optional(),
+    WEB_SEARCH_TAVILY_API_KEY: z.string().optional(),
+    WEB_SEARCH_TAVILY_URL: z.string().optional(),
     /** Files and batches (card 30.1): where bytes are kept, upload cap, retention, polling. */
     FILES_STORAGE: z.enum(['local', 's3']).default('local'),
     FILES_DIR: z.string().optional(),
@@ -166,6 +172,13 @@ const gateway = buildGateway({
   pepper: env.KEY_PEPPER,
   dataDir: env.DATA_DIR,
   plugins: { dir: env.PLUGINS_DIR, enabled: env.PLUGINS_ENABLED },
+  webSearch: {
+    searxngUrl: env.WEB_SEARCH_SEARXNG_URL || undefined,
+    braveApiKey: env.WEB_SEARCH_BRAVE_API_KEY || undefined,
+    braveUrl: env.WEB_SEARCH_BRAVE_URL || undefined,
+    tavilyApiKey: env.WEB_SEARCH_TAVILY_API_KEY || undefined,
+    tavilyUrl: env.WEB_SEARCH_TAVILY_URL || undefined,
+  },
   jobs: {
     storage: storageFromEnv(env, env.DATA_DIR),
     maxFileBytes: env.FILES_MAX_BYTES,

@@ -440,3 +440,68 @@ describe('legacy completions (card 30.7)', () => {
     ).toBe(503);
   });
 });
+
+describe('web search backends and pages (card 30.8)', () => {
+  it('serves SearXNG, Brave and Tavily shapes, and fails on request', async () => {
+    const searx = (await (await fetch(`${base}/web/searxng/search?q=x&format=json`)).json()) as {
+      results: { url: string; content: string }[];
+    };
+    expect(searx.results).toHaveLength(3);
+    expect(searx.results[0]?.url).toBe(`${base}/web/page/1?q=x`);
+    expect((await fetch(`${base}/web/brave/res/v1/web/search?q=x`)).status).toBe(401);
+    const brave = (await (
+      await fetch(`${base}/web/brave/res/v1/web/search?q=x`, {
+        headers: { 'x-subscription-token': 't' },
+      })
+    ).json()) as { web: { results: { description: string }[] } };
+    expect(brave.web.results[0]?.description).toContain('brave');
+    const tavily = (await (
+      await post('/web/tavily/search', { query: 'x' }, { authorization: 'Bearer t' })
+    ).json()) as { results: { content: string }[] };
+    expect(tavily.results[0]?.content).toContain('tavily');
+    await fetch(`${base}/__mock/web`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ fail: ['searxng'] }),
+    });
+    expect((await fetch(`${base}/web/searxng/search?q=x&format=json`)).status).toBe(503);
+    await fetch(`${base}/__mock/web`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ fail: [] }),
+    });
+    const page = await fetch(`${base}/web/page/2`);
+    expect(page.headers.get('content-type')).toContain('text/html');
+    expect(await page.text()).toContain('<title>Mock page 2</title>');
+  });
+
+  it('asks for a web_search tool call, then cites the result it was given', async () => {
+    const tools = [{ type: 'function', function: { name: 'web_search', parameters: {} } }];
+    const first = (await (
+      await post('/v1/chat/completions', {
+        model: 'mock-small',
+        tools,
+        messages: [{ role: 'user', content: 'latest news' }],
+      })
+    ).json()) as {
+      choices: { message: { tool_calls: { function: { name: string; arguments: string } }[] } }[];
+    };
+    const call = first.choices[0]?.message.tool_calls[0];
+    expect(call?.function.name).toBe('web_search');
+    expect(JSON.parse(call?.function.arguments ?? '{}')).toEqual({ query: 'latest news' });
+    const second = (await (
+      await post('/v1/chat/completions', {
+        model: 'mock-small',
+        tools,
+        messages: [
+          { role: 'user', content: 'latest news' },
+          { role: 'assistant', content: null, tool_calls: [call] },
+          { role: 'tool', tool_call_id: 'call_web1', content: '[1] x\nURL: https://example.com/a' },
+        ],
+      })
+    ).json()) as { choices: { message: { content: string } }[] };
+    expect(second.choices[0]?.message.content).toBe(
+      'According to https://example.com/a, here is the answer.',
+    );
+  });
+});

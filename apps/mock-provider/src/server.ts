@@ -31,6 +31,7 @@ import { registerCatalog } from './catalog.js';
 import { newRealtimeStats, type RealtimeStats, registerRealtime } from './realtime.js';
 import { registerOAuth } from './oauth.js';
 import { type PaymentMockOptions, registerPayments } from './payments.js';
+import { registerWeb } from './web.js';
 
 type Api = 'openai' | 'anthropic' | 'gemini';
 
@@ -107,6 +108,43 @@ export interface MockServerOptions {
   defaultDirectives?: string;
   /** Fake Zarinpal and Stripe (card 19.2). */
   payments?: PaymentMockOptions;
+}
+
+/**
+ * The OpenAI chat turn when the request offers a `web_search` function tool (card 30.8): before
+ * any tool result the model asks to search for the last user message; after one it answers with
+ * the first URL of the results, so tests can see the result reached the model.
+ */
+function webSearchTurn(
+  tools: unknown,
+  messages: unknown,
+): { query?: string; answer?: string } | undefined {
+  const offered =
+    Array.isArray(tools) &&
+    tools.some(
+      (t: unknown) =>
+        (t as { function?: { name?: unknown } } | undefined)?.function?.name === 'web_search',
+    );
+  if (!offered || !Array.isArray(messages)) return undefined;
+  const list = messages as { role?: unknown; content?: unknown }[];
+  const last = list.at(-1);
+  const text = (content: unknown): string =>
+    typeof content === 'string'
+      ? content
+      : Array.isArray(content)
+        ? content
+            .map((p: unknown) => {
+              const t = (p as { text?: unknown } | undefined)?.text;
+              return typeof t === 'string' ? t : '';
+            })
+            .join('\n')
+        : '';
+  if (last?.role === 'tool') {
+    const url = /https?:\/\/[^\s)\]]+/.exec(text(last.content))?.[0];
+    return { answer: url ? `According to ${url}, here is the answer.` : 'No results were found.' };
+  }
+  const user = [...list].reverse().find((m) => m.role === 'user');
+  return { query: text(user?.content).slice(0, 200) || 'search' };
 }
 
 export function buildServer(options: MockServerOptions = {}) {
@@ -210,12 +248,16 @@ export function buildServer(options: MockServerOptions = {}) {
     if (await maybeFail('openai', s, req, reply)) return;
     const body = (req.body ?? {}) as {
       messages?: unknown;
+      tools?: unknown;
       stream?: boolean;
       stream_options?: { include_usage?: boolean };
     };
     // Classifier models used by guardrails (cards 23.2 and 23.3) answer deterministically.
     const verdict = classifierAnswer(model, body.messages);
     if (verdict !== undefined) s.text = verdict;
+    // A `web_search` function tool (card 30.8): search first, then answer citing the results.
+    const web = webSearchTurn(body.tools, body.messages);
+    if (web?.answer !== undefined) s.text = web.answer;
     const promptTokens = tokens(body.messages);
     const id = `chatcmpl-mock${Date.now().toString(36)}`;
     const created = Math.floor(Date.now() / 1000);
@@ -226,13 +268,19 @@ export function buildServer(options: MockServerOptions = {}) {
       completion_tokens: completionTokens,
       total_tokens: promptTokens + completionTokens,
     };
-    const toolCall = s.tool
+    const toolCall = web?.query
       ? {
-          id: 'call_mock1',
+          id: 'call_web1',
           type: 'function',
-          function: { name: s.tool, arguments: '{"city":"Tehran"}' },
+          function: { name: 'web_search', arguments: JSON.stringify({ query: web.query }) },
         }
-      : undefined;
+      : s.tool
+        ? {
+            id: 'call_mock1',
+            type: 'function',
+            function: { name: s.tool, arguments: '{"city":"Tehran"}' },
+          }
+        : undefined;
 
     if (!body.stream) {
       record(req, 200);
@@ -292,7 +340,8 @@ export function buildServer(options: MockServerOptions = {}) {
           ],
         }),
       );
-      for (const part of ['{"city":', '"Tehran"}']) {
+      const args = toolCall.function.arguments;
+      for (const part of [args.slice(0, 9), args.slice(9)]) {
         if (drop()) return res.destroy();
         await sleep(s.chunkDelayMs);
         send(chunk({ tool_calls: [{ index: 0, function: { arguments: part } }] }));
@@ -797,6 +846,7 @@ export function buildServer(options: MockServerOptions = {}) {
     scenario: (headers) => scenarioFor({ headers }),
     stats: () => stats.realtime,
   });
+  registerWeb(app);
 
   app.get('/healthz', () => ({ status: 'ok' }));
   app.get('/__mock/stats', () => stats);

@@ -126,3 +126,4 @@ Stream (card 4.5): `packages/translator/src/stream.test.ts` includes 10,000 chun
 - [OpenAI Responses](responses.md) — `/v1/responses`, `previous_response_id` and streaming.
 - [Embeddings](embeddings.md) — `/v1/embeddings` and `:embedContent` / `:batchEmbedContents`.
 - [Native pass-through](passthrough.md) — `/passthrough/{provider}/*` for endpoints without a translation (card 30.7).
+- [Web search and fetch](web-search.md) — `/v1/search`, `/v1/fetch`, online mode and `web_search` for non-Anthropic models (card 30.8).

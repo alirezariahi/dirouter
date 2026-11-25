@@ -78,6 +78,18 @@ This document is the complete env contract for the `code/` source. Whenever you 
 | `STRIPE_WEBHOOK_SECRET`     | control-api          | Optional / empty                                                  | Signing secret of the webhook endpoint `https://<admin>/api/v1/payments/stripe/webhook`. Secret.                                                                                         |
 | `STRIPE_BASE_URL`           | control-api          | `https://api.stripe.com`                                          | Stripe API origin; changed only for tests and the mock.                                                                                                                                  |
 
+## Web search (card 30.8)
+
+| Variable                    | Consumer | Required? / default                                                              | Format and effect                                                                                         |
+| --------------------------- | -------- | -------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `WEB_SEARCH_SEARXNG_URL`    | gateway  | Optional / empty; Compose dev the mock (`http://mock-provider:8090/web/searxng`) | Base URL of a self-hosted SearXNG instance with the JSON format enabled. Empty means SearXNG is not used. |
+| `WEB_SEARCH_BRAVE_API_KEY`  | gateway  | Optional / empty; Compose dev a mock token                                       | Brave Search API subscription token. Empty means Brave is not used. Secret.                               |
+| `WEB_SEARCH_BRAVE_URL`      | gateway  | `https://api.search.brave.com`                                                   | Brave Search API origin; changed only for tests and the mock.                                             |
+| `WEB_SEARCH_TAVILY_API_KEY` | gateway  | Optional / empty; Compose dev a mock token                                       | Tavily API key. Empty means Tavily is not used. Secret.                                                   |
+| `WEB_SEARCH_TAVILY_URL`     | gateway  | `https://api.tavily.com`                                                         | Tavily API origin; changed only for tests and the mock.                                                   |
+
+The order, prices, cache and fetch bounds are gateway settings (`settings.webSearch`); see [gateway/web-search.md](gateway/web-search.md).
+
 ## Edge, DNS and TLS
 
 | Variable                  | Consumer                                                            | Required? / default                                 | Format and effect                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |

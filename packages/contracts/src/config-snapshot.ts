@@ -472,7 +472,31 @@ export const HealthProbeSettings = z.object({
 });
 export type HealthProbeSettings = z.infer<typeof HealthProbeSettings>;
 
+/**
+ * Web search and web fetch as a service (card 30.8). The search backends themselves (SearXNG,
+ * Brave, Tavily) are configured with gateway environment variables; these settings switch the
+ * service and price it.
+ */
+export const WebSearchSettings = z.object({
+  enabled: z.boolean().default(true),
+  /** Backends tried in this order; the next one answers when one fails. */
+  order: z.array(z.enum(['searxng', 'brave', 'tavily'])).default(['searxng', 'brave', 'tavily']),
+  /** Results per search unless the request asks for fewer (at most 20). */
+  maxResults: z.int().min(1).max(20).default(5),
+  /** Identical searches are answered from the cache for this long; 0 turns the cache off. */
+  cacheTtlSeconds: z.int().min(0).max(86_400).default(3_600),
+  /** Price per search and per fetch, charged in the usage event of the call. */
+  searchPriceUsd: UsdAmount.default('0.005'),
+  fetchPriceUsd: UsdAmount.default('0.001'),
+  /** Upper bound of one fetched page, and the time a fetch (all redirects included) may take. */
+  fetchMaxBytes: z.int().min(1_024).max(10_485_760).default(2_097_152),
+  fetchTimeoutMs: z.int().min(500).max(60_000).default(10_000),
+});
+export type WebSearchSettings = z.infer<typeof WebSearchSettings>;
+
 export const GatewaySettings = z.object({
+  /** Web search and web fetch (card 30.8). */
+  webSearch: WebSearchSettings.optional(),
   /**
    * Automatic model choice (card 20.4) for the aliases `auto`, `auto/coding`, `auto/smart`,
    * `auto/fast` and `auto/cheap`. Targets are model, alias or combo names as clients use them.

@@ -56,6 +56,8 @@ import { JobPoller } from './jobs/poller.js';
 import { deliverWebhook } from './jobs/webhooks.js';
 import { refreshTask, registerVideoRoutes } from './videos.js';
 import { MemoryJobStore, RedisJobStore } from './jobs/store.js';
+import { type SearchBackendConfig, WebSearchBackends } from './web/search.js';
+import { WebServices } from './web/service.js';
 import { configureUpstreamGuard } from './upstream.js';
 import { credentialTokens } from './credential-tokens.js';
 import { Tracer } from './tracing.js';
@@ -101,6 +103,8 @@ export interface GatewayOptions {
   blockPrivateUpstreams?: boolean;
   /** Tests only: delays between A2A push notification retries (card 28.2). */
   a2aPushRetryDelaysMs?: readonly number[];
+  /** Web search backends (card 30.8): SearXNG, Brave and Tavily addresses and keys. */
+  webSearch?: SearchBackendConfig;
   /** Files, batches and async tasks (cards 30.1 and 30.6): limits and where bytes are kept. */
   jobs?: Partial<JobsOptions> & { storage?: BlobStorage; pollerTickMs?: number };
   /** Realtime session limits (card 30.5). */
@@ -252,6 +256,8 @@ export function buildGateway(opts: GatewayOptions) {
     instance: opts.instance ?? hostname(),
     emitUsage: deliverUsage,
     ...(opts.heartbeatMs !== undefined ? { heartbeatMs: opts.heartbeatMs } : {}),
+    /** Web search and fetch (card 30.8); set once the server exists. */
+    web: undefined as WebServices | undefined,
   };
 
   // OTLP metrics and logs (card 24.3); each switched on in settings.tracing, read on every tick.
@@ -297,9 +303,30 @@ export function buildGateway(opts: GatewayOptions) {
     }
   });
 
-  app.post('/v1/chat/completions', (req, reply) => handleProxy('openai.chat', req, reply, deps));
-  app.post('/chat/completions', (req, reply) => handleProxy('openai.chat', req, reply, deps));
-  app.post('/v1/messages', (req, reply) => handleProxy('anthropic.messages', req, reply, deps));
+  // Web search and fetch (card 30.8): /v1/search, /v1/fetch, online mode and the Anthropic
+  // web_search server tool for models without one.
+  const web = new WebServices(
+    app,
+    deps,
+    new WebSearchBackends(opts.webSearch ?? {}, opts.limiterRedis),
+  );
+  deps.web = web;
+  web.register();
+  app.post('/v1/chat/completions', (req, reply) =>
+    web.wants('openai.chat', req.body)
+      ? web.handle('openai.chat', req, reply)
+      : handleProxy('openai.chat', req, reply, deps),
+  );
+  app.post('/chat/completions', (req, reply) =>
+    web.wants('openai.chat', req.body)
+      ? web.handle('openai.chat', req, reply)
+      : handleProxy('openai.chat', req, reply, deps),
+  );
+  app.post('/v1/messages', (req, reply) =>
+    web.wants('anthropic.messages', req.body)
+      ? web.handle('anthropic.messages', req, reply)
+      : handleProxy('anthropic.messages', req, reply, deps),
+  );
   app.post('/v1/messages/count_tokens', (req, reply) => {
     handleCountTokens(req, reply, deps);
   });

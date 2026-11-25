@@ -134,5 +134,6 @@ stream (کارت ۴.۵): `packages/translator/src/stream.test.ts` شامل ۱۰�
 - [OpenAI Responses](responses.fa.md) — `/v1/responses`، `previous_response_id` و stream.
 - [Embeddings](embeddings.fa.md) — `/v1/embeddings` و `:embedContent` / `:batchEmbedContents`.
 - [pass-through بومی](passthrough.fa.md) — `/passthrough/{provider}/*` برای endpointهایی که ترجمه ندارند (کارت ۳۰.۷).
+- [جستجوی وب و fetch](web-search.fa.md) — `/v1/search`، `/v1/fetch`، حالت online و `web_search` برای مدل‌های غیر Anthropic (کارت ۳۰.۸).
 
 </div>

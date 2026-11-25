@@ -11,9 +11,15 @@ export const USAGE_EVENT_SCHEMA_VERSION = 1 as const;
 
 /**
  * Inbound APIs that produce usage events (card 11.x adds Responses, Gemini and embeddings), plus
- * native provider pass-through (card 30.7), which has no canonical request.
+ * native provider pass-through (card 30.7) and web search and fetch (card 30.8), which have no
+ * canonical request.
  */
-export const UsageInboundApi = z.enum([...InboundApi.options, 'passthrough']);
+export const UsageInboundApi = z.enum([
+  ...InboundApi.options,
+  'passthrough',
+  'web.search',
+  'web.fetch',
+]);
 export type UsageInboundApi = z.infer<typeof UsageInboundApi>;
 
 export const AttemptOutcome = z.enum([

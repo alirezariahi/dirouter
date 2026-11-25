@@ -160,6 +160,12 @@ services:
       # The reference provider plugin is on in development (card 21.2).
       PLUGINS_DIR: /repo/plugins
       PLUGINS_ENABLED: ${PLUGINS_ENABLED:-workers-ai}
+      # Web search against the mock provider's fake backends (card 30.8).
+      WEB_SEARCH_SEARXNG_URL: ${WEB_SEARCH_SEARXNG_URL:-http://mock-provider:8090/web/searxng}
+      WEB_SEARCH_BRAVE_API_KEY: ${WEB_SEARCH_BRAVE_API_KEY:-mock-brave-token}
+      WEB_SEARCH_BRAVE_URL: ${WEB_SEARCH_BRAVE_URL:-http://mock-provider:8090/web/brave}
+      WEB_SEARCH_TAVILY_API_KEY: ${WEB_SEARCH_TAVILY_API_KEY:-mock-tavily-token}
+      WEB_SEARCH_TAVILY_URL: ${WEB_SEARCH_TAVILY_URL:-http://mock-provider:8090/web/tavily}
     command: ['pnpm', '--filter', '@dirouter/gateway', 'dev']
     labels:
       traefik.http.routers.gateway-http.rule: Host(`api.${DOMAIN:-localhost}`)
