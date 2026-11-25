@@ -887,7 +887,11 @@ export function evaluateGuardrails(
     }
 
     if (policy.type === 'moderation') {
-      const verdict = input.external?.get(policy.id);
+      // In traffic (verdicts given) a missing one means the call never happened: unavailable, so
+      // `failMode` decides. The live test passes no verdicts and only shows the static part.
+      const verdict =
+        input.external?.get(policy.id) ??
+        (input.external ? { flagged: false, unavailable: true } : undefined);
       if (!verdict) continue;
       const settings = moderationConfig(policy.config);
       if (verdict.unavailable) {
@@ -911,7 +915,11 @@ export function evaluateGuardrails(
 
     if (policy.type === 'prompt_injection') {
       let score = 0;
-      const verdict = input.external?.get(policy.id);
+      const verdict =
+        input.external?.get(policy.id) ??
+        (input.external && injectionClassifier(policy.config)
+          ? { flagged: false, unavailable: true }
+          : undefined);
       if (verdict?.flagged) {
         score += 2;
         if (result.matches) result.matches.push('classifier');

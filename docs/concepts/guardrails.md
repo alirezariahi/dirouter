@@ -114,7 +114,7 @@ Response policies also apply to streams (`StreamGuardrailBuffer`):
 - A blocking match ends the stream with a `content_filter` error event; nothing after it is sent. At the end of the stream the held-back tail is evaluated once more.
 - A run with no whitespace longer than four windows (1024 characters) is evaluated and released anyway, to bound memory and delay.
 - With a `secret` policy, a PEM private key is held from its BEGIN line until its END line arrives (up to 16 KB), so no line of the key leaks before the whole block is matched.
-- A `json_schema` policy with `block` holds the **whole answer** until it is complete, then judges it; a failing answer ends the stream with the error event and none of its text is sent. With `flag` the text flows normally and the verdict is recorded when the text ends.
+- A blocking policy that judges the whole answer (`json_schema`, `moderation`, a prompt-injection classifier) holds **every event of the stream**, not only text, until the upstream finishes. The full answer is judged once; a failing answer ends the stream with the error event and none of it is sent. A passing answer is replayed in its original order, each text block still going through the other policies (redaction). Text after a tool call or in a later Anthropic block is therefore judged too. Headers and heartbeats go out at once, so the client does not time out while it waits. An answer over 1 MB cannot be judged and is blocked. With `flag` the text flows normally and the verdict is recorded once, on the whole answer, at the end of the stream.
 
 The price is latency: stream text reaches the client about 256 characters late while a response policy is active. Streams without response policies are not buffered at all.
 

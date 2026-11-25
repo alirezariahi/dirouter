@@ -25,7 +25,7 @@ export {
 /** A held PEM block longer than this is evaluated anyway (and, being unterminated, redacted whole). */
 const MAX_HELD_KEY = 16_384;
 /** `json_schema` holds the whole answer; past this size it is evaluated as it stands. */
-const MAX_HELD_ANSWER = 1_048_576;
+export const MAX_HELD_ANSWER = 1_048_576;
 
 /**
  * Cross-chunk response guardrails for streaming (cards 15.1 and 23.1).
@@ -77,6 +77,41 @@ export class StreamGuardrailBuffer {
 
   get active(): boolean {
     return this.#policies.length > 0;
+  }
+
+  /**
+   * A blocking policy judges the whole answer (`json_schema`, `moderation`, a classifier): the
+   * caller must hold every stream event, not only text, until the end, judge the full answer with
+   * `judgeWhole()` and replay the events through `guardBlock()`. Releasing text before a later
+   * block would let that block skip the verdict.
+   */
+  get holdsWholeAnswer(): boolean {
+    return this.active && this.#schema.some((p) => p.action === 'block');
+  }
+
+  /** Whole-answer policies that need a model call (moderation, classifiers). */
+  get externalPolicies(): readonly GuardrailPolicy[] {
+    return this.#external;
+  }
+
+  /** The verdict of the whole-answer policies on the complete answer text (hold-all mode). */
+  judgeWhole(text: string): { blocked?: string } {
+    this.#judged = true;
+    if (text.length > MAX_HELD_ANSWER)
+      return {
+        blocked: 'Response blocked: the answer is too long to be checked by the guardrails',
+      };
+    const evaluated = this.#evaluate(this.#schema, text);
+    return evaluated.blocked ? { blocked: evaluated.blocked.message } : {};
+  }
+
+  /** One text block of a held answer, through the chunk policies (redaction, secrets). */
+  guardBlock(text: string): { text: string; blocked?: string } {
+    if (this.#windowed.length === 0 || text === '') return { text };
+    const evaluated = this.#evaluate(this.#windowed, text);
+    return evaluated.blocked
+      ? { text: '', blocked: evaluated.blocked.message }
+      : { text: evaluated.text };
   }
 
   /** Hits of the whole stream so far (flag, redact and block), for logging. */
@@ -140,7 +175,12 @@ export class StreamGuardrailBuffer {
     this.#buffer += delta;
     if (this.#holdAll) {
       if (this.#buffer.length < MAX_HELD_ANSWER) return { text: '' };
-      return this.finish(true);
+      // Past the cap the answer cannot be judged as a whole: never release it unchecked.
+      this.#buffer = '';
+      return {
+        text: '',
+        blocked: 'Response blocked: the answer is too long to be checked by the guardrails',
+      };
     }
     if (this.#windowed.length === 0) {
       const out = this.#buffer;
@@ -190,8 +230,8 @@ export class StreamGuardrailBuffer {
       return this.#buffer === '' && !final
         ? undefined
         : { policies: this.#external, text: this.#buffer };
-    const text = this.#answer + this.#buffer;
-    return text !== '' || final ? { policies: this.#external, text } : undefined;
+    // Text flows (flag): the verdict is recorded once, on the whole answer, at the end.
+    return final ? { policies: this.#external, text: this.#answer + this.#buffer } : undefined;
   }
 
   /** Verdicts of the model calls asked for by `pendingJudgement()`. */
@@ -202,7 +242,7 @@ export class StreamGuardrailBuffer {
   /**
    * Releases what is held: called before every non-text event (a closed block cannot take more
    * text) and with `final` at the end of the stream. The `json_schema` verdict is given once, on
-   * the first call that has answer text, or at the end of the stream when there was none.
+   * the end of the stream (`final`), on the whole answer.
    */
   finish(final = false): { text: string; blocked?: string } {
     const rest = this.#buffer;
@@ -225,7 +265,7 @@ export class StreamGuardrailBuffer {
       text = evaluated.text;
     }
     this.#release(text);
-    if (this.#schema.length > 0 && !this.#judged && (this.#answer !== '' || final)) {
+    if (this.#schema.length > 0 && !this.#judged && final) {
       // Only `flag`/`redact` schema policies get here; the text has already been sent.
       this.#judged = true;
       this.#evaluate(this.#schema, this.#answer);

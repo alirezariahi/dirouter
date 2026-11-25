@@ -4,6 +4,7 @@
  * fail-closed, and the usage event of each model call.
  */
 import { mkdtemp, writeFile } from 'node:fs/promises';
+import { createServer, type Server } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -20,6 +21,43 @@ const pepper = 'p'.repeat(32);
 const events: UsageEvent[] = [];
 const mock = buildMock();
 let mockUrl = '';
+/**
+ * An upstream whose streamed answer is harmless text, then a tool call, then harmful text: the
+ * second text arrives after a non-text event, where a whole-answer check must still apply.
+ */
+let split: Server;
+let splitUrl = '';
+const SPLIT_CHUNKS = [
+  {
+    choices: [
+      {
+        index: 0,
+        delta: { role: 'assistant', content: 'Sure, here is the plan. ' },
+        finish_reason: null,
+      },
+    ],
+  },
+  {
+    choices: [
+      {
+        index: 0,
+        delta: {
+          tool_calls: [
+            {
+              index: 0,
+              id: 'call_1',
+              type: 'function',
+              function: { name: 'note', arguments: '{}' },
+            },
+          ],
+        },
+        finish_reason: null,
+      },
+    ],
+  },
+  { choices: [{ index: 0, delta: { content: 'Then we bomb the town.' }, finish_reason: null }] },
+  { choices: [{ index: 0, delta: {}, finish_reason: 'stop' }] },
+];
 let base = '';
 let gw: ReturnType<typeof buildGateway>;
 
@@ -89,6 +127,20 @@ const policy = (
 });
 
 beforeAll(async () => {
+  split = createServer((req, res) => {
+    req.resume();
+    req.on('end', () => {
+      res.writeHead(200, { 'content-type': 'text/event-stream' });
+      for (const chunk of SPLIT_CHUNKS)
+        res.write(
+          `data: ${JSON.stringify({ id: 'c1', object: 'chat.completion.chunk', created: 0, model: 'x', ...chunk })}\n\n`,
+        );
+      res.end('data: [DONE]\n\n');
+    });
+  });
+  await new Promise<void>((resolve) => split.listen(0, '127.0.0.1', resolve));
+  const saddr = split.address();
+  splitUrl = `http://127.0.0.1:${typeof saddr === 'object' && saddr ? saddr.port : 0}`;
   await mock.listen({ port: 0, host: '127.0.0.1' });
   const addr = mock.server.address();
   mockUrl = `http://127.0.0.1:${typeof addr === 'object' && addr ? addr.port : 0}`;
@@ -100,6 +152,7 @@ beforeAll(async () => {
       provider('good', 'sk-good'),
       provider('violent', 'mock:text=then we bomb the town'),
       provider('slow', 'mock:latency=1500'),
+      { ...provider('split', 'sk-split'), baseUrl: `${splitUrl}/v1` },
     ],
     models: [
       model('chat-m', 'good', 'mock-small'),
@@ -107,6 +160,7 @@ beforeAll(async () => {
       model('mod-m', 'good', 'omni-moderation-latest'),
       model('guard-m', 'good', 'llama-guard-3-8b'),
       model('slowmod-m', 'slow', 'omni-moderation-latest'),
+      model('split-m', 'split', 'x'),
     ],
     combos: [],
     aliases: [],
@@ -147,6 +201,7 @@ beforeAll(async () => {
 afterAll(async () => {
   await gw.app.close();
   await mock.close();
+  await new Promise((resolve) => split.close(resolve));
 });
 
 beforeEach(() => {
@@ -190,6 +245,15 @@ describe('moderation guardrail (card 23.2)', () => {
     const text = await streamed.text();
     expect(text).toContain('content_filter');
     expect(text).not.toContain('bomb');
+  });
+
+  it('judges the whole streamed answer, also text after a tool call (review fix)', async () => {
+    const res = await chat(KEYS.mod, 'make a plan', { model: 'split-m', stream: true });
+    const text = await res.text();
+    expect(text).toContain('content_filter');
+    // Nothing of the answer leaks: neither the harmful part nor the harmless text before it.
+    expect(text).not.toContain('bomb');
+    expect(text).not.toContain('here is the plan');
   });
 
   it('flag records the hit and keeps the answer', async () => {

@@ -2,6 +2,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  evaluateGuardrails,
   jsonSchemaProblem,
   parseJsonAnswer,
   pendingPrivateKeyStart,
@@ -106,5 +107,39 @@ describe('secrets', () => {
       pendingPrivateKeyStart('-----BEGIN PRIVATE KEY-----\nMII\n-----END PRIVATE KEY-----'),
     ).toBe(-1);
     expect(pendingPrivateKeyStart('no key')).toBe(-1);
+  });
+});
+
+describe('model-call policies without a verdict (review fix)', () => {
+  const moderation = (failMode: 'open' | 'closed') =>
+    ({
+      id: 'm',
+      organizationId: 'o',
+      name: 'm',
+      enabled: true,
+      stage: 'response',
+      type: 'moderation',
+      config: { model: 'mod', failMode },
+      action: 'block',
+    }) as const;
+  const response = () => ({
+    id: 'r',
+    model: 'x',
+    content: [{ type: 'text' as const, text: 'hello' }],
+    finishReason: 'stop' as const,
+    created: 0,
+  });
+
+  it('counts as unavailable in traffic, so fail-closed blocks', () => {
+    const traffic = { stage: 'response' as const, response: response(), external: new Map() };
+    expect(evaluateGuardrails([moderation('closed')], traffic).blocked).toBeDefined();
+    expect(evaluateGuardrails([moderation('open')], traffic).blocked).toBeUndefined();
+  });
+
+  it('is skipped in the live test, which makes no model calls', () => {
+    expect(
+      evaluateGuardrails([moderation('closed')], { stage: 'response', response: response() })
+        .blocked,
+    ).toBeUndefined();
   });
 });

@@ -445,3 +445,29 @@ describe('unknown policy types (card 23.1)', () => {
     expect(buffer.unknown.map((p) => p.id)).toEqual(['future']);
   });
 });
+
+describe('whole-answer hold (review fix)', () => {
+  it('blocks an answer too long to judge instead of releasing it unchecked', () => {
+    const buffer = new StreamGuardrailBuffer([
+      policy({ type: 'json_schema', action: 'block', config: { schema: { type: 'object' } } }),
+    ]);
+    expect(buffer.holdsWholeAnswer).toBe(true);
+    const big = 'x'.repeat(600_000);
+    expect(buffer.push(big).blocked).toBeUndefined();
+    expect(buffer.push(big).blocked).toMatch(/too long/);
+    expect(buffer.judgeWhole('y'.repeat(1_100_000)).blocked).toMatch(/too long/);
+  });
+
+  it('gives a flag verdict only at the end of the stream, on the whole answer', () => {
+    const buffer = new StreamGuardrailBuffer([
+      policy({ type: 'json_schema', action: 'flag', config: { schema: { type: 'object' } } }),
+    ]);
+    expect(buffer.holdsWholeAnswer).toBe(false);
+    buffer.push('{"a": ');
+    buffer.finish();
+    expect(buffer.hits).toEqual([]);
+    buffer.push('1}');
+    buffer.finish(true);
+    expect(buffer.hits).toEqual([]);
+  });
+});

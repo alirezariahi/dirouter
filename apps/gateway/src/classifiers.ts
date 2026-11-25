@@ -209,7 +209,12 @@ export async function externalVerdicts(
 ): Promise<Map<string, ExternalVerdict>> {
   const verdicts = new Map<string, ExternalVerdict>();
   const pending = externalPolicies(policies, stage);
-  if (pending.length === 0 || text.trim() === '') return verdicts;
+  if (pending.length === 0) return verdicts;
+  // Nothing to judge (an answer of tool calls only): every policy passes.
+  if (text.trim() === '') {
+    for (const policy of pending) verdicts.set(policy.id, { flagged: false });
+    return verdicts;
+  }
   let n = 0;
   await Promise.all(
     pending.map(async (policy) => {

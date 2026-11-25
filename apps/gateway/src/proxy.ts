@@ -100,7 +100,12 @@ import {
 import { compressRequest } from './compress.js';
 import { externalVerdicts } from './classifiers.js';
 import { type BodyCapture, type RecordBody, startBodyCapture } from './body-capture.js';
-import { evaluateGuardrails, policiesFor, StreamGuardrailBuffer } from './guardrails.js';
+import {
+  evaluateGuardrails,
+  MAX_HELD_ANSWER,
+  policiesFor,
+  StreamGuardrailBuffer,
+} from './guardrails.js';
 import type { Tracer, TraceSpan } from './tracing.js';
 import {
   type Attributes,
@@ -1846,6 +1851,50 @@ async function pipeStream(
     if (!state.committed) commit();
     await write(encoder.push({ type: 'text_delta', index: lastTextIndex, text: tail.text }));
   };
+  // A blocking policy that judges the whole answer (json_schema, moderation, a classifier):
+  // every event is held, not only text, and replayed in order once the full answer passed.
+  // Releasing anything earlier would let text in a later block (Anthropic citations, text after a
+  // tool call) reach the client without the verdict.
+  const holdWhole = streamGuard.holdsWholeAnswer;
+  const held: CanonicalStreamEvent[] = [];
+  let heldChars = 0;
+  const emit = async (ev: CanonicalStreamEvent) => {
+    if (!state.committed) commit();
+    collect(ev);
+    await write(encoder.push(ev));
+  };
+  const replayHeld = async () => {
+    const text = held.map((ev) => (ev.type === 'text_delta' ? ev.text : '')).join('');
+    const external = streamGuard.externalPolicies;
+    if (external.length > 0 && opts.judge && text.length <= MAX_HELD_ANSWER)
+      streamGuard.setVerdicts(await opts.judge(external, text));
+    const verdict = streamGuard.judgeWhole(text);
+    if (verdict.blocked) await blockStream(verdict.blocked);
+    for (let i = 0; i < held.length;) {
+      const ev = held[i];
+      if (!ev) break;
+      if (ev.type !== 'text_delta') {
+        await emit(ev);
+        i++;
+        continue;
+      }
+      // One text block at a time through the chunk policies (redaction, secrets).
+      let block = '';
+      let j = i;
+      for (
+        let next = held[j];
+        next?.type === 'text_delta' && next.index === ev.index;
+        next = held[++j]
+      )
+        block += next.text;
+      const guarded = streamGuard.guardBlock(block);
+      if (guarded.blocked) await blockStream(guarded.blocked);
+      if (guarded.text !== '')
+        await emit({ type: 'text_delta', index: ev.index, text: guarded.text });
+      i = j;
+    }
+    held.length = 0;
+  };
   /** Forwards one canonical event; returns the error when upstream failed before any byte was sent. */
   const forward = async (ev: CanonicalStreamEvent): Promise<ClassifiedError | undefined> => {
     if (ev.type === 'error') {
@@ -1867,6 +1916,19 @@ async function pipeStream(
       if (!state.committed) return classified;
       await write(encoder.push(ev));
       throw new CommittedFailure(classified);
+    }
+    if (holdWhole) {
+      // Headers and heartbeats go out at once so the client does not time out while it waits.
+      if (!state.committed) commit();
+      if (ev.type === 'text_delta') {
+        heldChars += ev.text.length;
+        if (heldChars > MAX_HELD_ANSWER)
+          await blockStream(
+            'Response blocked: the answer is too long to be checked by the guardrails',
+          );
+      }
+      held.push(ev);
+      return undefined;
     }
     // Cross-chunk response redaction (card 15.1): text deltas are buffered briefly so a match
     // split across two SSE events is still caught before it reaches the client.
@@ -1907,7 +1969,8 @@ async function pipeStream(
       const failed = await forward(ev);
       if (failed) return { ok: false, error: failed };
     }
-    await releaseHeld(true);
+    if (holdWhole) await replayHeld();
+    else await releaseHeld(true);
     if (streamGuard.active)
       opts.onGuardrails?.({ hits: streamGuard.hits, unknown: streamGuard.unknown });
     if (!state.committed) commit();
