@@ -915,6 +915,8 @@ describe('credential strategies (card 32.6)', () => {
       ipAllowlist: [],
       budgets: [],
       mcpTools: [],
+      repair: [],
+      passthroughProviders: [],
     };
     for (const r of [0.01, 0.5, 0.99]) {
       const route = router.resolve(key, 'm', { random: () => r });
