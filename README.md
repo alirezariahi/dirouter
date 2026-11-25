@@ -46,7 +46,7 @@ make quickstart   # .env, the full stack against a mock provider, seed data, and
 - [Commands](#commands)
 - [Continuous integration](#continuous-integration)
 - [Documentation and contributing](#documentation-and-contributing)
-- [License and sponsor](#license-and-sponsor)
+- [License](#license)
 
 ## Why DiRouter
 
@@ -429,20 +429,8 @@ flowchart LR
 
 All documentation in this repository is in English. See the [documentation policy](CONTRIBUTING.md#documentation-policy).
 
-## License and sponsor
+## License
 
 DiRouter is released under the [Apache License 2.0](LICENSE). Every feature in this repository,
 SSO, SCIM, audit log and billing included, is under that license; there is no separate
 enterprise edition of the code.
-
-Development is sponsored by [dirouter.ir](https://dirouter.ir/).
-
-<p align="center">
-  <a href="https://dirouter.ir/">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="https://dirouter.ir/brand/logo-dark.svg" />
-      <source media="(prefers-color-scheme: light)" srcset="https://dirouter.ir/brand/logo.svg" />
-      <img src="https://dirouter.ir/brand/logo.svg" alt="dirouter.ir logo" width="200" />
-    </picture>
-  </a>
-</p>
