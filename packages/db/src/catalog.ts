@@ -16,6 +16,8 @@ export interface CatalogPricing {
   perImageUsd?: string | undefined;
   perMCharUsd?: string | undefined;
   perSecondUsd?: string | undefined;
+  audioInputPerMTok?: string | undefined;
+  audioOutputPerMTok?: string | undefined;
   tiers?: Record<string, unknown>[] | undefined;
   batchDiscount?: string | undefined;
 }
@@ -33,6 +35,8 @@ export function modelPriceColumns(pricing: CatalogPricing) {
     imagePrice: pricing.perImageUsd ?? null,
     charPrice: pricing.perMCharUsd ?? null,
     secondPrice: pricing.perSecondUsd ?? null,
+    audioInputPrice: pricing.audioInputPerMTok ?? null,
+    audioOutputPrice: pricing.audioOutputPerMTok ?? null,
     pricingTiers:
       pricing.tiers && pricing.tiers.length > 0
         ? (pricing.tiers as Prisma.InputJsonValue)

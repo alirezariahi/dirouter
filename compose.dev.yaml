@@ -166,6 +166,10 @@ services:
       traefik.http.routers.gateway-http.entrypoints: web
       traefik.http.routers.gateway-http.service: gateway
       traefik.http.routers.gateway-http.middlewares: security-headers@file,gateway-retry@file
+      traefik.http.routers.gateway-realtime-http.rule: Host(`api.${DOMAIN:-localhost}`) && PathPrefix(`/v1/realtime`)
+      traefik.http.routers.gateway-realtime-http.entrypoints: web
+      traefik.http.routers.gateway-realtime-http.service: gateway
+      traefik.http.routers.gateway-realtime-http.middlewares: security-headers@file
       traefik.http.services.gateway.loadbalancer.healthcheck.path: /healthz
     depends_on: !override
       dev-deps: { condition: service_healthy }

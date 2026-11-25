@@ -13,23 +13,30 @@
 
 ## مسیرها
 
-| مسیر                                                                   | توضیح                                                                    |
-| ---------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| `POST /v1/chat/completions`                                            | OpenAI و OpenAI-compatible                                               |
-| `POST /openai/deployments/{deployment}/chat/completions?api-version=…` | Azure OpenAI                                                             |
-| `POST /v1/messages`                                                    | Anthropic                                                                |
-| `POST /model/{modelId}/converse` و `/converse-stream`                  | AWS Bedrock Converse (stream با eventstream باینری؛ امضا بررسی نمی‌شود)  |
-| `GET /v1/models`                                                       | لیست مدل‌ها                                                              |
-| `GET /__mock/stats`                                                    | تعداد درخواست بر اساس کلید و status، و ۲۰ بدنهٔ آخر                      |
-| `POST /__mock/reset`                                                   | صفر کردن آمار                                                            |
-| `PUT /__mock/config`                                                   | `{"directives":"…"}` سناریوی پیش‌فرض سراسری                              |
-| `GET /healthz`                                                         | سلامت                                                                    |
-| `POST /oauth2/token`                                                   | endpoint توکن JWT-bearer گوگل (کارت ۲۷.۴)                                |
-| `POST /{tenant}/oauth2/v2.0/token`                                     | endpoint توکن client credentials نسخهٔ ۲ در Entra ID                     |
-| `POST /{v1,v1beta1}/projects/…/publishers/google/models/{m}:{verb}`    | Vertex AI (با همان handler جمینای)                                       |
-| `GET/PUT /__mock/oauth`                                                | توکن‌های صادرشده برای هر هویت؛ `{"ttlSeconds":n,"reset":true}`           |
-| `GET /catalog/prices.json`                                             | فهرست قیمت ساختگی برای همگام‌سازی کاتالوگ (کارت ۲۷.۵)؛ تا تنظیم نشود 404 |
-| `PUT /__mock/catalog`                                                  | بدنه = فهرست قیمت (قالب LiteLLM یا DiRouter)؛ `{}` آن را پاک می‌کند      |
+| مسیر                                                                       | توضیح                                                                                                                 |
+| -------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `POST /v1/chat/completions`                                                | OpenAI و OpenAI-compatible                                                                                            |
+| `POST /openai/deployments/{deployment}/chat/completions?api-version=…`     | Azure OpenAI                                                                                                          |
+| `POST /v1/messages`                                                        | Anthropic                                                                                                             |
+| `POST /model/{modelId}/converse` و `/converse-stream`                      | AWS Bedrock Converse (stream با eventstream باینری؛ امضا بررسی نمی‌شود)                                               |
+| `GET /v1/models`                                                           | لیست مدل‌ها                                                                                                           |
+| `GET /__mock/stats`                                                        | تعداد درخواست بر اساس کلید و status، و ۲۰ بدنهٔ آخر                                                                   |
+| `POST /__mock/reset`                                                       | صفر کردن آمار                                                                                                         |
+| `PUT /__mock/config`                                                       | `{"directives":"…"}` سناریوی پیش‌فرض سراسری                                                                           |
+| `GET /healthz`                                                             | سلامت                                                                                                                 |
+| `POST /oauth2/token`                                                       | endpoint توکن JWT-bearer گوگل (کارت ۲۷.۴)                                                                             |
+| `POST /{tenant}/oauth2/v2.0/token`                                         | endpoint توکن client credentials نسخهٔ ۲ در Entra ID                                                                  |
+| `POST /{v1,v1beta1}/projects/…/publishers/google/models/{m}:{verb}`        | Vertex AI (با همان handler جمینای)                                                                                    |
+| `GET/PUT /__mock/oauth`                                                    | توکن‌های صادرشده برای هر هویت؛ `{"ttlSeconds":n,"reset":true}`                                                        |
+| `GET /catalog/prices.json`                                                 | فهرست قیمت ساختگی برای همگام‌سازی کاتالوگ (کارت ۲۷.۵)؛ تا تنظیم نشود 404                                              |
+| `PUT /__mock/catalog`                                                      | بدنه = فهرست قیمت (قالب LiteLLM یا DiRouter)؛ `{}` آن را پاک می‌کند                                                   |
+| `GET /v1/realtime?model=…` (WebSocket)، `/openai/v1/realtime?model=…`      | Realtime API (کارت ۳۰.۵)، نام رویدادهای GA یا beta با `OpenAI-Beta: realtime=v1`                                      |
+| `POST /v1/completions`، `/openai/deployments/{d}/completions`              | completions قدیمی (کارت ۳۰.۴): فقط مدل‌های instruct/davinci/babbage، برای مدل چت 404                                  |
+| `POST /v1/images/edits`، `/v1/images/variations`، `/v1/audio/translations` | ویرایش و گونه‌سازی تصویر (multipart، توکن‌های gpt-image برای هر تصویر بارگذاری‌شده ۶۵) و ترجمه به انگلیسی (کارت ۳۰.۴) |
+
+### Realtime (کارت ۳۰.۵)
+
+endpoint وب‌سوکت به `session.update`، `input_audio_buffer.append/commit/clear`، `conversation.item.create/delete`، `response.create` و `response.cancel` مثل OpenAI پاسخ می‌دهد و هر رویداد دیگری را با رویداد `error` رد می‌کند. مصرف قطعی است تا صورت‌حساب قابل بررسی باشد: متن ورودی یک توکن به ازای هر ۴ نویسهٔ گفتگو، صوت commit‌شده ۱۰ توکن به ازای هر ثانیه PCM16 در ۲۴ کیلوهرتز (۴۸٬۰۰۰ بایت)، و هر پاسخ `text` سناریو (یک توکن به ازای هر ۴ نویسه) به‌علاوهٔ ۲ توکن صوتی برای هر delta وقتی خروجی صوتی روشن است. handshake به `status=` احترام می‌گذارد (با همان وضعیت HTTP رد می‌شود) و `chunks=`، `chunk_delay=`، `text=` و `no_usage` پاسخ را شکل می‌دهند. `GET /__mock/stats` بخش `realtime` دارد: نشست‌های بازشده و باز، نوع رویدادهای دریافتی از کلاینت، آخرین مدل، هدر احراز و پرچم beta بالادست، و `cutMidResponse` (نشست‌هایی که سوکتشان وسط پخش پاسخ بسته شد).
 
 ## انتخاب سناریو
 

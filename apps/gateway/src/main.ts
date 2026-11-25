@@ -40,6 +40,9 @@ const env = loadEnvOrExit(
     /** Provider plugins (card 21.2): folder, and the names to load (none by default). */
     PLUGINS_DIR: z.string().default('./plugins'),
     PLUGINS_ENABLED: z.string().default(''),
+    /** Realtime sessions (card 30.5): longest session, and open sessions per replica. */
+    REALTIME_MAX_SESSION_SECONDS: z.coerce.number().int().min(10).default(1_800),
+    REALTIME_MAX_SESSIONS: z.coerce.number().int().min(0).default(1_000),
   }),
 );
 // Every log line also feeds the OTLP log export (card 24.3); the buffer ignores lines while that
@@ -144,6 +147,10 @@ const gateway = buildGateway({
   dataDir: env.DATA_DIR,
   plugins: { dir: env.PLUGINS_DIR, enabled: env.PLUGINS_ENABLED },
   blockPrivateUpstreams: env.NODE_ENV === 'production',
+  realtime: {
+    maxSessionSeconds: env.REALTIME_MAX_SESSION_SECONDS,
+    maxSessions: env.REALTIME_MAX_SESSIONS,
+  },
   ...(env.CONTROL_API_URL ? { controlApiUrl: env.CONTROL_API_URL } : {}),
   ...(env.INTERNAL_TOKEN ? { internalToken: env.INTERNAL_TOKEN } : {}),
   // Separate connection with offline queue disabled: during a Valkey outage commands fail immediately and the local limiter takes over.

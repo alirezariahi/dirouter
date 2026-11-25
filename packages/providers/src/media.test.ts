@@ -271,3 +271,70 @@ describe('media-only providers and multipart', () => {
     expect(raw.endsWith(`--${boundary}--\r\n`)).toBe(true);
   });
 });
+
+describe('image edits, variations and translations (card 30.4)', () => {
+  const png = {
+    data: new Uint8Array([137, 80, 78, 71]),
+    filename: 'a.png',
+    contentType: 'image/png',
+  };
+
+  it('edits: one image as `image`, several as `image[]`, response_format only for dall-e', () => {
+    const adapter = mediaAdapterFor('openai').images;
+    const one = adapter?.edit?.(ctx('openai', 'https://api.openai.com/v1', 'dall-e-2'), {
+      images: [png],
+      mask: { ...png, filename: 'm.png' },
+      prompt: 'a hat',
+      n: 2,
+      size: '512x512',
+      responseFormat: 'url',
+    });
+    expect(one?.url).toBe('https://api.openai.com/v1/images/edits');
+    expect(one?.headers).toMatchObject({ authorization: 'Bearer secret' });
+    const body = text(one?.bytes);
+    expect(body).toContain('name="image"; filename="a.png"');
+    expect(body).toContain('name="mask"; filename="m.png"');
+    expect(body).toContain('name="response_format"\r\n\r\nurl');
+    const many = adapter?.edit?.(ctx('openai', 'https://api.openai.com/v1', 'gpt-image-1'), {
+      images: [png, { ...png, filename: 'b.png' }],
+      prompt: 'merge',
+      n: 1,
+      inputFidelity: 'high',
+      responseFormat: 'url',
+    });
+    const manyBody = text(many?.bytes);
+    expect(manyBody.match(/name="image\[\]"/g)).toHaveLength(2);
+    expect(manyBody).toContain('name="input_fidelity"\r\n\r\nhigh');
+    expect(manyBody).not.toContain('response_format');
+  });
+
+  it('variations and translations go to their own endpoints', () => {
+    const varied = mediaAdapterFor('openai-compatible').images?.variation?.(
+      ctx('openai-compatible', 'http://h/v1', 'dall-e-2'),
+      { image: png, n: 3, responseFormat: 'b64_json' },
+    );
+    expect(varied?.url).toBe('http://h/v1/images/variations');
+    expect(text(varied?.bytes)).toContain('name="n"\r\n\r\n3');
+    const translation = mediaAdapterFor('openai').translation;
+    const up = translation?.build(ctx('openai', 'http://h/v1', 'whisper-1'), {
+      audio,
+      filename: 's.wav',
+      contentType: 'audio/wav',
+      language: 'fa',
+      prompt: 'context',
+    });
+    expect(up?.url).toBe('http://h/v1/audio/translations');
+    // Whisper reports the duration in verbose_json; translations take no language.
+    expect(text(up?.bytes)).toContain('name="response_format"\r\n\r\nverbose_json');
+    expect(text(up?.bytes)).not.toContain('name="language"');
+    expect(translation?.parse({ text: 'hi', duration: 2.5, language: 'english' })).toEqual({
+      text: 'hi',
+      seconds: 2.5,
+      language: 'english',
+    });
+    expect(mediaAdapterFor('deepgram').translation).toBeUndefined();
+    expect(mediaAdapterFor('gemini').images && 'edit' in mediaAdapterFor('gemini').images!).toBe(
+      false,
+    );
+  });
+});

@@ -42,8 +42,10 @@ import { A2aAgent } from './a2a/agent.js';
 import { RateLimiter } from './rate-limiter.js';
 import { ExactCache, SemanticCacheClient } from './cache.js';
 import { handleModerations } from './classifiers.js';
+import { handleCompletions } from './completions.js';
 import { handleEmbeddings, handleGeminiEmbeddings } from './embeddings.js';
 import { registerMediaRoutes } from './media.js';
+import { DEFAULT_REALTIME_SETTINGS, RealtimeGateway, type RealtimeSettings } from './realtime.js';
 import { configureUpstreamGuard } from './upstream.js';
 import { credentialTokens } from './credential-tokens.js';
 import { Tracer } from './tracing.js';
@@ -89,6 +91,8 @@ export interface GatewayOptions {
   blockPrivateUpstreams?: boolean;
   /** Tests only: delays between A2A push notification retries (card 28.2). */
   a2aPushRetryDelaysMs?: readonly number[];
+  /** Realtime session limits (card 30.5). */
+  realtime?: Partial<RealtimeSettings>;
 }
 
 export function buildGateway(opts: GatewayOptions) {
@@ -290,9 +294,14 @@ export function buildGateway(opts: GatewayOptions) {
 
   // Sprint 2 inbound APIs (cards 11.1, 11.2 and 11.4).
   app.post('/v1/responses', (req, reply) => handleProxy('openai.responses', req, reply, deps));
+  // Legacy text completions (card 30.4), native or mapped to chat.
+  app.post('/v1/completions', (req, reply) => handleCompletions(req, reply, deps));
   app.post('/v1/embeddings', (req, reply) => handleEmbeddings(req, reply, deps));
   app.post('/v1/moderations', (req, reply) => handleModerations(req, reply, deps));
   registerMediaRoutes(app, deps);
+  // Realtime API over WebSocket (card 30.5).
+  const realtime = new RealtimeGateway(deps, { ...DEFAULT_REALTIME_SETTINGS, ...opts.realtime });
+  realtime.register(app);
   app.post('/v1beta/models/:modelAction', (req, reply) => {
     const param = (req.params as { modelAction?: string }).modelAction ?? '';
     const [rawModel = '', action = ''] = param.split(':');
@@ -610,6 +619,7 @@ export function buildGateway(opts: GatewayOptions) {
     budgets: deps.budgets,
     a2a,
     mcp,
+    realtime,
     async start() {
       if (opts.plugins) {
         const names = enabledPlugins(opts.plugins.enabled);
@@ -653,18 +663,24 @@ export function buildGateway(opts: GatewayOptions) {
       await sleep(options.readyDelayMs);
       const closing = app.close();
       const deadline = Date.now() + options.drainMs;
-      while (inFlight > 0 && Date.now() < deadline) {
+      // Open realtime sessions (card 30.5) are waited for like streams.
+      while (inFlight + realtime.size > 0 && Date.now() < deadline) {
         // A keep-alive connection whose response is finished and is idle; closing it is safe.
         app.server.closeIdleConnections();
         await sleep(50);
       }
-      const forced = inFlight;
+      const forced = inFlight + realtime.size;
       if (forced > 0) {
-        opts.logger.warn({ inFlight: forced }, 'drain timeout, aborting open requests');
+        opts.logger.warn(
+          { inFlight, realtimeSessions: realtime.size },
+          'drain timeout, aborting open requests',
+        );
         shutdown.abort(new Error('gateway shutting down'));
-        // A short window to write the error event or 503 before connections are closed.
-        const grace = Date.now() + 1_000;
-        while (inFlight > 0 && Date.now() < grace) await sleep(20);
+        // A short window to write the error event or 503 before connections are closed; a
+        // realtime session also gets to finish (or cancel and bill) its response in progress.
+        const grace =
+          Date.now() + 1_000 + (realtime.size > 0 ? 2 * realtime.settings.closeGraceMs + 1_000 : 0);
+        while (inFlight + realtime.size > 0 && Date.now() < grace) await sleep(20);
       }
       app.server.closeAllConnections();
       await Promise.race([closing, sleep(2_000)]);

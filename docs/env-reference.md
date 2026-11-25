@@ -116,6 +116,8 @@ The run guide and security details are in [monitoring.md](monitoring.md).
 | `GATEWAY_SHUTDOWN_READY_DELAY_MS` | Compose → gateway `SHUTDOWN_READY_DELAY_MS` | `5000`                                                  | The pause after `/readyz` turns 503, until the replica is removed from Traefik; a non-negative integer and more than two health check cycles.                                             |
 | `SHUTDOWN_DRAIN_MS`               | gateway (name inside the process)           | `30000`; usually fed from the prefixed Compose variable | The drain limit in a direct run. If you change it, make `stop_grace_period` larger than the ready delay + drain + flush time.                                                             |
 | `SHUTDOWN_READY_DELAY_MS`         | gateway (name inside the process)           | `5000`; usually fed from the prefixed Compose variable  | The delay before leaving the readiness rotation in a direct run.                                                                                                                          |
+| `REALTIME_MAX_SESSION_SECONDS`    | gateway and Compose                         | `1800`                                                  | Longest Realtime WebSocket session (card 30.5), in seconds, at least 10. A session that reaches it lets its response finish, gets a `session_expired` error event and is closed.          |
+| `REALTIME_MAX_SESSIONS`           | gateway and Compose                         | `1000`                                                  | Open Realtime sessions per gateway replica; a new one beyond it is refused with 503. The key's `maxConcurrency` also counts each open session.                                            |
 
 ## Worker and data retention
 

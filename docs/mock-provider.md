@@ -11,23 +11,30 @@ A fake provider compatible with OpenAI, Azure OpenAI and Anthropic (stream and n
 
 ## Routes
 
-| Route                                                                  | Description                                                                            |
-| ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| `POST /v1/chat/completions`                                            | OpenAI and OpenAI-compatible                                                           |
-| `POST /openai/deployments/{deployment}/chat/completions?api-version=…` | Azure OpenAI                                                                           |
-| `POST /v1/messages`                                                    | Anthropic                                                                              |
-| `POST /model/{modelId}/converse` and `/converse-stream`                | AWS Bedrock Converse (binary eventstream for the stream; the signature is not checked) |
-| `GET /v1/models`                                                       | Model list                                                                             |
-| `GET /__mock/stats`                                                    | Request count by key and status, and the last 20 bodies                                |
-| `POST /__mock/reset`                                                   | Reset the statistics                                                                   |
-| `PUT /__mock/config`                                                   | `{"directives":"…"}` global default scenario                                           |
-| `GET /healthz`                                                         | Health                                                                                 |
-| `POST /oauth2/token`                                                   | Google JWT-bearer token endpoint (card 27.4)                                           |
-| `POST /{tenant}/oauth2/v2.0/token`                                     | Entra ID v2 client-credentials token endpoint                                          |
-| `POST /{v1,v1beta1}/projects/…/publishers/google/models/{m}:{verb}`    | Vertex AI (shares the Gemini handler)                                                  |
-| `GET/PUT /__mock/oauth`                                                | Issued tokens per identity; `{"ttlSeconds":n,"reset":true}`                            |
-| `GET /catalog/prices.json`                                             | Fake model price list for the catalog sync (card 27.5); 404 until set                  |
-| `PUT /__mock/catalog`                                                  | Body = the price list (LiteLLM or DiRouter format); `{}` clears it                     |
+| Route                                                                      | Description                                                                                                                 |
+| -------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `POST /v1/chat/completions`                                                | OpenAI and OpenAI-compatible                                                                                                |
+| `POST /openai/deployments/{deployment}/chat/completions?api-version=…`     | Azure OpenAI                                                                                                                |
+| `POST /v1/messages`                                                        | Anthropic                                                                                                                   |
+| `POST /model/{modelId}/converse` and `/converse-stream`                    | AWS Bedrock Converse (binary eventstream for the stream; the signature is not checked)                                      |
+| `GET /v1/models`                                                           | Model list                                                                                                                  |
+| `GET /__mock/stats`                                                        | Request count by key and status, and the last 20 bodies                                                                     |
+| `POST /__mock/reset`                                                       | Reset the statistics                                                                                                        |
+| `PUT /__mock/config`                                                       | `{"directives":"…"}` global default scenario                                                                                |
+| `GET /healthz`                                                             | Health                                                                                                                      |
+| `POST /oauth2/token`                                                       | Google JWT-bearer token endpoint (card 27.4)                                                                                |
+| `POST /{tenant}/oauth2/v2.0/token`                                         | Entra ID v2 client-credentials token endpoint                                                                               |
+| `POST /{v1,v1beta1}/projects/…/publishers/google/models/{m}:{verb}`        | Vertex AI (shares the Gemini handler)                                                                                       |
+| `GET/PUT /__mock/oauth`                                                    | Issued tokens per identity; `{"ttlSeconds":n,"reset":true}`                                                                 |
+| `GET /catalog/prices.json`                                                 | Fake model price list for the catalog sync (card 27.5); 404 until set                                                       |
+| `PUT /__mock/catalog`                                                      | Body = the price list (LiteLLM or DiRouter format); `{}` clears it                                                          |
+| `GET /v1/realtime?model=…` (WebSocket), `/openai/v1/realtime?model=…`      | Realtime API (card 30.5), GA event names or beta with `OpenAI-Beta: realtime=v1`                                            |
+| `POST /v1/completions`, `/openai/deployments/{d}/completions`              | Legacy completions (card 30.4): instruct/davinci/babbage models only, 404 for chat models                                   |
+| `POST /v1/images/edits`, `/v1/images/variations`, `/v1/audio/translations` | Image edits and variations (multipart, gpt-image tokens count 65 per uploaded image) and translation to English (card 30.4) |
+
+### Realtime (card 30.5)
+
+The WebSocket endpoint answers `session.update`, `input_audio_buffer.append/commit/clear`, `conversation.item.create/delete`, `response.create` and `response.cancel` like OpenAI, and rejects anything else with an `error` event. Usage is deterministic so billing can be checked: input text is one token per 4 characters of the conversation, committed audio is 10 tokens per second of PCM16 at 24 kHz (48,000 bytes), and a response produces the scenario `text` (one token per 4 characters) plus 2 audio tokens per delta when audio output is on. The handshake honours `status=` (refused with that HTTP status), and `chunks=`, `chunk_delay=`, `text=` and `no_usage` shape the response. `GET /__mock/stats` has a `realtime` section: sessions opened and open, the client event types received, the last upstream model, auth header and beta flag, and `cutMidResponse` (sessions whose socket closed while a response was still streaming).
 
 ## Scenario selection
 

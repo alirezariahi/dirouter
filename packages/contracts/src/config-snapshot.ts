@@ -145,6 +145,12 @@ export const ModelPricing = z.object({
   perMCharUsd: UsdAmount.optional(),
   /** Speech to text: price per second of input audio. */
   perSecondUsd: UsdAmount.optional(),
+  /**
+   * Realtime audio tokens (card 30.5), per million. Unset means the text input/output rate;
+   * cached audio is priced at `cacheReadPerMTok` like cached text.
+   */
+  audioInputPerMTok: UsdAmount.optional(),
+  audioOutputPerMTok: UsdAmount.optional(),
   /** Context-length tiers (card 27.5), ascending by threshold. */
   tiers: z.array(PricingTier).max(8).optional(),
   /** Discount for the provider's batch API (card 27.5): `0.5` = batch calls cost half. */
@@ -170,6 +176,13 @@ export const ModelCapabilities = z.object({
    */
   documents: z.boolean().optional(),
   audioInput: z.boolean().optional(),
+  /** Model can serve Realtime WebSocket sessions at `/v1/realtime` (card 30.5). */
+  realtime: z.boolean().optional(),
+  /**
+   * The provider serves the legacy `/v1/completions` for this model itself (instruct models,
+   * vLLM). Otherwise the gateway maps the request to chat (card 30.4).
+   */
+  completions: z.boolean().optional(),
 });
 export type ModelCapabilities = z.infer<typeof ModelCapabilities>;
 

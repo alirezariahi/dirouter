@@ -10,6 +10,7 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 export const MOCK_PNG_BASE64 =
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
 export const MOCK_TRANSCRIPT = 'Hello from the DiRouter mock transcriber.';
+export const MOCK_TRANSLATION = 'Hello from the DiRouter mock translator.';
 const RATE = 16_000;
 
 /** Silent 16 kHz mono 16-bit WAV. */
@@ -101,6 +102,61 @@ export function registerMedia(app: FastifyInstance): void {
           segments: [{ id: 0, start: 0, end: seconds, text: MOCK_TRANSCRIPT }],
         }
       : { text: MOCK_TRANSCRIPT, usage: { type: 'duration', seconds: Math.ceil(seconds) } };
+  });
+
+  // Image edits and variations (card 30.4): multipart, one result per `n`. gpt-image models
+  // report tokens (the input counts 65 tokens per uploaded image); dall-e answers with URLs.
+  const imageParts = (body: Buffer) =>
+    [...body.toString('latin1').matchAll(/name="(image(?:\[\])?|mask)"; filename=/g)].map(
+      (m) => m[1],
+    );
+  for (const kind of ['edits', 'variations'] as const)
+    app.post(`/v1/images/${kind}`, async (req, reply) => {
+      if (!authorized(req, 'authorization', 'Bearer ')) return reply.status(401).send({});
+      const body = req.body as Buffer;
+      const parts = imageParts(body);
+      if (!parts.some((p) => p?.startsWith('image')))
+        return reply.status(400).send({
+          error: { message: 'image is required', type: 'invalid_request_error', code: null },
+        });
+      const n = Number(field(body, 'n') ?? 1);
+      const model = field(body, 'model') ?? 'dall-e-2';
+      const prompt = field(body, 'prompt') ?? '';
+      const gptImage = model.startsWith('gpt-image');
+      const b64 = gptImage || field(body, 'response_format') === 'b64_json';
+      const images = parts.filter((p) => p?.startsWith('image')).length;
+      return {
+        created: 1_700_000_000,
+        data: Array.from({ length: n }, () =>
+          b64 ? { b64_json: MOCK_PNG_BASE64 } : { url: `https://mock.invalid/${kind}.png` },
+        ),
+        ...(gptImage
+          ? {
+              usage: {
+                input_tokens: Math.ceil(prompt.length / 4) + 65 * images,
+                output_tokens: 272 * n,
+                total_tokens: Math.ceil(prompt.length / 4) + 65 * images + 272 * n,
+              },
+            }
+          : {}),
+      };
+    });
+
+  // Translation to English (card 30.4): like transcription, with the task named.
+  app.post('/v1/audio/translations', async (req, reply) => {
+    const body = req.body as Buffer;
+    if (!authorized(req, 'authorization', 'Bearer ')) return reply.status(401).send({});
+    const seconds = wavSecondsIn(body);
+    const verbose = field(body, 'response_format') === 'verbose_json';
+    return verbose
+      ? {
+          task: 'translate',
+          language: 'english',
+          duration: seconds,
+          text: MOCK_TRANSLATION,
+          segments: [{ id: 0, start: 0, end: seconds, text: MOCK_TRANSLATION }],
+        }
+      : { text: MOCK_TRANSLATION };
   });
 
   // ── Deepgram ──

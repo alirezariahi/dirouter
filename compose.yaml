@@ -176,6 +176,9 @@ services:
       SHUTDOWN_DRAIN_MS: ${GATEWAY_SHUTDOWN_DRAIN_MS:-30000}
       # More than two Traefik health check rounds (2 seconds), so the replica leaves rotation before it closes.
       SHUTDOWN_READY_DELAY_MS: ${GATEWAY_SHUTDOWN_READY_DELAY_MS:-5000}
+      # Realtime WebSocket sessions (card 30.5): longest session and open sessions per replica.
+      REALTIME_MAX_SESSION_SECONDS: ${REALTIME_MAX_SESSION_SECONDS:-1800}
+      REALTIME_MAX_SESSIONS: ${REALTIME_MAX_SESSIONS:-1000}
     # gateway has no access to Postgres (ADR-006): only Valkey, on the internal network.
     networks: [edge, internal]
     # ready delay (5s) + drain (30s) + consumer flush; must be longer than their sum, otherwise SIGKILL cuts the streams.
@@ -193,6 +196,14 @@ services:
       traefik.http.routers.gateway.tls: 'true'
       # compress except text/event-stream, so SSE is not buffered.
       traefik.http.routers.gateway.middlewares: security-headers@file,gateway-retry@file,compress@file
+      # Realtime API over WebSocket (card 30.5): its own router, longer rule so it wins. Traefik
+      # passes the upgrade through; no compression (it would buffer the 101 response) and no
+      # retry (a session is never replayed).
+      traefik.http.routers.gateway-realtime.rule: Host(`api.${DOMAIN:-localhost}`) && PathPrefix(`/v1/realtime`)
+      traefik.http.routers.gateway-realtime.entrypoints: websecure
+      traefik.http.routers.gateway-realtime.tls: 'true'
+      traefik.http.routers.gateway-realtime.service: gateway
+      traefik.http.routers.gateway-realtime.middlewares: security-headers@file
       traefik.http.services.gateway.loadbalancer.server.port: '8080'
       traefik.http.services.gateway.loadbalancer.serversTransport: long-stream@file
       traefik.http.services.gateway.loadbalancer.healthcheck.path: /readyz

@@ -38,7 +38,9 @@ type Capability =
   | 'jsonMode'
   | 'images'
   | 'speech'
-  | 'transcription';
+  | 'transcription'
+  | 'realtime'
+  | 'completions';
 type TimeoutKey = 'connectMs' | 'firstByteMs' | 'idleMs' | 'totalMs';
 
 interface Pricing {
@@ -50,6 +52,8 @@ interface Pricing {
   perImageUsd?: string;
   perMCharUsd?: string;
   perSecondUsd?: string;
+  audioInputPerMTok?: string;
+  audioOutputPerMTok?: string;
 }
 interface Model {
   id: string;
@@ -145,6 +149,8 @@ interface ModelDraft {
   perImageUsd: string;
   perMCharUsd: string;
   perSecondUsd: string;
+  audioInputPerMTok: string;
+  audioOutputPerMTok: string;
   capabilities: Record<Capability, boolean>;
   catalogKey: string;
 }
@@ -177,6 +183,8 @@ const CAPABILITIES: Capability[] = [
   'images',
   'speech',
   'transcription',
+  'realtime',
+  'completions',
 ];
 const TIMEOUT_KEYS: TimeoutKey[] = ['connectMs', 'firstByteMs', 'idleMs', 'totalMs'];
 
@@ -225,6 +233,8 @@ function modelDraft(model: Model | undefined, providers: Provider[]): ModelDraft
     perImageUsd: model?.pricing.perImageUsd ?? '',
     perMCharUsd: model?.pricing.perMCharUsd ?? '',
     perSecondUsd: model?.pricing.perSecondUsd ?? '',
+    audioInputPerMTok: model?.pricing.audioInputPerMTok ?? '',
+    audioOutputPerMTok: model?.pricing.audioOutputPerMTok ?? '',
     capabilities: Object.fromEntries(
       CAPABILITIES.map((key) => [key, caps[key] === true]),
     ) as Record<Capability, boolean>,
@@ -963,6 +973,8 @@ function ModelEditor({
     'perImageUsd',
     'perMCharUsd',
     'perSecondUsd',
+    'audioInputPerMTok',
+    'audioOutputPerMTok',
   ] as const;
 
   function chooseCatalog(key: string) {

@@ -165,6 +165,21 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('models, aliases and combos over H
       pricing: { perMCharUsd: '15' },
     });
     expect(patched.json()).toMatchObject({ pricing: { perImageUsd: '0.01', perMCharUsd: '15' } });
+    // Realtime audio token prices and capability (card 30.5).
+    const realtime = await call('POST', 'models', {
+      providerId: provider,
+      upstreamModel: 'gpt-realtime',
+      pricing: { inputPerMTok: '4', outputPerMTok: '16', audioInputPerMTok: '32' },
+      capabilities: { realtime: true },
+    });
+    expect(realtime.statusCode).toBe(201);
+    const audio = await call('PATCH', `models/${realtime.json<{ id: string }>().id}`, {
+      pricing: { audioOutputPerMTok: '64' },
+    });
+    expect(audio.json()).toMatchObject({
+      pricing: { audioInputPerMTok: '32', audioOutputPerMTok: '64' },
+      capabilities: { realtime: true },
+    });
 
     await app.get(SnapshotService).rebuild('test');
     const snap = (await app.get(SnapshotService).latest())?.snapshot as {
@@ -179,6 +194,10 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('models, aliases and combos over H
     expect(snap.models.find((x) => x.upstreamModel === 'gpt-image-1')?.pricing).toMatchObject({
       perImageUsd: '0.01',
       perMCharUsd: '15',
+    });
+    expect(snap.models.find((x) => x.upstreamModel === 'gpt-realtime')).toMatchObject({
+      pricing: { audioInputPerMTok: '32', audioOutputPerMTok: '64' },
+      capabilities: { realtime: true },
     });
   });
 

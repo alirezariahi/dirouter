@@ -69,6 +69,8 @@ export const modelMessagesEn = {
     images: 'Image generation',
     speech: 'Text to speech',
     transcription: 'Speech to text',
+    realtime: 'Realtime (WebSocket)',
+    completions: 'Legacy completions (native)',
   },
   price: {
     inputPerMTok: 'Input / MTok',
@@ -79,6 +81,8 @@ export const modelMessagesEn = {
     perImageUsd: 'Per image (USD)',
     perMCharUsd: 'Speech / million characters',
     perSecondUsd: 'Audio / second',
+    audioInputPerMTok: 'Audio input / MTok',
+    audioOutputPerMTok: 'Audio output / MTok',
   },
   strategyType: {
     priority: 'Priority',
@@ -250,6 +254,8 @@ export const modelMessagesFa: typeof modelMessagesEn = {
     images: 'تولید تصویر',
     speech: 'تبدیل متن به گفتار',
     transcription: 'تبدیل گفتار به متن',
+    realtime: 'بی‌درنگ (WebSocket)',
+    completions: 'completions قدیمی (بومی)',
   },
   price: {
     inputPerMTok: 'ورودی / میلیون توکن',
@@ -260,6 +266,8 @@ export const modelMessagesFa: typeof modelMessagesEn = {
     perImageUsd: 'هر تصویر (دلار)',
     perMCharUsd: 'گفتار / میلیون کاراکتر',
     perSecondUsd: 'صوت / ثانیه',
+    audioInputPerMTok: 'ورودی صوتی / میلیون توکن',
+    audioOutputPerMTok: 'خروجی صوتی / میلیون توکن',
   },
   strategyType: {
     priority: 'اولویت‌دار',

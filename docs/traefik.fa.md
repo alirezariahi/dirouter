@@ -18,11 +18,14 @@
 
 | دامنه                              | سرویس                             | middlewareها                                                                    |
 | ---------------------------------- | --------------------------------- | ------------------------------------------------------------------------------- |
-| `api.<DOMAIN>`                     | gateway                           | `security-headers`، `compress`                                                  |
+| `api.<DOMAIN>`                     | gateway                           | `security-headers`، `gateway-retry`، `compress`                                 |
+| `api.<DOMAIN>` + `/v1/realtime`    | gateway (Realtime روی WebSocket)  | `security-headers`                                                              |
 | `admin.<DOMAIN>`                   | control-api                       | `security-headers`، `control-api-cors`، `control-api-ratelimit`، `compress`     |
 | `app.<DOMAIN>`                     | dashboard                         | `security-headers`، `compress`                                                  |
 | `traefik.<DOMAIN>`                 | داشبورد Traefik (`api@internal`)  | `dashboard-ips` (ipAllowList)، `dashboard-auth` (basicAuth)، `security-headers` |
 | `mail.localhost`، `mock.localhost` | mailpit و mock-provider (فقط dev) | —                                                                               |
+
+روتر `/v1/realtime` (کارت ۳۰.۵) قاعدهٔ بلندتری دارد و برای نشست‌های Realtime و endpointهای client secret آن برنده می‌شود. Traefik ارتقای WebSocket را روی هر روتری عبور می‌دهد؛ این روتر `compress` و `gateway-retry` را ندارد، چون نشست یک سوکت طولانی است که هرگز نباید روی replica دیگری تکرار شود. در dev همین روتر روی entrypoint `web` هم هست (`gateway-realtime-http`). روی Traefik v3.6 با `readTimeout` و `idleTimeout` پنج‌ثانیه‌ای آزموده شد: نشستی ۷ ثانیه بیکار ماند و بعد پاسخی ۱۰ ثانیه‌ای را از هر دو روتر بی‌قطع گرفت؛ پس timeoutهای پاسخ‌دهی روی اتصال ارتقایافته اعمال نمی‌شوند.
 
 providerها: داکر با `exposedByDefault: false` (فقط سرویس با `traefik.enable=true`) روی شبکهٔ `dirouter_edge`، و provider فایل برای پوشهٔ `dynamic/` با `watch`.
 

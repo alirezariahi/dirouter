@@ -1,7 +1,7 @@
 /** Media prices (card 21.1) on top of token prices. */
 import { describe, expect, it } from 'vitest';
 
-import { computeCost, computeCostUsd, mediaCost } from './cost.js';
+import { audioTokenCost, computeCost, computeCostUsd, mediaCost } from './cost.js';
 
 const none = {
   inputTokens: 0,
@@ -32,5 +32,34 @@ describe('media cost', () => {
     expect(breakdown.total).toBe(4_004_000_000n);
     expect(mediaCost({ images: 5 }, { inputPerMTok: '1', outputPerMTok: '1' })).toBe(0n);
     expect(mediaCost(undefined, pricing)).toBe(0n);
+  });
+});
+
+describe('realtime audio token cost (card 30.5)', () => {
+  const pricing = {
+    inputPerMTok: '4',
+    outputPerMTok: '16',
+    cacheReadPerMTok: '0.4',
+    audioInputPerMTok: '32',
+    audioOutputPerMTok: '64',
+  };
+
+  it('prices audio at the audio rates, cached audio at the cache read rate', () => {
+    const media = { audioInputTokens: 1_000, audioCachedTokens: 200, audioOutputTokens: 500 };
+    // 800 × $32/M + 200 × $0.4/M + 500 × $64/M
+    expect(audioTokenCost(media, pricing)).toBe(5_768_000n);
+    // Text tokens are priced as before and the audio share is added on top.
+    const usage = { ...none, inputTokens: 100, outputTokens: 50 };
+    expect(computeCostUsd(usage, pricing, media)).toBe('0.05888000');
+  });
+
+  it('falls back to the text rates when the model has no audio prices', () => {
+    expect(
+      audioTokenCost(
+        { audioInputTokens: 1_000_000, audioOutputTokens: 1_000_000 },
+        { inputPerMTok: '1', outputPerMTok: '2' },
+      ),
+    ).toBe(300_000_000n);
+    expect(audioTokenCost(undefined, pricing)).toBe(0n);
   });
 });

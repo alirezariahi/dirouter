@@ -11,6 +11,8 @@
  * | fal                           | yes    |        |               |
  * | elevenlabs                    |        | yes    | yes           |
  * | deepgram                      |        | yes    | yes           |
+ *
+ * Image edits and variations and audio translation (card 30.4) exist for the OpenAI shape only.
  */
 import type {
   CanonicalResponse,
@@ -49,6 +51,33 @@ export interface GeneratedImage {
   b64Json?: string;
   revisedPrompt?: string;
 }
+/** An uploaded image (edits and variations, card 30.4). */
+export interface ImageUpload {
+  data: Uint8Array;
+  filename: string;
+  contentType: string;
+}
+export interface ImageEditRequest {
+  /** One image, or several for gpt-image models. */
+  images: ImageUpload[];
+  mask?: ImageUpload;
+  prompt: string;
+  n: number;
+  size?: string;
+  quality?: string;
+  background?: string;
+  inputFidelity?: string;
+  outputFormat?: string;
+  /** Unset: whatever the model answers with (gpt-image: base64, dall-e: URLs). */
+  responseFormat?: 'url' | 'b64_json';
+}
+export interface ImageVariationRequest {
+  image: ImageUpload;
+  n: number;
+  size?: string;
+  responseFormat?: 'url' | 'b64_json';
+}
+
 export interface ImageResult {
   images: GeneratedImage[];
   usage?: { inputTokens: number; outputTokens: number };
@@ -99,10 +128,18 @@ export interface MediaAdapter {
   images?: {
     build(ctx: MediaContext, req: ImageRequest): UpstreamRequest;
     parse(json: unknown): ImageResult;
+    /** `/v1/images/edits` and `/v1/images/variations` (card 30.4); answers parse like `build`. */
+    edit?(ctx: MediaContext, req: ImageEditRequest): UpstreamRequest;
+    variation?(ctx: MediaContext, req: ImageVariationRequest): UpstreamRequest;
   };
   /** The upstream answers with the audio bytes in the requested format. */
   speech?: { build(ctx: MediaContext, req: SpeechRequest): UpstreamRequest };
   transcription?: {
+    build(ctx: MediaContext, req: TranscriptionRequest): UpstreamRequest;
+    parse(json: unknown): TranscriptionResult;
+  };
+  /** Speech to English text, `/v1/audio/translations` (card 30.4); parsed like transcription. */
+  translation?: {
     build(ctx: MediaContext, req: TranscriptionRequest): UpstreamRequest;
     parse(json: unknown): TranscriptionResult;
   };
@@ -189,8 +226,60 @@ function wordsToSegments(words: { text: string; start: number; end: number }[]) 
 const bearer = (apiKey: string): Record<string, string> =>
   apiKey ? { authorization: `Bearer ${apiKey}` } : {};
 
+const multipart = (
+  ctx: MediaContext,
+  path: string,
+  fields: [string, FormValue | undefined][],
+): UpstreamRequest => {
+  const form = encodeMultipart(fields);
+  return {
+    url: `${trimSlash(ctx.provider.baseUrl)}${path}`,
+    method: 'POST',
+    headers: { 'content-type': form.contentType, ...bearer(ctx.apiKey), ...ctx.credentialHeaders },
+    bytes: form.body,
+  };
+};
+
+/** Whisper reports the duration only in verbose_json; newer models report usage in json. */
+const audioForm = (ctx: MediaContext, req: TranscriptionRequest, language: boolean) => {
+  const verbose = ctx.model.upstreamModel.includes('whisper');
+  return [
+    ['model', ctx.model.upstreamModel],
+    ['file', { data: req.audio, filename: req.filename, contentType: req.contentType }],
+    ['response_format', verbose ? 'verbose_json' : 'json'],
+    ['language', language ? req.language : undefined],
+    ['prompt', req.prompt],
+    ['temperature', req.temperature !== undefined ? String(req.temperature) : undefined],
+  ] as [string, FormValue | undefined][];
+};
+
 const openai: MediaAdapter = {
   images: {
+    edit: (ctx, req) => {
+      const dalle = ctx.model.upstreamModel.startsWith('dall-e');
+      const field = req.images.length > 1 ? 'image[]' : 'image';
+      return multipart(ctx, '/images/edits', [
+        ['model', ctx.model.upstreamModel],
+        ...req.images.map((image): [string, FormValue] => [field, image]),
+        ['mask', req.mask],
+        ['prompt', req.prompt],
+        ['n', String(req.n)],
+        ['size', req.size],
+        ['quality', req.quality],
+        ['background', req.background],
+        ['input_fidelity', req.inputFidelity],
+        ['output_format', req.outputFormat],
+        ['response_format', dalle ? req.responseFormat : undefined],
+      ]);
+    },
+    variation: (ctx, req) =>
+      multipart(ctx, '/images/variations', [
+        ['model', ctx.model.upstreamModel],
+        ['image', req.image],
+        ['n', String(req.n)],
+        ['size', req.size],
+        ['response_format', req.responseFormat],
+      ]),
     build: (ctx, req) =>
       json(
         `${trimSlash(ctx.provider.baseUrl)}/images/generations`,
@@ -248,53 +337,38 @@ const openai: MediaAdapter = {
       ),
   },
   transcription: {
-    build: (ctx, req) => {
-      // Whisper reports the duration only in verbose_json; newer models report usage in json.
-      const verbose = ctx.model.upstreamModel.includes('whisper');
-      const form = encodeMultipart([
-        ['model', ctx.model.upstreamModel],
-        ['file', { data: req.audio, filename: req.filename, contentType: req.contentType }],
-        ['response_format', verbose ? 'verbose_json' : 'json'],
-        ['language', req.language],
-        ['prompt', req.prompt],
-        ['temperature', req.temperature !== undefined ? String(req.temperature) : undefined],
-      ]);
-      return {
-        url: `${trimSlash(ctx.provider.baseUrl)}/audio/transcriptions`,
-        method: 'POST',
-        headers: {
-          'content-type': form.contentType,
-          ...bearer(ctx.apiKey),
-          ...ctx.credentialHeaders,
-        },
-        bytes: form.body,
-      };
-    },
-    parse: (body) => {
-      const b = record(body);
-      const usage = record(b.usage);
-      const seconds =
-        num(b.duration) ?? (usage.type === 'duration' ? num(usage.seconds) : undefined);
-      const input = num(usage.input_tokens);
-      const segments = Array.isArray(b.segments)
-        ? b.segments.map((item) => {
-            const s = record(item);
-            return { start: num(s.start) ?? 0, end: num(s.end) ?? 0, text: str(s.text) ?? '' };
-          })
-        : undefined;
-      const language = str(b.language);
-      return {
-        text: str(b.text) ?? '',
-        ...(language ? { language } : {}),
-        ...(seconds !== undefined ? { seconds } : {}),
-        ...(segments ? { segments } : {}),
-        ...(input !== undefined
-          ? { usage: { inputTokens: input, outputTokens: num(usage.output_tokens) ?? 0 } }
-          : {}),
-      };
-    },
+    build: (ctx, req) => multipart(ctx, '/audio/transcriptions', audioForm(ctx, req, true)),
+    parse: (body) => parseOpenAITranscript(body),
+  },
+  // The source language is detected; translations take no `language`.
+  translation: {
+    build: (ctx, req) => multipart(ctx, '/audio/translations', audioForm(ctx, req, false)),
+    parse: (body) => parseOpenAITranscript(body),
   },
 };
+
+function parseOpenAITranscript(body: unknown): TranscriptionResult {
+  const b = record(body);
+  const usage = record(b.usage);
+  const seconds = num(b.duration) ?? (usage.type === 'duration' ? num(usage.seconds) : undefined);
+  const input = num(usage.input_tokens);
+  const segments = Array.isArray(b.segments)
+    ? b.segments.map((item) => {
+        const s = record(item);
+        return { start: num(s.start) ?? 0, end: num(s.end) ?? 0, text: str(s.text) ?? '' };
+      })
+    : undefined;
+  const language = str(b.language);
+  return {
+    text: str(b.text) ?? '',
+    ...(language ? { language } : {}),
+    ...(seconds !== undefined ? { seconds } : {}),
+    ...(segments ? { segments } : {}),
+    ...(input !== undefined
+      ? { usage: { inputTokens: input, outputTokens: num(usage.output_tokens) ?? 0 } }
+      : {}),
+  };
+}
 
 // ───────────── Gemini (Imagen) ─────────────
 

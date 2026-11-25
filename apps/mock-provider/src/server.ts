@@ -25,6 +25,7 @@ import {
 import { registerMcp } from './mcp.js';
 import { registerMedia, registerWorkersAi } from './media.js';
 import { registerCatalog } from './catalog.js';
+import { newRealtimeStats, type RealtimeStats, registerRealtime } from './realtime.js';
 import { registerOAuth } from './oauth.js';
 import { type PaymentMockOptions, registerPayments } from './payments.js';
 
@@ -41,6 +42,8 @@ interface Stats {
   /** Currently open requests and their peak (for bulkhead tests). */
   inFlight: number;
   maxInFlight: number;
+  /** Realtime WebSocket sessions (card 30.5). */
+  realtime: RealtimeStats;
 }
 
 const newStats = (): Stats => ({
@@ -51,6 +54,7 @@ const newStats = (): Stats => ({
   traceparents: [],
   inFlight: 0,
   maxInFlight: 0,
+  realtime: newRealtimeStats(),
 });
 
 /** Simple estimate: every 4 characters is one token. */
@@ -124,7 +128,7 @@ export function buildServer(options: MockServerOptions = {}) {
     done();
   });
 
-  function scenarioFor(req: FastifyRequest): Scenario {
+  function scenarioFor(req: Pick<FastifyRequest, 'headers'>): Scenario {
     const header = req.headers['x-mock'];
     const fromHeader = typeof header === 'string' ? header : undefined;
     const keyHeader =
@@ -373,6 +377,83 @@ export function buildServer(options: MockServerOptions = {}) {
       },
     });
   });
+  // ───────────── Legacy completions (card 30.4) ─────────────
+  // Like OpenAI, only instruct models answer here; a chat model gets a 404.
+  async function legacy(req: FastifyRequest, reply: FastifyReply, model: string) {
+    const s = scenarioFor(req);
+    await sleep(sampleLatency(s.latency));
+    if (await maybeFail('openai', s, req, reply)) return;
+    const body = (req.body ?? {}) as {
+      prompt?: string | string[];
+      n?: number;
+      echo?: boolean;
+      suffix?: string;
+      max_tokens?: number;
+      stream?: boolean;
+    };
+    if (!/instruct|davinci|babbage/.test(model)) {
+      record(req, 404);
+      return reply
+        .status(404)
+        .send(
+          errorBody(
+            'openai',
+            404,
+            'This is a chat model and not supported in the v1/completions endpoint.',
+            'model_not_found',
+          ),
+        );
+    }
+    const prompts = Array.isArray(body.prompt) ? body.prompt : [body.prompt ?? ''];
+    const n = body.n ?? 1;
+    const words = s.text.split(' ');
+    const text = words.slice(0, Math.max(1, body.max_tokens ?? 16)).join(' ') + (body.suffix ?? '');
+    const truncated = text.length < s.text.length;
+    const choices = prompts.flatMap((prompt, p) =>
+      Array.from({ length: n }, (_, i) => ({
+        text: body.echo ? `${prompt}${text}` : text,
+        index: p * n + i,
+        logprobs: null,
+        finish_reason: truncated ? 'length' : 'stop',
+      })),
+    );
+    const usage = {
+      prompt_tokens: prompts.reduce((sum, prompt) => sum + tokens(prompt), 0),
+      completion_tokens: tokens(text) * choices.length,
+      total_tokens:
+        prompts.reduce((sum, prompt) => sum + tokens(prompt), 0) + tokens(text) * choices.length,
+    };
+    record(req, 200);
+    const id = `cmpl-mock${Date.now().toString(36)}`;
+    if (!body.stream) {
+      return reply.send({
+        id,
+        object: 'text_completion',
+        created: Math.floor(Date.now() / 1000),
+        model,
+        choices,
+        usage,
+      });
+    }
+    reply.raw.writeHead(200, { 'content-type': 'text/event-stream' });
+    for (const choice of choices)
+      reply.raw.write(
+        `data: ${JSON.stringify({ id, object: 'text_completion', model, choices: [{ ...choice, finish_reason: null }] })}\n\n`,
+      );
+    reply.raw.write(
+      `data: ${JSON.stringify({ id, object: 'text_completion', model, choices: choices.map((c) => ({ ...c, text: '' })), usage })}\n\n`,
+    );
+    reply.raw.end('data: [DONE]\n\n');
+    return reply;
+  }
+  app.post('/v1/completions', (req, reply) =>
+    legacy(req, reply, (req.body as { model?: string } | undefined)?.model ?? 'mock'),
+  );
+  app.post<{ Params: { deployment: string } }>(
+    '/openai/deployments/:deployment/completions',
+    (req, reply) => legacy(req, reply, req.params.deployment),
+  );
+
   // Azure OpenAI: /openai/deployments/{deployment}/chat/completions?api-version=...
   app.post<{ Params: { deployment: string } }>(
     '/openai/deployments/:deployment/chat/completions',
@@ -660,6 +741,10 @@ export function buildServer(options: MockServerOptions = {}) {
   registerWorkersAi(app);
   registerBedrock(app, { record });
   registerCatalog(app);
+  registerRealtime(app, {
+    scenario: (headers) => scenarioFor({ headers }),
+    stats: () => stats.realtime,
+  });
 
   app.get('/healthz', () => ({ status: 'ok' }));
   app.get('/__mock/stats', () => stats);

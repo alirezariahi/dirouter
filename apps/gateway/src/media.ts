@@ -1,6 +1,8 @@
 /**
  * Image generation, text to speech and speech to text (card 21.1), OpenAI-compatible:
- * `/v1/images/generations`, `/v1/audio/speech` and `/v1/audio/transcriptions`.
+ * `/v1/images/generations`, `/v1/audio/speech` and `/v1/audio/transcriptions`; and since card
+ * 30.4 `/v1/images/edits`, `/v1/images/variations` (multipart uploads) and
+ * `/v1/audio/translations` (speech to English text).
  *
  * They run through the same pipeline as chat (routing, fallback, limits, budgets, wallet) and are
  * priced per image, per million characters and per second of audio, plus any token price the
@@ -126,13 +128,25 @@ export async function handleImages(
     sendError(reply, result);
     return;
   }
+  await sendImages(reply, result, responseFormat);
+}
+
+/**
+ * The images in the form the client asked for; without `response_format` (edits) each image
+ * keeps the form the provider gave, as OpenAI does (gpt-image answers in base64, dall-e with URLs).
+ */
+async function sendImages(
+  reply: FastifyReply,
+  result: Extract<MeteredResult<ImageResult>, { ok: true }>,
+  responseFormat: 'url' | 'b64_json' | undefined,
+): Promise<void> {
   sendOk(reply, result);
   // Give the client the form it asked for: providers that only return URLs are downloaded, and
   // base64-only results become data URLs.
   const data = await Promise.all(
     result.value.images.map(async (image) => {
       const revised = image.revisedPrompt ? { revised_prompt: image.revisedPrompt } : {};
-      if (responseFormat === 'b64_json')
+      if (responseFormat === 'b64_json' || (responseFormat === undefined && image.b64Json))
         return { b64_json: image.b64Json ?? (await toBase64(image.url ?? '')), ...revised };
       return { url: image.url ?? `data:image/png;base64,${image.b64Json ?? ''}`, ...revised };
     }),
@@ -157,6 +171,149 @@ export async function handleImages(
         }
       : {}),
   });
+}
+
+// ───────────── Image edits and variations (card 30.4) ─────────────
+
+/** gpt-image input tokens of one uploaded image at high fidelity (wallet worst case). */
+const WORST_INPUT_IMAGE_TOKENS = 6_240;
+const MAX_EDIT_IMAGES = 16;
+
+function imageForm(req: FastifyRequest) {
+  if (!Buffer.isBuffer(req.body))
+    throw invalid('image', 'send the image as multipart/form-data with an image field');
+  const parsed = parseMultipart(req.body, req.headers['content-type'] ?? '');
+  const images = parsed.files
+    .filter((f) => (f.name === 'image' || f.name === 'image[]') && f.data.length > 0)
+    .map((f) => ({ data: f.data, filename: f.filename, contentType: f.contentType }));
+  const mask = parsed.files.find((f) => f.name === 'mask' && f.data.length > 0);
+  const { fields } = parsed;
+  if (images.length === 0) throw invalid('image', 'image is required');
+  if (!fields.model) throw invalid('model', 'model is required');
+  const n = fields.n === undefined ? 1 : Number(fields.n);
+  if (!Number.isInteger(n) || n < 1 || n > MAX_IMAGES)
+    throw invalid('n', `n must be an integer from 1 to ${String(MAX_IMAGES)}`);
+  const responseFormat = fields.response_format;
+  if (responseFormat !== undefined && responseFormat !== 'url' && responseFormat !== 'b64_json')
+    throw invalid('response_format', "response_format must be 'url' or 'b64_json'");
+  if (fields.size !== undefined && !/^(\d+x\d+|auto)$/.test(fields.size))
+    throw invalid('size', 'size must look like 1024x1024');
+  const format: 'url' | 'b64_json' | undefined = responseFormat;
+  return {
+    fields,
+    model: fields.model,
+    images,
+    n,
+    responseFormat: format,
+    ...(mask
+      ? { mask: { data: mask.data, filename: mask.filename, contentType: mask.contentType } }
+      : {}),
+  };
+}
+
+async function editOrVary(
+  req: FastifyRequest,
+  reply: FastifyReply,
+  deps: ProxyDeps,
+  kind: 'edit' | 'variation',
+): Promise<void> {
+  let form: ReturnType<typeof imageForm>;
+  try {
+    form = imageForm(req);
+    if (kind === 'edit' && !form.fields.prompt) throw invalid('prompt', 'prompt is required');
+    if (kind === 'edit' && form.images.length > MAX_EDIT_IMAGES)
+      throw invalid('image', `at most ${String(MAX_EDIT_IMAGES)} images`);
+    if (kind === 'variation' && form.images.length > 1)
+      throw invalid('image', 'a variation takes exactly one image');
+  } catch (error) {
+    sendError(reply, {
+      error: error instanceof DiRouterError ? error : invalid('image', 'malformed multipart body'),
+    });
+    return;
+  }
+  const { fields, model, images, n, responseFormat } = form;
+  const prompt = fields.prompt ?? '';
+  const estimatedInputTokens = Math.ceil(prompt.length / 4);
+  const result = await runMetered<ImageResult>(req, deps, {
+    inboundApi: 'openai.images',
+    model,
+    estimatedInputTokens,
+    worstCase: {
+      usage: {
+        inputTokens: estimatedInputTokens + images.length * WORST_INPUT_IMAGE_TOKENS,
+        outputTokens: n * WORST_IMAGE_TOKENS,
+      },
+      media: { images: n },
+      estimated: true,
+    },
+    select: (candidates) =>
+      capable(
+        candidates,
+        (c) =>
+          c.model.capabilities.images === true && !!mediaAdapterFor(c.provider.type).images?.[kind],
+        kind === 'edit' ? 'image editing' : 'image variations',
+        model,
+      ),
+    build: (candidate, apiKey) => {
+      const adapter = mediaAdapterFor(candidate.provider.type).images;
+      const context = ctx(candidate, apiKey);
+      const [first] = images;
+      if (kind === 'variation')
+        return first
+          ? adapter?.variation?.(context, {
+              image: first,
+              n,
+              responseFormat,
+              ...(fields.size ? { size: fields.size } : {}),
+            })
+          : undefined;
+      return adapter?.edit?.(context, {
+        images,
+        prompt,
+        n,
+        responseFormat,
+        ...(form.mask ? { mask: form.mask } : {}),
+        ...(fields.size ? { size: fields.size } : {}),
+        ...(fields.quality ? { quality: fields.quality } : {}),
+        ...(fields.background ? { background: fields.background } : {}),
+        ...(fields.input_fidelity ? { inputFidelity: fields.input_fidelity } : {}),
+        ...(fields.output_format ? { outputFormat: fields.output_format } : {}),
+      });
+    },
+    read: async (response, candidate) => {
+      const parsed = mediaAdapterFor(candidate.provider.type).images?.parse(await response.json());
+      if (!parsed || parsed.images.length === 0) throw new Error('the provider returned no image');
+      return parsed;
+    },
+    // Billed like generation: per image delivered plus the tokens gpt-image reports, which
+    // include the uploaded images.
+    meter: (value) => ({
+      usage: value.usage ?? {},
+      media: { images: value.images.length },
+      estimated: false,
+    }),
+  });
+  if (!result.ok) {
+    sendError(reply, result);
+    return;
+  }
+  await sendImages(reply, result, responseFormat);
+}
+
+export function handleImageEdits(
+  req: FastifyRequest,
+  reply: FastifyReply,
+  deps: ProxyDeps,
+): Promise<void> {
+  return editOrVary(req, reply, deps, 'edit');
+}
+
+export function handleImageVariations(
+  req: FastifyRequest,
+  reply: FastifyReply,
+  deps: ProxyDeps,
+): Promise<void> {
+  return editOrVary(req, reply, deps, 'variation');
 }
 
 // ───────────── Speech ─────────────
@@ -237,17 +394,20 @@ interface FilePart {
   contentType: string;
 }
 
-/** Minimal multipart/form-data parser for the transcription upload (fields and one file). */
+/**
+ * Minimal multipart/form-data parser for uploads: the text fields, every file part with its field
+ * name, and `file` (the part named `file`, else the last one).
+ */
 export function parseMultipart(
   body: Buffer,
   contentType: string,
-): { fields: Record<string, string>; file?: FilePart } {
+): { fields: Record<string, string>; file?: FilePart; files: (FilePart & { name: string })[] } {
   const boundary = /boundary=(?:"([^"]+)"|([^;]+))/i.exec(contentType);
   const marker = boundary?.[1] ?? boundary?.[2];
   if (!marker) throw invalid('file', 'multipart boundary missing');
   const delimiter = Buffer.from(`--${marker}`);
   const fields: Record<string, string> = {};
-  let file: FilePart | undefined;
+  const files: (FilePart & { name: string })[] = [];
   let start = body.indexOf(delimiter);
   while (start !== -1) {
     const partStart = start + delimiter.length;
@@ -263,17 +423,25 @@ export function parseMultipart(
       const name = /name="([^"]*)"/i.exec(headers)?.[1];
       const filename = /filename="([^"]*)"/i.exec(headers)?.[1];
       if (name && filename !== undefined)
-        file = {
+        files.push({
+          name,
           data: content,
-          filename: filename || 'audio',
+          filename: filename || name,
           contentType:
             /content-type:\s*([^\r\n]+)/i.exec(headers)?.[1]?.trim() ?? 'application/octet-stream',
-        };
+        });
       else if (name) fields[name] = content.toString('utf8');
     }
     start = next;
   }
-  return { fields, ...(file ? { file } : {}) };
+  const file = files.find((f) => f.name === 'file') ?? files.at(-1);
+  return {
+    fields,
+    files,
+    ...(file
+      ? { file: { data: file.data, filename: file.filename, contentType: file.contentType } }
+      : {}),
+  };
 }
 
 /** Exact length of a PCM WAV file from its header, when the upload is one. */
@@ -309,6 +477,7 @@ export function renderTranscript(
   value: TranscriptionResult,
   format: TranscriptFormat,
   seconds: number,
+  task: 'transcribe' | 'translate' = 'transcribe',
 ): { contentType: string; body: string | Record<string, unknown> } {
   const segments = value.segments?.length
     ? value.segments
@@ -337,8 +506,8 @@ export function renderTranscript(
       return {
         contentType: 'application/json',
         body: {
-          task: 'transcribe',
-          language: value.language ?? 'unknown',
+          task,
+          language: value.language ?? (task === 'translate' ? 'english' : 'unknown'),
           duration: seconds,
           text: value.text,
           segments: segments.map((s, id) => ({ id, start: s.start, end: s.end, text: s.text })),
@@ -349,10 +518,28 @@ export function renderTranscript(
   }
 }
 
-export async function handleTranscriptions(
+export function handleTranscriptions(
   req: FastifyRequest,
   reply: FastifyReply,
   deps: ProxyDeps,
+): Promise<void> {
+  return speechToText(req, reply, deps, 'transcription');
+}
+
+/** `/v1/audio/translations` (card 30.4): speech in any language to English text. */
+export function handleTranslations(
+  req: FastifyRequest,
+  reply: FastifyReply,
+  deps: ProxyDeps,
+): Promise<void> {
+  return speechToText(req, reply, deps, 'translation');
+}
+
+async function speechToText(
+  req: FastifyRequest,
+  reply: FastifyReply,
+  deps: ProxyDeps,
+  kind: 'transcription' | 'translation',
 ): Promise<void> {
   let fields: Record<string, string>;
   let file: FilePart;
@@ -385,8 +572,10 @@ export async function handleTranscriptions(
   const worst = exact ?? file.data.length / 2_000;
   const temperature = fields.temperature !== undefined ? Number(fields.temperature) : undefined;
 
+  const service = (adapter: ReturnType<typeof mediaAdapterFor>) =>
+    kind === 'translation' ? adapter.translation : adapter.transcription;
   const result = await runMetered<TranscriptionResult>(req, deps, {
-    inboundApi: 'openai.transcriptions',
+    inboundApi: kind === 'translation' ? 'openai.translations' : 'openai.transcriptions',
     model,
     estimatedInputTokens: Math.ceil((fields.prompt?.length ?? 0) / 4),
     worstCase: { usage: {}, media: { seconds: worst }, estimated: true },
@@ -395,12 +584,12 @@ export async function handleTranscriptions(
         candidates,
         (c) =>
           c.model.capabilities.transcription === true &&
-          !!mediaAdapterFor(c.provider.type).transcription,
-        'speech to text',
+          !!service(mediaAdapterFor(c.provider.type)),
+        kind === 'translation' ? 'speech translation' : 'speech to text',
         model,
       ),
     build: (candidate, apiKey) =>
-      mediaAdapterFor(candidate.provider.type).transcription?.build(ctx(candidate, apiKey), {
+      service(mediaAdapterFor(candidate.provider.type))?.build(ctx(candidate, apiKey), {
         audio: file.data,
         filename: file.filename,
         contentType: file.contentType,
@@ -409,10 +598,10 @@ export async function handleTranscriptions(
         ...(temperature !== undefined && Number.isFinite(temperature) ? { temperature } : {}),
       }),
     read: async (response, candidate) => {
-      const parsed = mediaAdapterFor(candidate.provider.type).transcription?.parse(
+      const parsed = service(mediaAdapterFor(candidate.provider.type))?.parse(
         await response.json(),
       );
-      if (!parsed) throw new Error('speech to text not supported');
+      if (!parsed) throw new Error(`${kind} not supported`);
       return parsed;
     },
     meter: (value) => ({
@@ -430,6 +619,7 @@ export async function handleTranscriptions(
     result.value,
     format,
     result.metering.media?.seconds ?? estimate,
+    kind === 'translation' ? 'translate' : 'transcribe',
   );
   reply.status(200).header('content-type', rendered.contentType).send(rendered.body);
 }
@@ -446,4 +636,8 @@ export function registerMediaRoutes(app: FastifyInstance, deps: ProxyDeps): void
   app.post('/v1/images/generations', (req, reply) => handleImages(req, reply, deps));
   app.post('/v1/audio/speech', (req, reply) => handleSpeech(req, reply, deps));
   app.post('/v1/audio/transcriptions', (req, reply) => handleTranscriptions(req, reply, deps));
+  // Card 30.4.
+  app.post('/v1/images/edits', (req, reply) => handleImageEdits(req, reply, deps));
+  app.post('/v1/images/variations', (req, reply) => handleImageVariations(req, reply, deps));
+  app.post('/v1/audio/translations', (req, reply) => handleTranslations(req, reply, deps));
 }

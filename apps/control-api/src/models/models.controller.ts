@@ -31,6 +31,9 @@ const Pricing = z.object({
   perImageUsd: Usd.optional(),
   perMCharUsd: Usd.optional(),
   perSecondUsd: Usd.optional(),
+  /** Realtime audio tokens per million (card 30.5). */
+  audioInputPerMTok: Usd.optional(),
+  audioOutputPerMTok: Usd.optional(),
   /** Context-length tiers and batch discount (card 27.5). */
   tiers: z.array(PricingTier).max(8).optional(),
   batchDiscount: DiscountFraction.optional(),
@@ -48,6 +51,10 @@ const Capabilities = z.object({
   /** PDF and other document input in chat, and audio input (card 27.2). */
   documents: z.boolean().optional(),
   audioInput: z.boolean().optional(),
+  /** Realtime WebSocket sessions at /v1/realtime (card 30.5). */
+  realtime: z.boolean().optional(),
+  /** Native legacy /v1/completions; otherwise mapped to chat (card 30.4). */
+  completions: z.boolean().optional(),
 });
 const Multiplier = z.string().regex(/^\d{1,6}(\.\d{1,8})?$/, 'a non-negative decimal');
 /** Sale price (card 19.4); only meaningful on the platform organization's public models. */

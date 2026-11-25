@@ -16,12 +16,14 @@
   "devDependencies": {
     "@dirouter/eslint-config": "workspace:*",
     "@dirouter/translator": "workspace:*",
-    "@dirouter/tsconfig": "workspace:*"
+    "@dirouter/tsconfig": "workspace:*",
+    "@types/ws": "^8.18.2"
   },
   "dependencies": {
     "@dirouter/contracts": "workspace:*",
     "@dirouter/shared": "workspace:*",
     "fastify": "^5.12.8",
+    "ws": "^8.23.0",
     "zod": "^4.6.7"
   },
   "exports": {

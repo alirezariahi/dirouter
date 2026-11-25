@@ -95,6 +95,32 @@ describe('parseCatalogSource (LiteLLM format)', () => {
     expect(parsed.entries.some((e) => e.key.includes('sample_spec'))).toBe(false);
   });
 
+  it('reads realtime audio token prices only for realtime models (card 30.5)', () => {
+    const doc = parseCatalogSource({
+      'gpt-realtime': {
+        litellm_provider: 'openai',
+        mode: 'chat',
+        input_cost_per_token: 4e-6,
+        output_cost_per_token: 1.6e-5,
+        input_cost_per_audio_token: 3.2e-5,
+        output_cost_per_audio_token: 6.4e-5,
+      },
+      'gpt-4o-audio-preview': {
+        litellm_provider: 'openai',
+        mode: 'chat',
+        input_cost_per_token: 2.5e-6,
+        output_cost_per_token: 1e-5,
+        input_cost_per_audio_token: 4e-5,
+      },
+    });
+    const realtime = doc.entries.find((e) => e.key === 'openai/gpt-realtime');
+    expect(realtime?.pricing).toMatchObject({ audioInputPerMTok: '32', audioOutputPerMTok: '64' });
+    expect(realtime?.capabilities.realtime).toBe(true);
+    const audio = doc.entries.find((e) => e.key === 'openai/gpt-4o-audio-preview');
+    expect(audio?.pricing.audioInputPerMTok).toBeUndefined();
+    expect(audio?.capabilities.realtime).toBeUndefined();
+  });
+
   it('rejects a document without any valid entry', () => {
     expect(() => parseCatalogSource({})).toThrow(/no valid model entries/);
     expect(() => parseCatalogSource([])).toThrow(/not a JSON object/);

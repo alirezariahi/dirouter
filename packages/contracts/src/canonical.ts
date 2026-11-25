@@ -7,7 +7,7 @@
  */
 import { z } from 'zod';
 
-import { JsonObject, NonNegativeInt } from './common.js';
+import { JsonObject, NonNegativeInt, UsdAmount } from './common.js';
 
 // ───────────── Parts ─────────────
 
@@ -166,6 +166,11 @@ export const InboundApi = z.enum([
   'openai.images',
   'openai.speech',
   'openai.transcriptions',
+  /** One model response of a Realtime WebSocket session (card 30.5). */
+  'openai.realtime',
+  /** Legacy `/v1/completions` and `/v1/audio/translations` (card 30.4). */
+  'openai.completions',
+  'openai.translations',
 ]);
 export type InboundApi = z.infer<typeof InboundApi>;
 
@@ -176,6 +181,18 @@ export const MediaUsage = z.object({
   characters: z.int().nonnegative().optional(),
   /** Seconds of audio transcribed (fractional). */
   seconds: z.number().nonnegative().optional(),
+  /**
+   * Realtime audio tokens (card 30.5), priced at the model's audio token rates. The event's
+   * `usage` then holds the text (and image) tokens only. Input includes the cached audio tokens.
+   */
+  audioInputTokens: z.int().nonnegative().optional(),
+  audioCachedTokens: z.int().nonnegative().optional(),
+  audioOutputTokens: z.int().nonnegative().optional(),
+  /** The audio and text shares of the event's `costUsd` (realtime, card 30.5). */
+  audioCostUsd: UsdAmount.optional(),
+  textCostUsd: UsdAmount.optional(),
+  /** The Realtime session this response belongs to (card 30.5). */
+  sessionId: z.string().max(128).optional(),
 });
 export type MediaUsage = z.infer<typeof MediaUsage>;
 

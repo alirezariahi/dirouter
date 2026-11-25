@@ -7,6 +7,8 @@
  * - Media (card 21.1): images × per-image price, characters at the per-million-characters price and
  *   audio seconds (to the millisecond) at the per-second price, added to any token cost
  * - Context tiers (card 27.5): a prompt longer than a tier's threshold is priced at that tier
+ * - Realtime audio tokens (card 30.5): at the audio rates (the text rates when unset); cached audio
+ *   at the cache read rate
  */
 import type { CanonicalUsage, MediaUsage, ModelPricing } from '@dirouter/contracts';
 import { costForTokens, formatUsd, parseUsd, type UsdUnits } from '@dirouter/shared';
@@ -21,9 +23,22 @@ export interface CostBreakdown {
   total: UsdUnits;
 }
 
+/** The audio token share of a realtime response (card 30.5). */
+export function audioTokenCost(media: MediaUsage | undefined, pricing: ModelPricing): UsdUnits {
+  if (!media) return 0n;
+  const cached = Math.min(media.audioCachedTokens ?? 0, media.audioInputTokens ?? 0);
+  const plain = (media.audioInputTokens ?? 0) - cached;
+  const inputRate = pricing.audioInputPerMTok ?? pricing.inputPerMTok;
+  return (
+    costForTokens(plain, inputRate) +
+    costForTokens(cached, pricing.cacheReadPerMTok ?? inputRate) +
+    costForTokens(media.audioOutputTokens ?? 0, pricing.audioOutputPerMTok ?? pricing.outputPerMTok)
+  );
+}
+
 export function mediaCost(media: MediaUsage | undefined, pricing: ModelPricing): UsdUnits {
   if (!media) return 0n;
-  let total = 0n;
+  let total = audioTokenCost(media, pricing);
   if (media.images && pricing.perImageUsd)
     total += BigInt(media.images) * parseUsd(pricing.perImageUsd);
   if (media.characters && pricing.perMCharUsd)

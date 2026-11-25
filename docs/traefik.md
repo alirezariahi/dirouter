@@ -16,11 +16,14 @@
 
 | Domain                             | Service                              | Middlewares                                                                     |
 | ---------------------------------- | ------------------------------------ | ------------------------------------------------------------------------------- |
-| `api.<DOMAIN>`                     | gateway                              | `security-headers`, `compress`                                                  |
+| `api.<DOMAIN>`                     | gateway                              | `security-headers`, `gateway-retry`, `compress`                                 |
+| `api.<DOMAIN>` + `/v1/realtime`    | gateway (Realtime WebSocket)         | `security-headers`                                                              |
 | `admin.<DOMAIN>`                   | control-api                          | `security-headers`, `control-api-cors`, `control-api-ratelimit`, `compress`     |
 | `app.<DOMAIN>`                     | dashboard                            | `security-headers`, `compress`                                                  |
 | `traefik.<DOMAIN>`                 | Traefik dashboard (`api@internal`)   | `dashboard-ips` (ipAllowList), `dashboard-auth` (basicAuth), `security-headers` |
 | `mail.localhost`, `mock.localhost` | mailpit and mock-provider (dev only) | —                                                                               |
+
+The `/v1/realtime` router (card 30.5) has the longer rule, so it wins for Realtime sessions and their client-secret endpoints. Traefik passes the WebSocket upgrade through on any router; this one leaves out `compress` and `gateway-retry` because a session is a long-lived socket that must never be replayed on another replica. In dev the same router exists on the `web` entrypoint (`gateway-realtime-http`). Checked on Traefik v3.6 with `readTimeout` and `idleTimeout` lowered to 5 seconds: a session sat idle for 7 seconds and then streamed a 10-second response through both routers without being cut, so the responding timeouts do not apply to an upgraded connection.
 
 Providers: Docker with `exposedByDefault: false` (only services with `traefik.enable=true`) on the `dirouter_edge` network, and the file provider for the `dynamic/` folder with `watch`.
 

@@ -373,6 +373,9 @@ model Model {
   imagePrice       Decimal?  @map("image_price") @db.Decimal(18, 8)
   charPrice        Decimal?  @map("char_price") @db.Decimal(18, 8)
   secondPrice      Decimal?  @map("second_price") @db.Decimal(18, 8)
+  /// Realtime audio tokens, dollars per million (card 30.5); unset means the text rates.
+  audioInputPrice  Decimal?  @map("audio_input_price") @db.Decimal(18, 8)
+  audioOutputPrice Decimal?  @map("audio_output_price") @db.Decimal(18, 8)
   /// { streaming, tools, vision, reasoning, jsonMode }
   capabilities     Json      @default("{}")
   /// Catalog entry key (packages/model-catalog), if it came from the catalog.

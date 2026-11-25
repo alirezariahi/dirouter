@@ -152,6 +152,8 @@ const LiteLlmEntry = z.looseObject({
   output_cost_per_image: z.union([z.number(), z.string()]).optional(),
   input_cost_per_character: z.union([z.number(), z.string()]).optional(),
   input_cost_per_second: z.union([z.number(), z.string()]).optional(),
+  input_cost_per_audio_token: z.union([z.number(), z.string()]).optional(),
+  output_cost_per_audio_token: z.union([z.number(), z.string()]).optional(),
   supports_function_calling: z.boolean().optional(),
   supports_vision: z.boolean().optional(),
   supports_reasoning: z.boolean().optional(),
@@ -224,6 +226,11 @@ function fromLiteLlm(name: string, raw: unknown): CatalogEntry | SkippedEntry {
   const image = perUnit(e.output_cost_per_image);
   const chars = perMTok(e.input_cost_per_character);
   const seconds = perUnit(e.input_cost_per_second);
+  const audioIn = perMTok(e.input_cost_per_audio_token);
+  const audioOut = perMTok(e.output_cost_per_audio_token);
+  // Realtime models (card 30.5) are the chat models named so that price audio tokens.
+  const realtime =
+    /realtime/.test(upstreamModel) && (audioIn !== undefined || audioOut !== undefined);
   const tiers = litellmTiers(e);
   const discount = batchDiscount(input, perMTok(e.input_cost_per_token_batches));
   const pricing: ModelPricing = {
@@ -235,6 +242,8 @@ function fromLiteLlm(name: string, raw: unknown): CatalogEntry | SkippedEntry {
     ...(image && mode === 'image_generation' ? { perImageUsd: image } : {}),
     ...(chars && mode === 'audio_speech' ? { perMCharUsd: chars } : {}),
     ...(seconds && mode === 'audio_transcription' ? { perSecondUsd: seconds } : {}),
+    ...(audioIn && realtime ? { audioInputPerMTok: audioIn } : {}),
+    ...(audioOut && realtime ? { audioOutputPerMTok: audioOut } : {}),
     ...(tiers.length > 0 ? { tiers } : {}),
     ...(discount && discount !== '0' ? { batchDiscount: discount } : {}),
   };
@@ -260,6 +269,7 @@ function fromLiteLlm(name: string, raw: unknown): CatalogEntry | SkippedEntry {
       ...(mode === 'image_generation' ? { images: true } : {}),
       ...(mode === 'audio_speech' ? { speech: true } : {}),
       ...(mode === 'audio_transcription' ? { transcription: true } : {}),
+      ...(realtime ? { realtime: true } : {}),
     },
     ...(deprecationDate ? { deprecationDate } : {}),
     mode,
