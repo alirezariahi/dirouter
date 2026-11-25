@@ -19,6 +19,7 @@
     "@dirouter/eslint-config": "workspace:*",
     "@dirouter/mock-provider": "workspace:*",
     "@dirouter/tsconfig": "workspace:*",
+    "cohere-ai": "^8.3.1",
     "@types/ws": "^8.18.2",
     "openai": "^7.53.0"
   },

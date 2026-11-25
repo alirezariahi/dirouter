@@ -147,6 +147,8 @@ export const ModelPricing = z.object({
   perSecondUsd: UsdAmount.optional(),
   /** A fixed cost per request (card 30.6), e.g. per generated video, added to any other price. */
   perRequestUsd: UsdAmount.optional(),
+  /** Rerank (card 30.2): price per search unit; token-billed rerankers use the input price. */
+  perSearchUsd: UsdAmount.optional(),
   /**
    * Realtime audio tokens (card 30.5), per million. Unset means the text input/output rate;
    * cached audio is priced at `cacheReadPerMTok` like cached text.
@@ -174,6 +176,8 @@ export const ModelCapabilities = z.object({
   transcription: z.boolean().optional(),
   /** `/v1/videos`: async video generation (card 30.6). */
   video: z.boolean().optional(),
+  /** `/v1/rerank` (card 30.2). */
+  rerank: z.boolean().optional(),
   /**
    * Chat input beyond text and images (card 27.2): PDF and other documents, and audio. `false`
    * keeps such requests away from the model; unset means "whatever the provider type supports".

@@ -33,6 +33,8 @@ const Pricing = z.object({
   perSecondUsd: Usd.optional(),
   /** Async tasks (card 30.6): a fixed cost per request, e.g. per video. */
   perRequestUsd: Usd.optional(),
+  /** Rerank (card 30.2): per search unit. */
+  perSearchUsd: Usd.optional(),
   /** Realtime audio tokens per million (card 30.5). */
   audioInputPerMTok: Usd.optional(),
   audioOutputPerMTok: Usd.optional(),
@@ -52,6 +54,8 @@ const Capabilities = z.object({
   transcription: z.boolean().optional(),
   /** `/v1/videos` (card 30.6). */
   video: z.boolean().optional(),
+  /** `/v1/rerank` (card 30.2). */
+  rerank: z.boolean().optional(),
   /** PDF and other document input in chat, and audio input (card 27.2). */
   documents: z.boolean().optional(),
   audioInput: z.boolean().optional(),

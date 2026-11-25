@@ -3,6 +3,7 @@ export * from './presets.js';
 export * from './adapters.js';
 export * from './media.js';
 export * from './video.js';
+export * from './rerank.js';
 export * from './realtime.js';
 export * from './completions.js';
 export * from './plugins/adapter.js';

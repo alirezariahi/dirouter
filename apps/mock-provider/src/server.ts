@@ -24,6 +24,7 @@ import {
 } from './structured.js';
 import { registerMcp } from './mcp.js';
 import { registerBatches } from './batches.js';
+import { registerRerank } from './rerank.js';
 import { registerVideos } from './videos.js';
 import { registerMedia, registerWorkersAi } from './media.js';
 import { registerCatalog } from './catalog.js';
@@ -764,6 +765,7 @@ export function buildServer(options: MockServerOptions = {}) {
   registerMedia(app);
   registerBatches(app);
   const videos = registerVideos(app);
+  registerRerank(app);
   registerWorkersAi(app);
   registerBedrock(app, { record });
   registerCatalog(app);

@@ -198,6 +198,18 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('models, aliases and combos over H
       capabilities: { realtime: true },
     });
 
+    // Rerank (card 30.2): per search unit.
+    const rerank = await call('POST', 'models', {
+      providerId: provider,
+      upstreamModel: 'rerank-v3.5',
+      pricing: { inputPerMTok: '0', outputPerMTok: '0', perSearchUsd: '0.002' },
+      capabilities: { rerank: true },
+    });
+    expect(rerank.json()).toMatchObject({
+      pricing: { perSearchUsd: '0.002' },
+      capabilities: { rerank: true },
+    });
+
     await app.get(SnapshotService).rebuild('test');
     const snap = (await app.get(SnapshotService).latest())?.snapshot as {
       providers: { type: string }[];
@@ -211,6 +223,10 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('models, aliases and combos over H
     expect(snap.models.find((x) => x.upstreamModel === 'gpt-image-1')?.pricing).toMatchObject({
       perImageUsd: '0.01',
       perMCharUsd: '15',
+    });
+    expect(snap.models.find((x) => x.upstreamModel === 'rerank-v3.5')).toMatchObject({
+      pricing: { perSearchUsd: '0.002' },
+      capabilities: { rerank: true },
     });
     expect(snap.models.find((x) => x.upstreamModel === 'sora-2')).toMatchObject({
       pricing: { perRequestUsd: '0.05' },

@@ -133,6 +133,7 @@ export class ModelsService {
         ...(m.charPrice ? { perMCharUsd: dec(m.charPrice) } : {}),
         ...(m.secondPrice ? { perSecondUsd: dec(m.secondPrice) } : {}),
         ...(m.requestPrice ? { perRequestUsd: dec(m.requestPrice) } : {}),
+        ...(m.searchPrice ? { perSearchUsd: dec(m.searchPrice) } : {}),
         ...(m.audioInputPrice ? { audioInputPerMTok: dec(m.audioInputPrice) } : {}),
         ...(m.audioOutputPrice ? { audioOutputPerMTok: dec(m.audioOutputPrice) } : {}),
         ...(Array.isArray(m.pricingTiers) && m.pricingTiers.length > 0
@@ -246,6 +247,7 @@ export class ModelsService {
         charPrice: pricing.perMCharUsd ?? null,
         secondPrice: pricing.perSecondUsd ?? null,
         requestPrice: pricing.perRequestUsd ?? null,
+        searchPrice: pricing.perSearchUsd ?? null,
         audioInputPrice: pricing.audioInputPerMTok ?? null,
         audioOutputPrice: pricing.audioOutputPerMTok ?? null,
         ...(tiers && tiers.length > 0 ? { pricingTiers: tiers } : {}),
@@ -297,6 +299,7 @@ export class ModelsService {
         ...(p.perMCharUsd ? { charPrice: p.perMCharUsd } : {}),
         ...(p.perSecondUsd ? { secondPrice: p.perSecondUsd } : {}),
         ...(p.perRequestUsd ? { requestPrice: p.perRequestUsd } : {}),
+        ...(p.perSearchUsd ? { searchPrice: p.perSearchUsd } : {}),
         ...(p.audioInputPerMTok ? { audioInputPrice: p.audioInputPerMTok } : {}),
         ...(p.audioOutputPerMTok ? { audioOutputPrice: p.audioOutputPerMTok } : {}),
         ...(p.tiers
@@ -654,6 +657,7 @@ function normalizePricing(p: ModelPricing) {
     ...(p.perMCharUsd ? { perMCharUsd: n(p.perMCharUsd) } : {}),
     ...(p.perSecondUsd ? { perSecondUsd: n(p.perSecondUsd) } : {}),
     ...(p.perRequestUsd ? { perRequestUsd: n(p.perRequestUsd) } : {}),
+    ...(p.perSearchUsd ? { perSearchUsd: n(p.perSearchUsd) } : {}),
     ...(p.audioInputPerMTok ? { audioInputPerMTok: n(p.audioInputPerMTok) } : {}),
     ...(p.audioOutputPerMTok ? { audioOutputPerMTok: n(p.audioOutputPerMTok) } : {}),
     ...(p.tiers && p.tiers.length > 0

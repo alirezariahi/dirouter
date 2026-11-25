@@ -170,6 +170,8 @@ export const InboundApi = z.enum([
   'openai.batches',
   /** A finished async video task (card 30.6). */
   'openai.videos',
+  /** `/v1/rerank` and `/v2/rerank`, Cohere and Jina compatible (card 30.2). */
+  'rerank',
   /** One model response of a Realtime WebSocket session (card 30.5). */
   'openai.realtime',
   /** Legacy `/v1/completions` and `/v1/audio/translations` (card 30.4). */
@@ -187,6 +189,8 @@ export const MediaUsage = z.object({
   seconds: z.number().nonnegative().optional(),
   /** Requests priced per request, such as one generated video (card 30.6). */
   requests: z.int().nonnegative().optional(),
+  /** Rerank search units (card 30.2): one query over up to 100 documents, as Cohere bills. */
+  searches: z.int().nonnegative().optional(),
   /**
    * Realtime audio tokens (card 30.5), priced at the model's audio token rates. The event's
    * `usage` then holds the text (and image) tokens only. Input includes the cached audio tokens.

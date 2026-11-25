@@ -46,6 +46,7 @@ import { handleCompletions } from './completions.js';
 import { handleEmbeddings, handleGeminiEmbeddings } from './embeddings.js';
 import { registerMediaRoutes } from './media.js';
 import { DEFAULT_REALTIME_SETTINGS, RealtimeGateway, type RealtimeSettings } from './realtime.js';
+import { registerRerankRoutes } from './rerank.js';
 import { refreshBatch, registerBatchRoutes } from './batches.js';
 import { expireFile, registerFileRoutes } from './files.js';
 import { type BlobStorage, LocalBlobStorage } from './jobs/blobs.js';
@@ -286,8 +287,8 @@ export function buildGateway(opts: GatewayOptions) {
     void reply.header('x-request-id', req.id).header('x-dirouter-instance', deps.instance);
     // During drain every response closes its connection so Traefik opens a new one (to a healthy replica).
     if (lifecycle.draining) void reply.header('connection', 'close');
-    // `/v1beta/` (Gemini) requests are drained like every other API call.
-    if (/^\/(v1|v1beta|chat)\//.test(req.url)) {
+    // `/v1beta/` (Gemini) and `/v2/` (Cohere rerank) requests are drained like every other API call.
+    if (/^\/(v1|v2|v1beta|chat)\//.test(req.url)) {
       inFlight++;
       reply.raw.once('close', () => {
         inFlight--;
@@ -312,6 +313,7 @@ export function buildGateway(opts: GatewayOptions) {
   // Realtime API over WebSocket (card 30.5).
   const realtime = new RealtimeGateway(deps, { ...DEFAULT_REALTIME_SETTINGS, ...opts.realtime });
   realtime.register(app);
+  registerRerankRoutes(app, deps);
 
   // Files, batches (card 30.1) and async video tasks with webhooks (card 30.6): state in Valkey (or memory on a single node), bytes in the
   // configured storage, followed upstream by the job poller (ADR-0007).

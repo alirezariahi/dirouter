@@ -2328,6 +2328,8 @@ export type ModelsControllerList200ItemPricing = {
   perSecondUsd?: string;
   /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
   perRequestUsd?: string;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  perSearchUsd?: string;
   /** @maxItems 8 */
   tiers?: ModelsControllerList200ItemPricingTiersItem[];
   /** @pattern ^(0(\.\d{1,6})?|1(\.0{1,6})?)$ */
@@ -2407,6 +2409,8 @@ export type ModelsControllerCreateBodyPricing = {
   perSecondUsd?: string;
   /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
   perRequestUsd?: string;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  perSearchUsd?: string;
   /** @maxItems 8 */
   tiers?: ModelsControllerCreateBodyPricingTiersItem[];
   /** @pattern ^(0(\.\d{1,6})?|1(\.0{1,6})?)$ */
@@ -2424,6 +2428,7 @@ export type ModelsControllerCreateBodyCapabilities = {
   speech?: boolean;
   transcription?: boolean;
   video?: boolean;
+  rerank?: boolean;
   documents?: boolean;
   audioInput?: boolean;
 };
@@ -2513,6 +2518,8 @@ export type ModelsControllerCreate200Pricing = {
   perSecondUsd?: string;
   /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
   perRequestUsd?: string;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  perSearchUsd?: string;
   /** @maxItems 8 */
   tiers?: ModelsControllerCreate200PricingTiersItem[];
   /** @pattern ^(0(\.\d{1,6})?|1(\.0{1,6})?)$ */
@@ -2601,6 +2608,8 @@ export type ModelsControllerGet200Pricing = {
   perSecondUsd?: string;
   /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
   perRequestUsd?: string;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  perSearchUsd?: string;
   /** @maxItems 8 */
   tiers?: ModelsControllerGet200PricingTiersItem[];
   /** @pattern ^(0(\.\d{1,6})?|1(\.0{1,6})?)$ */
@@ -2680,6 +2689,8 @@ export type ModelsControllerUpdateBodyPricing = {
   perSecondUsd?: string;
   /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
   perRequestUsd?: string;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  perSearchUsd?: string;
   /** @maxItems 8 */
   tiers?: ModelsControllerUpdateBodyPricingTiersItem[];
   /** @pattern ^(0(\.\d{1,6})?|1(\.0{1,6})?)$ */
@@ -2697,6 +2708,7 @@ export type ModelsControllerUpdateBodyCapabilities = {
   speech?: boolean;
   transcription?: boolean;
   video?: boolean;
+  rerank?: boolean;
   documents?: boolean;
   audioInput?: boolean;
 };
@@ -2781,6 +2793,8 @@ export type ModelsControllerUpdate200Pricing = {
   perSecondUsd?: string;
   /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
   perRequestUsd?: string;
+  /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
+  perSearchUsd?: string;
   /** @maxItems 8 */
   tiers?: ModelsControllerUpdate200PricingTiersItem[];
   /** @pattern ^(0(\.\d{1,6})?|1(\.0{1,6})?)$ */

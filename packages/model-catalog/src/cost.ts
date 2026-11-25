@@ -50,6 +50,8 @@ export function mediaCost(media: MediaUsage | undefined, pricing: ModelPricing):
   }
   if (media.requests && pricing.perRequestUsd)
     total += BigInt(media.requests) * parseUsd(pricing.perRequestUsd);
+  if (media.searches && pricing.perSearchUsd)
+    total += BigInt(media.searches) * parseUsd(pricing.perSearchUsd);
   return total;
 }
 

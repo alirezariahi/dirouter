@@ -5904,6 +5904,10 @@
                             "type": "string",
                             "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
                           },
+                          "perSearchUsd": {
+                            "type": "string",
+                            "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
+                          },
                           "tiers": {
                             "maxItems": 8,
                             "type": "array",
@@ -6110,6 +6114,10 @@
                         "type": "string",
                         "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
                       },
+                      "perSearchUsd": {
+                        "type": "string",
+                        "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
+                      },
                       "tiers": {
                         "maxItems": 8,
                         "type": "array",
@@ -6183,6 +6191,9 @@
                         "type": "boolean"
                       },
                       "video": {
+                        "type": "boolean"
+                      },
+                      "rerank": {
                         "type": "boolean"
                       },
                       "documents": {
@@ -6303,6 +6314,10 @@
                           "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
                         },
                         "perRequestUsd": {
+                          "type": "string",
+                          "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
+                        },
+                        "perSearchUsd": {
                           "type": "string",
                           "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
                         },
@@ -6568,6 +6583,10 @@
                           "type": "string",
                           "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
                         },
+                        "perSearchUsd": {
+                          "type": "string",
+                          "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
+                        },
                         "tiers": {
                           "maxItems": 8,
                           "type": "array",
@@ -6773,6 +6792,10 @@
                         "type": "string",
                         "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
                       },
+                      "perSearchUsd": {
+                        "type": "string",
+                        "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
+                      },
                       "tiers": {
                         "maxItems": 8,
                         "type": "array",
@@ -6846,6 +6869,9 @@
                         "type": "boolean"
                       },
                       "video": {
+                        "type": "boolean"
+                      },
+                      "rerank": {
                         "type": "boolean"
                       },
                       "documents": {
@@ -6965,6 +6991,10 @@
                           "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
                         },
                         "perRequestUsd": {
+                          "type": "string",
+                          "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
+                        },
+                        "perSearchUsd": {
                           "type": "string",
                           "pattern": "^\\d{1,10}(\\.\\d{1,8})?$"
                         },

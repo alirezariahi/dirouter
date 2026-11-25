@@ -51,6 +51,16 @@ describe('video price (card 30.6)', () => {
   });
 });
 
+describe('rerank price (card 30.2)', () => {
+  it('prices search units, and tokens at the input price', () => {
+    const pricing = { inputPerMTok: '0.02', outputPerMTok: '0', perSearchUsd: '0.002' };
+    expect(computeCostUsd(none, pricing, { searches: 3 })).toBe('0.00600000');
+    expect(computeCostUsd({ ...none, inputTokens: 1_000_000 }, pricing, { searches: 1 })).toBe(
+      '0.02200000',
+    );
+  });
+});
+
 describe('realtime audio token cost (card 30.5)', () => {
   const pricing = {
     inputPerMTok: '4',
