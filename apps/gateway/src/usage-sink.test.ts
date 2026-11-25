@@ -195,3 +195,14 @@ describe('usage sink on a shared outbox volume', () => {
     await Promise.all([b.close(), c.close()]);
   });
 });
+
+describe('usage job ids', () => {
+  it('escapes what BullMQ refuses and keeps the mapping stable', async () => {
+    const { usageJobId } = await import('./usage-sink.js');
+    expect(usageJobId('req_01ABC')).toBe('req_01ABC');
+    expect(usageJobId('client:trace:7')).toBe('client%3Atrace%3A7');
+    expect(usageJobId('a%3Ab')).not.toBe(usageJobId('a:b'));
+    expect(usageJobId('12345')).toBe('id-12345');
+    expect(usageJobId('client:trace:7')).toBe(usageJobId('client:trace:7'));
+  });
+});

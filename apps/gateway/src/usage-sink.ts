@@ -179,7 +179,7 @@ export class UsageSink {
         batch.map((data) => ({
           name: 'usage',
           data,
-          opts: { ...JOB_OPTIONS, jobId: data.idempotencyKey },
+          opts: { ...JOB_OPTIONS, jobId: usageJobId(data.idempotencyKey) },
         })),
       );
       return true;
@@ -263,6 +263,18 @@ export class UsageSink {
     }
     this.#hasOutbox = false;
   }
+}
+
+/**
+ * BullMQ refuses a custom job id that contains `:` (and the whole batch with it), and an event
+ * that can never be queued would hold every later one in the outbox. Request ids come from
+ * clients (`x-request-id`), so the id is escaped; the mapping is stable, so duplicates still
+ * collapse.
+ */
+export function usageJobId(idempotencyKey: string): string {
+  const id = idempotencyKey.replaceAll('%', '%25').replaceAll(':', '%3A');
+  // Purely numeric custom ids are refused as well.
+  return /^\d+$/.test(id) ? `id-${id}` : id;
 }
 
 /** For tests and tooling: remaining outbox files (including claimed ones). */
