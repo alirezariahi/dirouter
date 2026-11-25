@@ -8,6 +8,8 @@
  * deleting an expired file) goes into one sorted set by due time; a short per-item lock makes sure
  * only one replica works on an item at a time.
  */
+import { randomUUID } from 'node:crypto';
+
 import type { Redis } from 'ioredis';
 
 export type JobKind = 'file' | 'batch' | 'task' | 'webhook';
@@ -38,7 +40,20 @@ export interface JobStore {
   unschedule(kind: JobKind, id: string): Promise<void>;
   /** Items whose time has come, oldest first. */
   due(now: number, limit: number): Promise<{ kind: JobKind; id: string }[]>;
-  /** A lock on one item for `ms`; false when another worker holds it. */
+  /**
+   * A lock on one item for `ms`, owned by the returned token; undefined when another worker holds
+   * it. Only the owner can extend or release it, so a worker whose lock ran out (and was taken by
+   * another replica) cannot free or keep the new owner's lock.
+   */
+  acquire(kind: JobKind, id: string, ms: number): Promise<string | undefined>;
+  /** Pushes the lock's end to `ms` from now; false when `token` no longer owns it. */
+  extend(kind: JobKind, id: string, token: string, ms: number): Promise<boolean>;
+  /** Releases the lock when `token` still owns it. */
+  release(kind: JobKind, id: string, token: string): Promise<void>;
+  /**
+   * `acquire` for callers that keep no token: the token is remembered by this store instance and
+   * `unlock` releases with it, so a lock another replica took over is never deleted.
+   */
   lock(kind: JobKind, id: string, ms: number): Promise<boolean>;
   unlock(kind: JobKind, id: string): Promise<void>;
 }
@@ -51,6 +66,34 @@ const lockKey = (kind: JobKind, id: string) => `${PREFIX}:lock:${kind}:${id}`;
 /** Lists read at most this many ids per organization and kind. */
 const MAX_LISTED = 10_000;
 
+/** Deletes the lock only while it holds the caller's token. */
+const RELEASE = `if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) end return 0`;
+/** Extends the lock only while it holds the caller's token. */
+const EXTEND = `if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('pexpire', KEYS[1], ARGV[2]) end return 0`;
+
+/** Tokens of the locks taken through `lock()`, so `unlock()` can release them safely. */
+abstract class TokenLocks {
+  readonly #held = new Map<string, string>();
+
+  abstract acquire(kind: JobKind, id: string, ms: number): Promise<string | undefined>;
+  abstract release(kind: JobKind, id: string, token: string): Promise<void>;
+
+  async lock(kind: JobKind, id: string, ms: number): Promise<boolean> {
+    const token = await this.acquire(kind, id, ms);
+    if (token === undefined) return false;
+    this.#held.set(lockKey(kind, id), token);
+    return true;
+  }
+
+  async unlock(kind: JobKind, id: string): Promise<void> {
+    const key = lockKey(kind, id);
+    const token = this.#held.get(key);
+    if (token === undefined) return;
+    this.#held.delete(key);
+    await this.release(kind, id, token);
+  }
+}
+
 function pageOf(ids: string[], after: string | undefined, limit: number) {
   const start = after === undefined ? 0 : ids.indexOf(after) + 1;
   // An unknown cursor (expired or foreign id) starts from the top, like OpenAI.
@@ -58,8 +101,10 @@ function pageOf(ids: string[], after: string | undefined, limit: number) {
   return { ids: ids.slice(from, from + limit), hasMore: ids.length > from + limit };
 }
 
-export class RedisJobStore implements JobStore {
-  constructor(private readonly redis: Redis) {}
+export class RedisJobStore extends TokenLocks implements JobStore {
+  constructor(private readonly redis: Redis) {
+    super();
+  }
 
   async get<T>(kind: JobKind, id: string): Promise<T | undefined> {
     const raw = await this.redis.get(recordKey(kind, id));
@@ -131,12 +176,19 @@ export class RedisJobStore implements JobStore {
     return members.map(split);
   }
 
-  async lock(kind: JobKind, id: string, ms: number): Promise<boolean> {
-    return (await this.redis.set(lockKey(kind, id), '1', 'PX', ms, 'NX')) === 'OK';
+  async acquire(kind: JobKind, id: string, ms: number): Promise<string | undefined> {
+    const token = randomUUID();
+    return (await this.redis.set(lockKey(kind, id), token, 'PX', ms, 'NX')) === 'OK'
+      ? token
+      : undefined;
   }
 
-  async unlock(kind: JobKind, id: string): Promise<void> {
-    await this.redis.del(lockKey(kind, id));
+  async extend(kind: JobKind, id: string, token: string, ms: number): Promise<boolean> {
+    return (await this.redis.eval(EXTEND, 1, lockKey(kind, id), token, String(ms))) === 1;
+  }
+
+  async release(kind: JobKind, id: string, token: string): Promise<void> {
+    await this.redis.eval(RELEASE, 1, lockKey(kind, id), token);
   }
 }
 
@@ -146,13 +198,15 @@ function split(member: string): { kind: JobKind; id: string } {
 }
 
 /** Single-node fallback with the same behaviour (records expire on read). */
-export class MemoryJobStore implements JobStore {
+export class MemoryJobStore extends TokenLocks implements JobStore {
   readonly #records = new Map<string, { value: string; until: number }>();
   readonly #index = new Map<string, Map<string, number>>();
   readonly #due = new Map<string, number>();
-  readonly #locks = new Map<string, number>();
+  readonly #locks = new Map<string, { token: string; until: number }>();
 
-  constructor(private readonly now: () => number = Date.now) {}
+  constructor(private readonly now: () => number = Date.now) {
+    super();
+  }
 
   get<T>(kind: JobKind, id: string): Promise<T | undefined> {
     const entry = this.#records.get(recordKey(kind, id));
@@ -232,16 +286,26 @@ export class MemoryJobStore implements JobStore {
     );
   }
 
-  lock(kind: JobKind, id: string, ms: number): Promise<boolean> {
-    const key = lockKey(kind, id);
-    const until = this.#locks.get(key);
-    if (until !== undefined && until > this.now()) return Promise.resolve(false);
-    this.#locks.set(key, this.now() + ms);
+  #owner(kind: JobKind, id: string): string | undefined {
+    const held = this.#locks.get(lockKey(kind, id));
+    return held && held.until > this.now() ? held.token : undefined;
+  }
+
+  acquire(kind: JobKind, id: string, ms: number): Promise<string | undefined> {
+    if (this.#owner(kind, id) !== undefined) return Promise.resolve(undefined);
+    const token = randomUUID();
+    this.#locks.set(lockKey(kind, id), { token, until: this.now() + ms });
+    return Promise.resolve(token);
+  }
+
+  extend(kind: JobKind, id: string, token: string, ms: number): Promise<boolean> {
+    if (this.#owner(kind, id) !== token) return Promise.resolve(false);
+    this.#locks.set(lockKey(kind, id), { token, until: this.now() + ms });
     return Promise.resolve(true);
   }
 
-  unlock(kind: JobKind, id: string): Promise<void> {
-    this.#locks.delete(lockKey(kind, id));
+  release(kind: JobKind, id: string, token: string): Promise<void> {
+    if (this.#owner(kind, id) === token) this.#locks.delete(lockKey(kind, id));
     return Promise.resolve();
   }
 }

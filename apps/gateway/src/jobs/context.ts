@@ -3,8 +3,13 @@
  * authentication, OpenAI-shaped errors and upstream calls for a stored provider and credential.
  */
 import type { CredentialConfig, ProviderConfig, VirtualKeyConfig } from '@dirouter/contracts';
-import type { UpstreamRequest } from '@dirouter/providers';
-import { DiRouterError, type Keyring } from '@dirouter/shared';
+import {
+  adapterForProvider,
+  classifyHttpError,
+  type ClassifiedError,
+  type UpstreamRequest,
+} from '@dirouter/providers';
+import { DiRouterError, type Keyring, RateLimitError } from '@dirouter/shared';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 
 import { authenticate, extractApiKey } from '../auth.js';
@@ -40,15 +45,24 @@ export interface JobsDeps extends ProxyDeps {
   keyring: Keyring;
 }
 
+/**
+ * Sends a client error. Anything that is not a DiRouterError is unexpected: its message may name
+ * internal addresses, paths or upstream details, so the client gets a generic message and the
+ * detail only goes to the server log.
+ */
 export function sendError(
   reply: FastifyReply,
   error: unknown,
   headers: Record<string, string> = {},
 ): FastifyReply {
-  const e =
-    error instanceof DiRouterError
-      ? error
-      : new DiRouterError('internal_error', { message: (error as Error).message });
+  let e: DiRouterError;
+  if (error instanceof DiRouterError) e = error;
+  else {
+    reply.log.error({ err: error }, 'unexpected error in a job endpoint');
+    e = new DiRouterError('internal_error', { message: 'Internal error, retry shortly' });
+  }
+  if (e instanceof RateLimitError && e.retryAfterMs !== undefined && !headers['retry-after'])
+    void reply.header('retry-after', String(Math.ceil(e.retryAfterMs / 1000)));
   for (const [name, value] of Object.entries(headers)) void reply.header(name, value);
   return reply.status(e.status).send(e.toOpenAI());
 }
@@ -136,15 +150,52 @@ export async function sendUpstream(
   }
 }
 
-/** Upstream failure as a client error, with a short excerpt of the provider's message. */
-export function upstreamFailure(what: string, reply: UpstreamReply): DiRouterError {
-  let detail = reply.body.toString('utf8').slice(0, 300);
+/** Longest provider message excerpt a client is shown. */
+const MAX_UPSTREAM_DETAIL = 200;
+/**
+ * Key-shaped tokens and account ids a provider may echo in an error (`Incorrect API key provided:
+ * sk-abc***xyz`, `organization org-...`): never shown to the client.
+ */
+const SECRET_LIKE =
+  /\b(?:sk|rk|pk|org|proj|acct|sess)[-_][\w*.-]{4,}|[\w-]*\*{3,}[\w-]*|\b[A-Za-z0-9_-]{32,}\b/gi;
+
+/** A provider's error text as a client may see it: no key-shaped tokens or ids, one short line. */
+export function clientSafeDetail(message: string): string {
+  const clean = message.replace(SECRET_LIKE, '[redacted]').replace(/\s+/g, ' ').trim();
+  return clean.length > MAX_UPSTREAM_DETAIL ? `${clean.slice(0, MAX_UPSTREAM_DETAIL)}…` : clean;
+}
+
+/**
+ * Upstream failure as a client error. The provider's message is read by its adapter's classifier,
+ * as the main proxy does: a credential the provider refused or an unknown object gets a generic
+ * message (the provider's text there names keys and accounts); otherwise a short excerpt of the
+ * provider's message without key-shaped tokens or account ids.
+ */
+export function upstreamFailure(
+  what: string,
+  reply: UpstreamReply,
+  provider?: ProviderConfig,
+): DiRouterError {
+  const input = {
+    status: reply.status,
+    headers: reply.headers,
+    body: reply.body.toString('utf8').slice(0, 16_384),
+  };
+  let classified: ClassifiedError;
   try {
-    const parsed = JSON.parse(detail) as { error?: { message?: string } | string };
-    detail = typeof parsed.error === 'string' ? parsed.error : (parsed.error?.message ?? detail);
+    classified = provider
+      ? adapterForProvider(provider).classifyError(input)
+      : classifyHttpError(input);
   } catch {
-    // not JSON
+    classified = classifyHttpError(input);
   }
+  const generic: Partial<Record<ClassifiedError['class'], string>> = {
+    auth: 'the provider refused the configured credential',
+    not_found: 'the provider does not know the requested object',
+    timeout: 'the provider timed out',
+    connection: 'the provider could not be reached',
+  };
+  const detail = generic[classified.class] ?? clientSafeDetail(classified.message);
   const status = reply.status === 429 ? 429 : reply.status >= 500 ? 502 : 400;
   return new DiRouterError(status === 429 ? 'rate_limited' : 'upstream_error', {
     message: `${what} failed at the provider (${String(reply.status)}): ${detail}`,

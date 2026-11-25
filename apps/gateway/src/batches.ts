@@ -17,7 +17,7 @@ import {
   type VirtualKeyConfig,
 } from '@dirouter/contracts';
 import { batchPrice, computeCost } from '@dirouter/model-catalog';
-import { type Candidate, isRouteError } from '@dirouter/routing';
+import { applyDataPolicy, type Candidate, isRouteError } from '@dirouter/routing';
 import { DiRouterError, ForbiddenError, formatUsd, NotFoundError, ulid } from '@dirouter/shared';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 
@@ -33,6 +33,8 @@ import {
   openaiBatch,
   type UpstreamBatchState,
 } from './batch-native.js';
+import { type Attribution, requestAttribution } from './attribution.js';
+import { guardBodies } from './body-guardrails.js';
 import { loadFile, saveFile } from './files.js';
 import {
   authed,
@@ -49,7 +51,8 @@ import {
 import { admitJob, releaseJob } from './jobs/admission.js';
 import { checkJobWebhookUrl, enqueueWebhook } from './jobs/webhooks.js';
 import { chargeUnits } from './pricing.js';
-import { budgetScopes } from './spend-guard.js';
+import { planErrorToClient, routingFromRequest } from './route-request.js';
+import { budgetScopes, quotaRefs } from './spend-guard.js';
 
 /** OpenAI's limits: 50,000 requests per batch, a 24 hour completion window. */
 export const MAX_BATCH_LINES = 50_000;
@@ -62,6 +65,8 @@ const BATCH_HOLD_MS = (COMPLETION_WINDOW_SECONDS + 3_600) * 1000;
 const DEFAULT_LINE_OUTPUT_TOKENS = 4_096;
 /** A retrieve refreshes from the provider at most this often. */
 const REFRESH_AFTER_MS = 2_000;
+/** How long one worker owns a batch it is checking or collecting; extended while it works. */
+const LOCK_MS = 300_000;
 
 type Status = UpstreamBatchState['status'];
 const TERMINAL: readonly Status[] = ['completed', 'failed', 'expired', 'cancelled'];
@@ -108,6 +113,8 @@ export interface BatchRecord {
   chargeUsd?: string;
   /** Where the end of the batch is announced (card 30.6, a DiRouter extension). */
   webhookUrl?: string;
+  /** End user, tags and cost center at creation: their budgets count the batch's spend. */
+  attribution?: Attribution;
   /** Usage recorded and wallet settled; the batch needs no more work. */
   settled: boolean;
   checkedAt: number;
@@ -198,7 +205,14 @@ export function parseBatchInput(
   return { lines, model };
 }
 
-function lineTokens(line: BatchLine, model: ModelConfig) {
+const count = (value: unknown) =>
+  typeof value === 'number' && Number.isInteger(value) && value > 1 ? value : 1;
+
+/**
+ * The most one line may use: `n` choices each up to the output cap, and for legacy completions
+ * `best_of` generated completions per prompt (at least `n`), for every prompt of the line.
+ */
+export function lineTokens(line: BatchLine, model: Pick<ModelConfig, 'maxOutputTokens'>) {
   const input = Math.ceil(
     JSON.stringify(line.body.messages ?? line.body.input ?? line.body.prompt ?? '').length / 4,
   );
@@ -208,7 +222,18 @@ function lineTokens(line: BatchLine, model: ModelConfig) {
     line.body.max_tokens,
     line.body.max_output_tokens,
   ].find((v): v is number => typeof v === 'number' && v > 0);
-  return { input, output: cap ?? model.maxOutputTokens ?? DEFAULT_LINE_OUTPUT_TOKENS };
+  const perChoice = cap ?? model.maxOutputTokens ?? DEFAULT_LINE_OUTPUT_TOKENS;
+  let choices = count(line.body.n);
+  if (line.url === '/v1/completions') {
+    choices = Math.max(choices, count(line.body.best_of));
+    const prompt = line.body.prompt;
+    const prompts =
+      Array.isArray(prompt) && prompt.length > 0 && !prompt.every((t) => typeof t === 'number')
+        ? prompt.length
+        : 1;
+    choices *= prompts;
+  }
+  return { input, output: perChoice * choices };
 }
 
 /** What a usage costs and is charged at the batch price. */
@@ -270,12 +295,37 @@ async function create(req: FastifyRequest, reply: FastifyReply, deps: JobsDeps) 
   if (!bytes) throw notFound('file', file.id);
   const { lines, model } = parseBatchInput(bytes.toString('utf8'), endpoint);
 
+  // Request guardrails (card 15.1) on every line, as on chat: a line a policy blocks refuses the
+  // whole batch before anything is sent upstream; redaction rewrites the lines that are sent.
+  const guard = await guardBodies(
+    req,
+    deps,
+    config,
+    key,
+    lines.map((l) => l.body),
+  );
+  if (guard.blocked) {
+    const line = lines[guard.blocked.index];
+    throw invalid(
+      `request '${line?.custom_id ?? ''}' of the input file: ${guard.blocked.message}`,
+      'input_file_id',
+    );
+  }
+
   const estimatedInputTokens = lines.reduce(
     (sum, l) => sum + Math.ceil(JSON.stringify(l.body).length / 4),
     0,
   );
-  const route = config.router.resolve(key, model, { estimatedInputTokens: 0 });
-  if (isRouteError(route))
+  // The data policy (card 32.5) of the organization, project, key and request holds for batches
+  // like for chat: a provider that keeps or trains on data, or sits outside the allowed regions,
+  // never receives the lines.
+  const { dataPolicy } = routingFromRequest(config.snapshot.routingPolicies, key, req.body);
+  const resolved = config.router.resolve(key, model, { estimatedInputTokens: 0 });
+  const route =
+    dataPolicy && !isRouteError(resolved) ? applyDataPolicy(resolved, dataPolicy) : resolved;
+  if ('error' in route && route.error === 'no_provider_matches_data_policy')
+    throw planErrorToClient(route, model);
+  if ('error' in route)
     throw route.error === 'model_not_found'
       ? new NotFoundError('model_not_found', {
           message: `Model '${model}' not found`,
@@ -292,37 +342,52 @@ async function create(req: FastifyRequest, reply: FastifyReply, deps: JobsDeps) 
     throw invalid(`'${model}' has no provider with a batch API for ${endpoint}`, 'input_file_id');
 
   const id = `batch_${ulid()}`;
-  // The wallet holds the most the batch can cost on the most expensive candidate.
-  let worst = 0n;
-  for (const c of candidates) {
-    const usage = lines.reduce((u, l) => {
-      const t = lineTokens(l, c.model);
-      return addUsage(u, { ...zero, inputTokens: t.input, outputTokens: t.output });
-    }, zero);
-    const amount = batchAmounts(usage, c.model, key.priceMultiplier).chargeUnits;
-    if (amount > worst) worst = amount;
-  }
-  const reserved = formatUsd(worst);
-  await admitJob(deps, config, key, {
+  const attribution = requestAttribution(req.headers, body.user, key);
+  // The wallet holds the most the batch can cost on the most expensive candidate left.
+  let reserved = '0.00000000';
+  const worstOf = (left: Candidate[]) => {
+    let worst = 0n;
+    for (const c of left) {
+      const usage = lines.reduce((u, l) => {
+        const t = lineTokens(l, c.model);
+        return addUsage(u, { ...zero, inputTokens: t.input, outputTokens: t.output });
+      }, zero);
+      const amount = batchAmounts(usage, c.model, key.priceMultiplier).chargeUnits;
+      if (amount > worst) worst = amount;
+    }
+    reserved = formatUsd(worst);
+    return reserved;
+  };
+  // Same admission as chat: end-user block, every budget (with the candidates' model, provider,
+  // account and credential budgets and quota windows) and the rate limits.
+  const admitted = await admitJob(deps, config, key, {
     id,
     what: 'batch',
-    worstUsd: reserved,
+    worstUsd: worstOf,
     holdMs: BATCH_HOLD_MS,
+    candidates,
+    attribution,
+    requested: model,
   });
 
   let started: { candidate: Candidate; upstreamId: string; state: UpstreamBatchState } | undefined;
   let failure: DiRouterError | undefined;
-  for (const candidate of candidates) {
+  for (const candidate of admitted) {
     try {
       started = await startUpstream(config, candidate, lines, endpoint);
       break;
     } catch (error) {
+      // An unexpected error (network, proxy, malformed answer) may name internal addresses: the
+      // client gets a generic message, the log the detail.
       failure =
         error instanceof DiRouterError
           ? error
-          : new DiRouterError('upstream_error', { message: (error as Error).message });
+          : new DiRouterError('upstream_error', {
+              message: 'The provider could not start the batch',
+              status: 502,
+            });
       deps.logger.warn(
-        { batchId: id, provider: candidate.provider.slug, error: failure.message },
+        { batchId: id, provider: candidate.provider.slug, error: (error as Error).message },
         'batch could not start on this provider',
       );
       // A request the provider rejects as invalid is not retried elsewhere.
@@ -363,6 +428,7 @@ async function create(req: FastifyRequest, reply: FastifyReply, deps: JobsDeps) 
     createdAt: now,
     expiresAt: now + COMPLETION_WINDOW_SECONDS,
     ...(webhookUrl ? { webhookUrl } : {}),
+    ...(Object.keys(attribution).length > 0 ? { attribution } : {}),
     settled: false,
     checkedAt: Date.now(),
     configVersion: config.version,
@@ -404,7 +470,8 @@ async function startUpstream(
       throw invalid((error as Error).message, 'input_file_id');
     }
     const created = await sendUpstream(config, target, request);
-    if (created.status >= 300) throw upstreamFailure('Creating the batch', created);
+    if (created.status >= 300)
+      throw upstreamFailure('Creating the batch', created, candidate.provider);
     const body = json(created);
     return {
       candidate,
@@ -413,14 +480,16 @@ async function startUpstream(
     };
   }
   const uploaded = await sendUpstream(config, target, openaiBatch.upload(t, lines));
-  if (uploaded.status >= 300) throw upstreamFailure('Uploading the batch input', uploaded);
+  if (uploaded.status >= 300)
+    throw upstreamFailure('Uploading the batch input', uploaded, candidate.provider);
   const fileId = openaiBatch.uploadedId(json(uploaded));
   const created = await sendUpstream(
     config,
     target,
     openaiBatch.create(t, { fileId, endpoint, completionWindow: '24h' }),
   );
-  if (created.status >= 300) throw upstreamFailure('Creating the batch', created);
+  if (created.status >= 300)
+    throw upstreamFailure('Creating the batch', created, candidate.provider);
   const body = json(created) as { id?: unknown };
   if (typeof body.id !== 'string') throw new Error('the provider returned no batch id');
   return { candidate, upstreamId: body.id, state: openaiBatch.parse(body) };
@@ -465,12 +534,36 @@ async function save(deps: JobsDeps, record: BatchRecord): Promise<void> {
   });
 }
 
+/** The worker's lock on a batch ran out and another replica took the batch over. */
+class LockLost extends Error {
+  constructor(id: string) {
+    super(`lost the lock on ${id}`);
+  }
+}
+
 /**
  * Checks the upstream batch once and, when it has ended, collects the results and settles. Safe
- * to call from several replicas: one holds the lock, the others return the stored record.
+ * to call from several replicas: one holds the lock, the others return the stored record. The lock
+ * is extended while the work runs, and ownership is checked again before the batch is billed and
+ * saved, so a worker whose lock ran out never settles a batch another replica is settling.
  */
 export async function refreshBatch(deps: JobsDeps, id: string): Promise<BatchRecord | undefined> {
-  if (!(await deps.jobs.lock('batch', id, 300_000))) return deps.jobs.get<BatchRecord>('batch', id);
+  const token = await deps.jobs.acquire('batch', id, LOCK_MS);
+  if (token === undefined) return deps.jobs.get<BatchRecord>('batch', id);
+  let lost = false;
+  const keepAlive = (): Promise<boolean> =>
+    deps.jobs.extend('batch', id, token, LOCK_MS).then(
+      (ok) => {
+        if (!ok) lost = true;
+        return ok;
+      },
+      () => false,
+    );
+  const keeper = setInterval(() => void keepAlive(), LOCK_MS / 3);
+  keeper.unref();
+  const stillOwned = async () => {
+    if (lost || !(await keepAlive())) throw new LockLost(id);
+  };
   try {
     const record = await deps.jobs.get<BatchRecord>('batch', id);
     if (!record) {
@@ -497,7 +590,7 @@ export async function refreshBatch(deps: JobsDeps, id: string): Promise<BatchRec
           ? anthropicBatch.status(t, record.upstreamId)
           : openaiBatch.status(t, record.upstreamId),
       );
-      if (reply.status >= 300) throw upstreamFailure('Checking the batch', reply);
+      if (reply.status >= 300) throw upstreamFailure('Checking the batch', reply, target.provider);
       const state =
         record.kind === 'anthropic'
           ? anthropicBatch.parse(json(reply), record.status === 'cancelling')
@@ -505,11 +598,17 @@ export async function refreshBatch(deps: JobsDeps, id: string): Promise<BatchRec
       apply(record, state);
       record.checkedAt = Date.now();
       const ended = TERMINAL.includes(record.status);
-      if (ended) await finish(deps, config, record, state, target);
+      if (ended) await finish(deps, config, record, state, target, stillOwned);
+      await stillOwned();
       await save(deps, record);
       if (ended) await deps.jobs.unschedule('batch', id);
       else await deps.jobs.schedule('batch', id, Date.now() + deps.jobOptions.pollIntervalMs);
     } catch (error) {
+      if (error instanceof LockLost) {
+        // Another replica owns the batch now: it bills and saves it, this worker writes nothing.
+        deps.logger.warn({ batchId: id }, 'batch lock ran out; left to the replica that holds it');
+        return (await deps.jobs.get<BatchRecord>('batch', id)) ?? record;
+      }
       deps.logger.warn(
         { batchId: id, error: (error as Error).message },
         'batch status check failed',
@@ -520,7 +619,8 @@ export async function refreshBatch(deps: JobsDeps, id: string): Promise<BatchRec
     }
     return record;
   } finally {
-    await deps.jobs.unlock('batch', id);
+    clearInterval(keeper);
+    await deps.jobs.release('batch', id, token);
   }
 }
 
@@ -530,6 +630,7 @@ async function finish(
   record: BatchRecord,
   state: UpstreamBatchState,
   target: Awaited<ReturnType<typeof targetFor>>,
+  stillOwned: () => Promise<void> = () => Promise.resolve(),
 ): Promise<void> {
   const t = {
     provider: target.provider,
@@ -538,7 +639,8 @@ async function finish(
   };
   const text = async (request: Parameters<typeof sendUpstream>[2]) => {
     const reply = await sendUpstream(config, target, request);
-    if (reply.status >= 300) throw upstreamFailure('Downloading batch results', reply);
+    if (reply.status >= 300)
+      throw upstreamFailure('Downloading batch results', reply, target.provider);
     return reply.body.toString('utf8');
   };
   let converted = { output: [] as string[], errors: [] as string[], usage: zero };
@@ -589,6 +691,8 @@ async function finish(
       completed: converted.output.length,
       failed: converted.errors.length,
     };
+  // Results can take long to collect: bill only while this worker still owns the batch.
+  await stillOwned();
   settle(deps, config, record, converted.usage);
   if (record.webhookUrl)
     await enqueueWebhook(deps, {
@@ -597,6 +701,17 @@ async function finish(
       type: `batch.${record.status}`,
       objectId: record.id,
     });
+}
+
+/** The model, provider and credential a batch ran on, from the current snapshot. */
+function servedCandidate(
+  config: NonNullable<JobsDeps['store']['current']>,
+  record: BatchRecord,
+): Candidate | undefined {
+  const model = config.snapshot.models.find((m) => m.id === record.modelId);
+  const provider = config.snapshot.providers.find((p) => p.id === record.providerId);
+  const credential = provider?.credentials.find((c) => c.id === record.credentialId);
+  return model && provider && credential ? { model, provider, credential } : undefined;
 }
 
 /** One usage event for the whole batch, at the batch price; the wallet hold becomes the charge. */
@@ -652,12 +767,24 @@ function settle(
   const key = config.snapshot.virtualKeys.find(
     (k: VirtualKeyConfig) => k.id === record.virtualKeyId,
   );
-  if (key)
+  if (key) {
+    // Every budget the batch was admitted against: the end user's, tags and cost center, and the
+    // served model's, provider's, account's and credential's budgets and quota windows.
+    const served = servedCandidate(config, record);
     deps.budgets?.record(
-      budgetScopes(config, key),
+      budgetScopes(config, key, served ? [served] : [], record.attribution ?? {}, record.model),
       amounts.costUsd,
       usage.inputTokens + usage.outputTokens,
+      served
+        ? {
+            modelId: served.model.id,
+            providerId: served.provider.id,
+            credentialId: served.credential.id,
+          }
+        : undefined,
+      served ? quotaRefs([served]) : [],
     );
+  }
   record.settled = true;
   deps.logger.info(
     { batchId: record.id, status: record.status, costUsd: amounts.costUsd, chargeUsd },
@@ -704,8 +831,9 @@ async function cancel(req: FastifyRequest, reply: FastifyReply, deps: JobsDeps) 
       ? anthropicBatch.cancel(t, record.upstreamId)
       : openaiBatch.cancel(t, record.upstreamId),
   );
-  if (res.status >= 300) throw upstreamFailure('Cancelling the batch', res);
-  if (!(await deps.jobs.lock('batch', record.id, 30_000)))
+  if (res.status >= 300) throw upstreamFailure('Cancelling the batch', res, target.provider);
+  const token = await deps.jobs.acquire('batch', record.id, 30_000);
+  if (token === undefined)
     throw new DiRouterError('conflict', {
       message: 'The batch is being updated, retry shortly',
       status: 409,
@@ -720,7 +848,7 @@ async function cancel(req: FastifyRequest, reply: FastifyReply, deps: JobsDeps) 
     }
     return await reply.send(batchView(current));
   } finally {
-    await deps.jobs.unlock('batch', record.id);
+    await deps.jobs.release('batch', record.id, token);
   }
 }
 

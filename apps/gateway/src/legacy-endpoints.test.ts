@@ -12,7 +12,7 @@ import type { ConfigSnapshotInput, ProviderType, UsageEvent } from '@dirouter/co
 import { buildServer as buildMock } from '@dirouter/mock-provider/server';
 import { createLogger, encrypt, generateKey, hashApiKey, parseKeyring } from '@dirouter/shared';
 import OpenAI, { toFile } from 'openai';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { unmappable } from './completions.js';
 import { parseMultipart } from './media.js';
@@ -21,6 +21,8 @@ import { buildGateway } from './server.js';
 const logger = createLogger({ service: 'test', level: 'silent' });
 const pepper = 'p'.repeat(32);
 const KEY = 'dr-legacy-key-000001';
+const GUARDED = 'dr-legacy-guard-0001';
+const WALLET = 'dr-legacy-wallet-001';
 const PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
   'base64',
@@ -151,6 +153,49 @@ describe('image edits, variations, translations and legacy completions', () => {
           ipAllowlist: [],
           budgets: [],
           mcpTools: [],
+        },
+        ...[
+          { id: 'vk-guard', raw: GUARDED },
+          { id: 'vk-wallet', raw: WALLET, walletId: 'w-legacy' },
+        ].map(({ id, raw, ...rest }) => ({
+          id,
+          hash: hashApiKey(raw, pepper),
+          prefix: id,
+          organizationId: 'org',
+          teamId: null,
+          projectId: 'prj',
+          enabled: true,
+          expiresAt: null,
+          allowedModels: [],
+          ipAllowlist: [],
+          budgets: [],
+          mcpTools: [],
+          ...rest,
+        })),
+      ],
+      // Card 15.1: the same request guardrails as chat.
+      guardrails: [
+        {
+          id: 'g-block',
+          organizationId: 'org',
+          virtualKeyId: 'vk-guard',
+          name: 'no forbidden',
+          enabled: true,
+          stage: 'request',
+          type: 'regex',
+          config: { pattern: 'forbidden' },
+          action: 'block',
+        },
+        {
+          id: 'g-redact',
+          organizationId: 'org',
+          virtualKeyId: 'vk-guard',
+          name: 'secret codes',
+          enabled: true,
+          stage: 'request',
+          type: 'regex',
+          config: { pattern: 'SECRET-\\d+' },
+          action: 'redact',
         },
       ],
       settings: {},
@@ -336,6 +381,59 @@ describe('image edits, variations, translations and legacy completions', () => {
     expect(text).toBe('Hello from the DiRouter mock provider.');
     expect(total).toBeGreaterThan(0);
     expect(usage.at(-1)?.inboundApi).toBe('openai.completions');
+  });
+
+  it("completions: the key's request guardrails block and redact, native and mapped", async () => {
+    const guarded = new OpenAI({ apiKey: GUARDED, baseURL: sdk.baseURL, maxRetries: 0 });
+    const mockStats = async () =>
+      (
+        (await (
+          await fetch(
+            `${base.replace(/:\d+$/, '')}:${String((mock.server.address() as { port: number }).port)}/__mock/stats`,
+          )
+        ).json()) as { last: unknown[] }
+      ).last.at(-1);
+    const before = usage.length;
+    const refused = await guarded.completions
+      .create({ model: 'instruct', prompt: 'a forbidden word' })
+      .catch((error: unknown) => error as { status: number; message: string });
+    expect(refused).toMatchObject({ status: 400 });
+    expect((refused as { message: string }).message).toMatch(/no forbidden/);
+    await expect(
+      guarded.completions.create({ model: 'chat', prompt: 'a forbidden word' }),
+    ).rejects.toMatchObject({ status: 400 });
+    // Nothing reached a provider.
+    expect(usage.length).toBe(before);
+
+    await guarded.completions.create({ model: 'instruct', prompt: ['code SECRET-123', 'ok'] });
+    const native = JSON.stringify(await mockStats());
+    expect(native).not.toContain('SECRET-123');
+    expect(native).toContain('ok');
+    await guarded.completions.create({ model: 'chat', prompt: 'my code is SECRET-456' });
+    const mapped = JSON.stringify(await mockStats());
+    expect(mapped).not.toContain('SECRET-456');
+    expect(mapped).toContain('my code is');
+  });
+
+  it('completions: the wallet holds every best_of completion, not only n', async () => {
+    const wallets = gw.jobs.wallets;
+    if (!wallets) throw new Error('no wallet guard');
+    const reserve = vi.spyOn(wallets, 'reserve');
+    try {
+      const prepaid = new OpenAI({ apiKey: WALLET, baseURL: sdk.baseURL, maxRetries: 0 });
+      await prepaid.completions.create({
+        model: 'instruct',
+        prompt: 'Say hi',
+        max_tokens: 100,
+        n: 1,
+        best_of: 4,
+      });
+      const amount = reserve.mock.calls.at(-1)?.[2];
+      // 4 × 100 output tokens at $2/M is $0.0008, before the input.
+      expect(Number(amount)).toBeGreaterThanOrEqual(0.0008);
+    } finally {
+      reserve.mockRestore();
+    }
   });
 
   it('refuses what cannot be served, with a clear error', async () => {

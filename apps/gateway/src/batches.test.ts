@@ -25,15 +25,24 @@ import { Redis } from 'ioredis';
 import OpenAI, { toFile } from 'openai';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { batchAmounts, parseBatchInput } from './batches.js';
+import {
+  batchAmounts,
+  type BatchRecord,
+  lineTokens,
+  parseBatchInput,
+  refreshBatch,
+} from './batches.js';
 import { expireFile, type FileRecord } from './files.js';
 import { LocalBlobStorage, S3BlobStorage } from './jobs/blobs.js';
+import type { JobStore } from './jobs/store.js';
 import { buildGateway } from './server.js';
 
 const logger = createLogger({ service: 'test', level: 'silent' });
 const pepper = 'p'.repeat(32);
 const KEY = 'dr-batch-key-00001';
 const OTHER = 'dr-batch-other-0001';
+const ZDR = 'dr-batch-zdr-000001';
+const GUARDED = 'dr-batch-guard-0001';
 
 const chatLine = (id: string, model: string, text: string) =>
   JSON.stringify({
@@ -123,7 +132,56 @@ describe('files and batches', () => {
       ],
       combos: [],
       aliases: [],
-      virtualKeys: [key('vk', KEY, 'org'), key('vk-other', OTHER, 'org-b')],
+      virtualKeys: [
+        key('vk', KEY, 'org'),
+        key('vk-other', OTHER, 'org-b'),
+        key('vk-zdr', ZDR, 'org'),
+        key('vk-guard', GUARDED, 'org'),
+      ],
+      // Card 32.5: this key's data may only go to zero-retention providers (none here).
+      routingPolicies: [
+        {
+          organizationId: 'org',
+          scope: 'key',
+          scopeId: 'vk-zdr',
+          dataPolicy: { requireZdr: true },
+        },
+      ],
+      // Card 33.2: a blocked end user.
+      limits: [
+        {
+          organizationId: 'org',
+          scope: 'end_user',
+          scopeId: 'mallory',
+          budgets: [],
+          blocked: true,
+        },
+      ],
+      // Card 15.1: the guarded key blocks one word and redacts the mock's failure marker.
+      guardrails: [
+        {
+          id: 'g-block',
+          organizationId: 'org',
+          virtualKeyId: 'vk-guard',
+          name: 'no forbidden',
+          enabled: true,
+          stage: 'request',
+          type: 'regex',
+          config: { pattern: 'forbidden' },
+          action: 'block',
+        },
+        {
+          id: 'g-redact',
+          organizationId: 'org',
+          virtualKeyId: 'vk-guard',
+          name: 'no failure marker',
+          enabled: true,
+          stage: 'request',
+          type: 'regex',
+          config: { pattern: 'mock:fail' },
+          action: 'redact',
+        },
+      ],
       settings: {},
     };
     const dataDir = await mkdtemp(join(tmpdir(), 'dirouter-batch-'));
@@ -330,6 +388,101 @@ describe('files and batches', () => {
     expect(usage.find((e) => e.requestId === created.id)?.status).toBe('success');
   });
 
+  it('applies the data policy: a ZDR-only key never reaches a provider that keeps data', async () => {
+    const zdr = new OpenAI({ apiKey: ZDR, baseURL: `${base}/v1`, maxRetries: 0 });
+    const file = await uploadBatch([chatLine('z', 'gpt-batch', 'keep nothing')], zdr);
+    const before = (
+      (await (await fetch(`${mockRoot}/__mock/batches`)).json()) as { openai: number }
+    ).openai;
+    await expect(
+      zdr.batches.create({
+        input_file_id: file.id,
+        endpoint: '/v1/chat/completions',
+        completion_window: '24h',
+      }),
+    ).rejects.toMatchObject({ status: 400, code: 'no_provider_matches_data_policy' });
+    const after = ((await (await fetch(`${mockRoot}/__mock/batches`)).json()) as { openai: number })
+      .openai;
+    expect(after).toBe(before);
+  });
+
+  it('refuses a blocked end user like chat does', async () => {
+    const file = await uploadBatch([chatLine('u', 'gpt-batch', 'hello')]);
+    const res = await fetch(`${base}/v1/batches`, {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${KEY}`,
+        'content-type': 'application/json',
+        'x-dirouter-end-user': 'mallory',
+      },
+      body: JSON.stringify({
+        input_file_id: file.id,
+        endpoint: '/v1/chat/completions',
+        completion_window: '24h',
+      }),
+    });
+    expect(res.status).toBe(403);
+    expect(((await res.json()) as { error: { code: string } }).error.code).toBe('end_user_blocked');
+  });
+
+  it("runs the key's request guardrails on every line: block refuses, redact rewrites", async () => {
+    const guarded = new OpenAI({ apiKey: GUARDED, baseURL: `${base}/v1`, maxRetries: 0 });
+    const blocked = await uploadBatch(
+      [chatLine('ok', 'gpt-batch', 'fine'), chatLine('bad', 'gpt-batch', 'a forbidden word')],
+      guarded,
+    );
+    const refused = await guarded.batches
+      .create({
+        input_file_id: blocked.id,
+        endpoint: '/v1/chat/completions',
+        completion_window: '24h',
+      })
+      .catch((error: unknown) => error as { status: number; message: string });
+    expect(refused).toMatchObject({ status: 400 });
+    expect((refused as { message: string }).message).toMatch(/'bad'.*no forbidden/);
+
+    // The mock fails any line that still carries its marker: redacted, the line succeeds.
+    const redacted = await uploadBatch(
+      [chatLine('r1', 'gpt-batch', 'please mock:fail now'), chatLine('r2', 'gpt-batch', 'hi')],
+      guarded,
+    );
+    const created = await guarded.batches.create({
+      input_file_id: redacted.id,
+      endpoint: '/v1/chat/completions',
+      completion_window: '24h',
+    });
+    let done = created;
+    for (let i = 0; i < 20 && done.status !== 'completed'; i++)
+      done = await guarded.batches.retrieve(created.id);
+    expect(done.request_counts).toEqual({ total: 2, completed: 2, failed: 0 });
+  });
+
+  it('a worker whose lock ran out neither bills nor saves the batch', async () => {
+    const file = await uploadBatch([chatLine('l', 'gpt-batch', 'lock me')]);
+    const created = await client.batches.create({
+      input_file_id: file.id,
+      endpoint: '/v1/chat/completions',
+      completion_window: '24h',
+    });
+    // validating → in_progress
+    expect((await refreshBatch(gw.jobs, created.id))?.status).toBe('in_progress');
+    // The next check sees the end; the lock is lost while the results are collected.
+    const store = gw.jobs.jobs;
+    const losing = new Proxy(store, {
+      get: (target, name: keyof JobStore) =>
+        name === 'extend'
+          ? () => Promise.resolve(false)
+          : (target[name] as (...args: unknown[]) => unknown).bind(target),
+    });
+    await refreshBatch({ ...gw.jobs, jobs: losing }, created.id);
+    expect(usage.filter((e) => e.requestId === created.id)).toHaveLength(0);
+    const stored = await store.get<BatchRecord>('batch', created.id);
+    expect(stored).toMatchObject({ status: 'in_progress', settled: false });
+    // The replica that owns the batch settles it, once.
+    expect((await refreshBatch(gw.jobs, created.id))?.settled).toBe(true);
+    expect(usage.filter((e) => e.requestId === created.id)).toHaveLength(1);
+  });
+
   it('rejects invalid batches before anything is sent upstream', async () => {
     const mixed = await uploadBatch([
       chatLine('1', 'gpt-batch', 'a'),
@@ -410,6 +563,31 @@ describe('files and batches', () => {
     await expireFile(gw.jobs, record.id);
     expect(await gw.jobs.blobs.get(record.storageKey)).toBeUndefined();
     expect(await gw.jobs.jobs.get('file', record.id)).toBeUndefined();
+  });
+});
+
+describe('batch worst case', () => {
+  const line = (url: string, body: Record<string, unknown>) => ({
+    custom_id: 'x',
+    method: 'POST' as const,
+    url,
+    body: { model: 'm', ...body },
+  });
+  it('reserves every choice: n, and best_of for every prompt of a legacy completion', () => {
+    const model = { maxOutputTokens: 1_000 };
+    expect(lineTokens(line('/v1/chat/completions', { max_tokens: 50 }), model).output).toBe(50);
+    expect(lineTokens(line('/v1/chat/completions', { max_tokens: 50, n: 3 }), model).output).toBe(
+      150,
+    );
+    expect(
+      lineTokens(line('/v1/completions', { prompt: 'a', max_tokens: 10, n: 2, best_of: 5 }), model)
+        .output,
+    ).toBe(50);
+    expect(
+      lineTokens(line('/v1/completions', { prompt: ['a', 'b'], max_tokens: 10, n: 3 }), model)
+        .output,
+    ).toBe(60);
+    expect(lineTokens(line('/v1/embeddings', { input: 'a', n: 4 }), model).output).toBe(0);
   });
 });
 

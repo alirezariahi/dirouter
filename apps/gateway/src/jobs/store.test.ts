@@ -53,6 +53,39 @@ function contract(name: string, make: () => JobStore) {
       await store.unschedule('task', id);
       expect(await store.due(Date.now(), 1_000)).not.toContainEqual({ kind: 'task', id });
     });
+
+    it('a lock belongs to its token: a worker whose lock ran out cannot free or keep it', async () => {
+      const store = make();
+      const id = randomUUID();
+      const first = await store.acquire('batch', id, 40);
+      expect(first).toBeTypeOf('string');
+      expect(await store.acquire('batch', id, 5_000)).toBeUndefined();
+      expect(await store.extend('batch', id, first as string, 40)).toBe(true);
+      await new Promise((r) => setTimeout(r, 80));
+      // The first worker's lock expired; another replica takes the item over.
+      const second = await store.acquire('batch', id, 5_000);
+      expect(second).toBeTypeOf('string');
+      expect(await store.extend('batch', id, first as string, 5_000)).toBe(false);
+      await store.release('batch', id, first as string);
+      expect(await store.acquire('batch', id, 5_000)).toBeUndefined();
+      expect(await store.extend('batch', id, second as string, 5_000)).toBe(true);
+      await store.release('batch', id, second as string);
+      expect(await store.acquire('batch', id, 5_000)).toBeTypeOf('string');
+    });
+
+    it('unlock() after the lock ran out leaves the new owner alone', async () => {
+      const store = make();
+      const id = randomUUID();
+      expect(await store.lock('task', id, 40)).toBe(true);
+      await new Promise((r) => setTimeout(r, 80));
+      const owner = await store.acquire('task', id, 5_000);
+      expect(owner).toBeTypeOf('string');
+      await store.unlock('task', id);
+      expect(await store.lock('task', id, 5_000)).toBe(false);
+      await store.release('task', id, owner as string);
+      expect(await store.lock('task', id, 5_000)).toBe(true);
+      await store.unlock('task', id);
+    });
   });
 }
 

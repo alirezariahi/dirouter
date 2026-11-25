@@ -1,50 +1,66 @@
 /**
- * Admission of a long-running job (a batch, card 30.1, or an async task, card 30.6): the key's
- * rate limit counts one request, its budgets must have room and a prepaid wallet holds the job's
- * worst case until the job ends. Throws the client error when the job may not start.
+ * Admission of a long-running job (a batch, card 30.1, or an async task, card 30.6), with the same
+ * guard as a chat request (spend-guard.ts `admitRequest`): a blocked end user is refused, every
+ * budget that covers the request must have room (key, project, team, organization, member, end
+ * user, tags, cost center, and the model, provider, upstream account and credential budgets and
+ * quota windows of the candidates, which take used-up candidates out), the rate limits count one
+ * request, and a prepaid wallet holds the job's worst case until the job ends. Throws the client
+ * error when the job may not start.
  */
 import type { VirtualKeyConfig } from '@dirouter/contracts';
+import type { Candidate } from '@dirouter/routing';
 import { DiRouterError } from '@dirouter/shared';
 
+import type { Attribution } from '../attribution.js';
 import type { LoadedConfig } from '../config-store.js';
-import { budgetScopes, limitScopes } from '../spend-guard.js';
+import { admitRequest } from '../spend-guard.js';
 import type { JobsDeps } from './context.js';
 
+export interface JobAdmission {
+  id: string;
+  what: string;
+  /** The most the job may cost; a function gets the candidates left after the budgets. */
+  worstUsd: string | ((candidates: Candidate[]) => string);
+  holdMs: number;
+  /** The routed candidates; their model, provider and credential budgets and quotas apply. */
+  candidates?: readonly Candidate[];
+  /** End user, tags and cost center of the request (card 33.2 and 33.4). */
+  attribution?: Attribution;
+  /** The model name the client asked for. */
+  requested?: string;
+}
+
+/**
+ * Admits the job and returns the candidates it may run on (those of `input.candidates` whose
+ * budgets and quota windows have room, in reset-aware order); `[]` when no candidates were given.
+ */
 export async function admitJob(
   deps: JobsDeps,
   config: LoadedConfig,
   key: VirtualKeyConfig,
-  input: { id: string; what: string; worstUsd: string; holdMs: number },
-): Promise<void> {
-  const admission = deps.limiter
-    ? await deps.limiter.acquire(limitScopes(config, key), 0, input.id)
-    : undefined;
-  if (admission && !admission.ok) {
-    deps.metrics?.reject('rate_limit', admission.unavailable ? 'unavailable' : admission.kind);
-    throw new DiRouterError('rate_limited', {
-      message: admission.unavailable
-        ? 'Rate limiter unavailable (fail-closed), retry shortly'
-        : `Rate limit exceeded for ${admission.scope.split(':')[0] ?? 'key'} (${admission.kind})`,
-      status: 429,
-    });
+  input: JobAdmission,
+): Promise<Candidate[]> {
+  const admission = await admitRequest(deps, {
+    config,
+    key,
+    candidates: input.candidates ?? [],
+    requested: input.requested ?? '',
+    estimatedTokens: 0,
+    requestId: input.id,
+    ...(input.attribution ? { attribution: input.attribution } : {}),
+  });
+  if (!admission.ok) {
+    deps.metrics?.reject(admission.metric.guard, admission.metric.reason);
+    throw admission.error;
   }
-  admission?.settle(0);
-  admission?.release();
+  // The job is one request in the rate windows; its spend is counted when it settles.
+  admission.cancel();
+  const candidates = admission.candidates;
 
-  const budgetCheck = deps.budgets
-    ? await deps.budgets.check(budgetScopes(config, key))
-    : { ok: true as const };
-  if (!budgetCheck.ok) {
-    deps.metrics?.reject('budget', budgetCheck.unavailable ? 'unavailable' : budgetCheck.kind);
-    throw new DiRouterError('budget_exceeded', {
-      message: budgetCheck.unavailable
-        ? 'Budget check unavailable (fail-closed), retry shortly'
-        : `${budgetCheck.period === 'daily' ? 'Daily' : 'Monthly'} ${budgetCheck.scope} budget exceeded`,
-    });
-  }
-
+  const worstUsd =
+    typeof input.worstUsd === 'function' ? input.worstUsd(candidates) : input.worstUsd;
   if (key.walletId && deps.wallets) {
-    const hold = await deps.wallets.reserve(key.walletId, input.id, input.worstUsd, input.holdMs);
+    const hold = await deps.wallets.reserve(key.walletId, input.id, worstUsd, input.holdMs);
     if (!hold.ok) {
       deps.metrics?.reject('wallet', hold.unavailable ? 'unavailable' : 'insufficient');
       throw new DiRouterError('insufficient_credit', {
@@ -54,6 +70,7 @@ export async function admitJob(
       });
     }
   }
+  return candidates;
 }
 
 /** Gives back the wallet hold of a job that could not start. */

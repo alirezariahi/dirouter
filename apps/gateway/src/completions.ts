@@ -26,6 +26,8 @@ import { DiRouterError, ValidationError } from '@dirouter/shared';
 import { openAIRequestToCanonical } from '@dirouter/translator';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 
+import { authenticate, extractApiKey } from './auth.js';
+import { guardBodies } from './body-guardrails.js';
 import { type MeteredResult, runMetered } from './metered.js';
 import type { ProxyDeps } from './proxy.js';
 
@@ -99,13 +101,44 @@ export async function handleCompletions(
     return;
   }
   const model = body.model;
-  const texts = promptTexts(prompt) ?? [];
+
+  // Request guardrails (card 15.1), as on chat: a blocking policy refuses the request, redaction
+  // rewrites the prompt (and suffix) before it is sent natively or mapped to chat. A request that
+  // does not authenticate is answered by the metered pipeline below.
+  const config = deps.store.current;
+  let key;
+  try {
+    key = config
+      ? authenticate(
+          config,
+          extractApiKey(req.headers, (req.query as { key?: string } | undefined)?.key),
+          deps.pepper,
+          req.ip,
+        )
+      : undefined;
+  } catch {
+    key = undefined;
+  }
+  if (config && key) {
+    const guard = await guardBodies(req, deps, config, key, [body]);
+    if (guard.blocked) {
+      send(new DiRouterError('invalid_request', { message: guard.blocked.message, status: 400 }));
+      return;
+    }
+  }
+
+  const texts = promptTexts(body.prompt) ?? [];
   const promptCount = Array.isArray(prompt) && !isTokens(prompt) ? prompt.length : 1;
   const estimatedInputTokens = Math.ceil(
     (texts.length > 0
       ? texts.reduce((sum, text) => sum + text.length, 0)
-      : JSON.stringify(prompt).length) / 4,
+      : JSON.stringify(body.prompt).length) / 4,
   );
+  // `best_of` completions are generated (and billed) per prompt; `n` of them are returned.
+  const generated =
+    typeof body.best_of === 'number' && Number.isInteger(body.best_of) && body.best_of > n
+      ? body.best_of
+      : n;
   const blocked = unmappable(body);
 
   // The request as chat, for models without the native endpoint.
@@ -144,7 +177,10 @@ export async function handleCompletions(
     model,
     estimatedInputTokens,
     worstCase: {
-      usage: { inputTokens: estimatedInputTokens, outputTokens: maxTokens * n * promptCount },
+      usage: {
+        inputTokens: estimatedInputTokens,
+        outputTokens: maxTokens * generated * promptCount,
+      },
       estimated: true,
     },
     select: (candidates) => {
