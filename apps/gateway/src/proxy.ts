@@ -140,6 +140,7 @@ import {
 import { resolveCredentialKey, tokenFailure } from './credential-tokens.js';
 import { callUpstream, mergeTimeouts, readErrorBody, UpstreamTimeout } from './upstream.js';
 import { applyRoutingRules, applyTrafficSplit } from './routing-policy.js';
+import { type ShadowRunner, shadowPolicyFor } from './shadow.js';
 import type { WebSearchExtension } from './web-search.js';
 import {
   planErrorToClient,
@@ -187,6 +188,8 @@ export interface ProxyDeps {
   tracer?: Tracer;
   /** Destination of captured request bodies (card 24.1); never the usage path. */
   recordBody?: RecordBody;
+  /** Shadow copies of sampled requests, sent after the answer (card 32.4). */
+  shadow?: ShadowRunner;
   /** Canary error rates and rollbacks, kept across snapshots (card 32.3). */
   splitHealth?: SplitHealth;
   /**
@@ -1312,6 +1315,21 @@ async function proxyRequest(
     admission?.release();
     deps.budgets?.record(budgets, spent.costUsd, spent.tokens);
     settleWallet(spent.chargeUsd);
+    // Shadow traffic (card 32.4): only now, with the answer (or the whole stream) already out,
+    // and detached from this request; it never touches the limits, budget or wallet above.
+    if (deps.shadow && config.snapshot.shadowPolicies.length > 0) {
+      const shadowPolicy = shadowPolicyFor(config.snapshot, key, canonical.model);
+      if (shadowPolicy) {
+        const served = reply.getHeader('x-dirouter-model');
+        deps.shadow.mirror(config, shadowPolicy, key, canonical, {
+          requestId,
+          model: typeof served === 'string' ? served : null,
+          status: reply.statusCode,
+          latencyMs: Date.now() - started,
+          costUsd: spent.costUsd,
+        });
+      }
+    }
   }
 }
 

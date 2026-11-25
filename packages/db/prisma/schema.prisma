@@ -81,6 +81,7 @@ model Organization {
   managementTokens ManagementToken[]
   routingRules     RoutingRule[]
   trafficSplits    TrafficSplit[]
+  shadowPolicies   ShadowPolicy[]
   @@map("organizations")
 }
 
@@ -1673,6 +1674,56 @@ model TrafficSplitVersion {
 
   @@unique([splitId, version])
   @@map("traffic_split_versions")
+}
+
+/// Shadow traffic policy (card 32.4): a sampled copy of matching requests goes to `target`.
+model ShadowPolicy {
+  id             String   @id
+  organizationId String   @map("organization_id")
+  name           String
+  enabled        Boolean  @default(true)
+  /// The name clients ask for, or `*`.
+  match          String
+  /// One of the organization's own models (or an alias or combo of them).
+  target         String
+  sampleRate     Decimal  @map("sample_rate") @db.Decimal(5, 4)
+  dailyBudgetUsd Decimal  @map("daily_budget_usd") @db.Decimal(18, 8)
+  projectId      String?  @map("project_id")
+  timeoutMs      Int      @default(60000) @map("timeout_ms")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@map("shadow_policies")
+}
+
+/// One shadow copy (card 32.4): its own cost, never in request_log, the ledger or a wallet.
+model ShadowRequest {
+  /// `<primary request id>:shadow`
+  id               String   @id
+  createdAt        DateTime @map("created_at") @db.Timestamptz(3)
+  organizationId   String   @map("organization_id")
+  policyId         String   @map("policy_id")
+  projectId        String   @map("project_id")
+  apiKeyId         String   @map("api_key_id")
+  primaryRequestId String   @map("primary_request_id")
+  modelId          String?  @map("model_id")
+  status           String
+  httpStatus       Int      @map("http_status")
+  errorCode        String?  @map("error_code")
+  inputTokens      Int      @map("input_tokens")
+  outputTokens     Int      @map("output_tokens")
+  costUsd          Decimal  @map("cost_usd") @db.Decimal(18, 8)
+  latencyMs        Int      @map("latency_ms")
+  primaryModel     String?  @map("primary_model")
+  primaryStatus    Int      @map("primary_status")
+  primaryLatencyMs Int      @map("primary_latency_ms")
+  primaryCostUsd   Decimal  @map("primary_cost_usd") @db.Decimal(18, 8)
+
+  @@index([organizationId, policyId, createdAt])
+  @@map("shadow_requests")
 }
 
 /// Routing policies per organization, project or key (cards 32.1, 32.5 and 32.7): provider

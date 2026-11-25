@@ -38,6 +38,7 @@ Captured request bodies (card 24.1) never use this pipeline: they go to their ow
 | `partitions` | hourly                                  | The current month and the 3 following months (advisory lock)                                                              |
 | `retention`  | daily at 03:17 UTC                      | Deletes partitions older than `REQUEST_LOG_RETENTION_MONTHS` (default 3)                                                  |
 
+- **Shadow copies** (card 32.4): a usage event with `shadow` set is written to `shadow_requests` only; it never reaches `request_log`, the ledger, the rollups or a wallet. See [routing policies](concepts/routing-policies.md).
 - **Multiple replicas**: scheduling uses the BullMQ job scheduler, and each tick creates only one job, which only one replica takes. `upsertJobScheduler` is safe in every replica. Usage jobs also each reach only one worker.
 - **Endpoints** (port 3100, internal network only): `/healthz`, `/readyz` (Postgres and Valkey) and `/metrics`.
 - **Shutdown**: active jobs finish and the writer's buffer is written; then the connections are closed (`stop_grace_period: 30s`).

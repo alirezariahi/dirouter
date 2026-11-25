@@ -183,6 +183,8 @@ export type RoutingPolicyRule = z.infer<typeof RoutingPolicyRule>;
 
 // ───────────── Conditional routing rules (card 32.2) ─────────────
 
+import { UsdAmount } from './common.js';
+
 /** What a matching rule does. `route` and `reject` end the evaluation; `tag` adds labels and goes on. */
 export const RoutingRuleAction = z.discriminatedUnion('type', [
   /** Send the request to a model, alias, combo or `auto*` name of the organization instead. */
@@ -289,3 +291,43 @@ export const SplitRollbackEvent = z.object({
   at: z.string(),
 });
 export type SplitRollbackEvent = z.infer<typeof SplitRollbackEvent>;
+
+/**
+ * Shadow traffic (card 32.4): a sampled copy of matching requests goes to `target` after the
+ * client has its answer. The copy's answer is thrown away; its cost is recorded apart from the
+ * customer's usage, never counts against the key's, project's or team's budget or wallet, and
+ * stops for the day once `dailyBudgetUsd` is spent. The target must be one of the organization's
+ * own models: the organization pays its own provider for the experiment.
+ */
+export const ShadowPolicyConfig = z.object({
+  id: z.string(),
+  organizationId: z.string(),
+  name: z.string().min(1).max(100),
+  enabled: z.boolean().default(true),
+  /** The name clients ask for, or `*` for every request of the organization. */
+  match: z.string().min(1).max(200),
+  target: z.string().min(1).max(200),
+  /** Share of matching requests that are mirrored (0..1). */
+  sampleRate: z.number().min(0).max(1),
+  dailyBudgetUsd: UsdAmount,
+  /** Only this project's requests (optional). */
+  projectId: z.string().optional(),
+  timeoutMs: z.int().min(1_000).max(300_000).default(60_000),
+});
+export type ShadowPolicyConfig = z.infer<typeof ShadowPolicyConfig>;
+
+/** What a shadow usage event compares against: the request the client got an answer to. */
+export const ShadowTrace = z.object({
+  policyId: z.string(),
+  /** The client's request (the usage event's own requestId is `<primary>:shadow`). */
+  primaryRequestId: z.string(),
+  primaryModel: z.string().nullable(),
+  primaryStatus: z.int(),
+  primaryLatencyMs: z.int().nonnegative(),
+  primaryCostUsd: UsdAmount,
+});
+export type ShadowTrace = z.infer<typeof ShadowTrace>;
+
+/** Valkey counter of a shadow policy's spend per UTC day, in 1e-8 dollars. */
+export const shadowSpendKey = (policyId: string, day: string): string =>
+  `dirouter:shadow:spend:${policyId}:${day}`;

@@ -177,6 +177,7 @@ export class SnapshotService implements OnModuleInit, OnModuleDestroy {
       bodyCapture,
       routingRules,
       trafficSplits,
+      shadowPolicies,
       routingPolicies,
     ] = await Promise.all([
       db.provider.findMany({
@@ -219,6 +220,8 @@ export class SnapshotService implements OnModuleInit, OnModuleDestroy {
       db.routingRule.findMany({ orderBy: [{ priority: 'asc' }, { id: 'asc' }] }),
       // Canary and percentage traffic splits (card 32.3).
       db.trafficSplit.findMany({ orderBy: { id: 'asc' } }),
+      // Shadow traffic (card 32.4).
+      db.shadowPolicy.findMany({ orderBy: { id: 'asc' } }),
       // Routing policies (cards 32.1, 32.5 and 32.7).
       db.routingPolicySetting.findMany({
         orderBy: [{ organizationId: 'asc' }, { scope: 'asc' }, { scopeId: 'asc' }],
@@ -495,6 +498,23 @@ export class SnapshotService implements OnModuleInit, OnModuleDestroy {
               stickiness: s.stickiness as 'key' | 'session' | 'request',
               ...(s.autoRollback ? { autoRollback: s.autoRollback as never } : {}),
               state: s.state as 'active' | 'rolled_back',
+            })),
+          }
+        : {}),
+      // Shadow traffic policies (card 32.4); absent while nobody has one.
+      ...(shadowPolicies.length > 0
+        ? {
+            shadowPolicies: shadowPolicies.map((p) => ({
+              id: p.id,
+              organizationId: p.organizationId,
+              name: p.name,
+              enabled: p.enabled,
+              match: p.match,
+              target: p.target,
+              sampleRate: Number(p.sampleRate),
+              dailyBudgetUsd: usd(p.dailyBudgetUsd) ?? '0',
+              ...(p.projectId ? { projectId: p.projectId } : {}),
+              timeoutMs: p.timeoutMs,
             })),
           }
         : {}),

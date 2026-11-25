@@ -211,6 +211,70 @@ describe('routing policies page', () => {
     });
   });
 
+  it('shows shadow policies with the comparison and the daily cap (card 32.4)', async () => {
+    const calls = mockApi((path, method) => {
+      if (path.endsWith('/routing/shadows') && method === 'GET')
+        return {
+          status: 200,
+          body: [
+            {
+              id: 'shd_1',
+              name: 'try next',
+              enabled: true,
+              match: 'big',
+              target: 'next',
+              sampleRate: 0.25,
+              dailyBudgetUsd: '5',
+            },
+          ],
+        };
+      if (path.endsWith('/report'))
+        return {
+          status: 200,
+          body: {
+            requests: 2,
+            shadow: {
+              model: 'next',
+              errors: 1,
+              avgLatencyMs: 300,
+              p95LatencyMs: 390,
+              costUsd: '0.002',
+            },
+            primary: { errors: 0, avgLatencyMs: 100, p95LatencyMs: 100, costUsd: '0.02' },
+            today: { spentUsd: '5', dailyBudgetUsd: '5', capped: true },
+          },
+        };
+      if (path.endsWith('/routing/shadows') && method === 'POST') return { status: 201, body: {} };
+      return undefined;
+    });
+    await renderPage();
+    fireEvent.click(await screen.findByRole('radio', { name: 'Shadow traffic' }));
+    expect((await screen.findByTestId('shadow-shadow')).textContent).toContain('300 ms');
+    expect((await screen.findByTestId('shadow-primary')).textContent).toContain('100 ms');
+    expect(
+      screen.getByText('Today’s cap is reached; no shadow copies until tomorrow.'),
+    ).toBeTruthy();
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'n' } });
+    fireEvent.change(screen.getByLabelText('Name clients ask for (or * for all)'), {
+      target: { value: '*' },
+    });
+    fireEvent.change(screen.getByLabelText('Shadow model (one of your own)'), {
+      target: { value: 'next' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Add policy' }));
+    await vi.waitFor(() => {
+      expect(
+        calls.find((c) => c.method === 'POST' && c.path.endsWith('/routing/shadows'))?.body,
+      ).toEqual({
+        name: 'n',
+        match: '*',
+        target: 'next',
+        sampleRate: 0.1,
+        dailyBudgetUsd: '5',
+      });
+    });
+  });
+
   it('is read only without models:write', async () => {
     mockApi(
       (path) => (path.endsWith('/routing/rules') ? { status: 200, body: [RULE] } : undefined),

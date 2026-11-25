@@ -1,4 +1,4 @@
-/** Routing policies over HTTP (sprint 5): rules (32.2) and traffic splits (32.3). */
+/** Routing policies over HTTP (sprint 5): rules (32.2), traffic splits (32.3) and shadow traffic (32.4). */
 import { SPLIT_ROLLBACKS_KEY, splitRolledBackKey } from '@dirouter/contracts';
 import { generateKey } from '@dirouter/shared';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
@@ -106,7 +106,7 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('routing policies over HTTP', () =
       }),
     );
     await db().$executeRawUnsafe(
-      'TRUNCATE refresh_tokens, memberships, audit_logs, users, api_keys, projects, teams, providers, models, routing_rules, traffic_splits, request_log, change_requests, organizations CASCADE',
+      'TRUNCATE refresh_tokens, memberships, audit_logs, users, api_keys, projects, teams, providers, models, routing_rules, traffic_splits, shadow_policies, shadow_requests, request_log, change_requests, organizations CASCADE',
     );
     await app.init();
     await app.getHttpAdapter().getInstance().ready();
@@ -486,6 +486,139 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('routing policies over HTTP', () =
           )
         ).statusCode,
       ).toBe(403);
+    });
+  });
+
+  describe('shadow traffic (card 32.4)', () => {
+    let shadowId = '';
+
+    it("saves a policy for one of the organization's own models and publishes it", async () => {
+      const res = await call('POST', 'routing/shadows', {
+        name: 'try next',
+        match: 'big',
+        target: 'next',
+        sampleRate: 0.25,
+        dailyBudgetUsd: '5',
+      });
+      expect(res.statusCode).toBe(201);
+      shadowId = res.json<{ id: string }>().id;
+      expect(res.json()).toMatchObject({ sampleRate: 0.25, dailyBudgetUsd: '5', timeoutMs: 60000 });
+      const image = await snapshot();
+      expect(image.shadowPolicies).toEqual([
+        expect.objectContaining({
+          id: shadowId,
+          organizationId: org,
+          target: 'next',
+          dailyBudgetUsd: '5',
+        }),
+      ]);
+    });
+
+    it("refuses another organization's or the marketplace's models, and a missing budget", async () => {
+      await db().organization.update({ where: { id: otherOrg }, data: { isPlatform: true } });
+      await db().model.update({
+        where: { id: `mdl_rp_${otherOrg}_theirs` },
+        data: { isPublic: true },
+      });
+      const base = { name: 'x', match: '*', sampleRate: 1, dailyBudgetUsd: '1' };
+      // A public marketplace model can be routed to, but never be a shadow target.
+      expect(
+        (await call('POST', 'routing/shadows', { ...base, target: 'theirs' })).statusCode,
+      ).toBe(400);
+      expect((await call('POST', 'routing/shadows', { ...base, target: 'auto' })).statusCode).toBe(
+        400,
+      );
+      expect(
+        (await call('POST', 'routing/shadows', { ...base, target: 'next', dailyBudgetUsd: '0' }))
+          .statusCode,
+      ).toBe(400);
+      expect(
+        (await call('POST', 'routing/shadows', { ...base, target: 'next', sampleRate: 2 }))
+          .statusCode,
+      ).toBe(422);
+      await db().organization.update({ where: { id: otherOrg }, data: { isPlatform: false } });
+    });
+
+    it('compares shadow and primary from the shadow copies of this organization only', async () => {
+      const now = new Date();
+      const row = (
+        n: number,
+        organizationId: string,
+        status: string,
+        latencyMs: number,
+        cost: string,
+      ) => ({
+        id: `req_sh_${String(n)}:shadow`,
+        createdAt: now,
+        organizationId,
+        policyId: shadowId,
+        projectId: 'prj',
+        apiKeyId: 'vk',
+        primaryRequestId: `req_sh_${String(n)}`,
+        modelId: 'mdl',
+        status,
+        httpStatus: status === 'success' ? 200 : 502,
+        inputTokens: 1,
+        outputTokens: 1,
+        costUsd: cost,
+        latencyMs,
+        primaryModel: 'big',
+        primaryStatus: 200,
+        primaryLatencyMs: 100,
+        primaryCostUsd: '0.01',
+      });
+      await db().shadowRequest.createMany({
+        data: [
+          row(1, org, 'success', 400, '0.002'),
+          row(2, org, 'error', 200, '0'),
+          row(3, otherOrg, 'success', 9_999, '9'),
+        ],
+      });
+      const report = (await call('GET', `routing/shadows/${shadowId}/report`)).json<unknown>();
+      expect(report).toMatchObject({
+        requests: 2,
+        shadow: {
+          model: 'next',
+          errors: 1,
+          errorRate: 0.5,
+          avgLatencyMs: 300,
+          costUsd: '0.00200000',
+        },
+        primary: { errors: 0, avgLatencyMs: 100, costUsd: '0.02000000' },
+        today: { dailyBudgetUsd: '5', capped: false },
+      });
+      // Shadow copies are not requests of the organization: usage reports never see them.
+      expect(await db().requestLog.count({ where: { id: { startsWith: 'req_sh_' } } })).toBe(0);
+    });
+
+    it('keeps shadow policies to their organization', async () => {
+      await db().shadowPolicy.create({
+        data: {
+          id: 'shd_other',
+          organizationId: otherOrg,
+          name: 'x',
+          match: '*',
+          target: 'theirs',
+          sampleRate: 1,
+          dailyBudgetUsd: 1,
+        },
+      });
+      expect(
+        (await call('GET', 'routing/shadows')).json<{ id: string }[]>().map((x) => x.id),
+      ).toEqual([shadowId]);
+      expect((await call('GET', 'routing/shadows/shd_other/report')).statusCode).toBe(404);
+      expect(
+        (await call('PATCH', 'routing/shadows/shd_other', { enabled: false })).statusCode,
+      ).toBe(404);
+      expect((await call('DELETE', 'routing/shadows/shd_other')).statusCode).toBe(404);
+      expect(
+        (
+          await inject(tokens.member ?? '', 'PATCH', `orgs/${org}/routing/shadows/${shadowId}`, {
+            enabled: false,
+          })
+        ).statusCode,
+      ).toBe(403);
+      expect((await call('DELETE', `routing/shadows/${shadowId}`)).statusCode).toBe(204);
     });
   });
 });

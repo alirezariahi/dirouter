@@ -40,6 +40,7 @@ worker ──دسته‌ای (createMany + skipDuplicates)──▶ request_log 
 | `partitions` | هر ساعت                            | ماه جاری و ۳ ماه بعد (advisory lock)                                                                                   |
 | `retention`  | هر روز 03:17 UTC                   | حذف پارتیشن‌های قدیمی‌تر از `REQUEST_LOG_RETENTION_MONTHS` (پیش‌فرض ۳)                                                 |
 
+- **نسخه‌های سایه** (کارت ۳۲.۴): رویداد مصرفی که فیلد `shadow` دارد فقط در `shadow_requests` نوشته می‌شود و هرگز به `request_log`، دفتر کل، تجمیع‌ها یا کیف پول نمی‌رسد. [سیاست‌های مسیریابی](concepts/routing-policies.fa.md) را ببینید.
 - **چند replica**: زمان‌بندی با job scheduler در BullMQ است و هر tick فقط یک job می‌سازد که فقط یک replica آن را برمی‌دارد. `upsertJobScheduler` در هر replica بی‌خطر است. jobهای usage هم هر کدام فقط به یک worker می‌رسند.
 - **endpointها** (پورت 3100، فقط شبکهٔ internal): `/healthz`، `/readyz` (Postgres و Valkey) و `/metrics`.
 - **shutdown**: jobهای فعال تمام می‌شوند و بافر writer نوشته می‌شود؛ بعد اتصال‌ها بسته می‌شوند (`stop_grace_period: 30s`).

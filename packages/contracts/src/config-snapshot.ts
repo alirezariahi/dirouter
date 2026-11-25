@@ -13,7 +13,7 @@ import { z } from 'zod';
 import { IsoDateTime, Slug, UsdAmount } from './common.js';
 import { GuardrailPolicy } from './guardrails.js';
 import { BodyCaptureRule, BodyCaptureSettings } from './request-body.js';
-import { RoutingRuleConfig, TrafficSplitConfig } from './routing-policy.js';
+import { RoutingRuleConfig, ShadowPolicyConfig, TrafficSplitConfig } from './routing-policy.js';
 import { ProviderDataPolicy, RoutingPolicyRule } from './routing-policy.js';
 
 export const CONFIG_SNAPSHOT_SCHEMA_VERSION = 1 as const;
@@ -721,6 +721,8 @@ export const ConfigSnapshot = z.object({
   routingRules: z.array(RoutingRuleConfig).default([]),
   /** Canary and percentage traffic splits with versions (card 32.3). */
   trafficSplits: z.array(TrafficSplitConfig).default([]),
+  /** Shadow traffic policies (card 32.4). */
+  shadowPolicies: z.array(ShadowPolicyConfig).default([]),
   /** Routing policies per organization, project or key (cards 32.1, 32.5 and 32.7). */
   routingPolicies: z.array(RoutingPolicyRule).default([]),
 });

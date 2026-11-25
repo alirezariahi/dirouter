@@ -119,3 +119,36 @@ model name stays the one the client sent.
 | `GET /orgs/:orgId/routing/splits`, `GET …/:id/versions`                           | `models:read`  |
 | `POST /orgs/:orgId/routing/splits`, `PATCH`/`DELETE …/:id`, `POST …/:id/rollback` | `models:write` |
 | `GET /orgs/:orgId/routing/splits/:id/report`                                      | `usage:read`   |
+
+## 3. Shadow traffic (card 32.4)
+
+A shadow policy mirrors a sample (`sampleRate`, 0–1) of the requests for one name (`match`, or
+`*` for all, optionally one `projectId`) to a `target` model, to measure a new model on real
+traffic without anyone noticing.
+
+- **No effect on the client.** The copy starts only after the client has its whole answer (a
+  stream has ended), detached from the request, as a non-streaming call with its own timeout
+  (`timeoutMs`, default 60 s). It does not touch the key's rate limit or concurrency cap, budgets,
+  wallet, provider bulkheads, breakers, routing statistics, caches or body capture, so a slow or
+  failing shadow model changes nothing the client sees. A replica runs at most 32 copies at once
+  and drops the rest; every error is swallowed.
+- **Who pays.** The target must be one of the organization's **own** models (or an alias or combo
+  of them): the organization pays its own provider for its own experiment. A public marketplace
+  model is refused when the policy is saved and ignored by the gateway. The customer is charged
+  nothing (`chargeUsd` 0), nothing is reserved or debited from a wallet, and the cost never counts
+  against a key, project or team budget.
+- **Recorded apart.** Each copy is a usage event with `shadow` set (`requestId` is
+  `<primary>:shadow`). The worker stores it in `shadow_requests` only, never in `request_log`, the
+  ledger, the hourly and daily rollups or a wallet, so usage, invoices and budgets are unchanged.
+  Only the owning organization can read it.
+- **Own budget.** `dailyBudgetUsd` caps a policy's spend per UTC day (Valkey counter
+  `dirouter:shadow:spend:<policy>:<day>`); at the cap the policy stops until the next day. When the
+  counter cannot be read the copy is skipped.
+- **Comparison.** `GET …/shadows/:id/report?from&to` compares the shadow and the primary answers:
+  errors, average and p95 latency and cost, plus today's shadow spend against the cap.
+
+| Method and path                                             | Permission     |
+| ----------------------------------------------------------- | -------------- |
+| `GET /orgs/:orgId/routing/shadows`                          | `models:read`  |
+| `POST /orgs/:orgId/routing/shadows`, `PATCH`/`DELETE …/:id` | `models:write` |
+| `GET /orgs/:orgId/routing/shadows/:id/report`               | `usage:read`   |

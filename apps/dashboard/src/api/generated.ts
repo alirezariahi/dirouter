@@ -8415,6 +8415,210 @@ export type TrafficSplitsControllerReport200 = {
   canary: TrafficSplitsControllerReport200Canary;
 };
 
+export type ShadowPoliciesControllerList200Item = {
+  id: string;
+  name: string;
+  enabled: boolean;
+  match: string;
+  target: string;
+  sampleRate: number;
+  dailyBudgetUsd: string;
+  /** @nullable */
+  projectId: string | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     */
+  timeoutMs: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ShadowPoliciesControllerCreateBody = {
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  name: string;
+  enabled?: boolean;
+  /**
+     * the name clients ask for, or * for every request
+     * @minLength 1
+     * @maxLength 200
+     */
+  match: string;
+  /**
+     * one of the organization's own models
+     * @minLength 1
+     * @maxLength 200
+     */
+  target: string;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  sampleRate: number;
+  /**
+     * the shadow traffic stops for the day at this spend
+     * @maxLength 20
+     */
+  dailyBudgetUsd: string;
+  /** @nullable */
+  projectId?: string | null;
+  /**
+     * @minimum 1000
+     * @maximum 300000
+     */
+  timeoutMs?: number;
+};
+
+export type ShadowPoliciesControllerCreate200 = {
+  id: string;
+  name: string;
+  enabled: boolean;
+  match: string;
+  target: string;
+  sampleRate: number;
+  dailyBudgetUsd: string;
+  /** @nullable */
+  projectId: string | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     */
+  timeoutMs: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ShadowPoliciesControllerUpdateBody = {
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  name?: string;
+  enabled?: boolean;
+  /**
+     * the name clients ask for, or * for every request
+     * @minLength 1
+     * @maxLength 200
+     */
+  match?: string;
+  /**
+     * one of the organization's own models
+     * @minLength 1
+     * @maxLength 200
+     */
+  target?: string;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  sampleRate?: number;
+  /**
+     * the shadow traffic stops for the day at this spend
+     * @maxLength 20
+     */
+  dailyBudgetUsd?: string;
+  /** @nullable */
+  projectId?: string | null;
+  /**
+     * @minimum 1000
+     * @maximum 300000
+     */
+  timeoutMs?: number;
+};
+
+export type ShadowPoliciesControllerUpdate200 = {
+  id: string;
+  name: string;
+  enabled: boolean;
+  match: string;
+  target: string;
+  sampleRate: number;
+  dailyBudgetUsd: string;
+  /** @nullable */
+  projectId: string | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     */
+  timeoutMs: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ShadowPoliciesControllerReportParams = {
+  /** @pattern ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d+)?(?:Z|([+-](?:[01]\d|2[0-3]):[0-5]\d)))$ */
+  from?: string;
+  /** @pattern ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d+)?(?:Z|([+-](?:[01]\d|2[0-3]):[0-5]\d)))$ */
+  to?: string;
+};
+
+export type ShadowPoliciesControllerReport200Shadow = {
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     */
+  errors: number;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  avgLatencyMs: number | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  p95LatencyMs: number | null;
+  costUsd: string;
+  model: string;
+  errorRate: number;
+};
+
+export type ShadowPoliciesControllerReport200Primary = {
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     */
+  errors: number;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  avgLatencyMs: number | null;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     * @nullable
+     */
+  p95LatencyMs: number | null;
+  costUsd: string;
+};
+
+export type ShadowPoliciesControllerReport200Today = {
+  spentUsd: string;
+  dailyBudgetUsd: string;
+  capped: boolean;
+};
+
+export type ShadowPoliciesControllerReport200 = {
+  id: string;
+  from: string;
+  to: string;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     */
+  requests: number;
+  shadow: ShadowPoliciesControllerReport200Shadow;
+  primary: ShadowPoliciesControllerReport200Primary;
+  today: ShadowPoliciesControllerReport200Today;
+};
+
 type AwaitedInput<T> = PromiseLike<T> | T;
 
       type Awaited<O> = O extends AwaitedInput<infer T> ? T : never;
@@ -33537,4 +33741,554 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
         TContext
       > => {
       return useMutation(getTrafficSplitsControllerReportMutationOptions(options), queryClient);
+    }
+
+export type shadowPoliciesControllerListResponse200 = {
+  data: ShadowPoliciesControllerList200Item[]
+  status: 200
+}
+
+export type shadowPoliciesControllerListResponseSuccess = (shadowPoliciesControllerListResponse200) & {
+  headers: Headers;
+};
+;
+
+export type shadowPoliciesControllerListResponse = (shadowPoliciesControllerListResponseSuccess)
+
+export const getShadowPoliciesControllerListUrl = (orgId: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/routing/shadows`
+}
+
+export const shadowPoliciesControllerList = async (orgId: string, options?: Parameters<typeof orvalFetch>[1]): Promise<shadowPoliciesControllerListResponse> => {
+
+  return orvalFetch<shadowPoliciesControllerListResponse>(getShadowPoliciesControllerListUrl(orgId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getShadowPoliciesControllerListMutationKey = () => ['shadowPoliciesControllerList'] as const;
+
+export const getShadowPoliciesControllerListMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof shadowPoliciesControllerList>>, TError,ShadowPoliciesControllerListMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof shadowPoliciesControllerList>>, TError,ShadowPoliciesControllerListMutationVariables, TContext> => {
+
+const mutationKey = getShadowPoliciesControllerListMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof shadowPoliciesControllerList>>, ShadowPoliciesControllerListMutationVariables> = (props) => {
+          const {orgId} = props ?? {};
+
+          return  shadowPoliciesControllerList(orgId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ShadowPoliciesControllerListMutationResult = NonNullable<Awaited<ReturnType<typeof shadowPoliciesControllerList>>>
+
+    export type ShadowPoliciesControllerListMutationError = unknown
+    export type ShadowPoliciesControllerListMutationVariables = {orgId: string}
+
+    export const useShadowPoliciesControllerList = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof shadowPoliciesControllerList>>, TError,ShadowPoliciesControllerListMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof shadowPoliciesControllerList>>,
+        TError,
+        ShadowPoliciesControllerListMutationVariables,
+        TContext
+      > => {
+      return useMutation(getShadowPoliciesControllerListMutationOptions(options), queryClient);
+    }
+
+export type shadowPoliciesControllerCreateResponse200 = {
+  data: ShadowPoliciesControllerCreate200
+  status: 200
+}
+
+export type shadowPoliciesControllerCreateResponseSuccess = (shadowPoliciesControllerCreateResponse200) & {
+  headers: Headers;
+};
+;
+
+export type shadowPoliciesControllerCreateResponse = (shadowPoliciesControllerCreateResponseSuccess)
+
+export const getShadowPoliciesControllerCreateUrl = (orgId: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/routing/shadows`
+}
+
+export const shadowPoliciesControllerCreate = async (orgId: string,
+    shadowPoliciesControllerCreateBody: ShadowPoliciesControllerCreateBody, options?: Parameters<typeof orvalFetch>[1]): Promise<shadowPoliciesControllerCreateResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return orvalFetch<shadowPoliciesControllerCreateResponse>(getShadowPoliciesControllerCreateUrl(orgId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(shadowPoliciesControllerCreateBody)
+  }
+);}
+
+
+
+
+
+export const getShadowPoliciesControllerCreateQueryKey = (orgId: string,
+    shadowPoliciesControllerCreateBody?: ShadowPoliciesControllerCreateBody,) => {
+    return [
+    'POST', `/api/v1/orgs/${orgId}/routing/shadows`, shadowPoliciesControllerCreateBody
+    ] as const;
+    }
+
+
+export const getShadowPoliciesControllerCreateQueryOptions = <TData = Awaited<ReturnType<typeof shadowPoliciesControllerCreate>>, TError = unknown>(orgId: string,
+    shadowPoliciesControllerCreateBody: ShadowPoliciesControllerCreateBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof shadowPoliciesControllerCreate>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getShadowPoliciesControllerCreateQueryKey(orgId,shadowPoliciesControllerCreateBody);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof shadowPoliciesControllerCreate>>> = ({ signal }) => shadowPoliciesControllerCreate(orgId,shadowPoliciesControllerCreateBody, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: orgId !== null && orgId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof shadowPoliciesControllerCreate>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type ShadowPoliciesControllerCreateQueryResult = NonNullable<Awaited<ReturnType<typeof shadowPoliciesControllerCreate>>>
+export type ShadowPoliciesControllerCreateQueryError = unknown
+
+
+export function useShadowPoliciesControllerCreate<TData = Awaited<ReturnType<typeof shadowPoliciesControllerCreate>>, TError = unknown>(
+ orgId: string,
+    shadowPoliciesControllerCreateBody: ShadowPoliciesControllerCreateBody, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof shadowPoliciesControllerCreate>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof shadowPoliciesControllerCreate>>,
+          TError,
+          Awaited<ReturnType<typeof shadowPoliciesControllerCreate>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useShadowPoliciesControllerCreate<TData = Awaited<ReturnType<typeof shadowPoliciesControllerCreate>>, TError = unknown>(
+ orgId: string,
+    shadowPoliciesControllerCreateBody: ShadowPoliciesControllerCreateBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof shadowPoliciesControllerCreate>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof shadowPoliciesControllerCreate>>,
+          TError,
+          Awaited<ReturnType<typeof shadowPoliciesControllerCreate>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useShadowPoliciesControllerCreate<TData = Awaited<ReturnType<typeof shadowPoliciesControllerCreate>>, TError = unknown>(
+ orgId: string,
+    shadowPoliciesControllerCreateBody: ShadowPoliciesControllerCreateBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof shadowPoliciesControllerCreate>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useShadowPoliciesControllerCreate<TData = Awaited<ReturnType<typeof shadowPoliciesControllerCreate>>, TError = unknown>(
+ orgId: string,
+    shadowPoliciesControllerCreateBody: ShadowPoliciesControllerCreateBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof shadowPoliciesControllerCreate>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getShadowPoliciesControllerCreateQueryOptions(orgId,shadowPoliciesControllerCreateBody,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export type shadowPoliciesControllerUpdateResponse200 = {
+  data: ShadowPoliciesControllerUpdate200
+  status: 200
+}
+
+export type shadowPoliciesControllerUpdateResponseSuccess = (shadowPoliciesControllerUpdateResponse200) & {
+  headers: Headers;
+};
+;
+
+export type shadowPoliciesControllerUpdateResponse = (shadowPoliciesControllerUpdateResponseSuccess)
+
+export const getShadowPoliciesControllerUpdateUrl = (orgId: string,
+    id: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/routing/shadows/${id}`
+}
+
+export const shadowPoliciesControllerUpdate = async (orgId: string,
+    id: string,
+    shadowPoliciesControllerUpdateBody: ShadowPoliciesControllerUpdateBody, options?: Parameters<typeof orvalFetch>[1]): Promise<shadowPoliciesControllerUpdateResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return orvalFetch<shadowPoliciesControllerUpdateResponse>(getShadowPoliciesControllerUpdateUrl(orgId,id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(shadowPoliciesControllerUpdateBody)
+  }
+);}
+
+
+
+
+
+export const getShadowPoliciesControllerUpdateQueryKey = (orgId: string,
+    id: string,
+    shadowPoliciesControllerUpdateBody?: ShadowPoliciesControllerUpdateBody,) => {
+    return [
+    'PATCH', `/api/v1/orgs/${orgId}/routing/shadows/${id}`, shadowPoliciesControllerUpdateBody
+    ] as const;
+    }
+
+
+export const getShadowPoliciesControllerUpdateQueryOptions = <TData = Awaited<ReturnType<typeof shadowPoliciesControllerUpdate>>, TError = unknown>(orgId: string,
+    id: string,
+    shadowPoliciesControllerUpdateBody: ShadowPoliciesControllerUpdateBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof shadowPoliciesControllerUpdate>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getShadowPoliciesControllerUpdateQueryKey(orgId,id,shadowPoliciesControllerUpdateBody);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof shadowPoliciesControllerUpdate>>> = ({ signal }) => shadowPoliciesControllerUpdate(orgId,id,shadowPoliciesControllerUpdateBody, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: orgId !== null && orgId !== undefined && id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof shadowPoliciesControllerUpdate>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type ShadowPoliciesControllerUpdateQueryResult = NonNullable<Awaited<ReturnType<typeof shadowPoliciesControllerUpdate>>>
+export type ShadowPoliciesControllerUpdateQueryError = unknown
+
+
+export function useShadowPoliciesControllerUpdate<TData = Awaited<ReturnType<typeof shadowPoliciesControllerUpdate>>, TError = unknown>(
+ orgId: string,
+    id: string,
+    shadowPoliciesControllerUpdateBody: ShadowPoliciesControllerUpdateBody, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof shadowPoliciesControllerUpdate>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof shadowPoliciesControllerUpdate>>,
+          TError,
+          Awaited<ReturnType<typeof shadowPoliciesControllerUpdate>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useShadowPoliciesControllerUpdate<TData = Awaited<ReturnType<typeof shadowPoliciesControllerUpdate>>, TError = unknown>(
+ orgId: string,
+    id: string,
+    shadowPoliciesControllerUpdateBody: ShadowPoliciesControllerUpdateBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof shadowPoliciesControllerUpdate>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof shadowPoliciesControllerUpdate>>,
+          TError,
+          Awaited<ReturnType<typeof shadowPoliciesControllerUpdate>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useShadowPoliciesControllerUpdate<TData = Awaited<ReturnType<typeof shadowPoliciesControllerUpdate>>, TError = unknown>(
+ orgId: string,
+    id: string,
+    shadowPoliciesControllerUpdateBody: ShadowPoliciesControllerUpdateBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof shadowPoliciesControllerUpdate>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useShadowPoliciesControllerUpdate<TData = Awaited<ReturnType<typeof shadowPoliciesControllerUpdate>>, TError = unknown>(
+ orgId: string,
+    id: string,
+    shadowPoliciesControllerUpdateBody: ShadowPoliciesControllerUpdateBody, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof shadowPoliciesControllerUpdate>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getShadowPoliciesControllerUpdateQueryOptions(orgId,id,shadowPoliciesControllerUpdateBody,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export type shadowPoliciesControllerRemoveResponse204 = {
+  data: void
+  status: 204
+}
+
+export type shadowPoliciesControllerRemoveResponseSuccess = (shadowPoliciesControllerRemoveResponse204) & {
+  headers: Headers;
+};
+;
+
+export type shadowPoliciesControllerRemoveResponse = (shadowPoliciesControllerRemoveResponseSuccess)
+
+export const getShadowPoliciesControllerRemoveUrl = (orgId: string,
+    id: string,) => {
+
+
+
+
+  return `/api/v1/orgs/${orgId}/routing/shadows/${id}`
+}
+
+export const shadowPoliciesControllerRemove = async (orgId: string,
+    id: string, options?: Parameters<typeof orvalFetch>[1]): Promise<shadowPoliciesControllerRemoveResponse> => {
+
+  return orvalFetch<shadowPoliciesControllerRemoveResponse>(getShadowPoliciesControllerRemoveUrl(orgId,id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getShadowPoliciesControllerRemoveQueryKey = (orgId: string,
+    id: string,) => {
+    return [
+    'DELETE', `/api/v1/orgs/${orgId}/routing/shadows/${id}`
+    ] as const;
+    }
+
+
+export const getShadowPoliciesControllerRemoveQueryOptions = <TData = Awaited<ReturnType<typeof shadowPoliciesControllerRemove>>, TError = unknown>(orgId: string,
+    id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof shadowPoliciesControllerRemove>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getShadowPoliciesControllerRemoveQueryKey(orgId,id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof shadowPoliciesControllerRemove>>> = ({ signal }) => shadowPoliciesControllerRemove(orgId,id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: orgId !== null && orgId !== undefined && id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof shadowPoliciesControllerRemove>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type ShadowPoliciesControllerRemoveQueryResult = NonNullable<Awaited<ReturnType<typeof shadowPoliciesControllerRemove>>>
+export type ShadowPoliciesControllerRemoveQueryError = unknown
+
+
+export function useShadowPoliciesControllerRemove<TData = Awaited<ReturnType<typeof shadowPoliciesControllerRemove>>, TError = unknown>(
+ orgId: string,
+    id: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof shadowPoliciesControllerRemove>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof shadowPoliciesControllerRemove>>,
+          TError,
+          Awaited<ReturnType<typeof shadowPoliciesControllerRemove>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useShadowPoliciesControllerRemove<TData = Awaited<ReturnType<typeof shadowPoliciesControllerRemove>>, TError = unknown>(
+ orgId: string,
+    id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof shadowPoliciesControllerRemove>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof shadowPoliciesControllerRemove>>,
+          TError,
+          Awaited<ReturnType<typeof shadowPoliciesControllerRemove>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useShadowPoliciesControllerRemove<TData = Awaited<ReturnType<typeof shadowPoliciesControllerRemove>>, TError = unknown>(
+ orgId: string,
+    id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof shadowPoliciesControllerRemove>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useShadowPoliciesControllerRemove<TData = Awaited<ReturnType<typeof shadowPoliciesControllerRemove>>, TError = unknown>(
+ orgId: string,
+    id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof shadowPoliciesControllerRemove>>, TError, TData>>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getShadowPoliciesControllerRemoveQueryOptions(orgId,id,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export type shadowPoliciesControllerReportResponse200 = {
+  data: ShadowPoliciesControllerReport200
+  status: 200
+}
+
+export type shadowPoliciesControllerReportResponseSuccess = (shadowPoliciesControllerReportResponse200) & {
+  headers: Headers;
+};
+;
+
+export type shadowPoliciesControllerReportResponse = (shadowPoliciesControllerReportResponseSuccess)
+
+export const getShadowPoliciesControllerReportUrl = (orgId: string,
+    id: string,
+    params?: ShadowPoliciesControllerReportParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/v1/orgs/${orgId}/routing/shadows/${id}/report?${stringifiedParams}` : `/api/v1/orgs/${orgId}/routing/shadows/${id}/report`
+}
+
+export const shadowPoliciesControllerReport = async (orgId: string,
+    id: string,
+    params?: ShadowPoliciesControllerReportParams, options?: Parameters<typeof orvalFetch>[1]): Promise<shadowPoliciesControllerReportResponse> => {
+
+  return orvalFetch<shadowPoliciesControllerReportResponse>(getShadowPoliciesControllerReportUrl(orgId,id,params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getShadowPoliciesControllerReportMutationKey = () => ['shadowPoliciesControllerReport'] as const;
+
+export const getShadowPoliciesControllerReportMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof shadowPoliciesControllerReport>>, TError,ShadowPoliciesControllerReportMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof shadowPoliciesControllerReport>>, TError,ShadowPoliciesControllerReportMutationVariables, TContext> => {
+
+const mutationKey = getShadowPoliciesControllerReportMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof shadowPoliciesControllerReport>>, ShadowPoliciesControllerReportMutationVariables> = (props) => {
+          const {orgId,id,params} = props ?? {};
+
+          return  shadowPoliciesControllerReport(orgId,id,params,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ShadowPoliciesControllerReportMutationResult = NonNullable<Awaited<ReturnType<typeof shadowPoliciesControllerReport>>>
+
+    export type ShadowPoliciesControllerReportMutationError = unknown
+    export type ShadowPoliciesControllerReportMutationVariables = {orgId: string;id: string;params?: ShadowPoliciesControllerReportParams}
+
+    export const useShadowPoliciesControllerReport = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof shadowPoliciesControllerReport>>, TError,ShadowPoliciesControllerReportMutationVariables, TContext>, request?: SecondParameter<typeof orvalFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof shadowPoliciesControllerReport>>,
+        TError,
+        ShadowPoliciesControllerReportMutationVariables,
+        TContext
+      > => {
+      return useMutation(getShadowPoliciesControllerReportMutationOptions(options), queryClient);
     }

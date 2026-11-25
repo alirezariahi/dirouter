@@ -6,7 +6,7 @@ import { z } from 'zod';
 
 import { CanonicalUsage, InboundApi, MediaUsage } from './canonical.js';
 import { IsoDateTime, NonNegativeInt, Ulid, UsdAmount } from './common.js';
-import { PolicyTrace } from './routing-policy.js';
+import { PolicyTrace, ShadowTrace } from './routing-policy.js';
 import { DataPolicy } from './routing-policy.js';
 
 export const USAGE_EVENT_SCHEMA_VERSION = 1 as const;
@@ -143,6 +143,11 @@ export const UsageEvent = z.object({
     .optional(),
   /** What the organization's routing policies did to the request (sprint 5, cards 32.x). */
   policy: PolicyTrace.optional(),
+  /**
+   * A shadow copy (card 32.4), not a customer request: the worker stores it apart from the request
+   * log, the ledger and the wallet, and `chargeUsd` is always 0.
+   */
+  shadow: ShadowTrace.optional(),
   /** Service tier the request was priced at (card 31.5): `flex` or `priority`. */
   serviceTier: z.string().max(20).optional(),
   /** How the route was planned (cards 32.5 and 32.7), shown in the request log details. */

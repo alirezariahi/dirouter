@@ -24,6 +24,7 @@ import { evaluateAlerts } from './alerts.js';
 import { drainHealthSamples } from './health-samples.js';
 import { drainBalances } from './balances.js';
 import { createMetrics } from './metrics.js';
+import { type ShadowDb, writeShadow } from './shadow.js';
 import { type UsageDb, UsageBatchWriter } from './writer.js';
 import { dropOldMcpCalls, writeMcpCall } from './mcp-calls.js';
 import { dropOldBodyPartitions, ensureBodyPartitions, writeRequestBody } from './request-bodies.js';
@@ -87,6 +88,11 @@ const usageWorker = new Worker(
       throw new UnrecoverableError(`invalid usage event: ${parsed.error.message}`);
     }
     try {
+      // A shadow copy (card 32.4) has its own table and is never charged.
+      if (await writeShadow(db as unknown as ShadowDb, parsed.data)) {
+        end({ outcome: 'success' });
+        return;
+      }
       await writer.add(parsed.data);
       // Prepaid debit after the usage row exists; both steps are idempotent, so a retry is safe.
       await chargeWallet(db, connection, parsed.data, logger);

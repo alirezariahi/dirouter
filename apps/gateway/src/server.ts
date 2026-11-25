@@ -76,6 +76,7 @@ import { Tracer } from './tracing.js';
 import type { RecordBody } from './body-capture.js';
 import { type OtlpLogBuffer, OtlpExporter } from './otlp-export.js';
 import { SplitSync } from './split-sync.js';
+import { ShadowRunner } from './shadow.js';
 import { geminiRequestToCanonical } from '@dirouter/translator';
 import { estimateRequestTokens, pricingForServiceTier } from '@dirouter/model-catalog';
 import { enabledPlugins, loadPlugins } from '@dirouter/providers';
@@ -184,8 +185,18 @@ export function buildGateway(opts: GatewayOptions) {
     });
   // Canary rollbacks shared between replicas (card 32.3).
   const splits = new SplitSync({ store, redis: opts.limiterRedis, logger: opts.logger });
+  const instance = opts.instance ?? hostname();
+  // Shadow copies (card 32.4): billed apart, through the same usage pipeline.
+  const shadow = new ShadowRunner({
+    logger: opts.logger,
+    instance,
+    emitUsage: deliverUsage,
+    redis: opts.limiterRedis,
+    signal: shutdown.signal,
+  });
   const deps = {
     store,
+    shadow,
     splitHealth: splits.health,
     ...(opts.onlineSearch ? { webSearch: opts.onlineSearch } : {}),
     budget: new RetryBudget(),
@@ -275,7 +286,7 @@ export function buildGateway(opts: GatewayOptions) {
         }
       : {}),
     // In Docker the hostname is the container ID; used to trace the replica in logs and headers.
-    instance: opts.instance ?? hostname(),
+    instance,
     emitUsage: deliverUsage,
     ...(opts.heartbeatMs !== undefined ? { heartbeatMs: opts.heartbeatMs } : {}),
     /** Web search and fetch (card 30.8); set once the server exists. */
@@ -845,6 +856,7 @@ export function buildGateway(opts: GatewayOptions) {
     limiter: deps.limiter,
     budgets: deps.budgets,
     splits,
+    shadow,
     a2a,
     mcp,
     jobs: jobDeps,
