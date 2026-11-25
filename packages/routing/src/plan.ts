@@ -5,14 +5,15 @@
  * Stages, in order:
  *   1. resolve the requested model and each `models` fallback (card 5.1 resolver, unchanged)
  *   2. data policy: region, country, zero data retention, training use (card 32.5)
- *   3. provider preferences: only/ignore, max price, sort, order, allow fallbacks (card 32.1)
+ *   3. `:free` suffix: free targets only (card 31.5)
+ *   4. provider preferences: only/ignore, max price, sort, order, allow fallbacks (card 32.1)
  *
  * A rules stage (conditional routing) runs before this and hands over the model it chose.
  */
 import type { DataPolicy, ProviderPreferences, VirtualKeyConfig } from '@dirouter/contracts';
 
 import { applyDataPolicy, type DataPolicyError, isDataPolicyEmpty } from './data-policy.js';
-import { applyPreferences, type PreferenceError } from './preferences.js';
+import { applyPreferences, type PreferenceError, unitPrices } from './preferences.js';
 import {
   isRouteError,
   type ResolvedRoute,
@@ -31,6 +32,8 @@ export interface PlanInput {
   preferences?: ProviderPreferences | undefined;
   /** Effective data policy (organization, project, key and request, strictest). */
   dataPolicy?: DataPolicy | undefined;
+  /** The `:free` suffix (card 31.5): only targets whose price is zero. */
+  freeOnly?: boolean | undefined;
   resolve?: ResolveOptions;
 }
 
@@ -86,6 +89,23 @@ export function planRoute(router: Router, input: PlanInput): RoutePlan | PlanErr
     const allowed = applyDataPolicy(route, dataPolicy);
     if ('error' in allowed) return allowed;
     route = allowed;
+  }
+  if (input.freeOnly) {
+    const skippedFree = [...route.skipped];
+    const free = route.candidates.filter((c) => {
+      const p = unitPrices(c.model);
+      const ok = p.prompt === 0 && p.completion === 0 && (p.request ?? 0) === 0;
+      if (!ok)
+        skippedFree.push({
+          modelId: c.model.id,
+          credentialId: c.credential.id,
+          reason: 'not_free',
+        });
+      return ok;
+    });
+    if (free.length === 0)
+      return { error: 'no_provider_matches_preferences', skipped: skippedFree };
+    route = { ...route, candidates: free, skipped: skippedFree };
   }
   if (input.preferences && Object.keys(input.preferences).length > 0) {
     const applied = applyPreferences(route, input.preferences, {

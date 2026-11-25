@@ -19,7 +19,9 @@ import {
   type HealthChange,
   HealthRegistry,
   headroom,
+  isAutoAlias,
   isPlanError,
+  parseModelSuffixes,
   planRoute,
   RetryBudget,
   type TaskType,
@@ -34,7 +36,13 @@ import { authenticate, extractApiKey } from './auth.js';
 import { ConfigStore } from './config-store.js';
 import { createGatewayMetrics } from './metrics.js';
 import { probeProvider } from './probe.js';
-import { planErrorStatus, type RequestRouting, routingFromRequest } from './route-request.js';
+import type { WebSearchExtension } from './web-search.js';
+import {
+  planErrorStatus,
+  type RequestRouting,
+  routingFromRequest,
+  withSuffixes,
+} from './route-request.js';
 import { balanceForProbe } from './balance.js';
 import { handleCountTokens, handleProxy } from './proxy.js';
 import { BudgetGuard } from './budget-guard.js';
@@ -106,6 +114,8 @@ export interface GatewayOptions {
   blockPrivateUpstreams?: boolean;
   /** Tests only: delays between A2A push notification retries (card 28.2). */
   a2aPushRetryDelaysMs?: readonly number[];
+  /** Web search for the `:online` suffix (card 31.5 extension point, implemented by card 30.8). */
+  webSearch?: WebSearchExtension;
   /** Web search backends (card 30.8): SearXNG, Brave and Tavily addresses and keys. */
   webSearch?: SearchBackendConfig;
   /** Files, batches and async tasks (cards 30.1 and 30.6): limits and where bytes are kept. */
@@ -169,6 +179,7 @@ export function buildGateway(opts: GatewayOptions) {
     });
   const deps = {
     store,
+    ...(opts.webSearch ? { webSearch: opts.webSearch } : {}),
     budget: new RetryBudget(),
     // One rolling hedge budget per (ratio, window) pair, shared by every request (card 12.2).
     hedgeBudgets: new Map(),
@@ -643,12 +654,19 @@ export function buildGateway(opts: GatewayOptions) {
       const e = error as DiRouterError;
       return reply.status(e.status).send(e.toOpenAI());
     }
+    // Model suffixes (card 31.5), parsed exactly like traffic.
+    const suffix = parseModelSuffixes(
+      requested,
+      (name) => isAutoAlias(name) || config.router.modelsFor(key, name) !== undefined,
+    );
+    requestRouting = withSuffixes(requestRouting, suffix);
     const result = planRoute(config.router, {
       key,
-      model: requested,
+      model: suffix.model,
       fallbackModels: requestRouting.fallbackModels,
       preferences: requestRouting.preferences,
       dataPolicy: requestRouting.dataPolicy,
+      freeOnly: suffix.freeOnly,
       resolve: {
         ...(number(body.estimatedInputTokens) !== undefined
           ? { estimatedInputTokens: number(body.estimatedInputTokens) }
@@ -673,7 +691,23 @@ export function buildGateway(opts: GatewayOptions) {
       ...(requestRouting.clientIgnored ? { clientPreferencesIgnored: true } : {}),
       // The effective data policy (card 32.5): organization, project, key and request combined.
       ...(requestRouting.dataPolicy ? { dataPolicy: requestRouting.dataPolicy } : {}),
+      // Suffixes and what they do (card 31.5).
+      ...(suffix.suffixes.length > 0
+        ? {
+            suffixes: suffix.suffixes,
+            ...(suffix.reasoningEffort ? { reasoningEffort: suffix.reasoningEffort } : {}),
+            ...(suffix.webSearch
+              ? { webSearch: deps.webSearch ? 'available' : 'unavailable' }
+              : {}),
+          }
+        : {}),
     };
+    if (suffix.webSearch && !deps.webSearch)
+      return reply.status(400).send({
+        error: { message: 'web_search_unavailable', code: 'web_search_unavailable' },
+        skipped: [],
+        ...routingView,
+      });
     if (isPlanError(result)) {
       return reply.status(planErrorStatus(result.error)).send({
         error: { message: result.error, code: result.error },

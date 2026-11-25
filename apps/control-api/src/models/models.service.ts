@@ -140,6 +140,9 @@ export class ModelsService {
           ? { tiers: m.pricingTiers as unknown as NonNullable<ModelPricing['tiers']> }
           : {}),
         ...(m.batchDiscount ? { batchDiscount: dec(m.batchDiscount) } : {}),
+        ...(m.serviceTierPrices
+          ? { serviceTiers: m.serviceTierPrices as NonNullable<ModelPricing['serviceTiers']> }
+          : {}),
       },
       capabilities: m.capabilities,
       catalogKey: m.catalogKey,
@@ -220,6 +223,9 @@ export class ModelsService {
       Object.values(input.pricing ?? {}).some((v: unknown) => v !== undefined);
     // A hand-priced model does not inherit the catalog's context tiers, only its own.
     const tiers = input.pricing?.tiers ?? (priceOverride ? undefined : entry?.pricing.tiers);
+    // Likewise for the service tier prices (card 31.5).
+    const serviceTiers =
+      input.pricing?.serviceTiers ?? (priceOverride ? undefined : entry?.pricing.serviceTiers);
     if (!pricing.inputPerMTok || !pricing.outputPerMTok)
       throw invalid(
         'pricing.inputPerMTok and pricing.outputPerMTok are required (or a catalogKey)',
@@ -252,6 +258,9 @@ export class ModelsService {
         audioOutputPrice: pricing.audioOutputPerMTok ?? null,
         ...(tiers && tiers.length > 0 ? { pricingTiers: tiers } : {}),
         batchDiscount: pricing.batchDiscount ?? null,
+        ...(serviceTiers && Object.keys(serviceTiers).length > 0
+          ? { serviceTierPrices: serviceTiers }
+          : {}),
         deprecationDate: entry?.deprecationDate ? new Date(entry.deprecationDate) : null,
         priceOverride,
         capabilities: { ...entry?.capabilities, ...input.capabilities },
@@ -309,6 +318,14 @@ export class ModelsService {
             }
           : {}),
         ...(p.batchDiscount ? { batchDiscount: p.batchDiscount } : {}),
+        ...(p.serviceTiers
+          ? {
+              serviceTierPrices:
+                Object.keys(p.serviceTiers).length > 0
+                  ? (p.serviceTiers as Prisma.InputJsonValue)
+                  : Prisma.DbNull,
+            }
+          : {}),
         ...(input.capabilities
           ? {
               capabilities: {
@@ -674,5 +691,21 @@ function normalizePricing(p: ModelPricing) {
         }
       : {}),
     ...(p.batchDiscount ? { batchDiscount: n(p.batchDiscount) } : {}),
+    ...(p.serviceTiers && Object.keys(p.serviceTiers).length > 0
+      ? {
+          serviceTiers: Object.fromEntries(
+            Object.entries(p.serviceTiers)
+              .sort(([a], [b]) => a.localeCompare(b))
+              .map(([tier, r]) => [
+                tier,
+                {
+                  inputPerMTok: n(r.inputPerMTok),
+                  outputPerMTok: n(r.outputPerMTok),
+                  ...(r.cacheReadPerMTok ? { cacheReadPerMTok: n(r.cacheReadPerMTok) } : {}),
+                },
+              ]),
+          ),
+        }
+      : {}),
   };
 }

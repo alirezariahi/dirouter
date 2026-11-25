@@ -400,6 +400,8 @@ export class StatsService {
       routing: row.routing ?? null,
       // How the route was planned (cards 32.5 and 32.7): data policy, removed targets and more.
       routeDecision: row.routeDecision ?? null,
+      // The service tier the request was priced at (card 31.5).
+      serviceTier: row.serviceTier ?? null,
       chargeUsd: row.chargeUsd.toString(),
     };
   }

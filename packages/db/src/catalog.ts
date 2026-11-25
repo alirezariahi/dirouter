@@ -22,6 +22,8 @@ export interface CatalogPricing {
   audioOutputPerMTok?: string | undefined;
   tiers?: Record<string, unknown>[] | undefined;
   batchDiscount?: string | undefined;
+  /** Service tier prices (card 31.5). */
+  serviceTiers?: Record<string, unknown> | undefined;
 }
 
 type Tx = Pick<PrismaClient, 'model' | 'catalogModel' | 'catalogPriceProposal'>;
@@ -46,6 +48,10 @@ export function modelPriceColumns(pricing: CatalogPricing) {
         ? (pricing.tiers as Prisma.InputJsonValue)
         : Prisma.DbNull,
     batchDiscount: pricing.batchDiscount ?? null,
+    serviceTierPrices:
+      pricing.serviceTiers && Object.keys(pricing.serviceTiers).length > 0
+        ? (pricing.serviceTiers as Prisma.InputJsonValue)
+        : Prisma.DbNull,
   };
 }
 

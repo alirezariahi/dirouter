@@ -32,6 +32,7 @@ import {
   ignoreDrops,
   imageFromUrl,
   imageToUrl,
+  serviceTierIn,
   textOf,
   type TranslateOptions,
   UnsupportedContentError,
@@ -57,6 +58,7 @@ const CONSUMED_REQUEST_FIELDS = new Set([
   'reasoning_effort',
   'metadata',
   'n',
+  'service_tier',
 ]);
 
 type TextLike =
@@ -249,6 +251,7 @@ export function openAIRequestToCanonical(
     ...(stop ? { stop } : {}),
     ...(typeof req.seed === 'number' ? { seed: req.seed } : {}),
     ...(req.reasoning_effort ? { reasoning: { effort: req.reasoning_effort } } : {}),
+    ...(serviceTierIn(req.service_tier) ? { serviceTier: serviceTierIn(req.service_tier) } : {}),
     stream: req.stream === true,
     ...(req.user !== undefined ? { user: req.user } : {}),
     ...(req.metadata ? { metadata: req.metadata } : {}),
@@ -441,6 +444,7 @@ export function canonicalToOpenAIRequest(
   if (req.reasoning?.effort) body.reasoning_effort = req.reasoning.effort;
   else if (req.reasoning?.budgetTokens !== undefined)
     body.reasoning_effort = EFFORT_FROM_BUDGET(req.reasoning.budgetTokens);
+  if (req.serviceTier) body.service_tier = req.serviceTier;
   if (req.stream) {
     body.stream = true;
     body.stream_options = { include_usage: true };
@@ -504,6 +508,7 @@ export function openAIResponseToCanonical(res: OpenAIChatCompletionResponse): Ca
     ...(choice?.finish_reason ? { rawFinishReason: choice.finish_reason } : {}),
     ...(res.usage ? { usage: openAIUsageToCanonical(res.usage) } : {}),
     created: res.created,
+    ...(typeof res.service_tier === 'string' ? { serviceTier: res.service_tier } : {}),
   };
 }
 

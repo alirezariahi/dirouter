@@ -28,6 +28,7 @@ import {
   ignoreDrops,
   imageFromUrl,
   mediaTypeFromName,
+  serviceTierIn,
   type TranslateOptions,
 } from './common.js';
 import { encodeSse } from './sse.js';
@@ -307,6 +308,9 @@ export function responsesRequestToCanonical(
     ...(typeof req.temperature === 'number' ? { temperature: req.temperature } : {}),
     ...(typeof req.top_p === 'number' ? { topP: req.top_p } : {}),
     ...(effort ? { reasoning: { effort } } : {}),
+    ...(serviceTierIn((req as { service_tier?: unknown }).service_tier)
+      ? { serviceTier: serviceTierIn((req as { service_tier?: unknown }).service_tier) }
+      : {}),
     stream: req.stream === true,
     ...(req.user ? { user: req.user } : {}),
     ...(req.metadata ? { metadata: req.metadata } : {}),

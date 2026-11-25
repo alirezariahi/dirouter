@@ -252,7 +252,11 @@ export function buildServer(options: MockServerOptions = {}) {
       tools?: unknown;
       stream?: boolean;
       stream_options?: { include_usage?: boolean };
+      service_tier?: string;
     };
+    // OpenAI reports the tier it used (card 31.5): the requested one, `auto` meaning `default`.
+    const serviceTier =
+      body.service_tier && body.service_tier !== 'auto' ? body.service_tier : 'default';
     // Classifier models used by guardrails (cards 23.2 and 23.3) answer deterministically.
     const verdict = classifierAnswer(model, body.messages);
     if (verdict !== undefined) s.text = verdict;
@@ -304,6 +308,7 @@ export function buildServer(options: MockServerOptions = {}) {
           },
         ],
         ...(s.noUsage ? {} : { usage }),
+        service_tier: serviceTier,
       });
     }
 
@@ -323,6 +328,7 @@ export function buildServer(options: MockServerOptions = {}) {
       created,
       model,
       choices: [{ index: 0, delta, logprobs: null, finish_reason: finish }],
+      service_tier: serviceTier,
     });
     let sent = 0;
     const drop = () => s.dropAfter !== undefined && sent >= s.dropAfter;

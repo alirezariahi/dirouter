@@ -1,4 +1,10 @@
-import { DiscountFraction, PricingTier, UpstreamErrorClass } from '@dirouter/contracts';
+import {
+  DiscountFraction,
+  PricedServiceTier,
+  PricingTier,
+  ServiceTierPrice,
+  UpstreamErrorClass,
+} from '@dirouter/contracts';
 import {
   Body,
   Controller,
@@ -41,6 +47,8 @@ const Pricing = z.object({
   /** Context-length tiers and batch discount (card 27.5). */
   tiers: z.array(PricingTier).max(8).optional(),
   batchDiscount: DiscountFraction.optional(),
+  /** Flex and priority prices (card 31.5). */
+  serviceTiers: z.partialRecord(PricedServiceTier, ServiceTierPrice).optional(),
 });
 const Capabilities = z.object({
   streaming: z.boolean().optional(),

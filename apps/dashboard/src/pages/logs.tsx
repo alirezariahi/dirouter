@@ -46,6 +46,7 @@ interface LogDetail extends LogItem {
   headers?: unknown;
   /** How the route was planned (cards 32.5 and 32.7). */
   routeDecision?: unknown;
+  serviceTier?: string | null;
 }
 type Draft = Record<(typeof FILTERS)[number] | 'from' | 'to', string>;
 const draftOf = (search: LogSearch): Draft =>
@@ -265,7 +266,7 @@ function Detail({
               ) : (
                 <Empty title={m.noAttempts} />
               )}
-              <RouteDecisionView decision={d.routeDecision} />
+              <RouteDecisionView decision={d.routeDecision} serviceTier={d.serviceTier} />
               <h3 className="mt-4 font-semibold">{m.headers}</h3>
               {headers.length ? (
                 <dl>

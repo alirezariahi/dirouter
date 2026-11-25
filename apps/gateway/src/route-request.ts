@@ -21,6 +21,7 @@ import {
   MAX_FALLBACK_MODELS,
   mergePreferences,
   type PlanError,
+  type SuffixRouting,
 } from '@dirouter/routing';
 import { DiRouterError, ForbiddenError, NotFoundError, UpstreamError } from '@dirouter/shared';
 
@@ -29,6 +30,8 @@ export const ROUTING_FIELDS = ['provider', 'models', 'route'] as const;
 
 export interface RequestRouting {
   preferences?: ProviderPreferences;
+  /** What the client asked for in its `provider` object, before merging. */
+  client?: ProviderPreferences;
   fallbackModels?: string[];
   /** The key's policy is locked and the client's preferences were dropped. */
   clientIgnored: boolean;
@@ -80,12 +83,41 @@ export function routingFromRequest(
   const clientIgnored = merged.clientIgnored || (policy.lockProvider && !!fallbackModels?.length);
   const dataPolicy = mergeDataPolicies(policy.dataPolicy, requested);
   return {
+    ...(client ? { client } : {}),
     ...(isDataPolicyEmpty(dataPolicy) ? {} : { dataPolicy }),
     ...(merged.preferences ? { preferences: merged.preferences } : {}),
     // A locked key cannot add models of its own choosing either.
     ...(fallbackModels && !policy.lockProvider ? { fallbackModels } : {}),
     clientIgnored,
     policy,
+  };
+}
+
+/**
+ * Model suffixes (card 31.5): `:nitro` and `:floor` set `sort` unless the client's `provider`
+ * object already does, and are ignored (like any client preference) when the key is locked.
+ * `:free` and the reasoning suffixes are handled by the caller.
+ */
+export function withSuffixes(routing: RequestRouting, suffix: SuffixRouting): RequestRouting {
+  if (!suffix.sort) return routing;
+  if (routing.policy.lockProvider) return { ...routing, clientIgnored: true };
+  if (routing.client?.sort) return routing;
+  return { ...routing, preferences: { ...routing.preferences, sort: suffix.sort } };
+}
+
+/** The canonical request after its suffixes: base model name and reasoning effort. */
+export function suffixedRequest(
+  request: CanonicalRequest,
+  suffix: SuffixRouting,
+): CanonicalRequest {
+  if (suffix.suffixes.length === 0) return request;
+  return {
+    ...request,
+    model: suffix.model,
+    // An effort the request sets itself wins over the suffix.
+    ...(suffix.reasoningEffort && !request.reasoning?.effort
+      ? { reasoning: { ...request.reasoning, effort: suffix.reasoningEffort } }
+      : {}),
   };
 }
 

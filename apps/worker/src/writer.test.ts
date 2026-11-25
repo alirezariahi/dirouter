@@ -118,6 +118,13 @@ describe('usage batch writer', () => {
     expect(toRequestLogRow(event(5))).not.toHaveProperty('routeDecision');
   });
 
+  it('keeps the service tier with the log entry and its tier cost in the ledger (card 31.5)', () => {
+    const flex = event(6, { serviceTier: 'flex', costUsd: '0.00000500' });
+    expect(toRequestLogRow(flex)).toMatchObject({ serviceTier: 'flex', costUsd: '0.00000500' });
+    expect(toLedgerRow(flex)).toMatchObject({ costUsd: '0.00000500' });
+    expect(toRequestLogRow(event(7))).not.toHaveProperty('serviceTier');
+  });
+
   it('writes concurrent events in one transaction and reports the touched hours', async () => {
     const f = fakeDb();
     const marked: string[] = [];

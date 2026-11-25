@@ -671,6 +671,35 @@ describe('golden: OpenAI response → Anthropic response', () => {
 
 // ───────────── same-family passthrough and fixtures ─────────────
 
+describe('service tier (card 31.5)', () => {
+  it('reads service_tier, sends it to OpenAI-style providers and reads the tier used', () => {
+    const canonical = openAIRequestToCanonical(
+      oaReq({ messages: [{ role: 'user', content: 'x' }], service_tier: 'flex' }),
+    );
+    expect(canonical.serviceTier).toBe('flex');
+    expect(canonical.passthrough).toBeUndefined();
+    expect(canonicalToOpenAIRequest(canonical, { upstreamModel: 'u' })).toMatchObject({
+      service_tier: 'flex',
+    });
+    expect(canonicalToAnthropicRequest(canonical, { upstreamModel: 'u' })).not.toHaveProperty(
+      'service_tier',
+    );
+    const unknown = openAIRequestToCanonical(
+      oaReq({ messages: [{ role: 'user', content: 'x' }], service_tier: 'turbo' }),
+    );
+    expect(unknown.serviceTier).toBeUndefined();
+    const response = openAIResponseToCanonical({
+      id: 'r',
+      object: 'chat.completion',
+      created: 1,
+      model: 'o3',
+      service_tier: 'priority',
+      choices: [{ index: 0, message: { role: 'assistant', content: 'ok' }, finish_reason: 'stop' }],
+    } as never);
+    expect(response.serviceTier).toBe('priority');
+  });
+});
+
 describe('passthrough', () => {
   it('forwards unknown OpenAI fields only to OpenAI providers', () => {
     const canonical = openAIRequestToCanonical(

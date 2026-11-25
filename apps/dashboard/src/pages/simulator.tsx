@@ -79,6 +79,10 @@ interface Simulation {
   clientPreferencesIgnored?: boolean;
   /** Effective data policy (card 32.5). */
   dataPolicy?: DataPolicyView;
+  /** Model suffixes and their effect (card 31.5). */
+  suffixes?: string[];
+  reasoningEffort?: string;
+  webSearch?: 'available' | 'unavailable';
 }
 
 interface KeyRow {
@@ -284,6 +288,18 @@ export default function SimulatorPage() {
 
       {result ? (
         <>
+          {result.suffixes?.length ? (
+            <p className="text-sm text-muted" data-testid="simulator-suffixes">
+              {t('routingRequests.suffixes')}:{' '}
+              <span dir="ltr">{result.suffixes.map((s) => `:${s}`).join(' ')}</span>
+              {result.reasoningEffort
+                ? ` · ${t('routingRequests.reasoningEffort')}: ${result.reasoningEffort}`
+                : ''}
+              {result.webSearch
+                ? ` · ${t('routingRequests.webSearch')}: ${t(`routingRequests.webSearchState.${result.webSearch}`)}`
+                : ''}
+            </p>
+          ) : null}
           {result.dataPolicy ? (
             <p className="text-sm text-muted" data-testid="simulator-data-policy">
               {t('routingRequests.dataPolicy')}: {dataPolicyText(t, result.dataPolicy)}

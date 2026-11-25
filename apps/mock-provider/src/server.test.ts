@@ -88,6 +88,18 @@ describe('mock provider', () => {
     expect(body.usage.total_tokens).toBeGreaterThan(0);
   });
 
+  it('reports the service tier it used (card 31.5)', async () => {
+    const tier = async (service_tier?: string) =>
+      (
+        (await (
+          await post('/v1/chat/completions', { ...oa, ...(service_tier ? { service_tier } : {}) })
+        ).json()) as { service_tier: string }
+      ).service_tier;
+    expect(await tier('flex')).toBe('flex');
+    expect(await tier('auto')).toBe('default');
+    expect(await tier()).toBe('default');
+  });
+
   it('streams OpenAI with usage and [DONE]', async () => {
     const events = await sse(
       await post('/v1/chat/completions', {

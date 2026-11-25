@@ -2,7 +2,14 @@
 import { formatUsd, parseUsd } from '@dirouter/shared';
 import { describe, expect, it } from 'vitest';
 
-import { audioTokenCost, batchPrice, computeCost, computeCostUsd, mediaCost } from './cost.js';
+import {
+  audioTokenCost,
+  batchPrice,
+  computeCost,
+  computeCostUsd,
+  mediaCost,
+  pricingForServiceTier,
+} from './cost.js';
 
 const none = {
   inputTokens: 0,
@@ -101,5 +108,32 @@ describe('batch price (card 30.1)', () => {
 
   it('is the normal price without a discount', () => {
     expect(batchPrice(parseUsd('1.5'), {})).toBe(parseUsd('1.5'));
+  });
+});
+
+describe('service tier pricing (card 31.5)', () => {
+  const pricing = {
+    inputPerMTok: '2',
+    outputPerMTok: '8',
+    cacheReadPerMTok: '0.5',
+    tiers: [{ aboveInputTokens: 10, inputPerMTok: '9', outputPerMTok: '9' }],
+    serviceTiers: {
+      flex: { inputPerMTok: '1', outputPerMTok: '4' },
+      priority: { inputPerMTok: '3.5', outputPerMTok: '14', cacheReadPerMTok: '0.875' },
+    },
+  };
+  const usage = { ...none, inputTokens: 1_000_000, outputTokens: 1_000_000 };
+
+  it('prices flex and priority at their own rates', () => {
+    expect(computeCostUsd(usage, pricingForServiceTier(pricing, 'flex'))).toBe('5.00000000');
+    expect(computeCostUsd(usage, pricingForServiceTier(pricing, 'priority'))).toBe('17.50000000');
+    expect(pricingForServiceTier(pricing, 'flex').cacheReadPerMTok).toBe('0.5');
+  });
+
+  it('keeps the standard price for default, auto and models without tier prices', () => {
+    expect(pricingForServiceTier(pricing, 'default')).toBe(pricing);
+    expect(pricingForServiceTier(pricing, undefined)).toBe(pricing);
+    const plain = { inputPerMTok: '2', outputPerMTok: '8' };
+    expect(pricingForServiceTier(plain, 'priority')).toBe(plain);
   });
 });

@@ -178,6 +178,35 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('catalog sync over HTTP', () => {
     });
   });
 
+  it('carries flex and priority prices from the catalog to the snapshot (card 31.5)', async () => {
+    const created = await call('POST', 'models', {
+      providerId: provider,
+      upstreamModel: 'o3',
+      slug: 'tiers/o3',
+      catalogKey: 'openai/o3',
+    });
+    expect(created.statusCode).toBe(201);
+    const id = created.json<{ id: string }>().id;
+    expect((await snapshotModel(id))?.pricing.serviceTiers).toEqual({
+      flex: { inputPerMTok: '1.00', outputPerMTok: '4.00', cacheReadPerMTok: '0.25' },
+      priority: { inputPerMTok: '3.50', outputPerMTok: '14.00', cacheReadPerMTok: '0.875' },
+    });
+    // Set by hand on a model of its own.
+    const own = await call('POST', 'models', {
+      providerId: provider,
+      upstreamModel: 'own',
+      slug: 'tiers/own',
+      pricing: {
+        inputPerMTok: '2',
+        outputPerMTok: '8',
+        serviceTiers: { priority: { inputPerMTok: '4', outputPerMTok: '16' } },
+      },
+    });
+    expect((await snapshotModel(own.json<{ id: string }>().id))?.pricing.serviceTiers).toEqual({
+      priority: { inputPerMTok: '4', outputPerMTok: '16' },
+    });
+  });
+
   it('in manual mode a price change does not reach request costs until an admin approves it', async () => {
     const follow = (
       await call('POST', 'models', {

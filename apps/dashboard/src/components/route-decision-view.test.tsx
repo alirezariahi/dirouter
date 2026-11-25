@@ -34,4 +34,11 @@ describe('routing decision in the log details', () => {
     const { container } = render(<RouteDecisionView decision={null} />);
     expect(container.textContent).toBe('');
   });
+
+  it('shows the service tier and the model suffixes (card 31.5)', () => {
+    render(<RouteDecisionView decision={{ suffixes: ['floor', 'online'] }} serviceTier="flex" />);
+    const section = screen.getByTestId('log-route-decision');
+    expect(section.textContent).toContain('Service tier: flex');
+    expect(section.textContent).toContain('Model suffixes: :floor :online');
+  });
 });

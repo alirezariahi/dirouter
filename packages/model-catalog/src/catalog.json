@@ -9,7 +9,18 @@
       "upstreamModel": "gpt-4.1",
       "contextWindow": 1047576,
       "maxOutputTokens": 32768,
-      "pricing": { "inputPerMTok": "2.00", "outputPerMTok": "8.00", "cacheReadPerMTok": "0.50" },
+      "pricing": {
+        "inputPerMTok": "2.00",
+        "outputPerMTok": "8.00",
+        "cacheReadPerMTok": "0.50",
+        "serviceTiers": {
+          "priority": {
+            "inputPerMTok": "3.50",
+            "outputPerMTok": "14.00",
+            "cacheReadPerMTok": "0.875"
+          }
+        }
+      },
       "capabilities": {
         "tools": true,
         "vision": true,
@@ -24,7 +35,18 @@
       "upstreamModel": "gpt-4.1-mini",
       "contextWindow": 1047576,
       "maxOutputTokens": 32768,
-      "pricing": { "inputPerMTok": "0.40", "outputPerMTok": "1.60", "cacheReadPerMTok": "0.10" },
+      "pricing": {
+        "inputPerMTok": "0.40",
+        "outputPerMTok": "1.60",
+        "cacheReadPerMTok": "0.10",
+        "serviceTiers": {
+          "priority": {
+            "inputPerMTok": "0.70",
+            "outputPerMTok": "2.80",
+            "cacheReadPerMTok": "0.175"
+          }
+        }
+      },
       "capabilities": {
         "tools": true,
         "vision": true,
@@ -39,7 +61,18 @@
       "upstreamModel": "gpt-4.1-nano",
       "contextWindow": 1047576,
       "maxOutputTokens": 32768,
-      "pricing": { "inputPerMTok": "0.10", "outputPerMTok": "0.40", "cacheReadPerMTok": "0.025" },
+      "pricing": {
+        "inputPerMTok": "0.10",
+        "outputPerMTok": "0.40",
+        "cacheReadPerMTok": "0.025",
+        "serviceTiers": {
+          "priority": {
+            "inputPerMTok": "0.20",
+            "outputPerMTok": "0.80",
+            "cacheReadPerMTok": "0.05"
+          }
+        }
+      },
       "capabilities": {
         "tools": true,
         "vision": true,
@@ -54,7 +87,18 @@
       "upstreamModel": "gpt-4o",
       "contextWindow": 128000,
       "maxOutputTokens": 16384,
-      "pricing": { "inputPerMTok": "2.50", "outputPerMTok": "10.00", "cacheReadPerMTok": "1.25" },
+      "pricing": {
+        "inputPerMTok": "2.50",
+        "outputPerMTok": "10.00",
+        "cacheReadPerMTok": "1.25",
+        "serviceTiers": {
+          "priority": {
+            "inputPerMTok": "4.25",
+            "outputPerMTok": "17.00",
+            "cacheReadPerMTok": "2.125"
+          }
+        }
+      },
       "capabilities": {
         "tools": true,
         "vision": true,
@@ -69,7 +113,18 @@
       "upstreamModel": "gpt-4o-mini",
       "contextWindow": 128000,
       "maxOutputTokens": 16384,
-      "pricing": { "inputPerMTok": "0.15", "outputPerMTok": "0.60", "cacheReadPerMTok": "0.075" },
+      "pricing": {
+        "inputPerMTok": "0.15",
+        "outputPerMTok": "0.60",
+        "cacheReadPerMTok": "0.075",
+        "serviceTiers": {
+          "priority": {
+            "inputPerMTok": "0.25",
+            "outputPerMTok": "1.00",
+            "cacheReadPerMTok": "0.125"
+          }
+        }
+      },
       "capabilities": {
         "tools": true,
         "vision": true,
@@ -84,7 +139,19 @@
       "upstreamModel": "o3",
       "contextWindow": 200000,
       "maxOutputTokens": 100000,
-      "pricing": { "inputPerMTok": "2.00", "outputPerMTok": "8.00", "cacheReadPerMTok": "0.50" },
+      "pricing": {
+        "inputPerMTok": "2.00",
+        "outputPerMTok": "8.00",
+        "cacheReadPerMTok": "0.50",
+        "serviceTiers": {
+          "flex": { "inputPerMTok": "1.00", "outputPerMTok": "4.00", "cacheReadPerMTok": "0.25" },
+          "priority": {
+            "inputPerMTok": "3.50",
+            "outputPerMTok": "14.00",
+            "cacheReadPerMTok": "0.875"
+          }
+        }
+      },
       "capabilities": {
         "tools": true,
         "vision": true,
@@ -100,7 +167,19 @@
       "upstreamModel": "o4-mini",
       "contextWindow": 200000,
       "maxOutputTokens": 100000,
-      "pricing": { "inputPerMTok": "1.10", "outputPerMTok": "4.40", "cacheReadPerMTok": "0.275" },
+      "pricing": {
+        "inputPerMTok": "1.10",
+        "outputPerMTok": "4.40",
+        "cacheReadPerMTok": "0.275",
+        "serviceTiers": {
+          "flex": { "inputPerMTok": "0.55", "outputPerMTok": "2.20", "cacheReadPerMTok": "0.1375" },
+          "priority": {
+            "inputPerMTok": "2.00",
+            "outputPerMTok": "8.00",
+            "cacheReadPerMTok": "0.50"
+          }
+        }
+      },
       "capabilities": {
         "tools": true,
         "vision": true,

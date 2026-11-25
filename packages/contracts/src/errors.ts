@@ -250,6 +250,13 @@ export const ERROR_CODES = {
     anthropic: 'invalid_request_error',
     title: 'No provider satisfies the data policy',
   },
+  /** The `:online` model suffix asks for web search and this gateway has none (card 31.5). */
+  web_search_unavailable: {
+    status: 400,
+    openai: 'invalid_request_error',
+    anthropic: 'invalid_request_error',
+    title: 'Web search is not available',
+  },
   // Internal
   service_unavailable: {
     status: 503,

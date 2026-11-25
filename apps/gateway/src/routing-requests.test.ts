@@ -80,6 +80,19 @@ function snapshotFor(mockRoot: string, keyring: ReturnType<typeof parseKeyring>)
       model('m-gamma', 'gamma', '2', '8'),
       model('m-down', 'down', '1', '1'),
       { ...model('m-embed', 'beta', '1', '0'), capabilities: { embeddings: true } },
+      // Card 31.5: a free model and a model with flex and priority prices.
+      model('m-free', 'gamma', '0', '0'),
+      {
+        ...model('m-tier', 'alpha', '2', '8'),
+        pricing: {
+          inputPerMTok: '2',
+          outputPerMTok: '8',
+          serviceTiers: {
+            flex: { inputPerMTok: '1', outputPerMTok: '4' },
+            priority: { inputPerMTok: '3.5', outputPerMTok: '14' },
+          },
+        },
+      },
     ],
     combos: [
       {
@@ -91,6 +104,16 @@ function snapshotFor(mockRoot: string, keyring: ReturnType<typeof parseKeyring>)
           { modelId: 'm-alpha', order: 0 },
           { modelId: 'm-beta', order: 1 },
           { modelId: 'm-gamma', order: 2 },
+        ],
+      },
+      {
+        id: 'cmb-free',
+        organizationId: 'org',
+        slug: 'with-free',
+        strategy: 'priority',
+        targets: [
+          { modelId: 'm-alpha', order: 0 },
+          { modelId: 'm-free', order: 1 },
         ],
       },
       // A ZDR target that fails, then targets without ZDR (card 32.5).
@@ -146,6 +169,7 @@ describe('request routing', () => {
   let base = '';
   let mockRoot = '';
   let close: () => Promise<void> = async () => undefined;
+  let startGateway: (extra?: Partial<Parameters<typeof buildGateway>[0]>) => Promise<string>;
 
   const chat = (key: string, body: Record<string, unknown>, headers: Record<string, string> = {}) =>
     fetch(`${base}/v1/chat/completions`, {
@@ -173,24 +197,36 @@ describe('request routing', () => {
     const ma = mock.server.address();
     mockRoot = `http://127.0.0.1:${String(typeof ma === 'object' && ma ? ma.port : 0)}`;
     const keyring = parseKeyring(generateKey());
-    const dataDir = await mkdtemp(join(tmpdir(), 'dirouter-routing-'));
-    await writeFile(join(dataDir, 'snapshot.json'), JSON.stringify(snapshotFor(mockRoot, keyring)));
-    const gw = buildGateway({
-      logger,
-      keyring,
-      pepper,
-      dataDir,
-      internalToken: INTERNAL,
-      emitUsage: (e) => usage.push(e),
-    });
-    await gw.start();
-    await gw.app.listen({ port: 0, host: '127.0.0.1' });
-    const ga = gw.app.server.address();
-    base = `http://127.0.0.1:${String(typeof ga === 'object' && ga ? ga.port : 0)}`;
+    startGateway = async (extra = {}) => {
+      const dataDir = await mkdtemp(join(tmpdir(), 'dirouter-routing-'));
+      await writeFile(
+        join(dataDir, 'snapshot.json'),
+        JSON.stringify(snapshotFor(mockRoot, keyring)),
+      );
+      const gw = buildGateway({
+        logger,
+        keyring,
+        pepper,
+        dataDir,
+        internalToken: INTERNAL,
+        emitUsage: (e) => usage.push(e),
+        ...extra,
+      });
+      await gw.start();
+      await gw.app.listen({ port: 0, host: '127.0.0.1' });
+      const ga = gw.app.server.address();
+      const url = `http://127.0.0.1:${String(typeof ga === 'object' && ga ? ga.port : 0)}`;
+      const previous = close;
+      close = async () => {
+        await gw.app.close();
+        await previous();
+      };
+      return url;
+    };
     close = async () => {
-      await gw.app.close();
       await mock.close();
     };
+    base = await startGateway();
   });
   afterAll(() => close());
   beforeEach(async () => {
@@ -405,6 +441,143 @@ describe('request routing', () => {
         error: { code: 'no_provider_matches_data_policy' },
         dataPolicy: { requireZdr: true },
       });
+    });
+  });
+
+  describe('model suffixes and service tier (card 31.5)', () => {
+    it('each suffix gives the expected result in the simulator and live', async () => {
+      const sim = (model: string) => simulate({ model, virtualKeyId: 'vk-open' });
+      const providersOf = (body: Record<string, unknown>) =>
+        (body.candidates as { provider: string }[]).map((c) => c.provider);
+      expect(providersOf((await sim('chat:floor')).body)).toEqual(['beta', 'gamma', 'alpha']);
+      expect(providersOf((await sim('chat:nitro')).body)).toEqual(
+        await simulatedProviders({
+          model: 'chat',
+          virtualKeyId: 'vk-open',
+          provider: { sort: 'throughput' },
+        }),
+      );
+      const free = await sim('with-free:free');
+      expect(free.body).toMatchObject({ suffixes: ['free'], models: ['with-free'] });
+      expect(providersOf(free.body)).toEqual(['gamma']);
+      expect(free.body.skipped).toContainEqual({
+        modelId: 'm-alpha',
+        credentialId: 'alpha-k',
+        reason: 'not_free',
+      });
+      expect((await sim('chat:free')).body.error).toMatchObject({
+        code: 'no_provider_matches_preferences',
+      });
+      expect((await sim('chat:thinking')).body).toMatchObject({ reasoningEffort: 'medium' });
+      const online = await sim('chat:online');
+      expect(online.status).toBe(400);
+      expect(online.body).toMatchObject({
+        webSearch: 'unavailable',
+        error: { code: 'web_search_unavailable' },
+      });
+
+      const floor = await chat(OPEN, { model: 'chat:floor' });
+      expect(floor.headers.get('x-dirouter-provider')).toBe('beta');
+      expect(((await floor.json()) as { model: string }).model).toBe('chat');
+      expect(usage.at(-1)?.routeDecision?.suffixes).toEqual(['floor']);
+      const freeLive = await chat(OPEN, { model: 'with-free:free' });
+      expect(freeLive.headers.get('x-dirouter-provider')).toBe('gamma');
+      expect((await chat(OPEN, { model: 'chat:free' })).status).toBe(400);
+      // Explicit provider.sort wins over a suffix.
+      const explicit = await chat(OPEN, { model: 'chat:floor', provider: { sort: 'latency' } });
+      expect(explicit.status).toBe(200);
+    });
+
+    it('reasoning suffixes set the effort, unless the request sets one', async () => {
+      await chat(OPEN, { model: 'm-alpha:high' });
+      expect((await lastUpstreamBody()).reasoning_effort).toBe('high');
+      await chat(OPEN, { model: 'm-alpha:thinking' });
+      expect((await lastUpstreamBody()).reasoning_effort).toBe('medium');
+      await chat(OPEN, { model: 'm-alpha:thinking', reasoning_effort: 'low' });
+      expect((await lastUpstreamBody()).reasoning_effort).toBe('low');
+    });
+
+    it(':online without web search is a clear 400 and nothing is sent', async () => {
+      const res = await chat(OPEN, { model: 'm-alpha:online' });
+      expect(res.status).toBe(400);
+      const body = (await res.json()) as { error: { code: string; message: string } };
+      expect(body.error.code).toBe('web_search_unavailable');
+      expect(body.error.message).toContain(':online');
+      expect(await lastUpstreamBody()).toBeUndefined();
+    });
+
+    it(':online calls the web search extension when the gateway has one', async () => {
+      const searched: string[] = [];
+      const searchBase = await startGateway({
+        webSearch: {
+          augment: (request, context) => {
+            searched.push(`${context.virtualKeyId}:${request.model}`);
+            return Promise.resolve({
+              ...request,
+              system: [...request.system, { type: 'text', text: 'Web results: example.com' }],
+            });
+          },
+        },
+      });
+      const res = await fetch(`${searchBase}/v1/chat/completions`, {
+        method: 'POST',
+        headers: { authorization: `Bearer ${OPEN}`, 'content-type': 'application/json' },
+        body: JSON.stringify({
+          model: 'm-alpha:online',
+          messages: [{ role: 'user', content: 'news?' }],
+        }),
+      });
+      expect(res.status).toBe(200);
+      expect(searched).toEqual(['vk-open:m-alpha']);
+      expect(JSON.stringify((await lastUpstreamBody()).messages)).toContain('Web results');
+      const sim = await fetch(`${searchBase}/internal/routes/simulate`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', authorization: `Bearer ${INTERNAL}` },
+        body: JSON.stringify({ model: 'm-alpha:online', virtualKeyId: 'vk-open' }),
+      });
+      expect(await sim.json()).toMatchObject({ webSearch: 'available', suffixes: ['online'] });
+    });
+
+    it('a locked key ignores sorting suffixes', async () => {
+      const res = await chat(LOCKED, { model: 'chat:floor' });
+      expect(res.headers.get('x-dirouter-provider')).toBe('beta');
+      expect(res.headers.get('x-dirouter-preferences')).toBe('locked');
+    });
+
+    it('service_tier reaches the provider and the cost uses the tier price', async () => {
+      const cost = (event: UsageEvent | undefined, input: number, output: number) =>
+        (
+          ((event?.usage.inputTokens ?? 0) * input + (event?.usage.outputTokens ?? 0) * output) /
+          1_000_000
+        ).toFixed(8);
+      for (const [tier, input, output] of [
+        ['flex', 1, 4],
+        ['priority', 3.5, 14],
+        [undefined, 2, 8],
+      ] as const) {
+        const res = await chat(OPEN, {
+          model: 'm-tier',
+          ...(tier ? { service_tier: tier } : {}),
+        });
+        expect(res.status).toBe(200);
+        await res.text();
+        expect((await lastUpstreamBody()).service_tier).toBe(tier);
+        const event = usage.at(-1);
+        expect(event?.serviceTier).toBe(tier);
+        expect(event?.costUsd).toBe(cost(event, input, output));
+        expect(event?.chargeUsd).toBe(event?.costUsd);
+      }
+      // A stream is priced at the requested tier.
+      const stream = await chat(OPEN, {
+        model: 'm-tier',
+        service_tier: 'flex',
+        stream: true,
+        stream_options: { include_usage: true },
+      });
+      await stream.text();
+      const event = usage.at(-1);
+      expect(event?.serviceTier).toBe('flex');
+      expect(event?.costUsd).toBe(cost(event, 1, 4));
     });
   });
 });

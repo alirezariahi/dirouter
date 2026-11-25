@@ -222,3 +222,28 @@ describe('routing simulator data policy (card 32.5)', () => {
     expect(screen.getByText('Provider may train on request data')).toBeTruthy();
   });
 });
+
+describe('routing simulator model suffixes (card 31.5)', () => {
+  it('shows the suffixes, the reasoning effort and whether web search is available', async () => {
+    mockApi({
+      ok: false,
+      status: 400,
+      error: { code: 'web_search_unavailable' },
+      suffixes: ['online', 'high'],
+      reasoningEffort: 'high',
+      webSearch: 'unavailable',
+      skipped: [],
+    });
+    await renderPage();
+    fireEvent.change(screen.getByLabelText(/Model, alias or combo/), {
+      target: { value: 'gpt:online:high' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Simulate' }));
+    expect((await screen.findByTestId('simulator-suffixes')).textContent).toBe(
+      'Model suffixes: :online :high · Reasoning effort: high · Web search: not enabled on this gateway',
+    );
+    expect(
+      screen.getByText('The :online suffix needs web search, which is not enabled here.'),
+    ).toBeTruthy();
+  });
+});

@@ -24,6 +24,7 @@ import {
 import {
   computeCostUsd,
   estimateRequestTokens,
+  pricingForServiceTier,
   estimateUsage,
   roughTokens,
 } from '@dirouter/model-catalog';
@@ -45,6 +46,7 @@ import {
   HedgeBudget,
   isAutoAlias,
   isPlanError,
+  parseModelSuffixes,
   planRoute,
   type ResolvedRoute,
   type RetryBudget,
@@ -121,15 +123,20 @@ import {
 } from './genai.js';
 import { resolveCredentialKey, tokenFailure } from './credential-tokens.js';
 import { callUpstream, mergeTimeouts, readErrorBody, UpstreamTimeout } from './upstream.js';
+import type { WebSearchExtension } from './web-search.js';
 import {
   planErrorToClient,
   type RequestRouting,
   routingFromRequest,
+  suffixedRequest,
   withoutRoutingFields,
+  withSuffixes,
 } from './route-request.js';
 
 export interface ProxyDeps {
   store: ConfigStore;
+  /** Web search for the `:online` suffix (card 31.5); provided by card 30.8. */
+  webSearch?: WebSearchExtension;
   budget: RetryBudget;
   /** Concurrency cap per provider and per key (card 5.7). */
   bulkheads?: BulkheadRegistry;
@@ -537,6 +544,31 @@ async function proxyRequest(
     return;
   }
 
+  // Model suffixes (card 31.5): `:nitro`, `:floor`, `:free`, `:online` and reasoning effort. A
+  // name that exists as written (an `auto*` alias too) is never split.
+  const suffix = parseModelSuffixes(
+    canonical.model,
+    (name) => isAutoAlias(name) || config.router.modelsFor(key, name) !== undefined,
+  );
+  if (suffix.suffixes.length > 0) {
+    canonical = suffixedRequest(canonical, suffix);
+    requestRouting = withSuffixes(requestRouting, suffix);
+    if (suffix.webSearch && !deps.webSearch) {
+      sendError(
+        reply,
+        api,
+        new DiRouterError('web_search_unavailable', {
+          message:
+            'The :online suffix needs web search, which is not enabled on this gateway; remove the suffix to send the request without search',
+          param: 'model',
+        }),
+        requestId,
+      );
+      observeEarly(reply.statusCode);
+      return;
+    }
+  }
+
   // `/v1/responses` conversation continuation (card 11.2): previous turn state lives in Valkey,
   // keyed by the public response id. Expired or unknown ids are an explicit client error.
   if (api === 'openai.responses' && deps.stateRedis) {
@@ -766,6 +798,7 @@ async function proxyRequest(
     fallbackModels: requestRouting.fallbackModels,
     preferences: requestRouting.preferences,
     dataPolicy: requestRouting.dataPolicy,
+    freeOnly: suffix.freeOnly,
     resolve: {
       estimatedInputTokens,
       ...(canonical.maxOutputTokens !== undefined
@@ -816,6 +849,31 @@ async function proxyRequest(
       return;
     }
     route.candidates.splice(0, route.candidates.length, ...fits);
+  }
+
+  // Web search for the `:online` suffix (card 31.5): the extension (card 30.8) adds the results to
+  // the request once the route is known, so a request that cannot be routed is never searched.
+  if (suffix.webSearch && deps.webSearch) {
+    try {
+      canonical = await deps.webSearch.augment(canonical, {
+        organizationId: key.organizationId,
+        projectId: key.projectId,
+        virtualKeyId: key.id,
+        requestId,
+      });
+    } catch (error) {
+      sendError(
+        reply,
+        api,
+        error instanceof DiRouterError
+          ? error
+          : new DiRouterError('service_unavailable', { message: 'Web search failed' }),
+        requestId,
+      );
+      finishSpan('error', { 'gateway.error': 'web_search' });
+      observeEarly(reply.statusCode);
+      return;
+    }
   }
 
   // Client disconnect → abort all attempts and upstream.
@@ -895,7 +953,13 @@ async function proxyRequest(
       walletId,
       requestId,
       worstCaseChargeUsd(
-        route.candidates,
+        // A service tier (card 31.5) is reserved at its own price.
+        route.candidates.map((c) => ({
+          model: {
+            ...c.model,
+            pricing: pricingForServiceTier(c.model.pricing, canonical.serviceTier),
+          },
+        })),
         estimatedInputTokens,
         canonical.maxOutputTokens,
         key.priceMultiplier,
@@ -1114,7 +1178,9 @@ async function proxyRequest(
           ? { savedInputTokens: Math.round(savedCompressedChars / 4) }
           : {}),
         ...(routing ? { routing } : {}),
-        ...(routeDecisionOf(route) ? { routeDecision: routeDecisionOf(route) } : {}),
+        ...(routeDecisionOf(route, suffix.suffixes)
+          ? { routeDecision: routeDecisionOf(route, suffix.suffixes) }
+          : {}),
         finishSpan,
         ...(span ? { span } : {}),
         ...(capture ? { capture } : {}),
@@ -1138,9 +1204,13 @@ async function proxyRequest(
  * What the request log keeps of a route plan (card 32.5): the data policy and every target removed
  * while planning. Undefined when there is nothing to tell.
  */
-function routeDecisionOf(route: RoutePlan): RouteDecision | undefined {
-  if (!route.dataPolicy && route.skipped.length === 0) return undefined;
+function routeDecisionOf(
+  route: RoutePlan,
+  suffixes: readonly string[] = [],
+): RouteDecision | undefined {
+  if (!route.dataPolicy && route.skipped.length === 0 && suffixes.length === 0) return undefined;
   return {
+    ...(suffixes.length > 0 ? { suffixes: [...suffixes] } : {}),
     ...(route.dataPolicy ? { dataPolicy: route.dataPolicy } : {}),
     ...(route.skipped.length > 0 ? { skipped: route.skipped.slice(0, 100) } : {}),
   };
@@ -1754,6 +1824,10 @@ async function runRoute(
     savedInputTokens: ctx.savedInputTokens ?? 0,
     ...(ctx.routing ? { routing: ctx.routing } : {}),
     ...(ctx.routeDecision ? { routeDecision: ctx.routeDecision } : {}),
+    // The tier the provider says it used, else the one requested (streams, card 31.5).
+    serviceTier:
+      (result.ok && result.value.kind === 'json' ? result.value.response.serviceTier : undefined) ??
+      canonical.serviceTier,
     hedgeAttempts: result.ok ? ((result as { hedgeAttempts?: number }).hedgeAttempts ?? 0) : 0,
   });
   return { tokens: usage ? usage.inputTokens + usage.outputTokens : 0, costUsd, chargeUsd };
@@ -2098,6 +2172,7 @@ function emitUsageEvent(
     hedgeAttempts?: number;
     routing?: UsageEvent['routing'];
     routeDecision?: RouteDecision;
+    serviceTier?: string | undefined;
   },
 ): { costUsd: string; chargeUsd: string } {
   try {
@@ -2109,14 +2184,18 @@ function emitUsageEvent(
       cacheWriteTokens: 0,
       reasoningTokens: 0,
     };
+    // Flex and priority requests are priced at the tier's rates (card 31.5).
+    const tier =
+      e.serviceTier === 'flex' || e.serviceTier === 'priority' ? e.serviceTier : undefined;
+    const priced = e.candidate
+      ? { ...e.candidate.model, pricing: pricingForServiceTier(e.candidate.model.pricing, tier) }
+      : undefined;
     const costUsd =
-      e.candidate && e.ok && e.cacheHit !== true
-        ? computeCostUsd(usage, e.candidate.model.pricing)
-        : '0';
+      priced && e.ok && e.cacheHit !== true ? computeCostUsd(usage, priced.pricing) : '0';
     // Sale price (card 19.4): what the customer pays for this request.
     const charge =
-      e.candidate && e.ok
-        ? chargeUsd(usage, e.candidate.model, {
+      priced && e.ok
+        ? chargeUsd(usage, priced, {
             groupMultiplier: e.key.priceMultiplier,
             cacheHit: e.cacheHit === true,
           })
@@ -2156,6 +2235,7 @@ function emitUsageEvent(
       ...(e.hedgeAttempts && e.hedgeAttempts > 0 ? { hedgeAttempts: e.hedgeAttempts } : {}),
       ...(e.routing ? { routing: e.routing } : {}),
       ...(e.routeDecision ? { routeDecision: e.routeDecision } : {}),
+      ...(tier && e.cacheHit !== true ? { serviceTier: tier } : {}),
       latencyMs: Date.now() - e.started,
       ...(e.ttftMs !== undefined ? { ttftMs: e.ttftMs } : {}),
       attempts: e.attempts

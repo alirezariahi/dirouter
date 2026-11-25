@@ -297,6 +297,10 @@ export class SnapshotService implements OnModuleInit, OnModuleDestroy {
             ? { tiers: m.pricingTiers as unknown as NonNullable<ModelPricing['tiers']> }
             : {}),
           ...(m.batchDiscount ? { batchDiscount: usd(m.batchDiscount) } : {}),
+          // Flex and priority prices (card 31.5).
+          ...(m.serviceTierPrices
+            ? { serviceTiers: m.serviceTierPrices as NonNullable<ModelPricing['serviceTiers']> }
+            : {}),
         },
         capabilities: m.capabilities as Record<string, boolean>,
         ...(m.isPublic && m.organizationId === platformId ? { public: true } : {}),

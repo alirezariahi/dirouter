@@ -230,6 +230,8 @@ export const CanonicalRequest = z.object({
     })
     .optional(),
   stream: z.boolean(),
+  /** Provider service tier (card 31.5): OpenAI's `service_tier`. */
+  serviceTier: z.enum(['auto', 'default', 'flex', 'priority', 'scale']).optional(),
   user: z.string().optional(),
   metadata: z.record(z.string(), z.string()).optional(),
   /** Provider-specific parameters that have no generic translation and pass through unchanged. */
@@ -272,6 +274,8 @@ export const CanonicalResponse = z.object({
   /** If absent, the provider returned no usage and the gateway must estimate it (card 6.2). */
   usage: CanonicalUsage.optional(),
   created: z.int(),
+  /** The service tier the provider actually used, when it says (card 31.5). */
+  serviceTier: z.string().optional(),
 });
 export type CanonicalResponse = z.infer<typeof CanonicalResponse>;
 

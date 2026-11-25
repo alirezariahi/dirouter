@@ -5,17 +5,37 @@ import { type DataPolicyView, dataPolicyText, reasonText } from '../lib/route-de
 
 export interface RouteDecisionData {
   dataPolicy?: DataPolicyView;
+  suffixes?: string[];
   skipped?: { modelId: string; credentialId?: string; reason: string }[];
 }
 
-export function RouteDecisionView({ decision }: { decision: unknown }) {
+export function RouteDecisionView({
+  decision,
+  serviceTier,
+}: {
+  decision: unknown;
+  /** The tier the request was priced at (card 31.5). */
+  serviceTier?: string | null | undefined;
+}) {
   const { t } = useTranslation();
-  if (!decision || typeof decision !== 'object') return null;
-  const d = decision as RouteDecisionData;
+  if ((!decision || typeof decision !== 'object') && !serviceTier) return null;
+  const d = (decision && typeof decision === 'object' ? decision : {}) as RouteDecisionData;
   const skipped = Array.isArray(d.skipped) ? d.skipped : [];
   return (
     <section data-testid="log-route-decision" className="mt-4">
       <h3 className="font-semibold">{t('routingRequests.decision')}</h3>
+      {serviceTier ? (
+        <p className="text-sm">
+          <span className="text-muted">{t('routingRequests.serviceTier')}:</span>{' '}
+          <span dir="ltr">{serviceTier}</span>
+        </p>
+      ) : null}
+      {d.suffixes?.length ? (
+        <p className="text-sm">
+          <span className="text-muted">{t('routingRequests.suffixes')}:</span>{' '}
+          <span dir="ltr">{d.suffixes.map((s) => `:${s}`).join(' ')}</span>
+        </p>
+      ) : null}
       {d.dataPolicy ? (
         <p className="text-sm">
           <span className="text-muted">{t('routingRequests.dataPolicy')}:</span>{' '}

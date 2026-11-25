@@ -10,7 +10,8 @@ Planning stages, in order:
 
 1. Resolve the requested model, then each model of the `models` fallback array (the [resolver](routing.md#1-model-name-resolution) is unchanged).
 2. Data policy: region, country, zero data retention and training use (card 32.5).
-3. Provider preferences (`provider` object): `only` and `ignore`, `max_price`, `sort`, then `order` and `allow_fallbacks`.
+3. The `:free` suffix: free targets only (card 31.5).
+4. Provider preferences (`provider` object): `only` and `ignore`, `max_price`, `sort`, then `order` and `allow_fallbacks`.
 
 Every candidate removed on the way is listed in `skipped` with its reason.
 
@@ -112,3 +113,44 @@ The data policy is applied right after resolution, before preferences, fallback 
 Removed candidates carry the reason `not_zdr`, `may_train_on_data`, `region_not_allowed` or `country_not_allowed`. When none is left the request fails with **400 `no_provider_matches_data_policy`** and the gateway logs the policy and the removed targets at `info`.
 
 The simulator response has the effective `dataPolicy`, and every request log entry keeps a `routeDecision` with the data policy and the removed targets (column `request_log.route_decision`), shown in the request details of the Log Explorer.
+
+## Model suffixes and service tier (card 31.5)
+
+A model name can end in suffixes, as on OpenRouter. They can be chained (`gpt-4.1:floor:online`), and a name that exists as written is never split (an organization may call a model `x:free` itself).
+
+| Suffix                                 | Effect                                                                                                       | Status                                     |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------ |
+| `:nitro`                               | `sort: "throughput"`: fastest measured target first                                                          | live                                       |
+| `:floor`                               | `sort: "price"`: cheapest target first                                                                       | live                                       |
+| `:free`                                | only targets whose price is zero; skip reason `not_free`, none left is 400 `no_provider_matches_preferences` | live                                       |
+| `:thinking`                            | reasoning on, effort `medium`                                                                                | live                                       |
+| `:minimal`, `:low`, `:medium`, `:high` | reasoning effort                                                                                             | live                                       |
+| `:online`                              | web search before the model answers                                                                          | needs the web search extension (card 30.8) |
+
+- An explicit `provider.sort` wins over `:nitro`/`:floor`, and so does an effort the request sets itself (`reasoning_effort`) over a reasoning suffix.
+- On a key whose preferences are locked, `:nitro` and `:floor` are ignored like any client preference (`x-dirouter-preferences: locked`); `:free` only narrows and still applies.
+- The model name in the answer and in the usage record is the name without suffixes; the suffixes are kept in the request log's routing decision.
+- `:online` calls the gateway's web search extension (`webSearch` in `buildGateway`, interface `WebSearchExtension` in `apps/gateway/src/web-search.ts`), which adds the results to the request once the route is known. Without one, the request fails with **400 `web_search_unavailable`** and nothing is sent upstream. The simulator reports `webSearch: "available"` or `"unavailable"`.
+
+The simulator accepts suffixed names and answers with `suffixes`, `reasoningEffort` and `webSearch`.
+
+### Service tier
+
+`service_tier` (`flex`, `priority`, `auto`, `default`, `scale`) in a Chat Completions or Responses request is passed to OpenAI-style providers (OpenAI, Azure OpenAI, OpenAI-compatible) and dropped for the others. A model's pricing can carry tier prices:
+
+```json
+{
+  "pricing": {
+    "inputPerMTok": "2",
+    "outputPerMTok": "8",
+    "serviceTiers": {
+      "flex": { "inputPerMTok": "1", "outputPerMTok": "4" },
+      "priority": { "inputPerMTok": "3.5", "outputPerMTok": "14", "cacheReadPerMTok": "0.875" }
+    }
+  }
+}
+```
+
+The bundled catalog has them for OpenAI's `gpt-4.1` family, `gpt-4o`, `gpt-4o-mini`, `o3` and `o4-mini`, and catalog sync reads LiteLLM's `*_flex` and `*_priority` prices. Models that follow the catalog get them automatically; on `POST`/`PATCH /orgs/:orgId/models` they can be set under `pricing.serviceTiers`.
+
+A `flex` or `priority` request is priced at the tier's rates: the cost, the sale price, the wallet reservation, the usage event (`serviceTier`) and so the ledger. The tier comes from the provider's answer when it reports one (OpenAI does, and may serve `priority` as `default`), else from the request (streams). A model without tier prices is priced at its standard rate. The request log shows the tier in the details.

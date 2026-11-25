@@ -75,6 +75,14 @@ describe('parseCatalogSource (LiteLLM format)', () => {
     });
   });
 
+  it('reads flex and priority service tier prices (card 31.5)', () => {
+    expect(by('openai/gpt-4.1')?.pricing.serviceTiers).toEqual({
+      flex: { inputPerMTok: '1', outputPerMTok: '4' },
+      priority: { inputPerMTok: '3.5', outputPerMTok: '14', cacheReadPerMTok: '0.875' },
+    });
+    expect(by('groq/llama-3.3-70b-versatile')?.pricing.serviceTiers).toBeUndefined();
+  });
+
   it('reads context tiers, deprecation dates, embeddings and image prices', () => {
     expect(by('gemini/gemini-2.5-pro')?.pricing.tiers).toEqual([
       { aboveInputTokens: 200_000, inputPerMTok: '2.5', outputPerMTok: '15' },

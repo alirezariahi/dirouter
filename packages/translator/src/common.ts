@@ -208,3 +208,13 @@ export function cacheControlOut(marker: CacheMarker): { cache_control?: Record<s
     cache_control: { type: 'ephemeral', ...(marker.cacheTtl ? { ttl: marker.cacheTtl } : {}) },
   };
 }
+
+const SERVICE_TIERS = new Set(['auto', 'default', 'flex', 'priority', 'scale']);
+/** OpenAI's `service_tier` (card 31.5); anything else is not a tier DiRouter knows. */
+export function serviceTierIn(
+  value: unknown,
+): NonNullable<CanonicalRequest['serviceTier']> | undefined {
+  return typeof value === 'string' && SERVICE_TIERS.has(value)
+    ? (value as NonNullable<CanonicalRequest['serviceTier']>)
+    : undefined;
+}

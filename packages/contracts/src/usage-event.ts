@@ -61,6 +61,8 @@ export const RouteDecision = z.object({
     )
     .max(100)
     .optional(),
+  /** Model suffixes the client used, e.g. `floor` or `online` (card 31.5). */
+  suffixes: z.array(z.string()).max(10).optional(),
 });
 export type RouteDecision = z.infer<typeof RouteDecision>;
 
@@ -118,6 +120,8 @@ export const UsageEvent = z.object({
       classifierMicros: NonNegativeInt.optional(),
     })
     .optional(),
+  /** Service tier the request was priced at (card 31.5): `flex` or `priority`. */
+  serviceTier: z.string().max(20).optional(),
   /** How the route was planned (cards 32.5 and 32.7), shown in the request log details. */
   routeDecision: RouteDecision.optional(),
   /** Images, characters or audio seconds of a media request (card 21.1). */

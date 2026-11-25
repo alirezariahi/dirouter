@@ -12,7 +12,8 @@
 
 ۱. resolve مدل درخواستی و سپس هر مدل آرایهٔ فال‌بک `models` ([resolver](routing.fa.md) تغییری نکرده است).
 ۲. سیاست داده: منطقه، کشور، نگهداری صفر داده و استفاده برای آموزش (کارت ۳۲.۵).
-۳. ترجیح ارائه‌دهنده (شیء `provider`): `only` و `ignore`، `max_price`، `sort` و در پایان `order` و `allow_fallbacks`.
+۳. پسوند `:free`: فقط هدف‌های رایگان (کارت ۳۱.۵).
+۴. ترجیح ارائه‌دهنده (شیء `provider`): `only` و `ignore`، `max_price`، `sort` و در پایان `order` و `allow_fallbacks`.
 
 هر کاندیدایی که در این مسیر کنار برود با دلیلش در `skipped` می‌آید.
 
@@ -130,5 +131,50 @@ curl -X PUT "$ADMIN/orgs/$ORG/routing-policies" -H "authorization: Bearer $TOKEN
 کاندیدای حذف‌شده یکی از این دلیل‌ها را دارد: `not_zdr`، `may_train_on_data`، `region_not_allowed` یا `country_not_allowed`. اگر کاندیدایی نماند درخواست با **400 `no_provider_matches_data_policy`** رد می‌شود و گیت‌وی سیاست و هدف‌های حذف‌شده را در سطح `info` لاگ می‌کند.
 
 پاسخ شبیه‌ساز `dataPolicy` مؤثر را دارد و هر ردیف لاگ درخواست یک `routeDecision` شامل سیاست داده و هدف‌های حذف‌شده نگه می‌دارد (ستون `request_log.route_decision`) که در جزئیات درخواست در Log Explorer نمایش داده می‌شود.
+
+## پسوندهای مدل و service tier (کارت ۳۱.۵)
+
+نام مدل می‌تواند مثل OpenRouter پسوند داشته باشد. پسوندها را می‌توان پشت هم آورد (`gpt-4.1:floor:online`) و نامی که دقیقاً همین‌طور وجود دارد هرگز شکسته نمی‌شود (سازمان می‌تواند خودش مدلی به نام `x:free` بسازد).
+
+| پسوند                                  | اثر                                                                                                                 | وضعیت                                      |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| `:nitro`                               | `sort: "throughput"`: سریع‌ترین هدف اندازه‌گیری‌شده اول                                                             | فعال                                       |
+| `:floor`                               | `sort: "price"`: ارزان‌ترین هدف اول                                                                                 | فعال                                       |
+| `:free`                                | فقط هدف‌هایی که قیمتشان صفر است؛ دلیل کنار گذاشتن `not_free` و اگر چیزی نماند 400 `no_provider_matches_preferences` | فعال                                       |
+| `:thinking`                            | استدلال روشن با سطح `medium`                                                                                        | فعال                                       |
+| `:minimal`، `:low`، `:medium`، `:high` | سطح استدلال                                                                                                         | فعال                                       |
+| `:online`                              | جستجوی وب پیش از پاسخ مدل                                                                                           | به افزونهٔ جستجوی وب نیاز دارد (کارت ۳۰.۸) |
+
+- `provider.sort` صریح بر `:nitro` و `:floor` مقدم است و سطح استدلالی که خود درخواست تعیین کند (`reasoning_effort`) بر پسوند استدلال.
+- روی کلیدی که ترجیح‌هایش قفل است، `:nitro` و `:floor` مثل هر ترجیح دیگر مشتری نادیده گرفته می‌شوند (`x-dirouter-preferences: locked`)؛ `:free` فقط محدود می‌کند و همچنان اعمال می‌شود.
+- نام مدل در پاسخ و در رکورد مصرف، نام بدون پسوند است؛ پسوندها در تصمیم مسیریابی لاگ درخواست می‌مانند.
+- `:online` افزونهٔ جستجوی وب گیت‌وی را صدا می‌زند (`webSearch` در `buildGateway`، رابط `WebSearchExtension` در `apps/gateway/src/web-search.ts`) که پس از معلوم شدن مسیر، نتیجه‌ها را به درخواست اضافه می‌کند. اگر افزونه نباشد درخواست با **400 `web_search_unavailable`** رد می‌شود و چیزی به ارائه‌دهنده نمی‌رود. شبیه‌ساز `webSearch: "available"` یا `"unavailable"` را گزارش می‌کند.
+
+شبیه‌ساز نام‌های پسونددار را می‌پذیرد و `suffixes`، `reasoningEffort` و `webSearch` را برمی‌گرداند.
+
+### Service tier
+
+`service_tier` (`flex`، `priority`، `auto`، `default`، `scale`) در درخواست Chat Completions یا Responses به ارائه‌دهنده‌های سبک OpenAI (OpenAI، Azure OpenAI، سازگار با OpenAI) فرستاده می‌شود و برای بقیه حذف می‌شود. قیمت‌گذاری مدل می‌تواند قیمت tierها را داشته باشد:
+
+<div dir="ltr">
+
+```json
+{
+  "pricing": {
+    "inputPerMTok": "2",
+    "outputPerMTok": "8",
+    "serviceTiers": {
+      "flex": { "inputPerMTok": "1", "outputPerMTok": "4" },
+      "priority": { "inputPerMTok": "3.5", "outputPerMTok": "14", "cacheReadPerMTok": "0.875" }
+    }
+  }
+}
+```
+
+</div>
+
+کاتالوگ همراه این قیمت‌ها را برای خانوادهٔ `gpt-4.1`، `gpt-4o`، `gpt-4o-mini`، `o3` و `o4-mini` از OpenAI دارد و همگام‌سازی کاتالوگ قیمت‌های `*_flex` و `*_priority` را از LiteLLM می‌خواند. مدل‌هایی که از کاتالوگ پیروی می‌کنند خودکار آن‌ها را می‌گیرند و در `POST`/`PATCH /orgs/:orgId/models` می‌توان آن‌ها را زیر `pricing.serviceTiers` تعیین کرد.
+
+درخواست `flex` یا `priority` با نرخ همان tier قیمت‌گذاری می‌شود: هزینه، قیمت فروش، رزرو کیف پول، رویداد مصرف (`serviceTier`) و در نتیجه ledger. tier از پاسخ ارائه‌دهنده خوانده می‌شود اگر گزارشش کند (OpenAI می‌کند و ممکن است `priority` را با `default` سرویس دهد)، وگرنه از خود درخواست (stream). مدل بدون قیمت tier با نرخ عادی‌اش قیمت‌گذاری می‌شود. جزئیات لاگ درخواست tier را نشان می‌دهد.
 
 </div>

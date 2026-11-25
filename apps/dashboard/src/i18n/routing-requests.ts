@@ -32,10 +32,12 @@ export const routingRequestsFa = {
     may_train_on_data: 'ممکن است ارائه‌دهنده با داده‌ها مدل آموزش دهد',
     region_not_allowed: 'منطقهٔ ارائه‌دهنده مجاز نیست',
     country_not_allowed: 'کشور ارائه‌دهنده مجاز نیست',
+    not_free: 'رایگان نیست (پسوند :free)',
   },
   error: {
     no_provider_matches_preferences: 'هیچ ارائه‌دهنده‌ای با ترجیح‌های این درخواست جور نیست.',
     no_provider_matches_data_policy: 'هیچ ارائه‌دهنده‌ای سیاست داده را برآورده نمی‌کند.',
+    web_search_unavailable: 'پسوند :online به جستجوی وب نیاز دارد که در این گیت‌وی فعال نیست.',
   },
   dataPolicy: 'سیاست داده',
   policy: {
@@ -46,6 +48,11 @@ export const routingRequestsFa = {
   },
   decision: 'تصمیم مسیریابی',
   removed: 'کنار گذاشته‌شده‌ها',
+  suffixes: 'پسوندهای مدل',
+  reasoningEffort: 'سطح استدلال',
+  webSearch: 'جستجوی وب',
+  webSearchState: { available: 'فعال', unavailable: 'در این گیت‌وی فعال نیست' },
+  serviceTier: 'Service tier',
 } as const;
 
 export const routingRequestsEn: Widen<typeof routingRequestsFa> = {
@@ -76,10 +83,12 @@ export const routingRequestsEn: Widen<typeof routingRequestsFa> = {
     may_train_on_data: 'Provider may train on request data',
     region_not_allowed: "Provider's region is not allowed",
     country_not_allowed: "Provider's country is not allowed",
+    not_free: 'Not free (:free suffix)',
   },
   error: {
     no_provider_matches_preferences: "No provider matches this request's preferences.",
     no_provider_matches_data_policy: 'No provider satisfies the data policy.',
+    web_search_unavailable: 'The :online suffix needs web search, which is not enabled here.',
   },
   dataPolicy: 'Data policy',
   policy: {
@@ -90,4 +99,9 @@ export const routingRequestsEn: Widen<typeof routingRequestsFa> = {
   },
   decision: 'Routing decision',
   removed: 'Removed targets',
+  suffixes: 'Model suffixes',
+  reasoningEffort: 'Reasoning effort',
+  webSearch: 'Web search',
+  webSearchState: { available: 'available', unavailable: 'not enabled on this gateway' },
+  serviceTier: 'Service tier',
 };

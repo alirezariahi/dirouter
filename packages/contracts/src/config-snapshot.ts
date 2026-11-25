@@ -132,6 +132,21 @@ export const PricingTier = z.object({
 });
 export type PricingTier = z.infer<typeof PricingTier>;
 
+/**
+ * Prices of a provider service tier (card 31.5), e.g. OpenAI's `flex` (slower, cheaper) and
+ * `priority` (faster, dearer). Unset rates keep the standard rate.
+ */
+export const ServiceTierPrice = z.object({
+  inputPerMTok: UsdAmount,
+  outputPerMTok: UsdAmount,
+  cacheReadPerMTok: UsdAmount.optional(),
+});
+export type ServiceTierPrice = z.infer<typeof ServiceTierPrice>;
+
+/** Service tiers DiRouter prices separately. */
+export const PricedServiceTier = z.enum(['flex', 'priority']);
+export type PricedServiceTier = z.infer<typeof PricedServiceTier>;
+
 /** A fraction between 0 and 1 with up to 6 decimals, e.g. `0.5` for half price. */
 export const DiscountFraction = z.string().regex(/^(0(\.\d{1,6})?|1(\.0{1,6})?)$/);
 
@@ -162,6 +177,8 @@ export const ModelPricing = z.object({
   tiers: z.array(PricingTier).max(8).optional(),
   /** Discount for the provider's batch API (card 27.5): `0.5` = batch calls cost half. */
   batchDiscount: DiscountFraction.optional(),
+  /** Prices of the provider's service tiers (card 31.5), from the catalog or set by hand. */
+  serviceTiers: z.partialRecord(PricedServiceTier, ServiceTierPrice).optional(),
 });
 export type ModelPricing = z.infer<typeof ModelPricing>;
 

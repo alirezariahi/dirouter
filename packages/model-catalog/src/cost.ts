@@ -119,6 +119,27 @@ export function computeCostUsd(
 }
 
 /**
+ * The pricing of a request run on a provider service tier (card 31.5): the tier's rates replace the
+ * standard ones; without tier prices (or for `auto`/`default`) the standard pricing applies.
+ * Context-length tiers are the standard tier's and do not carry over.
+ */
+export function pricingForServiceTier(
+  pricing: ModelPricing,
+  tier: string | undefined,
+): ModelPricing {
+  if (tier !== 'flex' && tier !== 'priority') return pricing;
+  const rates = pricing.serviceTiers?.[tier];
+  if (!rates) return pricing;
+  const { tiers: _contextTiers, ...rest } = pricing;
+  return {
+    ...rest,
+    inputPerMTok: rates.inputPerMTok,
+    outputPerMTok: rates.outputPerMTok,
+    ...(rates.cacheReadPerMTok !== undefined ? { cacheReadPerMTok: rates.cacheReadPerMTok } : {}),
+  };
+}
+
+/**
  * A price at the batch rate (card 30.1): `units × (1 − batchDiscount)`, rounded half up. Without a
  * discount in the catalog the batch price is the normal price.
  */

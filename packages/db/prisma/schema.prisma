@@ -417,6 +417,8 @@ model Model {
   saleCacheMultiplier Decimal @default(0) @map("sale_cache_multiplier") @db.Decimal(14, 8)
   /// Context-length price tiers, `[{ aboveInputTokens, inputPerMTok, outputPerMTok, … }]` (card 27.5).
   pricingTiers     Json?     @map("pricing_tiers")
+  /// Service tier prices (card 31.5): { flex?: {inputPerMTok, outputPerMTok, cacheReadPerMTok?}, priority?: … }
+  serviceTierPrices Json?    @map("service_tier_prices")
   /// Batch API discount as a fraction (0.5 = half price).
   batchDiscount    Decimal?  @map("batch_discount") @db.Decimal(7, 6)
   /// Provider's announced retirement date.
@@ -606,6 +608,8 @@ model RequestLog {
   media            Json?
   /// How the route was planned (cards 32.5 and 32.7): data policy, removed targets and more.
   routeDecision    Json?    @map("route_decision")
+  /// Service tier the request was priced at (card 31.5): flex or priority.
+  serviceTier      String?  @map("service_tier")
 
   @@id([id, createdAt])
   @@index([projectId, createdAt])

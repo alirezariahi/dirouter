@@ -116,6 +116,11 @@ export function normalizePricing(pricing: ModelPricing): ModelPricing {
         .map((t) => normalizePricing(t as unknown as ModelPricing) as unknown as PricingTier)
         .sort((a, b) => a.aboveInputTokens - b.aboveInputTokens);
       if (tiers.length > 0) out[k] = tiers;
+    } else if (k === 'serviceTiers') {
+      const tiers = Object.entries(v as Record<string, ModelPricing>)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([name, rates]) => [name, normalizePricing(rates)] as const);
+      if (tiers.length > 0) out[k] = Object.fromEntries(tiers);
     } else if (typeof v === 'string') out[k] = normalizeUsd(v);
     else out[k] = v;
   }
@@ -191,6 +196,23 @@ function litellmTiers(raw: Record<string, unknown>): PricingTier[] {
     .map(([aboveInputTokens, t]) => ({ aboveInputTokens, ...t }) as PricingTier);
 }
 
+/** `input_cost_per_token_flex`, `…_priority` and friends → service tier prices (card 31.5). */
+function litellmServiceTiers(raw: Record<string, unknown>): ModelPricing['serviceTiers'] {
+  const out: NonNullable<ModelPricing['serviceTiers']> = {};
+  for (const tier of ['flex', 'priority'] as const) {
+    const input = perMTok(raw[`input_cost_per_token_${tier}`]);
+    const output = perMTok(raw[`output_cost_per_token_${tier}`]);
+    if (input === undefined || output === undefined) continue;
+    const cacheRead = perMTok(raw[`cache_read_input_token_cost_${tier}`]);
+    out[tier] = {
+      inputPerMTok: input,
+      outputPerMTok: output,
+      ...(cacheRead ? { cacheReadPerMTok: cacheRead } : {}),
+    };
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
 function batchDiscount(input: string, batch: string | undefined): string | undefined {
   if (batch === undefined || Number(input) <= 0) return undefined;
   const ratio = Number(batch) / Number(input);
@@ -233,6 +255,7 @@ function fromLiteLlm(name: string, raw: unknown): CatalogEntry | SkippedEntry {
     /realtime/.test(upstreamModel) && (audioIn !== undefined || audioOut !== undefined);
   const tiers = litellmTiers(e);
   const discount = batchDiscount(input, perMTok(e.input_cost_per_token_batches));
+  const serviceTiers = litellmServiceTiers(e);
   const pricing: ModelPricing = {
     inputPerMTok: input,
     outputPerMTok: output,
@@ -246,6 +269,7 @@ function fromLiteLlm(name: string, raw: unknown): CatalogEntry | SkippedEntry {
     ...(audioOut && realtime ? { audioOutputPerMTok: audioOut } : {}),
     ...(tiers.length > 0 ? { tiers } : {}),
     ...(discount && discount !== '0' ? { batchDiscount: discount } : {}),
+    ...(serviceTiers ? { serviceTiers } : {}),
   };
   const contextWindow = positiveInt(e.max_input_tokens) ?? positiveInt(e.max_tokens);
   const maxOutputTokens = positiveInt(e.max_output_tokens);
