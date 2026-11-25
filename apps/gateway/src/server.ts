@@ -739,8 +739,10 @@ export function buildGateway(opts: GatewayOptions) {
       });
     const result = planRoute(config.router, {
       // A rule's target is the organization's choice, not limited by the key's allow-list.
-      key: decision?.target ? { ...key, allowedModels: [] } : key,
+      // The client's `models` fallbacks stay limited to it, as on live traffic.
+      key,
       model: decision?.target ?? suffix.model,
+      organizationTarget: Boolean(decision?.target),
       fallbackModels: requestRouting.fallbackModels,
       preferences: requestRouting.preferences,
       dataPolicy: requestRouting.dataPolicy,

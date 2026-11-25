@@ -45,6 +45,10 @@ describe('routing rules', () => {
             teamId: 'team-b',
           },
         ),
+        rule('rr-cheapest', 5, "request.headers['x-tier'] == 'cheapest'", {
+          type: 'route',
+          target: 'cheap',
+        }),
       ],
     });
   });
@@ -104,6 +108,25 @@ describe('routing rules', () => {
     const allowed = await env.chat(KEYS.allowed, 'big', { headers: { 'x-tier': 'blocked' } });
     expect(allowed.status).toBe(403);
     expect(JSON.stringify(allowed.body)).toContain('this tier is closed');
+  });
+
+  it("keeps the client's fallback models inside the key allow-list when a rule picked the target", async () => {
+    // The key may only use `big`; the rule sends it to `cheap`, which the client then excludes
+    // so that only its own fallback could answer.
+    const res = await env.chat(KEYS.allowed, 'big', {
+      headers: { 'x-tier': 'cheapest' },
+      body: { models: ['shadow-slow'], provider: { ignore: ['p'] } },
+    });
+    expect(res.status).toBeGreaterThanOrEqual(400);
+    expect(res.status).toBeLessThan(500);
+    expect(res.headers.get('x-dirouter-model')).toBeNull();
+    // Without the exclusion the rule's target answers.
+    const ok = await env.chat(KEYS.allowed, 'big', {
+      headers: { 'x-tier': 'cheapest' },
+      body: { models: ['shadow-slow'] },
+    });
+    expect(ok.status).toBe(200);
+    expect(ok.headers.get('x-dirouter-model')).toBe('cheap');
   });
 
   it('shows the matched rule in the routing simulator', async () => {

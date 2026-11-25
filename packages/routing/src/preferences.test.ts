@@ -205,6 +205,29 @@ describe('provider preferences (card 32.1)', () => {
     });
     if (!isPlanError(limited)) expect(limited.candidates.map((c) => c.model.id)).toEqual(['solo']);
   });
+
+  it("an organization-chosen target skips the allow-list, the client's fallbacks do not", () => {
+    const { router } = setup();
+    // The key may only send `auto`; a rule, split or automatic routing chose `solo` for it.
+    const r = planRoute(router, {
+      key: key({ allowedModels: ['auto'] }),
+      model: 'solo',
+      organizationTarget: true,
+      fallbackModels: ['other'],
+      preferences: { ignore: ['beta'] },
+    });
+    // Without its target (provider ignored) nothing the key may use is left.
+    expect(isPlanError(r)).toBe(true);
+    const ok = planRoute(router, {
+      key: key({ allowedModels: ['auto'] }),
+      model: 'solo',
+      organizationTarget: true,
+      fallbackModels: ['other'],
+    });
+    if (isPlanError(ok)) throw new Error(ok.error);
+    expect(ok.candidates.map((c) => c.model.id)).toEqual(['solo']);
+    expect(ok.skipped).toContainEqual({ modelId: 'other', reason: 'fallback_model_not_allowed' });
+  });
 });
 
 describe('request form (OpenRouter provider object)', () => {

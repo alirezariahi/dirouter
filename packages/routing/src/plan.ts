@@ -39,6 +39,12 @@ export interface PlanInput {
   rule?: { id: string; name?: string } | undefined;
   /** The `:free` suffix (card 31.5): only targets whose price is zero. */
   freeOnly?: boolean | undefined;
+  /**
+   * `model` is the organization's choice (a routing rule, a traffic split or automatic routing),
+   * not the client's: it resolves without the key's allow-list. The client's `fallbackModels` are
+   * still the client's choice and always resolve with the key's own allow-list.
+   */
+  organizationTarget?: boolean | undefined;
   resolve?: ResolveOptions;
 }
 
@@ -69,8 +75,9 @@ export function planRoute(router: Router, input: PlanInput): RoutePlan | PlanErr
   const skipped: ResolvedRoute['skipped'] = [];
   const seen = new Set<string>();
   const models: string[] = [];
+  const relaxed = input.organizationTarget ? { ...input.key, allowedModels: [] } : input.key;
   for (const [index, name] of names.entries()) {
-    const resolved = router.resolve(input.key, name, input.resolve);
+    const resolved = router.resolve(index === 0 ? relaxed : input.key, name, input.resolve);
     if (isRouteError(resolved)) {
       firstError ??= resolved;
       skipped.push(...resolved.skipped);

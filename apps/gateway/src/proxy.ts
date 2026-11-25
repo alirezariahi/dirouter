@@ -892,8 +892,11 @@ async function proxyRequest(
   // Same planner as the routing simulator (cards 12.5 and 32.1): resolve, fallback models, then
   // provider preferences.
   const route = planRoute(config.router, {
-    key: routing || ruleRouted ? { ...key, allowedModels: [] } : key,
+    key,
     model: routing?.target ?? routeName,
+    // Only the rule's, split's or automatic routing's own target skips the key's allow-list; the
+    // client's `models` fallbacks are the client's choice and stay limited to it.
+    organizationTarget: Boolean(routing) || ruleRouted,
     fallbackModels: requestRouting.fallbackModels,
     preferences: requestRouting.preferences,
     dataPolicy: requestRouting.dataPolicy,
