@@ -1,15 +1,29 @@
 /** Native provider pass-through routes (card 30.7). */
 import { mkdtemp, writeFile } from 'node:fs/promises';
-import { createServer, type IncomingHttpHeaders, type Server } from 'node:http';
+import {
+  createServer,
+  type IncomingHttpHeaders,
+  type Server,
+  type ServerResponse,
+} from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import type { ConfigSnapshotInput, UsageEvent } from '@dirouter/contracts';
 import { buildServer as buildMock } from '@dirouter/mock-provider/server';
 import { createLogger, encrypt, generateKey, hashApiKey, parseKeyring } from '@dirouter/shared';
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { pathAllowed, safePath, upstreamUrl, usageFromAnswer } from './passthrough.js';
+import type { ModelConfig, ProviderConfig } from '@dirouter/contracts';
+
+import {
+  findModel,
+  pathAllowed,
+  safePath,
+  upstreamUrl,
+  usageFromAnswer,
+  withStreamUsage,
+} from './passthrough.js';
 import { buildGateway } from './server.js';
 
 const logger = createLogger({ service: 'test', level: 'silent' });
@@ -19,6 +33,7 @@ const KEY_NONE = 'dr-pass-none-00001';
 const KEY_ALL = 'dr-pass-all-000001';
 const KEY_WALLET = 'dr-pass-wallet-001';
 const KEY_RPM = 'dr-pass-rpm-000001';
+const KEY_ONE = 'dr-pass-one-000001';
 const UPSTREAM_SECRET = 'upstream-credential-value';
 
 describe('pass-through helpers', () => {
@@ -85,6 +100,61 @@ describe('pass-through helpers', () => {
     });
     expect(usageFromAnswer('application/octet-stream', 'binary')).toEqual({ usage: {} });
   });
+
+  it('reads usage from the tail of a JSON answer too large to parse whole', () => {
+    // The head of a large answer was cut off: only its end, with the usage, is left.
+    const tail = `"x"}]}],"model":"gpt-4o","usage":{"prompt_tokens":3,"completion_tokens":4,"prompt_tokens_details":{"cached_tokens":1}}}`;
+    expect(usageFromAnswer('application/json', tail)).toEqual({
+      model: 'gpt-4o',
+      usage: { inputTokens: 3, outputTokens: 4, cacheReadTokens: 1 },
+    });
+  });
+
+  it('finds the model for versioned and dated names the provider answers with', () => {
+    const provider = { id: 'p' } as ProviderConfig;
+    const model = (id: string, upstreamModel: string, providerId = 'p') =>
+      ({ id, slug: id, upstreamModel, providerId }) as ModelConfig;
+    const models = [
+      model('mini', 'gpt-4o-mini'),
+      model('4o', 'gpt-4o'),
+      model('flash', 'gemini-2.0-flash'),
+      model('sonnet', 'claude-3-5-sonnet'),
+      model('elsewhere', 'gpt-4.1', 'q'),
+    ];
+    const find = (...names: (string | undefined)[]) => findModel(models, provider, names)?.id;
+    expect(find('gpt-4o-mini-2024-07-18')).toBe('mini');
+    expect(find('gpt-4o-2024-08-06')).toBe('4o');
+    expect(find('gemini-2.0-flash-001')).toBe('flash');
+    expect(find('models/gemini-2.0-flash')).toBe('flash');
+    expect(find('claude-3-5-sonnet-20241022')).toBe('sonnet');
+    expect(find('claude-3-5-sonnet-latest')).toBe('sonnet');
+    // The requested name comes first; an unknown first name falls through to the next.
+    expect(find('gpt-4o', 'gpt-4o-mini-2024-07-18')).toBe('4o');
+    expect(find(undefined, 'unknown', 'gpt-4o-mini')).toBe('mini');
+    // Neither another provider's model nor a different model sharing a prefix.
+    expect(find('gpt-4.1')).toBeUndefined();
+    expect(find('gpt-4o-audio-preview')).toBeUndefined();
+    expect(find('gpt-4o-mini-tts')).toBeUndefined();
+  });
+
+  it('asks OpenAI-style streams for their usage', () => {
+    const body = (b: unknown) => Buffer.from(JSON.stringify(b));
+    const openai = { type: 'openai', options: {} } as unknown as ProviderConfig;
+    const anthropic = { type: 'anthropic', options: {} } as unknown as ProviderConfig;
+    const chat = { model: 'm', stream: true, messages: [] };
+    const out = withStreamUsage(openai, '/v1/chat/completions', chat, body(chat));
+    expect(out && JSON.parse(out.body.toString())).toEqual({
+      ...chat,
+      stream_options: { include_usage: true },
+    });
+    expect(out?.clientWantsUsage).toBe(false);
+    const asked = { ...chat, stream_options: { include_usage: true } };
+    expect(withStreamUsage(openai, '/completions', asked, body(asked))).toBeUndefined();
+    expect(withStreamUsage(anthropic, '/v1/chat/completions', chat, body(chat))).toBeUndefined();
+    const plain = { model: 'm', messages: [] };
+    expect(withStreamUsage(openai, '/v1/chat/completions', plain, body(plain))).toBeUndefined();
+    expect(withStreamUsage(openai, '/v1/files', chat, body(chat))).toBeUndefined();
+  });
 });
 
 interface Seen {
@@ -98,6 +168,7 @@ describe('pass-through routes', () => {
   const mock = buildMock();
   const usage: UsageEvent[] = [];
   const seen: Seen[] = [];
+  const slow: ServerResponse[] = [];
   let echo: Server;
   let gw: ReturnType<typeof buildGateway>;
   let base = '';
@@ -126,6 +197,60 @@ describe('pass-through routes', () => {
             `data: ${JSON.stringify({ model: 'echo-model', choices: [], usage: { prompt_tokens: 1000, completion_tokens: 500 } })}\n\n`,
           );
           res.end('data: [DONE]\n\n');
+          return;
+        }
+        if (req.url?.startsWith('/base/chat/completions')) {
+          const asked = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}') as {
+            stream_options?: { include_usage?: boolean };
+          };
+          res.writeHead(200, { 'content-type': 'text/event-stream' });
+          res.write(
+            `data: ${JSON.stringify({ model: 'echo-model', choices: [{ delta: { content: 'hi' } }] })}\n\n`,
+          );
+          if (asked.stream_options?.include_usage)
+            res.write(
+              `data: ${JSON.stringify({ model: 'echo-model', choices: [], usage: { prompt_tokens: 11, completion_tokens: 7 } })}\n\n`,
+            );
+          res.end('data: [DONE]\n\n');
+          return;
+        }
+        if (req.url?.startsWith('/base/slow')) {
+          res.writeHead(200, { 'content-type': 'text/event-stream' });
+          res.write(
+            `data: ${JSON.stringify({ model: 'echo-model', choices: [{ delta: { content: 'x'.repeat(4000) } }] })}\n\n`,
+          );
+          // Held open until the test ends it: the client goes away first.
+          slow.push(res);
+          return;
+        }
+        if (req.url?.startsWith('/base/long')) {
+          res.writeHead(200, { 'content-type': 'text/event-stream' });
+          const piece = `data: ${JSON.stringify({ model: 'echo-model', choices: [{ delta: { content: 'y'.repeat(700) } }] })}\n\n`;
+          for (let i = 0; i < 2_000; i++) res.write(piece);
+          res.write(
+            `data: ${JSON.stringify({ model: 'echo-model', choices: [], usage: { prompt_tokens: 2000, completion_tokens: 3000 } })}\n\n`,
+          );
+          res.end('data: [DONE]\n\n');
+          return;
+        }
+        if (req.url?.startsWith('/base/versioned')) {
+          res.writeHead(200, { 'content-type': 'application/json' });
+          res.end(
+            JSON.stringify({
+              model: 'echo-model-2024-07-18',
+              usage: { prompt_tokens: 1000, completion_tokens: 500 },
+            }),
+          );
+          return;
+        }
+        if (req.url?.startsWith('/base/mystery')) {
+          res.writeHead(200, { 'content-type': 'application/json' });
+          res.end(
+            JSON.stringify({
+              model: 'mystery-model',
+              usage: { prompt_tokens: 1000, completion_tokens: 500 },
+            }),
+          );
           return;
         }
         if (req.url?.startsWith('/base/fail')) {
@@ -194,7 +319,19 @@ describe('pass-through routes', () => {
           name: 'Echo',
           baseUrl: `${echoRoot}/base`,
           enabled: true,
-          options: { passthroughPaths: ['/things*', 'GET /stream', '/fail', '/leak'] },
+          options: {
+            passthroughPaths: [
+              '/things*',
+              'GET /stream',
+              '/fail',
+              '/leak',
+              'POST /chat/completions',
+              'GET /slow',
+              'GET /long',
+              'GET /versioned',
+              'GET /mystery',
+            ],
+          },
           credentials: [credential('c-echo', { 'x-cred': 'c1' })],
         },
         {
@@ -207,6 +344,19 @@ describe('pass-through routes', () => {
           enabled: true,
           options: { passthroughPaths: ['/v1/messages/batches*'] },
           credentials: [credential('c-anth')],
+        },
+        {
+          id: 'p-capped',
+          organizationId: 'org',
+          slug: 'capped',
+          type: 'openai-compatible',
+          name: 'Capped',
+          baseUrl: `${echoRoot}/base`,
+          enabled: true,
+          options: { passthroughPaths: ['GET /stream'] },
+          credentials: [credential('c-capped')],
+          // The upstream account's own budget (card 32.6).
+          budgets: [{ id: 'b-capped', period: 'daily', limitTokens: 100 }],
         },
         {
           id: 'p-other-org',
@@ -266,9 +416,44 @@ describe('pass-through routes', () => {
             embeddings: false,
           },
         },
+        {
+          id: 'm-echo-pro',
+          organizationId: 'org',
+          slug: 'echo-pro',
+          providerId: 'p-echo',
+          upstreamModel: 'echo-pro',
+          enabled: true,
+          pricing: { inputPerMTok: '10', outputPerMTok: '20' },
+          capabilities: {
+            streaming: true,
+            tools: false,
+            vision: false,
+            reasoning: false,
+            jsonMode: false,
+            embeddings: false,
+          },
+        },
+        {
+          id: 'm-secret',
+          organizationId: 'org',
+          slug: 'secret-1',
+          providerId: 'p-echo',
+          upstreamModel: 'SECRET-1',
+          enabled: true,
+          pricing: { inputPerMTok: '1', outputPerMTok: '1' },
+          capabilities: {
+            streaming: true,
+            tools: false,
+            vision: false,
+            reasoning: false,
+            jsonMode: false,
+            embeddings: false,
+          },
+        },
       ],
       combos: [],
       aliases: [],
+      limits: [{ organizationId: 'org', scope: 'end_user', scopeId: 'bad-user', blocked: true }],
       virtualKeys: [
         key(KEY_OPENAI, 'vk-openai', { passthroughProviders: ['openai'] }),
         key(KEY_NONE, 'vk-none'),
@@ -277,6 +462,10 @@ describe('pass-through routes', () => {
         key(KEY_RPM, 'vk-rpm', {
           passthroughProviders: ['*'],
           rateLimit: { requestsPerMinute: 1 },
+        }),
+        key(KEY_ONE, 'vk-one', {
+          passthroughProviders: ['*'],
+          rateLimit: { maxConcurrency: 1 },
         }),
       ],
       guardrails: [
@@ -314,6 +503,7 @@ describe('pass-through routes', () => {
     base = `http://127.0.0.1:${String(typeof ga === 'object' && ga ? ga.port : 0)}`;
   });
   afterAll(async () => {
+    for (const res of slow) res.end();
     await gw.app.close();
     await mock.close();
     await new Promise((resolve) => echo.close(resolve));
@@ -507,5 +697,138 @@ describe('pass-through routes', () => {
     const wallet = await call(KEY_WALLET, 'POST', '/passthrough/echo/things', {});
     expect(wallet.status).toBe(403);
     expect(seen).toHaveLength(1);
+  });
+
+  it('prices an answer that names a dated version of a configured model', async () => {
+    expect((await call(KEY_ALL, 'GET', '/passthrough/echo/versioned')).status).toBe(200);
+    expect(await lastEvent()).toMatchObject({
+      resolvedModelId: 'm-echo',
+      usage: { inputTokens: 1000, outputTokens: 500 },
+      costUsd: '0.00200000',
+    });
+  });
+
+  it('refuses a model the provider has no price for, and never bills usage as free', async () => {
+    const unknown = await call(KEY_ALL, 'POST', '/passthrough/echo/things', {
+      model: 'not-configured',
+    });
+    expect(unknown.status).toBe(404);
+    expect(((await unknown.json()) as { error: { code: string } }).error.code).toBe(
+      'model_not_found',
+    );
+    expect(seen).toHaveLength(0);
+    // An answer for a model nobody named or configured is priced at the provider's dearest one.
+    expect((await call(KEY_ALL, 'GET', '/passthrough/echo/mystery')).status).toBe(200);
+    expect(await lastEvent()).toMatchObject({
+      resolvedModelId: null,
+      usage: { inputTokens: 1000, outputTokens: 500 },
+      costUsd: '0.02000000',
+    });
+  });
+
+  it('asks an OpenAI-style stream for its usage and hides it from a client that did not', async () => {
+    const res = await call(KEY_ALL, 'POST', '/passthrough/echo/chat/completions', {
+      model: 'echo-model',
+      stream: true,
+      messages: [{ role: 'user', content: 'hi' }],
+    });
+    const text = await res.text();
+    expect(text).toContain('data: [DONE]');
+    expect(text).not.toContain('usage');
+    expect(JSON.parse(seen[0]?.body ?? '{}')).toMatchObject({
+      stream_options: { include_usage: true },
+    });
+    expect(await lastEvent()).toMatchObject({
+      usage: { inputTokens: 11, outputTokens: 7 },
+      costUsd: '0.00002500',
+    });
+    // A client that asked for usage gets the chunk.
+    const asked = await call(KEY_ALL, 'POST', '/passthrough/echo/chat/completions', {
+      model: 'echo-model',
+      stream: true,
+      stream_options: { include_usage: true },
+      messages: [],
+    });
+    expect(await asked.text()).toContain('"usage"');
+  });
+
+  it('reads usage at the end of a stream longer than the captured head', async () => {
+    const res = await call(KEY_ALL, 'GET', '/passthrough/echo/long', undefined, {
+      accept: 'text/event-stream',
+    });
+    expect((await res.text()).length).toBeGreaterThan(1_048_576);
+    expect(await lastEvent()).toMatchObject({
+      usage: { inputTokens: 2000, outputTokens: 3000 },
+      costUsd: '0.00800000',
+    });
+  });
+
+  it('settles a stream the client walks away from, and gives the concurrency slot back', async () => {
+    const abort = new AbortController();
+    const res = await fetch(`${base}/passthrough/echo/slow`, {
+      headers: { authorization: `Bearer ${KEY_ONE}`, accept: 'text/event-stream' },
+      signal: abort.signal,
+    });
+    const reader = res.body?.getReader();
+    await reader?.read();
+    abort.abort();
+    const event = await lastEvent();
+    expect(event).toMatchObject({
+      virtualKeyId: 'vk-one',
+      status: 'error',
+      errorCode: 'client_disconnected',
+      usageEstimated: true,
+    });
+    // What was streamed is billed: ~4000 characters of output.
+    expect(event?.usage.outputTokens).toBeGreaterThanOrEqual(900);
+    expect(Number(event?.costUsd)).toBeGreaterThan(0);
+    // The key's only concurrency slot is free again.
+    expect((await call(KEY_ONE, 'POST', '/passthrough/echo/things', {})).status).toBe(201);
+  });
+
+  it('applies the data policy to the named provider', async () => {
+    const res = await call(KEY_ALL, 'POST', '/passthrough/echo/things', {
+      provider: { zdr: true },
+    });
+    expect(((await res.json()) as { error: { code: string } }).error.code).toBe(
+      'no_provider_matches_data_policy',
+    );
+    expect(seen).toHaveLength(0);
+    expect(usage).toHaveLength(0);
+  });
+
+  it('applies end-user blocks and the provider account budget', async () => {
+    const blocked = await call(
+      KEY_ALL,
+      'POST',
+      '/passthrough/echo/things',
+      {},
+      { 'x-dirouter-end-user': 'bad-user' },
+    );
+    expect(blocked.status).toBe(403);
+    expect(seen).toHaveLength(0);
+    // Budgets are counted in Valkey; the guard reports the provider account's budget as used up.
+    const guard = gw.budgets;
+    const checked: string[] = [];
+    const spy = vi.spyOn(guard, 'check').mockImplementation((budgets) => {
+      checked.push(...budgets.map((b) => `${b.scope}:${b.scopeId}`));
+      const capped = budgets.find((b) => b.scope === 'provider_account');
+      return Promise.resolve(
+        capped
+          ? { ok: true, exhausted: [{ budget: capped, resetAt: new Date(Date.now() + 60_000) }] }
+          : { ok: true },
+      );
+    });
+    try {
+      const capped = await call(KEY_ALL, 'GET', '/passthrough/capped/stream');
+      expect(((await capped.json()) as { error: { code: string } }).error.code).toBe(
+        'budget_exceeded',
+      );
+      expect(capped.headers.get('retry-after')).not.toBeNull();
+    } finally {
+      spy.mockRestore();
+    }
+    expect(checked).toContain('provider_account:p-capped');
+    expect(seen).toHaveLength(0);
   });
 });

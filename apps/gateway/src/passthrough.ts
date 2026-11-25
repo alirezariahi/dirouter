@@ -7,20 +7,36 @@
  * - virtual-key authentication (expiry, IP allow-list) and the key's own pass-through grant
  *   (`passthroughProviders`: provider slugs or `*`; empty, the default, means off);
  * - the provider's path allow-list (`options.passthroughPaths`; empty means nothing is allowed);
- * - rate limits (RPM and TPM), budgets and the key's concurrency cap;
+ * - the data policy (ZDR, training, region, country; card 32.5) on the named provider, refused
+ *   with `no_provider_matches_data_policy` like the translated path;
+ * - rate limits (RPM and TPM), budgets and the key's concurrency cap, through the same admission
+ *   as chat (spend-guard.ts) with the provider's credentials as the candidates: provider and
+ *   credential budgets and quota windows (card 32.6), model, end-user (and its block), tag and
+ *   cost-center limits included;
  * - request guardrails on the JSON body (block and redact), and response guardrails on a JSON
  *   answer (streams and binary answers flow through unchanged);
- * - a usage event per request (inbound API `passthrough`), priced when the answer carries usage
- *   for a model configured on that provider.
+ * - a usage event per request (inbound API `passthrough`), however it ends (a client that goes
+ *   away mid-stream too), with the attribution of the request.
+ *
+ * Pricing: a request that names a model (body `model`, a Gemini `/models/{model}:` path or an Azure
+ * deployment) must name one configured on that provider, or it is refused with `model_not_found`
+ * as on the translated path. The price is that model's, else the model the answer names (dated
+ * versions such as `gpt-4o-mini-2024-07-18` match their base model). Usage for a model nobody
+ * configured is priced at the provider's dearest configured model, never as free. OpenAI-style
+ * streams are asked for their usage (`stream_options.include_usage`, as the translated path does);
+ * the usage chunk is taken out again for a client that did not ask for it. Usage a stream does not
+ * report (cut off, or none sent) is estimated from the streamed text, and the event says so.
  *
  * The client's DiRouter key never reaches the provider: only an allow-list of request headers is
  * forwarded, `?key=` is dropped, and the credential's own authentication is added instead.
  * Prepaid (wallet) keys are refused, since the cost cannot be reserved before the call.
  */
-import { Readable } from 'node:stream';
+import { pipeline, Readable, Transform } from 'node:stream';
+import { StringDecoder } from 'node:string_decoder';
 
 import {
   type CanonicalUsage,
+  type CredentialConfig,
   type ModelConfig,
   type ProviderConfig,
   type ProviderType,
@@ -28,32 +44,39 @@ import {
   USAGE_EVENT_SCHEMA_VERSION,
   type VirtualKeyConfig,
 } from '@dirouter/contracts';
-import { computeCostUsd } from '@dirouter/model-catalog';
+import { computeCost, computeCostUsd, roughTokens } from '@dirouter/model-catalog';
 import {
   adapterForProvider,
   classifyNetworkError,
+  protocolPresetOf,
   type UpstreamRequest,
 } from '@dirouter/providers';
+import { type Candidate, dataPolicyViolation } from '@dirouter/routing';
 import {
   DiRouterError,
   ForbiddenError,
   NotFoundError,
   RateLimitError,
   ulid,
+  UpstreamError,
 } from '@dirouter/shared';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 
+import { attributionFields, requestAttribution } from './attribution.js';
 import { authenticate, extractApiKey } from './auth.js';
 import { resolveCredentialKey } from './credential-tokens.js';
 import { evaluateGuardrails, policiesFor } from './guardrails.js';
 import { chargeUsd } from './pricing.js';
 import { errorPayload, type ProxyDeps } from './proxy.js';
-import { budgetScopes, limitScopes } from './spend-guard.js';
+import { planErrorToClient, routingFromRequest } from './route-request.js';
+import { admitRequest } from './spend-guard.js';
 import { callUpstream, mergeTimeouts, UpstreamTimeout } from './upstream.js';
 
 export const PASSTHROUGH_PREFIX = '/passthrough/';
-/** Bytes of the answer inspected for usage; the rest still reaches the client. */
+/** Bytes kept from the start of a non-SSE answer for usage; the rest still reaches the client. */
 const MAX_CAPTURE = 1_048_576;
+/** Bytes kept from the end of a non-SSE answer, where usage usually is. */
+const MAX_TAIL = 65_536;
 /** A JSON answer held for response guardrails may not be larger than this. */
 const MAX_GUARDED_ANSWER = 4 * 1_048_576;
 const MAX_BODY = 20 * 1_048_576;
@@ -193,29 +216,288 @@ function inspect(json: unknown, found: Found): void {
   }
 }
 
-/** Usage and model reported in a JSON or SSE answer, if any. */
-export function usageFromAnswer(contentType: string, text: string): Found {
-  const found: Found = { usage: {} };
-  if (contentType.includes('text/event-stream')) {
-    for (const line of text.split('\n')) {
-      if (!line.startsWith('data:')) continue;
-      const data = line.slice(5).trim();
-      if (data === '' || data === '[DONE]') continue;
-      try {
-        inspect(JSON.parse(data), found);
-      } catch {
-        // A truncated or non-JSON event carries nothing to count.
-      }
+/** The JSON object that starts at `start` (a `{`), or undefined when it is cut off. */
+function objectAt(text: string, start: number): string | undefined {
+  let depth = 0;
+  let inString = false;
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i];
+    if (inString) {
+      if (ch === '\\') i++;
+      else if (ch === '"') inString = false;
+    } else if (ch === '"') inString = true;
+    else if (ch === '{') depth++;
+    else if (ch === '}' && --depth === 0) return text.slice(start, i + 1);
+  }
+  return undefined;
+}
+
+/**
+ * Usage and model in a piece of a JSON answer that does not parse as a whole: the head or the
+ * tail of an answer too large to keep. Every complete `usage`/`usageMetadata` object counts.
+ */
+function inspectFragment(text: string, found: Found): void {
+  const model = /"(?:model|modelVersion)"\s*:\s*"([^"\\]{1,200})"/.exec(text);
+  if (model?.[1] && !found.model) found.model = model[1];
+  for (const match of text.matchAll(/"(usage|usageMetadata)"\s*:\s*\{/g)) {
+    const object = objectAt(text, match.index + match[0].length - 1);
+    if (!object) continue;
+    try {
+      inspect({ [match[1] ?? 'usage']: JSON.parse(object) as unknown }, found);
+    } catch {
+      // Not JSON after all.
     }
+  }
+}
+
+/** Usage and model reported in a JSON or SSE answer (or a piece of one), if any. */
+export function usageFromAnswer(
+  contentType: string,
+  text: string,
+  found: Found = { usage: {} },
+): Found {
+  if (contentType.includes('text/event-stream')) {
+    for (const line of text.split('\n')) inspectSseLine(line, found);
     return found;
   }
   if (contentType.includes('json'))
     try {
       inspect(JSON.parse(text), found);
     } catch {
-      // Not JSON after all.
+      inspectFragment(text, found);
     }
   return found;
+}
+
+/** The text an SSE event adds to the answer (OpenAI, Anthropic, Gemini, Responses API). */
+function deltaText(json: unknown): string {
+  const top = record(json);
+  if (!top) return '';
+  let out = '';
+  const add = (value: unknown) => {
+    if (typeof value === 'string') out += value;
+  };
+  for (const choice of Array.isArray(top.choices) ? top.choices : []) {
+    const c = record(choice);
+    add(c?.text);
+    const delta = record(c?.delta);
+    add(delta?.content);
+    add(delta?.reasoning_content);
+    for (const call of Array.isArray(delta?.tool_calls) ? delta.tool_calls : [])
+      add(record(record(call)?.function)?.arguments);
+  }
+  const delta = record(top.delta);
+  add(delta?.text);
+  add(delta?.partial_json);
+  add(delta?.thinking);
+  if (typeof top.type === 'string' && top.type.endsWith('.delta')) add(top.delta);
+  for (const candidate of Array.isArray(top.candidates) ? top.candidates : [])
+    for (const part of (record(record(candidate)?.content)?.parts as unknown[] | undefined) ?? [])
+      add(record(part)?.text);
+  return out;
+}
+
+/** One SSE line: usage and model of a `data:` event; returns the event's JSON, if any. */
+function inspectSseLine(line: string, found: Found): unknown {
+  if (!line.startsWith('data:')) return undefined;
+  const data = line.slice(5).trim();
+  if (data === '' || data === '[DONE]') return undefined;
+  try {
+    const json: unknown = JSON.parse(data);
+    inspect(json, found);
+    return json;
+  } catch {
+    // A truncated or non-JSON event carries nothing to count.
+    return undefined;
+  }
+}
+
+/**
+ * Reads usage from an answer as it streams past, without holding it. An SSE answer is parsed event
+ * by event over its whole length, so usage at the end of a long stream (Anthropic `message_delta`,
+ * OpenAI's final usage chunk) is never lost, and the text it carries is counted for an estimate
+ * when the stream stops early or reports no usage. Any other answer keeps its first MAX_CAPTURE
+ * bytes and its last MAX_TAIL bytes, and usage is read from both.
+ */
+export class AnswerMeter {
+  private readonly found: Found = { usage: {} };
+  private readonly sse: boolean;
+  private readonly decoder = new StringDecoder('utf8');
+  private pending = '';
+  private skipLine = false;
+  private outputText = 0;
+  private head: Buffer[] = [];
+  private headBytes = 0;
+  private tail = Buffer.alloc(0);
+  private total = 0;
+
+  constructor(private readonly contentType: string) {
+    this.sse = contentType.includes('text/event-stream');
+  }
+
+  push(chunk: Buffer): void {
+    if (this.sse) {
+      this.pending += this.decoder.write(chunk);
+      let newline = this.pending.indexOf('\n');
+      while (newline >= 0) {
+        const line = this.pending.slice(0, newline);
+        this.pending = this.pending.slice(newline + 1);
+        if (this.skipLine) this.skipLine = false;
+        else this.line(line);
+        newline = this.pending.indexOf('\n');
+      }
+      // A single event larger than this is not inspected (and never held).
+      if (this.pending.length > MAX_CAPTURE) {
+        this.pending = '';
+        this.skipLine = true;
+      }
+      return;
+    }
+    this.total += chunk.length;
+    if (this.headBytes < MAX_CAPTURE) {
+      const part = chunk.subarray(0, MAX_CAPTURE - this.headBytes);
+      this.head.push(part);
+      this.headBytes += part.length;
+    }
+    if (this.total > MAX_CAPTURE) {
+      const joined = Buffer.concat([this.tail, chunk]);
+      this.tail = joined.subarray(Math.max(0, joined.length - MAX_TAIL));
+    }
+  }
+
+  private line(raw: string): void {
+    const json = inspectSseLine(raw.replace(/\r$/, ''), this.found);
+    if (json !== undefined) this.outputText += roughTokens(deltaText(json));
+  }
+
+  /** Usage and model found, and the output tokens the streamed text amounts to. */
+  result(): { found: Found; streamedTokens: number } {
+    if (this.sse) {
+      if (!this.skipLine && this.pending !== '') this.line(this.pending + this.decoder.end());
+      this.pending = '';
+      return { found: this.found, streamedTokens: this.outputText };
+    }
+    const head = Buffer.concat(this.head).toString('utf8');
+    usageFromAnswer(this.contentType, head, this.found);
+    // The tail starts after the head ends only when the answer was larger than both together.
+    if (this.total > MAX_CAPTURE)
+      usageFromAnswer(this.contentType, this.tail.toString('utf8'), this.found);
+    return { found: this.found, streamedTokens: 0 };
+  }
+}
+
+/** A version or date after a model name: `-2024-07-18`, `-20241022`, `-001`, `-latest`. */
+const VERSION_SUFFIX = /^(?:\d[\d.-]*|latest)$/;
+
+/**
+ * The configured model of this provider for the first of `names` that names one: its upstream name
+ * or slug exactly, or a dated or versioned name of it (`gpt-4o-mini-2024-07-18`,
+ * `gemini-2.0-flash-001`, `models/…`), the longest matching name winning.
+ */
+export function findModel(
+  models: readonly ModelConfig[],
+  provider: Pick<ProviderConfig, 'id'>,
+  names: readonly (string | undefined)[],
+): ModelConfig | undefined {
+  const own = models.filter((m) => m.providerId === provider.id);
+  for (const name of names) {
+    if (!name) continue;
+    const bare = name.replace(/^models\//, '');
+    const exact = own.find((m) => m.upstreamModel === bare || m.slug === bare);
+    if (exact) return exact;
+    let best: ModelConfig | undefined;
+    for (const m of own) {
+      const prefix = `${m.upstreamModel}-`;
+      if (
+        m.upstreamModel !== '' &&
+        bare.startsWith(prefix) &&
+        VERSION_SUFFIX.test(bare.slice(prefix.length)) &&
+        (!best || m.upstreamModel.length > best.upstreamModel.length)
+      )
+        best = m;
+    }
+    if (best) return best;
+  }
+  return undefined;
+}
+
+/** The model a request names: the body's `model`, a Gemini path or an Azure deployment. */
+export function namedModel(requested: Record<string, unknown> | undefined, path: string) {
+  if (typeof requested?.model === 'string' && requested.model !== '') return requested.model;
+  const gemini = /\/models\/([^/:]+):[A-Za-z]+$/.exec(path);
+  if (gemini?.[1]) return decodeURIComponent(gemini[1]);
+  const azure = /\/deployments\/([^/]+)\//.exec(path);
+  return azure?.[1] ? decodeURIComponent(azure[1]) : undefined;
+}
+
+/** Provider types that speak OpenAI's chat and completions streams. */
+const OPENAI_STREAMS: readonly ProviderType[] = ['openai', 'azure-openai', 'openai-compatible'];
+
+/**
+ * An OpenAI-style stream carries usage only when `stream_options.include_usage` is set, so the
+ * body sent upstream asks for it, as the translated path always does (translator `openai.ts`).
+ * Returns the new body, and whether the client asked for usage itself (when it did not, the usage
+ * chunk is taken out of the stream it receives); undefined when nothing needs to change.
+ */
+export function withStreamUsage(
+  provider: Pick<ProviderConfig, 'type' | 'options'>,
+  path: string,
+  requested: Record<string, unknown> | undefined,
+  body: Buffer,
+): { body: Buffer; clientWantsUsage: false } | undefined {
+  if (requested?.stream !== true) return undefined;
+  if (!OPENAI_STREAMS.includes(provider.type) || protocolPresetOf(provider)) return undefined;
+  if (!/\/(?:chat\/)?completions$/.test(path)) return undefined;
+  if (record(requested.stream_options)?.include_usage === true) return undefined;
+  let json: Record<string, unknown> | undefined;
+  try {
+    json = record(JSON.parse(body.toString('utf8')));
+  } catch {
+    return undefined;
+  }
+  if (!json) return undefined;
+  json.stream_options = { ...record(json.stream_options), include_usage: true };
+  return { body: Buffer.from(JSON.stringify(json)), clientWantsUsage: false };
+}
+
+const EVENT_END = /\r?\n\r?\n/;
+
+/** Takes OpenAI's usage-only chunk (`choices: []` with `usage`) out of an SSE stream. */
+export function dropUsageChunks(): Transform {
+  const decoder = new StringDecoder('utf8');
+  let pending = '';
+  const keep = (event: string) => {
+    const data = event
+      .split(/\r?\n/)
+      .find((line) => line.startsWith('data:'))
+      ?.slice(5)
+      .trim();
+    if (!data || data === '[DONE]') return true;
+    try {
+      const json = record(JSON.parse(data));
+      return !(json?.usage && Array.isArray(json.choices) && json.choices.length === 0);
+    } catch {
+      return true;
+    }
+  };
+  return new Transform({
+    transform(chunk: Buffer, _encoding, callback) {
+      pending += decoder.write(chunk);
+      let out = '';
+      let end = EVENT_END.exec(pending);
+      while (end) {
+        const event = pending.slice(0, end.index + end[0].length);
+        pending = pending.slice(end.index + end[0].length);
+        if (keep(event)) out += event;
+        end = EVENT_END.exec(pending);
+      }
+      callback(null, out === '' ? undefined : out);
+    },
+    flush(callback) {
+      const rest = pending + decoder.end();
+      callback(null, rest !== '' && keep(rest) ? rest : undefined);
+    },
+  });
 }
 
 // ───────────── guardrails on raw JSON ─────────────
@@ -308,31 +590,143 @@ function sendError(reply: FastifyReply, error: DiRouterError, requestId: string)
   return reply.status(error.status).send(errorPayload('openai.chat', error, requestId));
 }
 
-/** A weighted pick among the provider's enabled credentials that health has not taken out. */
-function pickCredential(provider: ProviderConfig, deps: ProxyDeps) {
+/** The provider's enabled credentials that health has not taken out. */
+function usableCredentials(provider: ProviderConfig, deps: ProxyDeps): CredentialConfig[] {
   const health = deps.store.healthRegistry;
-  const usable = provider.credentials.filter(
+  return provider.credentials.filter(
     (c) => c.enabled && c.weight > 0 && health.credentialDisabledReason(c.id) === undefined,
   );
-  const total = usable.reduce((sum, c) => sum + c.weight, 0);
-  let roll = Math.random() * total;
-  for (const credential of usable) {
-    roll -= credential.weight;
-    if (roll < 0) return credential;
-  }
-  return usable[0];
 }
 
-function matchModel(
+/**
+ * The credential to call: the first in order for `fill-first` and `reset-aware` providers (the
+ * admission already put the one whose quota resets soonest first), else a weighted pick.
+ */
+function pickCandidate(provider: ProviderConfig, candidates: readonly Candidate[]) {
+  if (provider.credentialStrategy && provider.credentialStrategy !== 'weighted')
+    return candidates[0];
+  const total = candidates.reduce((sum, c) => sum + c.credential.weight, 0);
+  let roll = Math.random() * total;
+  for (const candidate of candidates) {
+    roll -= candidate.credential.weight;
+    if (roll < 0) return candidate;
+  }
+  return candidates[0];
+}
+
+/**
+ * The model a request without one counts against in admission: it matches no model scope, so
+ * only the key, request, provider and credential limits apply.
+ */
+function unnamedModel(provider: ProviderConfig): ModelConfig {
+  return {
+    id: `passthrough:${provider.id}`,
+    organizationId: provider.organizationId,
+    slug: `passthrough-${provider.slug}`,
+    providerId: provider.id,
+    upstreamModel: '',
+    enabled: true,
+    pricing: { inputPerMTok: '0', outputPerMTok: '0' },
+    capabilities: {
+      streaming: true,
+      tools: false,
+      vision: false,
+      reasoning: false,
+      jsonMode: false,
+      embeddings: false,
+    },
+  };
+}
+
+/** Of the provider's configured models, the one that charges the most for this usage. */
+function dearestModel(
   models: readonly ModelConfig[],
   provider: ProviderConfig,
-  name: string | undefined,
+  usage: CanonicalUsage,
 ): ModelConfig | undefined {
-  if (!name) return undefined;
-  const bare = name.replace(/^models\//, '');
-  return models.find(
-    (m) => m.providerId === provider.id && (m.upstreamModel === bare || m.slug === bare),
-  );
+  let best: { model: ModelConfig; cost: bigint } | undefined;
+  for (const model of models) {
+    if (model.providerId !== provider.id) continue;
+    const cost = computeCost(usage, model.pricing).total;
+    if (!best || cost > best.cost) best = { model, cost };
+  }
+  return best?.model;
+}
+
+interface EventBase {
+  requestId: string;
+  started: number;
+  key: VirtualKeyConfig;
+  provider: ProviderConfig;
+  requestedModel: string;
+  stream: boolean;
+}
+
+/** The fields of a pass-through usage event that do not depend on the answer. */
+function baseEvent(
+  deps: ProxyDeps,
+  config: { version: number },
+  e: EventBase,
+): Omit<
+  UsageEvent,
+  | 'resolvedModelId'
+  | 'credentialId'
+  | 'status'
+  | 'httpStatus'
+  | 'usage'
+  | 'costUsd'
+  | 'chargeUsd'
+  | 'usageEstimated'
+  | 'attempts'
+> {
+  return {
+    schemaVersion: USAGE_EVENT_SCHEMA_VERSION,
+    eventId: ulid(),
+    idempotencyKey: e.requestId,
+    requestId: e.requestId,
+    occurredAt: new Date(e.started).toISOString(),
+    gatewayInstance: deps.instance,
+    configVersion: config.version,
+    organizationId: e.key.organizationId,
+    teamId: e.key.teamId,
+    projectId: e.key.projectId,
+    virtualKeyId: e.key.id,
+    inboundApi: 'passthrough',
+    requestedModel: e.requestedModel,
+    providerId: e.provider.id,
+    stream: e.stream,
+    latencyMs: Date.now() - e.started,
+  };
+}
+
+/** The usage event of a request that failed before any provider was called. */
+function emitFailure(
+  deps: ProxyDeps,
+  config: { version: number },
+  e: EventBase & { slug: string; status: number; errorCode: string },
+): void {
+  const event: UsageEvent = {
+    ...baseEvent(deps, config, e),
+    resolvedModelId: null,
+    credentialId: null,
+    status: 'error',
+    httpStatus: e.status,
+    errorCode: e.errorCode,
+    usage: {
+      inputTokens: 0,
+      outputTokens: 0,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
+      reasoningTokens: 0,
+    },
+    costUsd: '0',
+    chargeUsd: '0.00000000',
+    usageEstimated: false,
+    attempts: [],
+  };
+  deps.metrics?.observe({ ...event, requestedModel: `passthrough:${e.slug}` });
+  deps.onRequestComplete?.(event);
+  deps.emitUsage(event);
 }
 
 export async function handlePassthrough(
@@ -451,6 +845,53 @@ export async function handlePassthrough(
       requested = undefined;
     }
 
+  // A request for a model must name one this provider has a price for: like the translated path,
+  // which refuses a model that is not configured, so a pass-through call is never billed as free.
+  const named = namedModel(requested, path);
+  const namedConfig = named ? findModel(config.snapshot.models, provider, [named]) : undefined;
+  if (named && !namedConfig)
+    return sendError(
+      reply,
+      new NotFoundError('model_not_found', {
+        message: `Model '${named.slice(0, 200)}' is not configured on provider '${slug}'`,
+        param: 'model',
+      }),
+      requestId,
+    );
+  const requestedModel = (named ?? `${slug}${path}`).slice(0, 200);
+
+  // The data policy (card 32.5) of the organization, project, key and request, applied to the one
+  // provider named; refused with the same error as the translated path.
+  let dataPolicy;
+  try {
+    dataPolicy = routingFromRequest(
+      config.snapshot.routingPolicies,
+      key,
+      requested ?? {},
+    ).dataPolicy;
+  } catch (error) {
+    return sendError(reply, error as DiRouterError, requestId);
+  }
+  const admissionModel = namedConfig ?? unnamedModel(provider);
+  const violation = dataPolicy ? dataPolicyViolation(provider, dataPolicy) : undefined;
+  if (violation) {
+    deps.logger.info(
+      { requestId, provider: provider.slug, dataPolicy, reason: violation },
+      'pass-through provider does not satisfy the data policy',
+    );
+    return sendError(
+      reply,
+      planErrorToClient(
+        {
+          error: 'no_provider_matches_data_policy',
+          skipped: [{ modelId: admissionModel.id, reason: violation }],
+        },
+        requestedModel,
+      ),
+      requestId,
+    );
+  }
+
   // Guardrails (card 15.1) on the string values of a JSON body; a blocked request never leaves.
   const policies = policiesFor(config.snapshot.guardrails, key);
   if (body && isJson && policies.length > 0) {
@@ -466,52 +907,67 @@ export async function handlePassthrough(
     body = guard.body;
   }
 
-  const requestedModel =
-    typeof requested?.model === 'string' && requested.model.length <= 200
-      ? requested.model
-      : `${slug}${path}`.slice(0, 200);
   const stream =
     requested?.stream === true || (req.headers.accept ?? '').includes('text/event-stream');
+  // An OpenAI-style stream asks for its usage, or it would be free.
+  const usageAsked = body ? withStreamUsage(provider, path, requested, body) : undefined;
+  if (usageAsked) body = usageAsked.body;
 
-  // Rate limits (RPM, and TPM on a rough estimate of the body) and budgets, as for chat.
-  const estimate = Math.ceil((body?.length ?? 0) / 4);
-  const admission = deps.limiter
-    ? await deps.limiter.acquire(limitScopes(config, key), estimate, requestId)
-    : undefined;
-  if (admission && !admission.ok) {
-    deps.metrics?.reject('rate_limit', admission.unavailable ? 'unavailable' : admission.kind);
+  const credentials = usableCredentials(provider, deps);
+  if (credentials.length === 0) {
+    emitFailure(deps, config, {
+      requestId,
+      started,
+      key,
+      provider,
+      requestedModel,
+      stream,
+      slug,
+      status: 503,
+      errorCode: 'no_credential',
+    });
+    return sendError(
+      reply,
+      new DiRouterError('service_unavailable', {
+        message: `Provider '${slug}' has no usable credential`,
+      }),
+      requestId,
+    );
+  }
+
+  // Rate limits and budgets (spend-guard.ts), as for chat: the provider's credentials are the
+  // candidates, so key, project, team, organization, member, end-user, tag, cost-center, model,
+  // provider and credential limits all apply (cards 6.1, 25.5, 32.6, 33.1-33.4), the end-user
+  // block too, and a used-up credential budget or quota window leaves the other credentials.
+  const attribution = requestAttribution(
+    req.headers,
+    requested?.user ?? record(requested?.metadata)?.user_id,
+    key,
+  );
+  const admission = await admitRequest(deps, {
+    config,
+    key,
+    candidates: credentials.map((credential) => ({
+      model: admissionModel,
+      provider,
+      credential,
+    })),
+    requested: requestedModel,
+    estimatedTokens: Math.ceil((body?.length ?? 0) / 4),
+    requestId,
+    attribution,
+  });
+  if (!admission.ok) {
+    deps.metrics?.reject(admission.metric.guard, admission.metric.reason);
     for (const [name, value] of Object.entries(admission.headers)) void reply.header(name, value);
-    return sendError(
-      reply,
-      new RateLimitError({
-        message: admission.unavailable
-          ? 'Rate limiter unavailable (fail-closed), retry shortly'
-          : `Rate limit exceeded for ${admission.scope.split(':')[0] ?? 'key'} (${admission.kind})`,
-        retryAfterMs: admission.retryAfterMs,
-      }),
-      requestId,
-    );
+    return sendError(reply, admission.error, requestId);
   }
-  const budgets = budgetScopes(config, key);
-  const budgetCheck = deps.budgets ? await deps.budgets.check(budgets) : { ok: true as const };
-  if (!budgetCheck.ok) {
-    admission?.settle(0);
-    admission?.release();
-    deps.metrics?.reject('budget', budgetCheck.unavailable ? 'unavailable' : budgetCheck.kind);
-    void reply.header(
-      'retry-after',
-      String(Math.max(1, Math.ceil((budgetCheck.resetAt.getTime() - Date.now()) / 1000))),
-    );
-    return sendError(
-      reply,
-      new DiRouterError('budget_exceeded', {
-        message: budgetCheck.unavailable
-          ? 'Budget check unavailable (fail-closed), retry shortly'
-          : `${budgetCheck.period === 'daily' ? 'Daily' : 'Monthly'} ${budgetCheck.scope} budget exceeded`,
-      }),
-      requestId,
-    );
+  const candidate = pickCandidate(provider, admission.candidates);
+  if (!candidate) {
+    admission.cancel();
+    return sendError(reply, new UpstreamError('no_available_provider'), requestId);
   }
+  const credential = candidate.credential;
 
   const clientGone = new AbortController();
   reply.raw.once('close', () => {
@@ -525,59 +981,68 @@ export async function handlePassthrough(
   const releaseKey = keyBulkhead ? await keyBulkhead.acquire(clientGone.signal) : () => undefined;
 
   let settled = false;
+  /** Prices, records and releases the request; runs once, whatever way it ends. */
   const finish = (outcome: {
     status: number;
     ok: boolean;
     errorCode?: string;
     credentialId: string | null;
     found?: Found;
+    /** Output tokens of the text streamed to the client, for an estimate. */
+    streamedTokens?: number;
+    /** The answer reached the client whole. */
+    complete?: boolean;
   }) => {
     if (settled) return;
     settled = true;
     const found = outcome.found ?? { usage: {} };
+    const streamed = outcome.streamedTokens ?? 0;
+    // Usage the answer does not report (a stream cut off, or one without usage) is estimated from
+    // the text streamed and the request body, like the translated path does.
+    let estimated = false;
+    let outputTokens = found.usage.outputTokens;
+    if (streamed > (outputTokens ?? 0) && (outputTokens === undefined || !outcome.complete)) {
+      outputTokens = streamed;
+      estimated = true;
+    }
+    let inputTokens = found.usage.inputTokens;
+    if (inputTokens === undefined && estimated) inputTokens = Math.ceil((body?.length ?? 0) / 4);
     const usage: CanonicalUsage = {
-      inputTokens: found.usage.inputTokens ?? 0,
-      outputTokens: found.usage.outputTokens ?? 0,
+      inputTokens: inputTokens ?? 0,
+      outputTokens: outputTokens ?? 0,
       cacheReadTokens: found.usage.cacheReadTokens ?? 0,
       cacheWriteTokens: found.usage.cacheWriteTokens ?? 0,
       reasoningTokens: found.usage.reasoningTokens ?? 0,
     };
-    const model = matchModel(
-      config.snapshot.models,
-      provider,
-      found.model ?? (typeof requested?.model === 'string' ? requested.model : undefined),
-    );
-    const costUsd = model ? computeCostUsd(usage, model.pricing) : '0';
-    const charged = model
-      ? chargeUsd(usage, model, { groupMultiplier: key.priceMultiplier })
-      : '0.00000000';
     const tokens = usage.inputTokens + usage.outputTokens;
+    // The model the request named first, then the one the answer names (a dated version too).
+    const model = findModel(config.snapshot.models, provider, [named, found.model]);
+    // Usage for a model nobody configured is priced at the provider's dearest model, never free.
+    const priced =
+      model ?? (tokens > 0 ? dearestModel(config.snapshot.models, provider, usage) : undefined);
+    if (!model && tokens > 0)
+      deps.logger.warn(
+        { requestId, provider: provider.slug, answeredModel: found.model, pricedAs: priced?.id },
+        priced
+          ? 'pass-through usage for an unconfigured model, priced at the dearest model of the provider'
+          : 'pass-through usage on a provider without configured models is not priced',
+      );
+    const costUsd = priced ? computeCostUsd(usage, priced.pricing) : '0';
+    const charged = priced
+      ? chargeUsd(usage, priced, { groupMultiplier: key.priceMultiplier })
+      : '0.00000000';
     const event: UsageEvent = {
-      schemaVersion: USAGE_EVENT_SCHEMA_VERSION,
-      eventId: ulid(),
-      idempotencyKey: requestId,
-      requestId,
-      occurredAt: new Date(started).toISOString(),
-      gatewayInstance: deps.instance,
-      configVersion: config.version,
-      organizationId: key.organizationId,
-      teamId: key.teamId,
-      projectId: key.projectId,
-      virtualKeyId: key.id,
-      inboundApi: 'passthrough',
-      requestedModel,
+      ...baseEvent(deps, config, { requestId, started, key, provider, requestedModel, stream }),
+      ...attributionFields(attribution),
       resolvedModelId: model?.id ?? null,
-      providerId: provider.id,
       credentialId: outcome.credentialId,
-      stream,
       status: outcome.ok ? 'success' : 'error',
       httpStatus: outcome.status,
       ...(outcome.errorCode ? { errorCode: outcome.errorCode } : {}),
       usage,
       costUsd,
       chargeUsd: charged,
-      usageEstimated: false,
-      latencyMs: Date.now() - started,
+      usageEstimated: estimated,
       attempts: outcome.credentialId
         ? [
             {
@@ -599,9 +1064,13 @@ export async function handlePassthrough(
     deps.emitUsage(event);
     deps.lifecycle?.signal.removeEventListener('abort', onShutdown);
     releaseKey?.();
-    admission?.settle(tokens);
-    admission?.release();
-    deps.budgets?.record(budgets, costUsd, tokens);
+    admission.finish({
+      tokens,
+      inputTokens: usage.inputTokens,
+      outputTokens: usage.outputTokens,
+      costUsd,
+      candidate,
+    });
     deps.logger.info(
       { requestId, provider: provider.slug, method, path, status: outcome.status },
       'passthrough request',
@@ -610,8 +1079,7 @@ export async function handlePassthrough(
 
   if (!releaseKey) {
     deps.lifecycle?.signal.removeEventListener('abort', onShutdown);
-    admission?.settle(0);
-    admission?.release();
+    admission.cancel();
     deps.metrics?.reject('concurrency', 'key');
     return sendError(
       reply,
@@ -623,17 +1091,6 @@ export async function handlePassthrough(
     );
   }
 
-  const credential = pickCredential(provider, deps);
-  if (!credential) {
-    finish({ status: 503, ok: false, errorCode: 'no_credential', credentialId: null });
-    return sendError(
-      reply,
-      new DiRouterError('service_unavailable', {
-        message: `Provider '${slug}' has no usable credential`,
-      }),
-      requestId,
-    );
-  }
   const settings = config.snapshot.settings;
   const proxyUrl = credential.proxy?.url ?? provider.proxy?.url ?? settings.proxy?.url;
   let apiKey: string;
@@ -733,7 +1190,7 @@ export async function handlePassthrough(
       );
     }
     call.done();
-    const found = usageFromAnswer(answerType, text.subarray(0, MAX_CAPTURE).toString('utf8'));
+    const found = usageFromAnswer(answerType, text.toString('utf8'));
     const guard = guardJson(policies, 'response', text);
     if ('blocked' in guard) {
       finish({
@@ -764,38 +1221,51 @@ export async function handlePassthrough(
     });
     return reply.send();
   }
-  const captured: Buffer[] = [];
-  let capturedBytes = 0;
+  const meter = new AnswerMeter(answerType);
   const source = Readable.fromWeb(upstreamBody);
+  let ended = false;
+  let failure: Error | undefined;
   source.on('data', (chunk: Buffer) => {
     call.touch();
-    if (capturedBytes < MAX_CAPTURE) {
-      captured.push(chunk.subarray(0, MAX_CAPTURE - capturedBytes));
-      capturedBytes += Math.min(chunk.length, MAX_CAPTURE - capturedBytes);
-    }
+    meter.push(chunk);
   });
-  const done = (failed?: Error) => {
-    call.done();
-    const found = usageFromAnswer(answerType, Buffer.concat(captured).toString('utf8'));
-    finish({
-      status: failed ? 502 : status,
-      ok: ok && !failed,
-      ...(failed
-        ? { errorCode: failed instanceof UpstreamTimeout ? 'timeout' : 'connection' }
-        : ok
-          ? {}
-          : { errorCode: `http_${String(status)}` }),
-      credentialId: credential.id,
-      found,
-    });
-  };
   source.once('end', () => {
-    done();
+    ended = true;
   });
   source.once('error', (error) => {
-    done(error);
+    failure = error;
   });
-  return reply.send(source);
+  // The usage chunk the gateway asked for is not the client's, unless it asked for it too.
+  const out =
+    usageAsked && answerType.includes('text/event-stream')
+      ? pipeline(source, dropUsageChunks(), () => undefined)
+      : source;
+  // 'close' comes last however the stream ends: after 'end', after an upstream error, and when the
+  // client goes away (Fastify destroys the stream without an error). Billing and every release
+  // happen there, exactly once, for what was streamed so far.
+  out.once('close', () => {
+    call.done();
+    const { found, streamedTokens } = meter.result();
+    const gone = !ended && (clientGone.signal.aborted || !failure);
+    finish({
+      status: gone ? 499 : failure ? 502 : status,
+      ok: ok && ended && !failure,
+      ...(gone
+        ? {
+            errorCode: deps.lifecycle?.signal.aborted ? 'shutdown' : 'client_disconnected',
+          }
+        : failure
+          ? { errorCode: failure instanceof UpstreamTimeout ? 'timeout' : 'connection' }
+          : ok
+            ? {}
+            : { errorCode: `http_${String(status)}` }),
+      credentialId: credential.id,
+      found,
+      streamedTokens,
+      complete: ended && !failure,
+    });
+  });
+  return reply.send(out);
 }
 
 /**
