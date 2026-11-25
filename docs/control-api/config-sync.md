@@ -1,5 +1,3 @@
-[English](config-sync.md) · [فارسی](config-sync.fa.md)
-
 # Config Snapshot and gateway synchronization
 
 Code: `apps/control-api/src/snapshot` and `apps/gateway/src/config-store.ts` · cards 3.9 and 4.2

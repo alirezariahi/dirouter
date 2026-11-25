@@ -1,5 +1,3 @@
-[English](deploy-ha.md) · [فارسی](deploy-ha.fa.md)
-
 # High-availability deployment (card 17.3)
 
 > Files: [`compose.ha.yaml`](../compose.ha.yaml), `deploy/ha/postgres/`, `deploy/ha/valkey/`, `scripts/backup/`. Read [deploy-production.md](deploy-production.md) first; this page only covers what the HA overlay adds.

@@ -1,5 +1,3 @@
-[English](observability.md) · [فارسی](observability.fa.md)
-
 # Observability and correlation
 
 This document is the contract for cards 8.1 and 8.2. The gateway, control-api and worker expose Prometheus text output at `GET /metrics`. The endpoints are on the same port as the service (`8080`, `3000` and `3100` in compose). In production, scraping must be done only from the internal network; these endpoints should generally not be published through Traefik.

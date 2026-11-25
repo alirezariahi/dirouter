@@ -1,5 +1,3 @@
-[English](web-search.md) · [فارسی](web-search.fa.md)
-
 # Web search and web fetch (card 30.8)
 
 The gateway offers web search and page fetching as a service, so any model can work with current

@@ -1,5 +1,3 @@
-[English](feature-comparison.md) · [فارسی](feature-comparison.fa.md)
-
 # DiRouter — competitor comparison, feature inventory, and architecture proposal
 
 > Research date: 2026-11-07.

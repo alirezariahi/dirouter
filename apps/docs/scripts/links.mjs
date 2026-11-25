@@ -2,7 +2,7 @@
 
 /**
  * Site-internal targets of href and src attributes in a page served at `pageUrl` (e.g.
- * `/fa/ci/`): absolute paths as they are, relative ones resolved against the page, both without
+ * `/security/pentest/`): absolute paths as they are, relative ones resolved against the page, both without
  * query or anchor. External links and in-page anchors are skipped.
  */
 export function internalLinks(html, pageUrl = '/') {

@@ -1,5 +1,3 @@
-[English](perplexity.md) · [فارسی](perplexity.fa.md)
-
 # Perplexity
 
 > Card 31.6.

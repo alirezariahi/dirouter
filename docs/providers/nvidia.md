@@ -1,5 +1,3 @@
-[English](nvidia.md) · [فارسی](nvidia.fa.md)
-
 # NVIDIA NIM
 
 > Card 31.6.

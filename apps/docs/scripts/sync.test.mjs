@@ -7,33 +7,29 @@ import { contentFile, REPOSITORY, rewriteLink, sitePath, toPage } from './sync-l
 
 const known = new Set([
   'docs/README.md',
-  'docs/README.fa.md',
   'docs/ci.md',
-  'docs/ci.fa.md',
   'docs/security/threat-model.md',
-  'docs/security/threat-model.fa.md',
   'docs/user-guide/README.md',
   'adr/0007-data-plane-stays-on-node.md',
 ]);
 
 describe('page paths', () => {
-  it('maps docs/ to the root, adr/ to /decisions, README to the index and .fa to /fa', () => {
+  it('maps docs/ to the root, adr/ to /decisions, and README to the index', () => {
     expect(sitePath('docs/README.md')).toBe('');
     expect(sitePath('docs/CONTRIBUTING.md')).toBe('contributing');
-    expect(sitePath('docs/security/threat-model.fa.md')).toBe('security/threat-model');
+    expect(sitePath('docs/security/threat-model.md')).toBe('security/threat-model');
     expect(sitePath('adr/0007-data-plane-stays-on-node.md')).toBe(
       'decisions/0007-data-plane-stays-on-node',
     );
     expect(sitePath('apps/gateway/README.md')).toBeUndefined();
-    expect(contentFile('docs/README.fa.md')).toBe('fa/index.md');
+    expect(contentFile('docs/README.md')).toBe('index.md');
     expect(contentFile('docs/ci.md')).toBe('ci.md');
   });
 });
 
 describe('links', () => {
-  it('turns document links into site URLs, keeping the language and the anchor', () => {
+  it('turns document links into site URLs, keeping the anchor', () => {
     expect(rewriteLink('ci.md#stages', 'docs/README.md', known)).toBe('/ci/#stages');
-    expect(rewriteLink('ci.fa.md', 'docs/README.fa.md', known)).toBe('/fa/ci/');
     expect(
       rewriteLink(
         '../../adr/0007-data-plane-stays-on-node.md',
@@ -52,11 +48,9 @@ describe('links', () => {
     expect(rewriteLink('#local', 'docs/ci.md', known)).toBe('#local');
   });
 
-  it('builds a page: title from the H1, no language switch, links rewritten, code untouched', () => {
+  it('builds a page: title from the H1, links rewritten, code untouched', () => {
     const page = toPage(
       [
-        '[English](ci.md) · [فارسی](ci.fa.md)',
-        '',
         '# CI "pipeline"',
         '',
         'See [`plan.mjs`](../scripts/ci/plan.mjs) and [the threat model](security/threat-model.md).',
@@ -69,7 +63,6 @@ describe('links', () => {
       known,
     );
     expect(page).toContain('title: "CI \\"pipeline\\""');
-    expect(page).not.toContain('[English]');
     expect(page).not.toContain('# CI');
     expect(page).toContain(`[\`plan.mjs\`](${REPOSITORY}/scripts/ci/plan.mjs)`);
     expect(page).toContain('[the threat model](/security/threat-model/)');
@@ -88,14 +81,14 @@ describe('link check', () => {
       '/favicon.svg',
       '/security/threat-model/',
     ]);
-    expect(pageUrlOf('/fa/ci/index.html')).toBe('/fa/ci/');
+    expect(pageUrlOf('/ci/index.html')).toBe('/ci/');
     expect(resolveTarget('/ci/')).toEqual(['ci/index.html']);
     expect(resolveTarget('/favicon.svg')).toContain('favicon.svg');
   });
 });
 
 describe('API reference', () => {
-  it('lists operations by tag with their body fields, in both languages', () => {
+  it('lists operations by tag with their body fields', () => {
     const doc = {
       info: { version: '1.0.0' },
       paths: {
@@ -114,12 +107,11 @@ describe('API reference', () => {
         schemas: { K: { properties: { name: {}, projectId: {} }, required: ['name'] } },
       },
     };
-    const en = apiReference(doc, 'en');
+    const en = apiReference(doc);
     expect(en).toContain('title: "Control API reference (1.0.0)"');
     expect(en).toContain('## keys');
     expect(en).toContain(
       '| `POST` | `/api/v1/orgs/{orgId}/keys` | Create \\| a key | `name`*, `projectId` |',
     );
-    expect(apiReference(doc, 'fa')).toContain('مرجع API کنترل');
   });
 });

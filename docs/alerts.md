@@ -1,5 +1,3 @@
-[English](alerts.md) · [فارسی](alerts.fa.md)
-
 # Alerts and notification channels (cards 16.2 and 24.2)
 
 > Code: `apps/worker/src/alerts.ts` (evaluation and delivery), `apps/control-api/src/alerts` (CRUD and test message). Dashboard: **Alerts**.

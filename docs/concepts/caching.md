@@ -1,5 +1,3 @@
-[English](caching.md) · [فارسی](caching.fa.md)
-
 # Caching and token savings
 
 > Code: `apps/gateway/src/{cache,compress}.ts`, `apps/control-api/src/semantic-cache` (cards 13.1 to 13.3). Everything here is **off by default** and is switched on in the gateway settings (`PUT /orgs/:orgId/config/settings`, see [routing.md](routing.md#gateway-wide-settings)).

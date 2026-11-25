@@ -5,28 +5,15 @@
 const METHODS = ['get', 'post', 'put', 'patch', 'delete'];
 
 const TEXT = {
-  en: {
-    title: 'Control API reference',
-    intro:
-      'Generated from the OpenAPI document the control-api exports (`apps/dashboard/openapi.json`). All paths are under the API origin, for example `https://admin.example.com`.',
-    operations: 'operations',
-    method: 'Method',
-    path: 'Path',
-    about: 'Description',
-    body: 'Body fields',
-    untagged: 'Other',
-  },
-  fa: {
-    title: 'مرجع API کنترل',
-    intro:
-      'این صفحه از سند OpenAPI که control-api صادر می‌کند (`apps/dashboard/openapi.json`) ساخته می‌شود. همهٔ مسیرها زیر نشانی API هستند، مثلاً `https://admin.example.com`.',
-    operations: 'عملیات',
-    method: 'متد',
-    path: 'مسیر',
-    about: 'توضیح',
-    body: 'فیلدهای بدنه',
-    untagged: 'سایر',
-  },
+  title: 'Control API reference',
+  intro:
+    'Generated from the OpenAPI document the control-api exports (`apps/dashboard/openapi.json`). All paths are under the API origin, for example `https://admin.example.com`.',
+  operations: 'operations',
+  method: 'Method',
+  path: 'Path',
+  about: 'Description',
+  body: 'Body fields',
+  untagged: 'Other',
 };
 
 const escape = (value) =>
@@ -58,8 +45,8 @@ function bodyFields(operation, doc) {
     .join(', ');
 }
 
-export function apiReference(doc, locale = 'en') {
-  const t = TEXT[locale];
+export function apiReference(doc) {
+  const t = TEXT;
   const groups = new Map();
   for (const [path, item] of Object.entries(doc.paths ?? {})) {
     for (const method of METHODS) {

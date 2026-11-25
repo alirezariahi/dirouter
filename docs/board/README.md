@@ -1,5 +1,3 @@
-[English](README.md) · [فارسی](README.fa.md)
-
 # DiRouter board (DiTask)
 
 > This file is generated automatically from `tools/board/build_board.py`; do not edit it by hand.

@@ -1,5 +1,3 @@
-[English](database.md) · [فارسی](database.fa.md)
-
 # Database
 
 Code: `packages/db` (Prisma 6, PostgreSQL 17) · cards 3.1 and 3.2

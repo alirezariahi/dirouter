@@ -1,5 +1,3 @@
-[English](fireworks.md) · [فارسی](fireworks.fa.md)
-
 # Fireworks AI
 
 | Field                        | Value                                   |

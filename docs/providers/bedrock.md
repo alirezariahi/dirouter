@@ -1,5 +1,3 @@
-[English](bedrock.md) · [فارسی](bedrock.fa.md)
-
 # AWS Bedrock (card 11.3)
 
 | Field             | Value                                                                                                                                       |

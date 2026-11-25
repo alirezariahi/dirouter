@@ -2,7 +2,7 @@
   "name": "@dirouter/translator",
   "version": "1.1.0",
   "private": true,
-  "description": "ترجمهٔ درخواست و پاسخ بین APIهای OpenAI و Anthropic از طریق مدل canonical",
+  "description": "Request and response translation between the OpenAI and Anthropic APIs through a canonical model",
   "type": "module",
   "sideEffects": false,
   "exports": {

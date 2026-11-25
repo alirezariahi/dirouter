@@ -1,5 +1,3 @@
-[English](routing-policies.md) · [فارسی](routing-policies.fa.md)
-
 # Routing policies
 
 > Code: `packages/routing` (`rules-expr.ts`, `rules.ts`), the gateway stage in

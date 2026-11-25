@@ -1,5 +1,3 @@
-[English](providers.md) · [فارسی](providers.fa.md)
-
 # Provider and credential management
 
 Code: `apps/control-api/src/providers` and `apps/gateway/src/probe.ts` · card 3.6

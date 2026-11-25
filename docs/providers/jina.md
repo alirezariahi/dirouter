@@ -1,5 +1,3 @@
-[English](jina.md) · [فارسی](jina.fa.md)
-
 # Jina AI (card 11.4)
 
 | Field          | Value                         |

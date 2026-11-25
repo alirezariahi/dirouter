@@ -1,5 +1,3 @@
-[English](cohere.md) · [فارسی](cohere.fa.md)
-
 # Cohere (card 11.3)
 
 | Field           | Value                             |

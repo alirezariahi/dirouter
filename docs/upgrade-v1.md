@@ -1,5 +1,3 @@
-[English](upgrade-v1.md) · [فارسی](upgrade-v1.fa.md)
-
 # Upgrading to v1.0
 
 From any 0.x installation, including the MVP (end of sprint 1), to 1.0.0. The upgrade is tested in

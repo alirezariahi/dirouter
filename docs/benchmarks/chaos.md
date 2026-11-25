@@ -1,5 +1,3 @@
-[English](chaos.md) · [فارسی](chaos.fa.md)
-
 # Chaos test (card 18.1)
 
 > Script: [`scripts/chaos/run.mjs`](../../scripts/chaos/run.mjs) · `make chaos` · `pnpm test:chaos`

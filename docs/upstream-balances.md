@@ -1,5 +1,3 @@
-[English](upstream-balances.md) · [فارسی](upstream-balances.fa.md)
-
 # Upstream balances and scheduled channel tests (card 32.9)
 
 Know that a provider account is running out of credit before requests start failing, and notice

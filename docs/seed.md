@@ -1,5 +1,3 @@
-[English](seed.md) · [فارسی](seed.fa.md)
-
 # Seed and sample data
 
 Code: `apps/control-api/src/seed.ts` · Card 3.11

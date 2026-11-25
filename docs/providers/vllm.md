@@ -1,5 +1,3 @@
-[English](vllm.md) · [فارسی](vllm.fa.md)
-
 # vLLM
 
 | Field                        | Value                      |

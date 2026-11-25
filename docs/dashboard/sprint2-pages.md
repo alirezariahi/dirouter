@@ -1,5 +1,3 @@
-[English](sprint2-pages.md) · [فارسی](sprint2-pages.fa.md)
-
 # Dashboard pages added in Sprint 2
 
 > Code: `apps/dashboard/src/pages/{cost,analytics,live,simulator,playground,guardrails,alerts,security,config}.tsx`, shared pieces in `components/s2`, pure helpers in `lib/s2-helpers.ts`, messages in `i18n/s2`. All pages are Persian (RTL) and English, lazy-loaded, and use the global time range where a range applies.

@@ -1,5 +1,3 @@
-[English](xai.md) · [فارسی](xai.fa.md)
-
 # xAI
 
 | Field                        | Value                              |

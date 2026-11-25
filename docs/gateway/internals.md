@@ -1,5 +1,3 @@
-[English](internals.md) · [فارسی](internals.fa.md)
-
 # Gateway internal structure and request lifecycle
 
 Code: `apps/gateway/src` · card 4.1

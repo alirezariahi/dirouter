@@ -1,5 +1,3 @@
-[English](watsonx.md) · [فارسی](watsonx.fa.md)
-
 # IBM watsonx.ai
 
 > Card 31.6.

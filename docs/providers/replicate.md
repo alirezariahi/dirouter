@@ -1,5 +1,3 @@
-[English](replicate.md) · [فارسی](replicate.fa.md)
-
 # Replicate
 
 > Card 31.6.

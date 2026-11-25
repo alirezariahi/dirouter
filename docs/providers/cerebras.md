@@ -1,5 +1,3 @@
-[English](cerebras.md) · [فارسی](cerebras.fa.md)
-
 # Cerebras
 
 | Field                        | Value                              |

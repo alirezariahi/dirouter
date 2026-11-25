@@ -1,5 +1,3 @@
-[English](release.md) · [فارسی](release.fa.md)
-
 # Releasing
 
 DiRouter follows [semantic versioning](https://semver.org) and versions all of its packages

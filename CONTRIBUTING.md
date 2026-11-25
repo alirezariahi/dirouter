@@ -1,5 +1,3 @@
-[English](CONTRIBUTING.md) · [فارسی](CONTRIBUTING.fa.md)
-
 <p align="center">
   <img src="assets/contributing-flow.svg" alt="Contribution flow" width="100%" />
 </p>
@@ -8,7 +6,7 @@
 
 This guide explains how to set up a development environment, write code that matches the repository, commit changes, open a pull request, and pass review. It is the single source of truth for contributor rules. Architecture decisions live in the [ADRs](adr/README.md), domain terms in the [glossary](GLOSSARY.md), and the CI pipeline in [CI.md](CI.md).
 
-> **Important:** every change must keep code, comments, and documentation consistent. Documentation is bilingual: each document exists as an English `.md` file and a Persian `.fa.md` file; see [Documentation policy](#documentation-policy).
+> **Important:** every change must keep code, comments, and documentation consistent. Documentation is English only; see [Documentation policy](#documentation-policy).
 
 ## Contents
 
@@ -419,40 +417,21 @@ Guidelines:
 
 ## Documentation policy
 
-Every document exists in two separate files: an English file and a Persian file whose name ends in `.fa.md`. The language links at the top of each file switch between them.
-
-| English file      | Persian file         |
-| ----------------- | -------------------- |
-| `README.md`       | `README.fa.md`       |
-| `docs/runbook.md` | `docs/runbook.fa.md` |
-| `adr/0001-*.md`   | `adr/0001-*.fa.md`   |
+All documentation is written in English. Do not add translated copies of documents (such as `.fa.md` files) or Persian sections to any document.
 
 | Location                | Language content                                |
 | ----------------------- | ----------------------------------------------- |
-| Root Markdown files     | Separate `.md` and `.fa.md` files               |
-| `adr/`                  | Separate `.md` and `.fa.md` files per record    |
-| `docs/`                 | Separate `.md` and `.fa.md` files per guide     |
+| Root Markdown files     | English only                                    |
+| `adr/`                  | English only                                    |
+| `docs/`                 | English only                                    |
 | Code comments           | English only                                    |
 | Product UI and messages | Persian and English, as required by the product |
 
 Rules:
 
-1. Update the English file and the Persian file in the same change. A change that updates one language only is incomplete.
-2. Keep the pair aligned: the same headings, the same commands, the same tables, and the same diagrams.
-3. Keep technical identifiers exactly as written in both files: file paths, commands, environment variable names, JSON keys, and error codes.
-4. Persian files use formal technical Persian and keep established technical terms in Latin script (Gateway, Provider, snapshot).
-5. Persian files use `.fa.md`; never add a Persian section to the bottom of an English file.
-6. When you add a new document, add both files and keep the language links working.
-7. Private competitor research, sprint plans, board exports, generator scripts, and local verification notes do not belong in the repository.
-
-```mermaid
-flowchart LR
-  change["Code or behavior changes"] --> en["Update README.md"]
-  change --> fa["Update README.fa.md"]
-  en --> check["Same headings, commands, tables"]
-  fa --> check
-  check --> ok["Documentation complete"]
-```
+1. Update the documentation in the same change as the code or behavior it describes.
+2. Keep technical identifiers exactly as written: file paths, commands, environment variable names, JSON keys, and error codes.
+3. Private competitor research, sprint plans, board exports, generator scripts, and local verification notes do not belong in the repository.
 
 ## 15. Pull request description and review
 
@@ -463,7 +442,7 @@ Reviewers check, in this order:
 3. **Money and limits:** no floating-point money; limits and budgets fail safely.
 4. **Errors:** codes are stable and documented.
 5. **Observability:** logs use `createLogger`, redact secrets, and metrics are updated where relevant.
-6. **Documentation:** both language sections are updated; env docs match the source.
+6. **Documentation:** the English documentation is updated; env docs match the source.
 
 ## 16. Architecture rules you must not break
 
@@ -489,7 +468,7 @@ Copy this into your pull request description and tick each item.
 - [ ] Error codes are stable; new codes are documented.
 - [ ] Environment variables are in `.env.example` and `docs/env-reference.md`.
 - [ ] Code comments are in English.
-- [ ] English `.md` and Persian `.fa.md` documentation files are both updated.
+- [ ] Documentation is updated (English only).
 - [ ] Migrations are additive or have a rollback plan.
 
 ## 18. Troubleshooting

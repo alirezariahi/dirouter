@@ -23,7 +23,7 @@
   "panels": [
     {
       "id": 1,
-      "title": "Gateway درخواست/ثانیه",
+      "title": "Gateway requests/second",
       "type": "stat",
       "datasource": {
         "type": "prometheus",
@@ -58,7 +58,7 @@
             "uid": "prometheus"
           },
           "expr": "sum(rate(dirouter_gateway_requests_total[5m]))",
-          "legendFormat": "درخواست‌ها",
+          "legendFormat": "Requests",
           "refId": "A",
           "range": true
         }
@@ -66,7 +66,7 @@
     },
     {
       "id": 2,
-      "title": "نرخ خطای Gateway",
+      "title": "Gateway error rate",
       "type": "stat",
       "datasource": {
         "type": "prometheus",
@@ -101,7 +101,7 @@
             "uid": "prometheus"
           },
           "expr": "sum(rate(dirouter_gateway_requests_total{status=\"error\"}[5m])) / clamp_min(sum(rate(dirouter_gateway_requests_total[5m])),0.000001)",
-          "legendFormat": "خطا",
+          "legendFormat": "Errors",
           "refId": "A",
           "range": true
         }
@@ -109,7 +109,7 @@
     },
     {
       "id": 3,
-      "title": "Streamهای باز",
+      "title": "Open streams",
       "type": "stat",
       "datasource": {
         "type": "prometheus",
@@ -152,7 +152,7 @@
     },
     {
       "id": 4,
-      "title": "Backlog صف usage",
+      "title": "Usage queue backlog",
       "type": "stat",
       "datasource": {
         "type": "prometheus",
@@ -195,7 +195,7 @@
     },
     {
       "id": 5,
-      "title": "نرخ درخواست بر اساس وضعیت",
+      "title": "Request rate by status",
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
@@ -239,7 +239,7 @@
     },
     {
       "id": 6,
-      "title": "p95 و p99 latency",
+      "title": "p95 and p99 latency",
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
@@ -293,7 +293,7 @@
     },
     {
       "id": 7,
-      "title": "خطا بر اساس provider",
+      "title": "Errors by provider",
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
@@ -381,7 +381,7 @@
     },
     {
       "id": 9,
-      "title": "رویدادهای باقی‌مانده در outbox",
+      "title": "Pending outbox events",
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
@@ -425,7 +425,7 @@
     },
     {
       "id": 10,
-      "title": "طول صف‌های BullMQ",
+      "title": "BullMQ queue lengths",
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
@@ -469,7 +469,7 @@
     },
     {
       "id": 11,
-      "title": "نتیجهٔ jobهای worker",
+      "title": "Worker job outcomes",
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
@@ -513,7 +513,7 @@
     },
     {
       "id": 12,
-      "title": "درخواست‌های مدیریتی control-api",
+      "title": "control-api management requests",
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
@@ -557,7 +557,7 @@
     },
     {
       "id": 13,
-      "title": "Traefik: نرخ پاسخ بر اساس کد",
+      "title": "Traefik: response rate by code",
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
@@ -601,7 +601,7 @@
     },
     {
       "id": 14,
-      "title": "سلامت جمع‌آوری متریک‌های صف",
+      "title": "Queue metric collection health",
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
@@ -657,7 +657,7 @@
   },
   "timepicker": {},
   "timezone": "browser",
-  "title": "DiRouter — نمای عملیاتی",
+  "title": "DiRouter — Operations overview",
   "uid": "dirouter-overview",
   "version": 1
 }

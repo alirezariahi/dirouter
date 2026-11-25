@@ -1,5 +1,3 @@
-[English](CONTRIBUTING.md) · [فارسی](CONTRIBUTING.fa.md)
-
 # Contributing (guide index)
 
 The full contributor guide is [CONTRIBUTING.md](../CONTRIBUTING.md). This page exists so that the documentation index under `docs/` links to it.

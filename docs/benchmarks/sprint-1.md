@@ -1,5 +1,3 @@
-[English](sprint-1.md) · [فارسی](sprint-1.fa.md)
-
 # Sprint 1 — baseline load benchmark
 
 Run date: 2026-11-08, on the local macOS/Docker Desktop development host.

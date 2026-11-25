@@ -1,5 +1,3 @@
-[English](errors.md) · [فارسی](errors.fa.md)
-
 # Upstream error classification
 
 > Code: `packages/providers/src/errors.ts` (card 5.2). The behavior of each class is fixed in the code itself; config can only make fallback **more restrictive** (`combo.fallbackOn`), not looser.

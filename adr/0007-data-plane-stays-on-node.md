@@ -1,5 +1,3 @@
-[English](0007-data-plane-stays-on-node.md) · [فارسی](0007-data-plane-stays-on-node.fa.md)
-
 # ADR-0007: The data plane stays on Node for v1, scaled out per replica
 
 - **Status:** Accepted

@@ -1,5 +1,3 @@
-[English](README.md) · [فارسی](README.fa.md)
-
 # Providers
 
 | Type (`type`)       | Adapter                                          | Document                                                                                                                                                                                                                                                                                                                                                                                                                                             |

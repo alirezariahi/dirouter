@@ -104,12 +104,12 @@ const BalanceView = z.object({
 const CredentialView = z.object({
   id: z.string(),
   name: z.string(),
-  secret: z.string().describe('فقط ••••last4؛ secret واقعی هرگز برنمی‌گردد'),
+  secret: z.string().describe('Only ••••last4; the real secret is never returned'),
   balance: BalanceView.nullable(),
   weight: z.int(),
   status: z.enum(['ACTIVE', 'DISABLED']),
   cooldownUntil: z.string().nullable(),
-  headers: z.array(z.string()).describe('فقط نام هدرها'),
+  headers: z.array(z.string()).describe('Header names only'),
   proxyUrl: z.string().nullable(),
 });
 const ProviderView = z.object({
@@ -241,7 +241,7 @@ export class ProvidersController {
   @Patch(':id/credentials/:credentialId')
   @RequirePermission('providers:write')
   @ApiZodBody(CredentialPatch)
-  @ApiZodOk(ProviderView, 'با secret تازه، کلید چرخانده می‌شود')
+  @ApiZodOk(ProviderView, 'With a new secret, the key is rotated')
   updateCredential(
     @Org() org: OrgContext,
     @Param('id') id: string,
@@ -267,7 +267,10 @@ export class ProvidersController {
   @HttpCode(200)
   @RequirePermission('providers:write')
   @ApiZodBody(z.object({ credentialId: z.string().optional() }))
-  @ApiZodOk(TestResult, 'نتیجه و latency تست اتصال (فراخوانی /models از گیت‌وی)')
+  @ApiZodOk(
+    TestResult,
+    'Result and latency of the connection test (calls /models through the gateway)',
+  )
   test(
     @Org() org: OrgContext,
     @Param('id') id: string,
@@ -281,7 +284,7 @@ export class ProvidersController {
   @RequirePermission('providers:write')
   @ApiZodOk(
     ProviderView,
-    'موجودی حساب upstream هر credential همین حالا از provider خوانده و ذخیره می‌شود',
+    'The upstream account balance of each credential is read from the provider now and stored',
   )
   refreshBalance(@Org() org: OrgContext, @Param('id') id: string) {
     return this.providers.refreshBalance(org, id);
@@ -290,7 +293,7 @@ export class ProvidersController {
   @Post(':id/discover')
   @HttpCode(200)
   @RequirePermission('providers:write')
-  @ApiZodOk(DiscoverResult, 'مدل‌های upstream؛ مدل‌های تازه با suggested=true')
+  @ApiZodOk(DiscoverResult, 'Upstream models; new models have suggested=true')
   discover(@Org() org: OrgContext, @Param('id') id: string) {
     return this.providers.discover(org, id);
   }

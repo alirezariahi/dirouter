@@ -1,5 +1,3 @@
-[English](0005-bullmq-event-queue.md) · [فارسی](0005-bullmq-event-queue.fa.md)
-
 # ADR-0005: BullMQ for the event queue
 
 - **Status:** Accepted

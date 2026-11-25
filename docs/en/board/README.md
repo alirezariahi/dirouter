@@ -1,14 +1,10 @@
-[English](README.md) · [فارسی](README.fa.md)
-
 # DiRouter delivery plan (DiTask)
 
 > Local-only English translation of the original 2026-11-07 planning snapshot. This is a plan, not a completion report. The [live DiTask board](https://ditask.ir/b/cmw5uvrbk003d5lxy2bf842de) is the source of truth for current progress.
 
 ## Local board import
 
-The original Persian board import (`dikar.board`, version 1) and generator scripts are retained locally under `docs/board/` and `docs/tools/board/`. They are excluded from Git. From the external `docs/` directory, run `python3 tools/board/build_board.py` to regenerate the local import JSON and Persian board summary. Import the JSON using DiTask's data-transfer / board-import interface. The original export placed all cards in Backlog and associated them with their sprints; Sprint 1 was active.
-
-This English summary is local-only and is not overwritten by the Persian generator.
+The board import (`dikar.board`, version 1) and generator scripts live under `docs/board/` and `docs/tools/board/`. From the `docs/` directory, run `python3 tools/board/build_board.py` to regenerate the import JSON and the board summary. Import the JSON using DiTask's data-transfer / board-import interface. The original export placed all cards in Backlog and associated them with their sprints; Sprint 1 was active.
 
 ## Technology stack
 
@@ -25,7 +21,7 @@ This English summary is local-only and is not overwritten by the Persian generat
 - DiTask records dependencies in `blockedBy`; use them to determine execution order.
 - Each card has Acceptance Criteria and Definition of Done checklists.
 - Estimated duration is story points multiplied by 60 minutes.
-- Versioned documentation is English; Persian counterparts are local-only under the external `docs/` directory.
+- All documentation is English only.
 
 ## Epics
 

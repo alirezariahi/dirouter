@@ -1,5 +1,3 @@
-[English](batch.md) · [فارسی](batch.fa.md)
-
 # Files API and Batch API (card 30.1)
 
 DiRouter serves OpenAI's Files API and Batch API. A batch runs on the provider's own batch API at the provider's batch price, with the same virtual key, budgets, wallet and usage accounting as any other request. The official OpenAI SDKs work by changing `baseURL` only.

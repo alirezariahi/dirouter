@@ -1,5 +1,3 @@
-[English](mock-provider.md) · [فارسی](mock-provider.fa.md)
-
 # Mock Provider
 
 Code: `apps/mock-provider` · Tests: `apps/mock-provider/src/*.test.ts` and the contract test in `packages/providers` · Card 9.1

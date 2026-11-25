@@ -2,7 +2,7 @@
   "name": "@dirouter/control-api",
   "version": "1.1.0",
   "private": true,
-  "description": "control plane — API مدیریتی",
+  "description": "control plane — management API",
   "type": "module",
   "scripts": {
     "build": "tsc -p tsconfig.build.json && node -e \"require('node:fs').cpSync('src/billing/pdf/fonts', 'dist/billing/pdf/fonts', { recursive: true })\"",

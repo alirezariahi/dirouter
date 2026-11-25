@@ -1,5 +1,3 @@
-[English](0001-gateway-nestjs-fastify.md) · [فارسی](0001-gateway-nestjs-fastify.fa.md)
-
 # ADR-0001: Gateway with NestJS on Fastify and a lightweight hot path
 
 - **Status:** Accepted; amended 2026-11-25 (the gateway is plain Fastify, see the update below)

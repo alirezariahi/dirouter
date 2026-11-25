@@ -1,5 +1,3 @@
-[English](env-reference.md) · [فارسی](env-reference.fa.md)
-
 # Environment Variable Reference
 
 This document is the complete env contract for the `code/` source. Whenever you add, remove, or change an env consumer, update this document in the same change. The command `node scripts/ci/check-env-docs.mjs` (and the CI checks job) compares direct reads of `process.env` / `import.meta.env`, Zod schema keys, and Compose interpolations with the list below, and reports an error for a missing or removed item.

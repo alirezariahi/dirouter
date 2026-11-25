@@ -1,5 +1,3 @@
-[English](playground.md) · [فارسی](playground.fa.md)
-
 # Playground
 
 Code: `apps/dashboard/src/pages/playground.tsx` (stream helpers in `src/lib/playground-stream.ts`,

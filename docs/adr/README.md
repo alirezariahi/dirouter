@@ -1,5 +1,3 @@
-[English](README.md) · [فارسی](README.fa.md)
-
 # Architecture Decision Records
 
 Architecture decisions are recorded using the [MADR](https://adr.github.io/madr/) template. Each ADR has three main sections: **Context**, **Decision** and **Consequences**.

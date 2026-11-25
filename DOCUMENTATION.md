@@ -1,8 +1,6 @@
-[English](DOCUMENTATION.md) · [فارسی](DOCUMENTATION.fa.md)
-
 # Documentation
 
-Every document is bilingual: an English `.md` file and a Persian `.fa.md` file sit side by side, and detailed guides live in `code/docs/`. See [CONTRIBUTING.md](CONTRIBUTING.md) for the [documentation policy](CONTRIBUTING.md#documentation-policy).
+All documentation is in English, and detailed guides live in `code/docs/`. See [CONTRIBUTING.md](CONTRIBUTING.md) for the [documentation policy](CONTRIBUTING.md#documentation-policy).
 
 ## Public guides
 

@@ -1,5 +1,3 @@
-[English](anthropic.md) · [فارسی](anthropic.fa.md)
-
 # Anthropic
 
 - `type: anthropic`, `baseUrl: https://api.anthropic.com`

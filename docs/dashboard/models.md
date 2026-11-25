@@ -1,5 +1,3 @@
-[English](models.md) · [فارسی](models.fa.md)
-
 # Models, Aliases and Combo Page
 
 Code: `apps/dashboard/src/pages/models.tsx` · test: `models.test.tsx` · card 7.6

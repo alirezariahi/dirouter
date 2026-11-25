@@ -163,7 +163,7 @@ export class OrgsController {
   @Get('members/:userId/sessions')
   @HumanOnly()
   @RequirePermission('members:write')
-  @ApiZodOk(z.array(SessionSchema), 'نشست‌های فعال یک عضو، بدون نشانی IP و دستگاه')
+  @ApiZodOk(z.array(SessionSchema), 'Active sessions of a member, without IP address or device')
   memberSessions(@Org() org: OrgContext, @Param('userId') userId: string) {
     return this.orgs.memberSessions(org, userId);
   }
@@ -172,7 +172,7 @@ export class OrgsController {
   @HumanOnly()
   @HttpCode(200)
   @RequirePermission('members:write')
-  @ApiZodOk(z.object({ revoked: z.int() }), 'عضو از همهٔ دستگاه‌ها خارج شد')
+  @ApiZodOk(z.object({ revoked: z.int() }), 'The member was signed out of all devices')
   revokeMemberSessions(@Org() org: OrgContext, @Param('userId') userId: string) {
     return this.orgs.revokeMemberSessions(org, userId);
   }
@@ -189,7 +189,7 @@ export class OrgsController {
   @ApiZodBody(InviteBody)
   @ApiZodOk(
     Invitation.extend({ token: z.string(), url: z.string(), emailSent: z.boolean() }),
-    'لینک دعوت فقط همین یک بار نشان داده می‌شود',
+    'The invitation link is shown only this once',
   )
   invite(@Org() org: OrgContext, @Body(new ZodPipe(InviteBody)) body: z.infer<typeof InviteBody>) {
     return this.orgs.invite(org, body.email, body.role);

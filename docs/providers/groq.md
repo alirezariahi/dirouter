@@ -1,5 +1,3 @@
-[English](groq.md) · [فارسی](groq.fa.md)
-
 # Groq
 
 | Field                        | Value                              |

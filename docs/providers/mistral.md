@@ -1,5 +1,3 @@
-[English](mistral.md) · [فارسی](mistral.fa.md)
-
 # Mistral
 
 | Field                        | Value                              |

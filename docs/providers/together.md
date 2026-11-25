@@ -1,5 +1,3 @@
-[English](together.md) · [فارسی](together.fa.md)
-
 # Together AI
 
 | Field                        | Value                              |

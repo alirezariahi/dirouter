@@ -1,5 +1,3 @@
-[English](translation.md) · [فارسی](translation.fa.md)
-
 # OpenAI ⇄ Anthropic translation
 
 > Code: `packages/translator` (card 4.4). Each input is first translated into the canonical model (`@dirouter/contracts`), and then into the destination API.

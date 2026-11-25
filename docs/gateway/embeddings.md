@@ -1,5 +1,3 @@
-[English](embeddings.md) · [فارسی](embeddings.fa.md)
-
 # Embeddings endpoint (card 11.4)
 
 The gateway has two embedding inbound surfaces:

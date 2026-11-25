@@ -1,5 +1,3 @@
-[English](sprint-2.md) · [فارسی](sprint-2.fa.md)
-
 # Sprint 2 feature guide (v1)
 
 > Advanced resilience, more APIs and providers, caching, enterprise security, guardrails, alerts, analytics, versioned configuration and HA. Every feature below is **off by default** unless noted, so upgrading does not change the behaviour of an existing installation.

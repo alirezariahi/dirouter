@@ -93,7 +93,10 @@ export class ServiceAccountsController {
 
   @Get('service-accounts')
   @RequirePermission('members:read')
-  @ApiZodOk(z.array(ServiceAccountView), 'سرویس‌اکانت‌ها با توکن‌هایشان (بدون خود توکن)')
+  @ApiZodOk(
+    z.array(ServiceAccountView),
+    'Service accounts with their tokens (without the token values)',
+  )
   list(@Org() org: OrgContext) {
     return this.service.list(org);
   }
@@ -124,7 +127,7 @@ export class ServiceAccountsController {
   @Delete('service-accounts/:id')
   @HttpCode(204)
   @RequirePermission('security:write')
-  @ApiNoContentResponse({ description: 'حذف شد و همهٔ توکن‌هایش باطل شدند' })
+  @ApiNoContentResponse({ description: 'Deleted and all its tokens revoked' })
   async remove(@Org() org: OrgContext, @Param('id') id: string) {
     await this.service.remove(org, id);
   }
@@ -133,7 +136,7 @@ export class ServiceAccountsController {
   @Post('service-accounts/:id/tokens')
   @RequirePermission('security:write')
   @ApiZodBody(CreateTokenBody)
-  @ApiZodOk(TokenView.extend({ token: z.string() }), 'توکن فقط همین یک بار برمی‌گردد')
+  @ApiZodOk(TokenView.extend({ token: z.string() }), 'The token is returned only this once')
   createToken(
     @Org() org: OrgContext,
     @Param('id') id: string,
@@ -145,7 +148,7 @@ export class ServiceAccountsController {
   @Delete('management-tokens/:id')
   @HttpCode(204)
   @RequirePermission('security:write')
-  @ApiNoContentResponse({ description: 'توکن باطل شد و درخواست بعدی‌اش رد می‌شود' })
+  @ApiNoContentResponse({ description: 'Token revoked; its next request is rejected' })
   async revokeToken(@Org() org: OrgContext, @Param('id') id: string) {
     await this.service.revokeToken(org, id);
   }

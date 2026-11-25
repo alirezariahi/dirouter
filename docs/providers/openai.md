@@ -1,5 +1,3 @@
-[English](openai.md) · [فارسی](openai.fa.md)
-
 # OpenAI
 
 | Field                        | Value                              |

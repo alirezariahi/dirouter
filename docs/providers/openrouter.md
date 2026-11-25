@@ -1,5 +1,3 @@
-[English](openrouter.md) · [فارسی](openrouter.fa.md)
-
 # OpenRouter
 
 | Field                        | Value                              |

@@ -1,5 +1,3 @@
-[English](ci-verification.md) · [فارسی](ci-verification.fa.md)
-
 # Local CI verification
 
 ## Acceptance status

@@ -1,5 +1,3 @@
-[English](0007-job-state-in-valkey.md) · [فارسی](0007-job-state-in-valkey.fa.md)
-
 # ADR-0007: State of files, batches and async tasks lives in Valkey and is driven by the gateway
 
 - **Status:** Accepted

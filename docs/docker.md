@@ -1,5 +1,3 @@
-[English](docker.md) · [فارسی](docker.fa.md)
-
 # Docker Images
 
 > Files: `deploy/docker/*.Dockerfile`, `.dockerignore`. Build: `make build` or `docker build -f deploy/docker/node.Dockerfile --build-arg APP=gateway .`

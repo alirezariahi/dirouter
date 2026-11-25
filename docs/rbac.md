@@ -1,5 +1,3 @@
-[English](rbac.md) · [فارسی](rbac.fa.md)
-
 # Access control (RBAC)
 
 Code: `apps/control-api/src/rbac` and `apps/control-api/src/orgs` · Test: `orgs.integration.test.ts` · Card 3.5

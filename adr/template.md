@@ -1,5 +1,3 @@
-[English](template.md) · [فارسی](template.fa.md)
-
 # ADR-NNNN: Short decision title
 
 - **Status:** Proposed | Accepted | Rejected | Deprecated | Superseded by ADR-NNNN

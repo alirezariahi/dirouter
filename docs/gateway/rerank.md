@@ -1,5 +1,3 @@
-[English](rerank.md) · [فارسی](rerank.fa.md)
-
 # Rerank endpoint (card 30.2)
 
 `POST /v1/rerank` and `POST /v2/rerank` rank documents by relevance to a query. They accept Cohere's and Jina's request formats, so Cohere's SDKs work by pointing their base URL at the gateway (`CohereClient` calls `/v1/rerank`, `CohereClientV2` calls `/v2/rerank`), and Jina-style clients call `/v1/rerank`. The same key, routing with fallback, rate limits, budgets, wallet and usage accounting apply as for embeddings.

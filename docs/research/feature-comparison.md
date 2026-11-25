@@ -1,5 +1,3 @@
-[English](feature-comparison.md) · [فارسی](feature-comparison.fa.md)
-
 # DiRouter — competitor comparison, full feature list, and architecture proposal
 
 > Research date: 17 Aban 1405 (2026-11-07)

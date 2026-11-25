@@ -1,5 +1,3 @@
-[English](keys.md) · [فارسی](keys.fa.md)
-
 # Virtual keys
 
 Code: `apps/control-api/src/keys` · test: `keys.integration.test.ts` · card 3.7

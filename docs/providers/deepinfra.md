@@ -1,5 +1,3 @@
-[English](deepinfra.md) · [فارسی](deepinfra.fa.md)
-
 # DeepInfra
 
 > Card 31.6.

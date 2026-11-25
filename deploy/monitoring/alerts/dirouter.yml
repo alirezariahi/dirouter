@@ -7,16 +7,16 @@ groups:
         for: 2m
         labels: { severity: critical }
         annotations:
-          summary: 'متریک‌های {{ $labels.job }} در دسترس نیستند'
-          description: 'Prometheus حداقل دو دقیقه است نمی‌تواند {{ $labels.instance }} را scrape کند.'
+          summary: 'Metrics for {{ $labels.job }} are unavailable'
+          description: 'Prometheus has been unable to scrape {{ $labels.instance }} for at least two minutes.'
 
       - alert: DiRouterQueueMetricsUnavailable
         expr: dirouter_queue_metrics_up == 0
         for: 5m
         labels: { severity: warning }
         annotations:
-          summary: 'خواندن طول صف از Valkey ناموفق است'
-          description: 'جمع‌آوری متریک‌های صف در {{ $labels.job }} ناموفق است؛ مقادیر queue ممکن است قدیمی باشند.'
+          summary: 'Reading queue lengths from Valkey is failing'
+          description: 'Queue metric collection in {{ $labels.job }} is failing; queue values may be stale.'
 
   - name: dirouter.gateway
     interval: 30s
@@ -30,8 +30,8 @@ groups:
         for: 5m
         labels: { severity: critical }
         annotations:
-          summary: 'نرخ خطای gateway بیش از ۱۰٪ است'
-          description: 'نسبت خطا در {{ $labels.instance }} در پنج دقیقه اخیر {{ $value | printf "%.2f" }} است.'
+          summary: 'Gateway error rate is above 10%'
+          description: 'The error ratio on {{ $labels.instance }} over the last five minutes is {{ $value | printf "%.2f" }}.'
 
       - alert: DiRouterGatewayHighLatency
         expr: |
@@ -41,8 +41,8 @@ groups:
         for: 10m
         labels: { severity: warning }
         annotations:
-          summary: 'p95 latency درخواست‌های LLM بیش از ۳۰ ثانیه است'
-          description: 'p95 در {{ $labels.instance }} برابر {{ $value | printf "%.1f" }} ثانیه است.'
+          summary: 'p95 latency of LLM requests is above 30 seconds'
+          description: 'p95 on {{ $labels.instance }} is {{ $value | printf "%.1f" }} seconds.'
 
       - alert: DiRouterGatewayUsageOutboxGrowing
         expr: |
@@ -51,16 +51,16 @@ groups:
         for: 15m
         labels: { severity: critical }
         annotations:
-          summary: 'outbox مصرف gateway رشد می‌کند'
-          description: '{{ $value | printf "%.0f" }} رویداد در {{ $labels.instance }} باقی مانده است؛ اتصال worker و Valkey را بررسی کنید.'
+          summary: 'Gateway usage outbox is growing'
+          description: '{{ $value | printf "%.0f" }} events are pending on {{ $labels.instance }}; check the worker and Valkey connection.'
 
       - alert: DiRouterGatewayCircuitBreakerOpen
         expr: dirouter_gateway_breaker_state{state=~"open|half_open"} == 1
         for: 5m
         labels: { severity: warning }
         annotations:
-          summary: 'Circuit breaker باز است'
-          description: 'Breaker برای {{ $labels.scope }}/{{ $labels.provider }}/{{ $labels.model }} در وضعیت {{ $labels.state }} است.'
+          summary: 'Circuit breaker is open'
+          description: 'Breaker for {{ $labels.scope }}/{{ $labels.provider }}/{{ $labels.model }} is in state {{ $labels.state }}.'
 
   - name: dirouter.pipeline
     interval: 30s
@@ -70,16 +70,16 @@ groups:
         for: 15m
         labels: { severity: warning }
         annotations:
-          summary: 'Backlog صف {{ $labels.queue }} زیاد است'
-          description: 'صف {{ $labels.queue }} در {{ $labels.instance }} دارای {{ $value | printf "%.0f" }} job در حال انتظار/اجراست.'
+          summary: 'Queue {{ $labels.queue }} backlog is high'
+          description: 'Queue {{ $labels.queue }} on {{ $labels.instance }} has {{ $value | printf "%.0f" }} waiting/active jobs.'
 
       - alert: DiRouterUsageDeadLetter
         expr: increase(dirouter_usage_events_dead_total[10m]) > 0
         for: 1m
         labels: { severity: critical }
         annotations:
-          summary: 'رویداد مصرف به dead-letter رفته است'
-          description: '{{ $value | printf "%.0f" }} رویداد در ده دقیقه اخیر dead-letter شده‌اند؛ لاگ worker را بررسی کنید.'
+          summary: 'Usage events went to the dead-letter queue'
+          description: '{{ $value | printf "%.0f" }} events were dead-lettered in the last ten minutes; check the worker logs.'
 
       - alert: DiRouterWorkerJobFailures
         expr: |
@@ -90,5 +90,5 @@ groups:
         for: 10m
         labels: { severity: warning }
         annotations:
-          summary: 'نرخ خطای jobهای worker بیش از ۱۰٪ است'
-          description: 'نسبت خطای job در {{ $labels.instance }} برابر {{ $value | printf "%.2f" }} است.'
+          summary: 'Worker job failure rate is above 10%'
+          description: 'The job failure ratio on {{ $labels.instance }} is {{ $value | printf "%.2f" }}.'

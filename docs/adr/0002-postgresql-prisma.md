@@ -1,5 +1,3 @@
-[English](0002-postgresql-prisma.md) · [فارسی](0002-postgresql-prisma.fa.md)
-
 # ADR-0002: PostgreSQL 17 + Prisma
 
 - **Status:** Accepted

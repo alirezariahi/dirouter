@@ -1,5 +1,3 @@
-[English](auth.md) · [فارسی](auth.fa.md)
-
 # Virtual key authentication in the gateway
 
 Code: `apps/gateway/src/auth.ts` · test: `apps/gateway/src/gateway.test.ts` · card 4.3

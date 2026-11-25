@@ -1,5 +1,3 @@
-[English](videos.md) · [فارسی](videos.fa.md)
-
 # Video generation and async tasks (card 30.6)
 
 Video generation takes minutes, so it is an async task: the client starts it, follows its status and downloads the result when it is done. DiRouter serves OpenAI's Videos API, so the official OpenAI SDKs work by changing `baseURL` only, and runs the task on any provider with a video adapter. The same key, rate limits, budgets, wallet and usage accounting apply as for other requests, and only a task that completes is billed.

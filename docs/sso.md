@@ -1,5 +1,3 @@
-[English](sso.md) · [فارسی](sso.fa.md)
-
 # Single sign-on with OIDC (card 14.2)
 
 > Code: `apps/control-api/src/security/sso.{service,controller}.ts`, dashboard login page and the Security page.

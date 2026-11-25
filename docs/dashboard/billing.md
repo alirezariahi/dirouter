@@ -1,5 +1,3 @@
-[English](billing.md) · [فارسی](billing.fa.md)
-
 # Billing pages (operator)
 
 > Code: `apps/dashboard/src/pages/billing/*.tsx`, shared pieces in `components/billing`, access rules and exact money helpers in `lib/billing.ts`, messages in `i18n/billing`. Cards 25.1 and 25.2.

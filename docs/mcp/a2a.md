@@ -1,5 +1,3 @@
-[English](a2a.md) · [فارسی](a2a.fa.md)
-
 # A2A: Agent Card, JSON-RPC, streaming and push notifications
 
 Cards 20.3 and 28.2 · code: `apps/gateway/src/a2a` (`agent.ts`, `push.ts`), fake agent and webhook recorder: `apps/mock-provider/src/a2a.ts`

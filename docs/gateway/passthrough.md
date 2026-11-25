@@ -1,5 +1,3 @@
-[English](passthrough.md) · [فارسی](passthrough.fa.md)
-
 # Native provider pass-through (card 30.7)
 
 Some provider endpoints have no DiRouter translation yet: batches, files, legacy text completions,

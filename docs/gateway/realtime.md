@@ -1,5 +1,3 @@
-[English](realtime.md) · [فارسی](realtime.fa.md)
-
 # Realtime API over WebSocket (card 30.5)
 
 Live voice applications built on OpenAI's Realtime API work through DiRouter unchanged: point the

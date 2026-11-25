@@ -1,5 +1,3 @@
-[English](README.md) · [فارسی](README.fa.md)
-
 # Dashboard user guide
 
 This guide explains the current workflow of the Persian dashboard. The screenshots were taken on November 8, 2026 from a local development install with mock data; they contain no real credential or complete virtual key. Names and numbers in the images are samples, not production data.

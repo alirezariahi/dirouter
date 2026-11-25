@@ -1,5 +1,3 @@
-[English](proxy.md) · [فارسی](proxy.fa.md)
-
 # Outbound proxy
 
 Code: `apps/gateway/src/upstream.ts` · test: `apps/gateway/src/outbound-proxy.test.ts` · card 4.10

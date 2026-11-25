@@ -1,5 +1,3 @@
-[English](routing.md) · [فارسی](routing.fa.md)
-
 # Routing, fallback and health
 
 > Code: `packages/routing` (cards 5.1, 5.3, 5.5, 5.6). No I/O; the index is built once per ConfigSnapshot.

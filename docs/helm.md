@@ -1,5 +1,3 @@
-[English](helm.md) · [فارسی](helm.fa.md)
-
 # Kubernetes with Helm
 
 The chart in `deploy/helm/dirouter` (card 22.6) runs the gateway, control-api, worker, dashboard

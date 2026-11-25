@@ -1,5 +1,3 @@
-[English](ARCHITECTURE.md) · [فارسی](ARCHITECTURE.fa.md)
-
 # DiRouter architecture
 
 > This document defines the target MVP architecture. Decisions and their rationale are recorded in the [ADRs](adr/README.md); domain terms are defined in the [glossary](GLOSSARY.md). A design described here does not imply that its implementation is complete.

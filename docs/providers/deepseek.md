@@ -1,5 +1,3 @@
-[English](deepseek.md) · [فارسی](deepseek.fa.md)
-
 # DeepSeek
 
 | Field                        | Value                              |

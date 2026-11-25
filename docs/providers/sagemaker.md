@@ -1,5 +1,3 @@
-[English](sagemaker.md) · [فارسی](sagemaker.fa.md)
-
 # Amazon SageMaker
 
 > Card 31.6.

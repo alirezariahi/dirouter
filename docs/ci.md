@@ -1,8 +1,6 @@
-[English](ci.md) · [فارسی](ci.fa.md)
-
 # CI Pipeline — Card 1.5
 
-> Every document is bilingual: an English `.md` file and a Persian `.fa.md` file sit side by side, and detailed guides live in `code/docs/`. See [CONTRIBUTING.md](../CONTRIBUTING.md) for the [documentation policy](../CONTRIBUTING.md#documentation-policy).
+> All documentation is in English, and detailed guides live in `code/docs/`. See [CONTRIBUTING.md](../CONTRIBUTING.md) for the [documentation policy](../CONTRIBUTING.md#documentation-policy).
 
 Workflow file: [`.github/workflows/ci.yml`](../.github/workflows/ci.yml).
 The Git repository is in the `code/` folder; this document is inside the same repository so that it is versioned together with the pipeline.

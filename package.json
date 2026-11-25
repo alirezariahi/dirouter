@@ -1,6 +1,6 @@
 {
   "name": "dirouter",
-  "description": "DiRouter — گیت‌وی هوشمند و تاب‌آور LLM",
+  "description": "DiRouter — a smart, resilient LLM gateway",
   "private": true,
   "packageManager": "pnpm@10.13.1",
   "engines": {

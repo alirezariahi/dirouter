@@ -100,7 +100,7 @@ const KeyView = z.object({
     }),
   ),
 });
-const WithSecret = KeyView.extend({ key: z.string().describe('کلید کامل؛ فقط همین یک بار') });
+const WithSecret = KeyView.extend({ key: z.string().describe('The full key; returned only once') });
 
 @ApiTags('virtual keys')
 @ApiBearerAuth()
@@ -132,7 +132,7 @@ export class KeysController {
   @Post()
   @RequirePermission('keys:write')
   @ApiZodBody(KeyBody)
-  @ApiZodOk(WithSecret, 'کلید کامل فقط در همین پاسخ می‌آید')
+  @ApiZodOk(WithSecret, 'The full key appears only in this response')
   create(@Org() org: OrgContext, @Body(new ZodPipe(KeyBody)) body: z.infer<typeof KeyBody>) {
     return this.keys.create(org, body);
   }
@@ -173,7 +173,10 @@ export class KeysController {
   @Post(':id/rotate')
   @RequirePermission('keys:write')
   @ApiZodBody(RotateBody)
-  @ApiZodOk(WithSecret.extend({ previous: KeyView }), 'کلید قدیم تا پایان مهلت معتبر می‌ماند')
+  @ApiZodOk(
+    WithSecret.extend({ previous: KeyView }),
+    'The old key stays valid until the grace period ends',
+  )
   rotate(
     @Org() org: OrgContext,
     @Param('id') id: string,

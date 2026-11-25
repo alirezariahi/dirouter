@@ -1,5 +1,3 @@
-[English](invoices.md) · [فارسی](invoices.fa.md)
-
 # Invoices, VAT, the Persian PDF and the portal
 
 Code: `packages/db/src/invoices.ts`, `packages/db/src/tax.ts`, `apps/control-api/src/billing/invoices.*` and `apps/control-api/src/billing/pdf/` · cards 19.6, 26.1 and 26.2
@@ -43,7 +41,7 @@ Each organization keeps the details printed on its invoices:
 
 Fields: `partyType` (`legal` company or `natural` person), `legalName`, `nationalId` (11-digit national ID of a company, 10-digit national code of a person), `economicCode` (10 to 14 digits), `registrationNumber`, `address`, `postalCode` (10 digits) and `phone`. Persian digits are accepted and stored as ASCII digits. The platform organization's profile is the **seller**, a customer's is the **buyer**; without a profile the organization's name is used. Both are copied onto the invoice when it is issued, so a later change does not alter an issued invoice.
 
-Connection to the tax authority's system (سامانهٔ مودیان) is not part of this; the invoice only carries the fields and the layout.
+Connection to the tax authority's taxpayer system (Moadian) is not part of this; the invoice only carries the fields and the layout.
 
 ## Numbering
 

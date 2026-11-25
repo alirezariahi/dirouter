@@ -1,5 +1,3 @@
-[English](0004-traefik-reverse-proxy.md) · [فارسی](0004-traefik-reverse-proxy.fa.md)
-
 # ADR-0004: Traefik v3 as reverse proxy
 
 - **Status:** Accepted

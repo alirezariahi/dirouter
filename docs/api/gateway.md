@@ -1,5 +1,3 @@
-[English](gateway.md) · [فارسی](gateway.fa.md)
-
 # Gateway API
 
 Base: `https://api.<DOMAIN>` (in dev: `http://api.localhost`) · card 4.9

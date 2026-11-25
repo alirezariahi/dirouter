@@ -7,7 +7,7 @@
         "parameters": [],
         "responses": {
           "200": {
-            "description": "آیا ویزارد راه‌اندازی هنوز لازم است",
+            "description": "Whether the setup wizard is still required",
             "content": {
               "application/json": {
                 "schema": {
@@ -73,7 +73,7 @@
         },
         "responses": {
           "200": {
-            "description": "سازمان و مالک ساخته شد؛ refresh token در کوکی",
+            "description": "Organization and owner created; refresh token in a cookie",
             "content": {
               "application/json": {
                 "schema": {
@@ -215,7 +215,7 @@
         "parameters": [],
         "responses": {
           "200": {
-            "description": "توکن چرخیده؛ توکن قبلی دیگر قابل استفاده نیست",
+            "description": "Token rotated; the previous token can no longer be used",
             "content": {
               "application/json": {
                 "schema": {
@@ -311,7 +311,7 @@
         },
         "responses": {
           "200": {
-            "description": "عضو سازمان شد و وارد شد",
+            "description": "Joined the organization and signed in",
             "content": {
               "application/json": {
                 "schema": {
@@ -406,7 +406,7 @@
         },
         "responses": {
           "204": {
-            "description": "رمز عوض شد و همهٔ نشست‌ها باطل شدند"
+            "description": "Password changed and all sessions revoked"
           }
         },
         "security": [
@@ -515,7 +515,7 @@
         "parameters": [],
         "responses": {
           "200": {
-            "description": "نشست‌های فعال کاربر؛ نشست همین درخواست current است",
+            "description": "Active sessions of the user; the session of this request is marked current",
             "content": {
               "application/json": {
                 "schema": {
@@ -600,7 +600,7 @@
         ],
         "responses": {
           "204": {
-            "description": "نشست باطل شد؛ refresh token آن دیگر کار نمی‌کند"
+            "description": "Session revoked; its refresh token no longer works"
           }
         },
         "security": [
@@ -635,7 +635,7 @@
         },
         "responses": {
           "200": {
-            "description": "خروج از همهٔ دستگاه‌ها (به‌جز همین، مگر includeCurrent)",
+            "description": "Sign out of all devices (except this one, unless includeCurrent)",
             "content": {
               "application/json": {
                 "schema": {
@@ -671,7 +671,7 @@
         "parameters": [],
         "responses": {
           "200": {
-            "description": "وضعیت ورود دومرحله‌ای",
+            "description": "Two-factor sign-in status",
             "content": {
               "application/json": {
                 "schema": {
@@ -732,7 +732,7 @@
         },
         "responses": {
           "200": {
-            "description": "کلید TOTP برای اسکن با اپ Authenticator",
+            "description": "TOTP secret to scan with an authenticator app",
             "content": {
               "application/json": {
                 "schema": {
@@ -790,7 +790,7 @@
         },
         "responses": {
           "200": {
-            "description": "کدهای پشتیبان؛ فقط یک‌بار نمایش",
+            "description": "Backup codes; shown only once",
             "content": {
               "application/json": {
                 "schema": {
@@ -847,7 +847,7 @@
         },
         "responses": {
           "204": {
-            "description": "ورود دومرحله‌ای خاموش شد"
+            "description": "Two-factor sign-in disabled"
           }
         },
         "security": [
@@ -1490,7 +1490,7 @@
         ],
         "responses": {
           "200": {
-            "description": "نشست‌های فعال یک عضو، بدون نشانی IP و دستگاه",
+            "description": "Active sessions of a member, without IP address or device",
             "content": {
               "application/json": {
                 "schema": {
@@ -1583,7 +1583,7 @@
         ],
         "responses": {
           "200": {
-            "description": "عضو از همهٔ دستگاه‌ها خارج شد",
+            "description": "The member was signed out of all devices",
             "content": {
               "application/json": {
                 "schema": {
@@ -1721,7 +1721,7 @@
         },
         "responses": {
           "200": {
-            "description": "لینک دعوت فقط همین یک بار نشان داده می‌شود",
+            "description": "The invitation link is shown only this once",
             "content": {
               "application/json": {
                 "schema": {
@@ -2486,7 +2486,7 @@
                             },
                             "secret": {
                               "type": "string",
-                              "description": "فقط ••••last4؛ secret واقعی هرگز برنمی‌گردد"
+                              "description": "Only ••••last4; the real secret is never returned"
                             },
                             "balance": {
                               "nullable": true,
@@ -2545,7 +2545,7 @@
                               "items": {
                                 "type": "string"
                               },
-                              "description": "فقط نام هدرها"
+                              "description": "Header names only"
                             },
                             "proxyUrl": {
                               "nullable": true,
@@ -2905,7 +2905,7 @@
                           },
                           "secret": {
                             "type": "string",
-                            "description": "فقط ••••last4؛ secret واقعی هرگز برنمی‌گردد"
+                            "description": "Only ••••last4; the real secret is never returned"
                           },
                           "balance": {
                             "nullable": true,
@@ -2964,7 +2964,7 @@
                             "items": {
                               "type": "string"
                             },
-                            "description": "فقط نام هدرها"
+                            "description": "Header names only"
                           },
                           "proxyUrl": {
                             "nullable": true,
@@ -3254,7 +3254,7 @@
                           },
                           "secret": {
                             "type": "string",
-                            "description": "فقط ••••last4؛ secret واقعی هرگز برنمی‌گردد"
+                            "description": "Only ••••last4; the real secret is never returned"
                           },
                           "balance": {
                             "nullable": true,
@@ -3313,7 +3313,7 @@
                             "items": {
                               "type": "string"
                             },
-                            "description": "فقط نام هدرها"
+                            "description": "Header names only"
                           },
                           "proxyUrl": {
                             "nullable": true,
@@ -3615,7 +3615,7 @@
                           },
                           "secret": {
                             "type": "string",
-                            "description": "فقط ••••last4؛ secret واقعی هرگز برنمی‌گردد"
+                            "description": "Only ••••last4; the real secret is never returned"
                           },
                           "balance": {
                             "nullable": true,
@@ -3674,7 +3674,7 @@
                             "items": {
                               "type": "string"
                             },
-                            "description": "فقط نام هدرها"
+                            "description": "Header names only"
                           },
                           "proxyUrl": {
                             "nullable": true,
@@ -3955,7 +3955,7 @@
                           },
                           "secret": {
                             "type": "string",
-                            "description": "فقط ••••last4؛ secret واقعی هرگز برنمی‌گردد"
+                            "description": "Only ••••last4; the real secret is never returned"
                           },
                           "balance": {
                             "nullable": true,
@@ -4014,7 +4014,7 @@
                             "items": {
                               "type": "string"
                             },
-                            "description": "فقط نام هدرها"
+                            "description": "Header names only"
                           },
                           "proxyUrl": {
                             "nullable": true,
@@ -4147,7 +4147,7 @@
         },
         "responses": {
           "200": {
-            "description": "با secret تازه، کلید چرخانده می‌شود",
+            "description": "With a new secret, the key is rotated",
             "content": {
               "application/json": {
                 "schema": {
@@ -4272,7 +4272,7 @@
                           },
                           "secret": {
                             "type": "string",
-                            "description": "فقط ••••last4؛ secret واقعی هرگز برنمی‌گردد"
+                            "description": "Only ••••last4; the real secret is never returned"
                           },
                           "balance": {
                             "nullable": true,
@@ -4331,7 +4331,7 @@
                             "items": {
                               "type": "string"
                             },
-                            "description": "فقط نام هدرها"
+                            "description": "Header names only"
                           },
                           "proxyUrl": {
                             "nullable": true,
@@ -4466,7 +4466,7 @@
         },
         "responses": {
           "200": {
-            "description": "نتیجه و latency تست اتصال (فراخوانی /models از گیت‌وی)",
+            "description": "Result and latency of the connection test (calls /models through the gateway)",
             "content": {
               "application/json": {
                 "schema": {
@@ -4549,7 +4549,7 @@
         ],
         "responses": {
           "200": {
-            "description": "موجودی حساب upstream هر credential همین حالا از provider خوانده و ذخیره می‌شود",
+            "description": "The upstream account balance of each credential is read from the provider now and stored",
             "content": {
               "application/json": {
                 "schema": {
@@ -4674,7 +4674,7 @@
                           },
                           "secret": {
                             "type": "string",
-                            "description": "فقط ••••last4؛ secret واقعی هرگز برنمی‌گردد"
+                            "description": "Only ••••last4; the real secret is never returned"
                           },
                           "balance": {
                             "nullable": true,
@@ -4733,7 +4733,7 @@
                             "items": {
                               "type": "string"
                             },
-                            "description": "فقط نام هدرها"
+                            "description": "Header names only"
                           },
                           "proxyUrl": {
                             "nullable": true,
@@ -4811,7 +4811,7 @@
         ],
         "responses": {
           "200": {
-            "description": "مدل‌های upstream؛ مدل‌های تازه با suggested=true",
+            "description": "Upstream models; new models have suggested=true",
             "content": {
               "application/json": {
                 "schema": {
@@ -5269,7 +5269,7 @@
         },
         "responses": {
           "200": {
-            "description": "کلید کامل فقط در همین پاسخ می‌آید",
+            "description": "The full key appears only in this response",
             "content": {
               "application/json": {
                 "schema": {
@@ -5420,7 +5420,7 @@
                     },
                     "key": {
                       "type": "string",
-                      "description": "کلید کامل؛ فقط همین یک بار"
+                      "description": "The full key; returned only once"
                     }
                   },
                   "required": [
@@ -6264,7 +6264,7 @@
         },
         "responses": {
           "200": {
-            "description": "کلید قدیم تا پایان مهلت معتبر می‌ماند",
+            "description": "The old key stays valid until the grace period ends",
             "content": {
               "application/json": {
                 "schema": {
@@ -6415,7 +6415,7 @@
                     },
                     "key": {
                       "type": "string",
-                      "description": "کلید کامل؛ فقط همین یک بار"
+                      "description": "The full key; returned only once"
                     },
                     "previous": {
                       "type": "object",
@@ -6642,7 +6642,7 @@
         ],
         "responses": {
           "200": {
-            "description": "کاتالوگ نسخه‌دار قیمت",
+            "description": "Versioned price catalog",
             "content": {
               "application/json": {
                 "schema": {
@@ -6882,6 +6882,32 @@
                               "5m",
                               "1h"
                             ]
+                          },
+                          "defaults": {
+                            "type": "object",
+                            "additionalProperties": {}
+                          },
+                          "overrides": {
+                            "type": "object",
+                            "additionalProperties": {}
+                          },
+                          "drop": {
+                            "maxItems": 50,
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 100
+                            }
+                          },
+                          "unsupported": {
+                            "maxItems": 50,
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 100
+                            }
                           }
                         }
                       },
@@ -7198,6 +7224,32 @@
                           "5m",
                           "1h"
                         ]
+                      },
+                      "defaults": {
+                        "type": "object",
+                        "additionalProperties": {}
+                      },
+                      "overrides": {
+                        "type": "object",
+                        "additionalProperties": {}
+                      },
+                      "drop": {
+                        "maxItems": 50,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 100
+                        }
+                      },
+                      "unsupported": {
+                        "maxItems": 50,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 100
+                        }
                       }
                     },
                     "additionalProperties": false
@@ -7213,7 +7265,7 @@
         },
         "responses": {
           "200": {
-            "description": "با catalogKey قیمت، context و قابلیت از کاتالوگ پر می‌شود",
+            "description": "With catalogKey, price, context and capabilities are filled from the catalog",
             "content": {
               "application/json": {
                 "schema": {
@@ -7399,6 +7451,32 @@
                             "5m",
                             "1h"
                           ]
+                        },
+                        "defaults": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "overrides": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "drop": {
+                          "maxItems": 50,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 100
+                          }
+                        },
+                        "unsupported": {
+                          "maxItems": 50,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 100
+                          }
                         }
                       }
                     },
@@ -7714,6 +7792,32 @@
                             "5m",
                             "1h"
                           ]
+                        },
+                        "defaults": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "overrides": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "drop": {
+                          "maxItems": 50,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 100
+                          }
+                        },
+                        "unsupported": {
+                          "maxItems": 50,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 100
+                          }
                         }
                       }
                     },
@@ -8029,6 +8133,32 @@
                           "5m",
                           "1h"
                         ]
+                      },
+                      "defaults": {
+                        "type": "object",
+                        "additionalProperties": {}
+                      },
+                      "overrides": {
+                        "type": "object",
+                        "additionalProperties": {}
+                      },
+                      "drop": {
+                        "maxItems": 50,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 100
+                        }
+                      },
+                      "unsupported": {
+                        "maxItems": 50,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 100
+                        }
                       }
                     },
                     "additionalProperties": false
@@ -8229,6 +8359,32 @@
                             "5m",
                             "1h"
                           ]
+                        },
+                        "defaults": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "overrides": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "drop": {
+                          "maxItems": 50,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 100
+                          }
+                        },
+                        "unsupported": {
+                          "maxItems": 50,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 100
+                          }
                         }
                       }
                     },
@@ -8402,6 +8558,32 @@
                               "5m",
                               "1h"
                             ]
+                          },
+                          "defaults": {
+                            "type": "object",
+                            "additionalProperties": {}
+                          },
+                          "overrides": {
+                            "type": "object",
+                            "additionalProperties": {}
+                          },
+                          "drop": {
+                            "maxItems": 50,
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 100
+                            }
+                          },
+                          "unsupported": {
+                            "maxItems": 50,
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 100
+                            }
                           }
                         }
                       }
@@ -8469,6 +8651,32 @@
                           "5m",
                           "1h"
                         ]
+                      },
+                      "defaults": {
+                        "type": "object",
+                        "additionalProperties": {}
+                      },
+                      "overrides": {
+                        "type": "object",
+                        "additionalProperties": {}
+                      },
+                      "drop": {
+                        "maxItems": 50,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 100
+                        }
+                      },
+                      "unsupported": {
+                        "maxItems": 50,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 100
+                        }
                       }
                     },
                     "additionalProperties": false
@@ -8548,6 +8756,32 @@
                             "5m",
                             "1h"
                           ]
+                        },
+                        "defaults": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "overrides": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "drop": {
+                          "maxItems": 50,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 100
+                          }
+                        },
+                        "unsupported": {
+                          "maxItems": 50,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 100
+                          }
                         }
                       }
                     }
@@ -8624,6 +8858,32 @@
                           "5m",
                           "1h"
                         ]
+                      },
+                      "defaults": {
+                        "type": "object",
+                        "additionalProperties": {}
+                      },
+                      "overrides": {
+                        "type": "object",
+                        "additionalProperties": {}
+                      },
+                      "drop": {
+                        "maxItems": 50,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 100
+                        }
+                      },
+                      "unsupported": {
+                        "maxItems": 50,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 100
+                        }
                       }
                     },
                     "additionalProperties": false
@@ -8700,6 +8960,32 @@
                             "5m",
                             "1h"
                           ]
+                        },
+                        "defaults": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "overrides": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "drop": {
+                          "maxItems": 50,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 100
+                          }
+                        },
+                        "unsupported": {
+                          "maxItems": 50,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 100
+                          }
                         }
                       }
                     }
@@ -9541,7 +9827,7 @@
         ],
         "responses": {
           "200": {
-            "description": "تنظیمات، آخرین اجراها و تعداد پیشنهادهای در انتظار",
+            "description": "Settings, latest runs and the number of pending proposals",
             "content": {
               "application/json": {
                 "schema": {
@@ -10059,7 +10345,7 @@
             "required": false,
             "in": "query",
             "schema": {
-              "description": "پیش‌فرض: ۲۴ ساعت پیش (لاگ‌ها: ۷ روز پیش)",
+              "description": "Default: 24 hours ago (logs: 7 days ago)",
               "type": "string",
               "format": "date-time",
               "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
@@ -10070,7 +10356,7 @@
             "required": false,
             "in": "query",
             "schema": {
-              "description": "پیش‌فرض: اکنون",
+              "description": "Default: now",
               "type": "string",
               "format": "date-time",
               "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
@@ -10097,7 +10383,7 @@
             "required": false,
             "in": "query",
             "schema": {
-              "description": "نام درخواستی (مدل، alias یا combo)",
+              "description": "Requested name (model, alias or combo)",
               "type": "string"
             }
           },
@@ -10112,7 +10398,7 @@
         ],
         "responses": {
           "200": {
-            "description": "KPIهای بازه از جدول تجمیعی",
+            "description": "KPIs for the range from the rollup table",
             "content": {
               "application/json": {
                 "schema": {
@@ -10169,7 +10455,7 @@
                     },
                     "latencyP50Ms": {
                       "nullable": true,
-                      "description": "تقریبی (مرز بالای سطل هیستوگرام)",
+                      "description": "Approximate (upper bound of the histogram bucket)",
                       "type": "integer",
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991
@@ -10239,7 +10525,7 @@
             "required": false,
             "in": "query",
             "schema": {
-              "description": "پیش‌فرض: ۲۴ ساعت پیش (لاگ‌ها: ۷ روز پیش)",
+              "description": "Default: 24 hours ago (logs: 7 days ago)",
               "type": "string",
               "format": "date-time",
               "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
@@ -10250,7 +10536,7 @@
             "required": false,
             "in": "query",
             "schema": {
-              "description": "پیش‌فرض: اکنون",
+              "description": "Default: now",
               "type": "string",
               "format": "date-time",
               "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
@@ -10277,7 +10563,7 @@
             "required": false,
             "in": "query",
             "schema": {
-              "description": "نام درخواستی (مدل، alias یا combo)",
+              "description": "Requested name (model, alias or combo)",
               "type": "string"
             }
           },
@@ -10396,7 +10682,7 @@
             "required": false,
             "in": "query",
             "schema": {
-              "description": "پیش‌فرض: ۲۴ ساعت پیش (لاگ‌ها: ۷ روز پیش)",
+              "description": "Default: 24 hours ago (logs: 7 days ago)",
               "type": "string",
               "format": "date-time",
               "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
@@ -10407,7 +10693,7 @@
             "required": false,
             "in": "query",
             "schema": {
-              "description": "پیش‌فرض: اکنون",
+              "description": "Default: now",
               "type": "string",
               "format": "date-time",
               "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
@@ -10434,7 +10720,7 @@
             "required": false,
             "in": "query",
             "schema": {
-              "description": "نام درخواستی (مدل، alias یا combo)",
+              "description": "Requested name (model, alias or combo)",
               "type": "string"
             }
           },
@@ -10566,7 +10852,7 @@
             "required": false,
             "in": "query",
             "schema": {
-              "description": "پیش‌فرض: ۲۴ ساعت پیش (لاگ‌ها: ۷ روز پیش)",
+              "description": "Default: 24 hours ago (logs: 7 days ago)",
               "type": "string",
               "format": "date-time",
               "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
@@ -10577,7 +10863,7 @@
             "required": false,
             "in": "query",
             "schema": {
-              "description": "پیش‌فرض: اکنون",
+              "description": "Default: now",
               "type": "string",
               "format": "date-time",
               "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
@@ -10604,7 +10890,7 @@
             "required": false,
             "in": "query",
             "schema": {
-              "description": "نام درخواستی (مدل، alias یا combo)",
+              "description": "Requested name (model, alias or combo)",
               "type": "string"
             }
           },
@@ -10707,7 +10993,7 @@
         ],
         "responses": {
           "200": {
-            "description": "جدیدترین اول؛ nextCursor برای صفحهٔ بعد",
+            "description": "Newest first; nextCursor for the next page",
             "content": {
               "application/json": {
                 "schema": {
@@ -10969,7 +11255,7 @@
                       "type": "string"
                     },
                     "attempts": {
-                      "description": "همهٔ تلاش‌ها: provider، مدل، credential، نتیجه، status و latency"
+                      "description": "All attempts: provider, model, credential, outcome, status and latency"
                     },
                     "routing": {
                       "description": "Auto-routing decision (card 20.4): alias, target, task type, source and reasons"
@@ -11043,7 +11329,7 @@
             "required": false,
             "in": "query",
             "schema": {
-              "description": "پیش‌فرض: ۲۴ ساعت پیش (لاگ‌ها: ۷ روز پیش)",
+              "description": "Default: 24 hours ago (logs: 7 days ago)",
               "type": "string",
               "format": "date-time",
               "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
@@ -11054,7 +11340,7 @@
             "required": false,
             "in": "query",
             "schema": {
-              "description": "پیش‌فرض: اکنون",
+              "description": "Default: now",
               "type": "string",
               "format": "date-time",
               "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
@@ -11081,7 +11367,7 @@
             "required": false,
             "in": "query",
             "schema": {
-              "description": "نام درخواستی (مدل، alias یا combo)",
+              "description": "Requested name (model, alias or combo)",
               "type": "string"
             }
           },
@@ -11126,7 +11412,7 @@
             "required": false,
             "in": "query",
             "schema": {
-              "description": "پیش‌فرض: ۲۴ ساعت پیش (لاگ‌ها: ۷ روز پیش)",
+              "description": "Default: 24 hours ago (logs: 7 days ago)",
               "type": "string",
               "format": "date-time",
               "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
@@ -11137,7 +11423,7 @@
             "required": false,
             "in": "query",
             "schema": {
-              "description": "پیش‌فرض: اکنون",
+              "description": "Default: now",
               "type": "string",
               "format": "date-time",
               "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
@@ -11164,7 +11450,7 @@
             "required": false,
             "in": "query",
             "schema": {
-              "description": "نام درخواستی (مدل، alias یا combo)",
+              "description": "Requested name (model, alias or combo)",
               "type": "string"
             }
           },
@@ -11258,7 +11544,7 @@
             "required": false,
             "in": "query",
             "schema": {
-              "description": "پیش‌فرض: ۲۴ ساعت پیش (لاگ‌ها: ۷ روز پیش)",
+              "description": "Default: 24 hours ago (logs: 7 days ago)",
               "type": "string",
               "format": "date-time",
               "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
@@ -11269,7 +11555,7 @@
             "required": false,
             "in": "query",
             "schema": {
-              "description": "پیش‌فرض: اکنون",
+              "description": "Default: now",
               "type": "string",
               "format": "date-time",
               "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
@@ -11296,7 +11582,7 @@
             "required": false,
             "in": "query",
             "schema": {
-              "description": "نام درخواستی (مدل، alias یا combo)",
+              "description": "Requested name (model, alias or combo)",
               "type": "string"
             }
           },
@@ -11347,7 +11633,7 @@
         ],
         "responses": {
           "200": {
-            "description": "breaker، cooldown و lockout هر provider، credential و مدل",
+            "description": "Breaker, cooldown and lockout of each provider, credential and model",
             "content": {
               "application/json": {
                 "schema": {
@@ -11577,7 +11863,7 @@
             "required": false,
             "in": "query",
             "schema": {
-              "description": "پیش‌فرض: ۲۴ ساعت پیش (لاگ‌ها: ۷ روز پیش)",
+              "description": "Default: 24 hours ago (logs: 7 days ago)",
               "type": "string",
               "format": "date-time",
               "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
@@ -11588,7 +11874,7 @@
             "required": false,
             "in": "query",
             "schema": {
-              "description": "پیش‌فرض: اکنون",
+              "description": "Default: now",
               "type": "string",
               "format": "date-time",
               "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
@@ -11615,7 +11901,7 @@
             "required": false,
             "in": "query",
             "schema": {
-              "description": "نام درخواستی (مدل، alias یا combo)",
+              "description": "Requested name (model, alias or combo)",
               "type": "string"
             }
           },
@@ -11696,6 +11982,41 @@
                     "type": "string",
                     "maxLength": 200
                   },
+                  "headers": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string",
+                      "maxLength": 1000
+                    }
+                  },
+                  "metadata": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string",
+                      "maxLength": 1000
+                    }
+                  },
+                  "budget": {
+                    "description": "percent of each budget already spent, for rules on budget.*",
+                    "type": "object",
+                    "properties": {
+                      "key": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 10000
+                      },
+                      "project": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 10000
+                      },
+                      "team": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 10000
+                      }
+                    }
+                  },
                   "provider": {
                     "description": "OpenRouter-style provider preferences, as a request's `provider` object (card 32.1)",
                     "type": "object",
@@ -11751,7 +12072,7 @@
             "required": false,
             "in": "query",
             "schema": {
-              "description": "پیش‌فرض: ۲۴ ساعت پیش (لاگ‌ها: ۷ روز پیش)",
+              "description": "Default: 24 hours ago (logs: 7 days ago)",
               "type": "string",
               "format": "date-time",
               "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
@@ -11762,7 +12083,7 @@
             "required": false,
             "in": "query",
             "schema": {
-              "description": "پیش‌فرض: اکنون",
+              "description": "Default: now",
               "type": "string",
               "format": "date-time",
               "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
@@ -11789,7 +12110,7 @@
             "required": false,
             "in": "query",
             "schema": {
-              "description": "نام درخواستی (مدل، alias یا combo)",
+              "description": "Requested name (model, alias or combo)",
               "type": "string"
             }
           },
@@ -11868,7 +12189,7 @@
         },
         "responses": {
           "200": {
-            "description": "ریست breaker یا cooldown در همهٔ گیت‌وی‌ها",
+            "description": "Reset a breaker or cooldown on all gateways",
             "content": {
               "application/json": {
                 "schema": {
@@ -17053,7 +17374,7 @@
         ],
         "responses": {
           "200": {
-            "description": "سرویس‌اکانت‌ها با توکن‌هایشان (بدون خود توکن)",
+            "description": "Service accounts with their tokens (without the token values)",
             "content": {
               "application/json": {
                 "schema": {
@@ -17582,7 +17903,7 @@
         ],
         "responses": {
           "204": {
-            "description": "حذف شد و همهٔ توکن‌هایش باطل شدند"
+            "description": "Deleted and all its tokens revoked"
           }
         },
         "security": [
@@ -17695,7 +18016,7 @@
         },
         "responses": {
           "200": {
-            "description": "توکن فقط همین یک بار برمی‌گردد",
+            "description": "The token is returned only this once",
             "content": {
               "application/json": {
                 "schema": {
@@ -17800,7 +18121,7 @@
         ],
         "responses": {
           "204": {
-            "description": "توکن باطل شد و درخواست بعدی‌اش رد می‌شود"
+            "description": "Token revoked; its next request is rejected"
           }
         },
         "security": [
@@ -21767,6 +22088,990 @@
         ]
       }
     },
+    "/api/v1/orgs/{orgId}/routing/rules": {
+      "get": {
+        "operationId": "RoutingRulesController_list",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "enabled": {
+                        "type": "boolean"
+                      },
+                      "priority": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "teamId": {
+                        "nullable": true,
+                        "type": "string"
+                      },
+                      "projectId": {
+                        "nullable": true,
+                        "type": "string"
+                      },
+                      "condition": {
+                        "type": "string"
+                      },
+                      "action": {
+                        "oneOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "route"
+                                ]
+                              },
+                              "target": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 200
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "target"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "reject"
+                                ]
+                              },
+                              "message": {
+                                "type": "string",
+                                "maxLength": 500
+                              },
+                              "status": {
+                                "default": 403,
+                                "anyOf": [
+                                  {
+                                    "type": "number",
+                                    "enum": [
+                                      400
+                                    ]
+                                  },
+                                  {
+                                    "type": "number",
+                                    "enum": [
+                                      403
+                                    ]
+                                  },
+                                  {
+                                    "type": "number",
+                                    "enum": [
+                                      429
+                                    ]
+                                  }
+                                ]
+                              }
+                            },
+                            "required": [
+                              "type"
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "tag"
+                                ]
+                              },
+                              "tags": {
+                                "type": "object",
+                                "additionalProperties": {
+                                  "type": "string",
+                                  "maxLength": 100
+                                }
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "tags"
+                            ]
+                          }
+                        ]
+                      },
+                      "createdAt": {
+                        "type": "string"
+                      },
+                      "updatedAt": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "name",
+                      "enabled",
+                      "priority",
+                      "teamId",
+                      "projectId",
+                      "condition",
+                      "action",
+                      "createdAt",
+                      "updatedAt"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "routing policies"
+        ]
+      },
+      "post": {
+        "operationId": "RoutingRulesController_create",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 1000000
+                  },
+                  "teamId": {
+                    "nullable": true,
+                    "type": "string"
+                  },
+                  "projectId": {
+                    "nullable": true,
+                    "type": "string"
+                  },
+                  "condition": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2000,
+                    "description": "CEL-subset condition, e.g. budget.team > 80"
+                  },
+                  "action": {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "enum": [
+                              "route"
+                            ]
+                          },
+                          "target": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 200
+                          }
+                        },
+                        "required": [
+                          "type",
+                          "target"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "enum": [
+                              "reject"
+                            ]
+                          },
+                          "message": {
+                            "type": "string",
+                            "maxLength": 500
+                          },
+                          "status": {
+                            "default": 403,
+                            "anyOf": [
+                              {
+                                "type": "number",
+                                "enum": [
+                                  400
+                                ]
+                              },
+                              {
+                                "type": "number",
+                                "enum": [
+                                  403
+                                ]
+                              },
+                              {
+                                "type": "number",
+                                "enum": [
+                                  429
+                                ]
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "type"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "enum": [
+                              "tag"
+                            ]
+                          },
+                          "tags": {
+                            "type": "object",
+                            "additionalProperties": {
+                              "type": "string",
+                              "maxLength": 100
+                            }
+                          }
+                        },
+                        "required": [
+                          "type",
+                          "tags"
+                        ]
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "name",
+                  "condition",
+                  "action"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "enabled": {
+                      "type": "boolean"
+                    },
+                    "priority": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "teamId": {
+                      "nullable": true,
+                      "type": "string"
+                    },
+                    "projectId": {
+                      "nullable": true,
+                      "type": "string"
+                    },
+                    "condition": {
+                      "type": "string"
+                    },
+                    "action": {
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "enum": [
+                                "route"
+                              ]
+                            },
+                            "target": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 200
+                            }
+                          },
+                          "required": [
+                            "type",
+                            "target"
+                          ]
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "enum": [
+                                "reject"
+                              ]
+                            },
+                            "message": {
+                              "type": "string",
+                              "maxLength": 500
+                            },
+                            "status": {
+                              "default": 403,
+                              "anyOf": [
+                                {
+                                  "type": "number",
+                                  "enum": [
+                                    400
+                                  ]
+                                },
+                                {
+                                  "type": "number",
+                                  "enum": [
+                                    403
+                                  ]
+                                },
+                                {
+                                  "type": "number",
+                                  "enum": [
+                                    429
+                                  ]
+                                }
+                              ]
+                            }
+                          },
+                          "required": [
+                            "type"
+                          ]
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "enum": [
+                                "tag"
+                              ]
+                            },
+                            "tags": {
+                              "type": "object",
+                              "additionalProperties": {
+                                "type": "string",
+                                "maxLength": 100
+                              }
+                            }
+                          },
+                          "required": [
+                            "type",
+                            "tags"
+                          ]
+                        }
+                      ]
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "updatedAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name",
+                    "enabled",
+                    "priority",
+                    "teamId",
+                    "projectId",
+                    "condition",
+                    "action",
+                    "createdAt",
+                    "updatedAt"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "routing policies"
+        ]
+      }
+    },
+    "/api/v1/orgs/{orgId}/routing/rules/validate": {
+      "post": {
+        "operationId": "RoutingRulesController_validate",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "condition": {
+                    "type": "string",
+                    "maxLength": 4000
+                  }
+                },
+                "required": [
+                  "condition"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "valid": {
+                      "type": "boolean"
+                    },
+                    "problem": {
+                      "type": "string"
+                    },
+                    "variables": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "object",
+                        "additionalProperties": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  },
+                  "required": [
+                    "valid",
+                    "variables"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "routing policies"
+        ]
+      }
+    },
+    "/api/v1/orgs/{orgId}/routing/rules/traffic": {
+      "get": {
+        "operationId": "RoutingRulesController_traffic",
+        "parameters": [
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+            }
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+            }
+          },
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "from": {
+                      "type": "string"
+                    },
+                    "to": {
+                      "type": "string"
+                    },
+                    "totalRequests": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "rules": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "matched": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "decided": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "share": {
+                            "type": "number"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "name",
+                          "matched",
+                          "decided",
+                          "share"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "from",
+                    "to",
+                    "totalRequests",
+                    "rules"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "routing policies"
+        ]
+      }
+    },
+    "/api/v1/orgs/{orgId}/routing/rules/{id}": {
+      "patch": {
+        "operationId": "RoutingRulesController_update",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 1000000
+                  },
+                  "teamId": {
+                    "nullable": true,
+                    "type": "string"
+                  },
+                  "projectId": {
+                    "nullable": true,
+                    "type": "string"
+                  },
+                  "condition": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2000,
+                    "description": "CEL-subset condition, e.g. budget.team > 80"
+                  },
+                  "action": {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "enum": [
+                              "route"
+                            ]
+                          },
+                          "target": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 200
+                          }
+                        },
+                        "required": [
+                          "type",
+                          "target"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "enum": [
+                              "reject"
+                            ]
+                          },
+                          "message": {
+                            "type": "string",
+                            "maxLength": 500
+                          },
+                          "status": {
+                            "default": 403,
+                            "anyOf": [
+                              {
+                                "type": "number",
+                                "enum": [
+                                  400
+                                ]
+                              },
+                              {
+                                "type": "number",
+                                "enum": [
+                                  403
+                                ]
+                              },
+                              {
+                                "type": "number",
+                                "enum": [
+                                  429
+                                ]
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "type"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "enum": [
+                              "tag"
+                            ]
+                          },
+                          "tags": {
+                            "type": "object",
+                            "additionalProperties": {
+                              "type": "string",
+                              "maxLength": 100
+                            }
+                          }
+                        },
+                        "required": [
+                          "type",
+                          "tags"
+                        ]
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "enabled": {
+                      "type": "boolean"
+                    },
+                    "priority": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "teamId": {
+                      "nullable": true,
+                      "type": "string"
+                    },
+                    "projectId": {
+                      "nullable": true,
+                      "type": "string"
+                    },
+                    "condition": {
+                      "type": "string"
+                    },
+                    "action": {
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "enum": [
+                                "route"
+                              ]
+                            },
+                            "target": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 200
+                            }
+                          },
+                          "required": [
+                            "type",
+                            "target"
+                          ]
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "enum": [
+                                "reject"
+                              ]
+                            },
+                            "message": {
+                              "type": "string",
+                              "maxLength": 500
+                            },
+                            "status": {
+                              "default": 403,
+                              "anyOf": [
+                                {
+                                  "type": "number",
+                                  "enum": [
+                                    400
+                                  ]
+                                },
+                                {
+                                  "type": "number",
+                                  "enum": [
+                                    403
+                                  ]
+                                },
+                                {
+                                  "type": "number",
+                                  "enum": [
+                                    429
+                                  ]
+                                }
+                              ]
+                            }
+                          },
+                          "required": [
+                            "type"
+                          ]
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "enum": [
+                                "tag"
+                              ]
+                            },
+                            "tags": {
+                              "type": "object",
+                              "additionalProperties": {
+                                "type": "string",
+                                "maxLength": 100
+                              }
+                            }
+                          },
+                          "required": [
+                            "type",
+                            "tags"
+                          ]
+                        }
+                      ]
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "updatedAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name",
+                    "enabled",
+                    "priority",
+                    "teamId",
+                    "projectId",
+                    "condition",
+                    "action",
+                    "createdAt",
+                    "updatedAt"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "routing policies"
+        ]
+      },
+      "delete": {
+        "operationId": "RoutingRulesController_remove",
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "routing policies"
+        ]
+      }
+    },
     "/api/v1/orgs/{orgId}/routing/splits": {
       "get": {
         "operationId": "TrafficSplitsController_list",
@@ -23957,7 +25262,7 @@
   },
   "info": {
     "title": "DiRouter control-api",
-    "description": "API مدیریتی DiRouter. همهٔ خطاها با قالب application/problem+json.",
+    "description": "DiRouter management API. All errors use application/problem+json.",
     "version": "1",
     "contact": {}
   },

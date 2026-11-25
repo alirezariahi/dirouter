@@ -2,7 +2,7 @@
   "name": "@dirouter/db",
   "version": "1.1.0",
   "private": true,
-  "description": "Prisma schema و کلاینت دیتابیس (کارت ۳.۱)",
+  "description": "Prisma schema and database client (card 3.1)",
   "type": "module",
   "sideEffects": false,
   "exports": {

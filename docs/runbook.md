@@ -1,5 +1,3 @@
-[English](runbook.md) · [فارسی](runbook.fa.md)
-
 # DiRouter operations runbook
 
 This document is for **incident detection and containment**. The commands are written for the production Compose setup and the sample domain `example.com`; replace it with the real value. The code path is the directory that contains `compose.yaml`.

@@ -1,5 +1,3 @@
-[English](request-routing.md) · [فارسی](request-routing.fa.md)
-
 # Request-level routing
 
 > Code: `packages/routing/src/plan.ts`, `preferences.ts`, `policy.ts` and `apps/gateway/src/route-request.ts` (sprint 5).

@@ -81,7 +81,7 @@ export class CatalogSyncController {
 
   @Get()
   @RequirePermission('models:read')
-  @ApiZodOk(SyncStatus, 'تنظیمات، آخرین اجراها و تعداد پیشنهادهای در انتظار')
+  @ApiZodOk(SyncStatus, 'Settings, latest runs and the number of pending proposals')
   status() {
     return this.catalogs.status();
   }

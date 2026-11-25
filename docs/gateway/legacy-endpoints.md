@@ -1,5 +1,3 @@
-[English](legacy-endpoints.md) · [فارسی](legacy-endpoints.fa.md)
-
 # Image edits, audio translation and legacy completions (card 30.4)
 
 The remaining OpenAI endpoints that tools still call. They run through the same pipeline as every

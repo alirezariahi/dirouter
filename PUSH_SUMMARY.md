@@ -1,5 +1,3 @@
-[English](PUSH_SUMMARY.md) · [فارسی](PUSH_SUMMARY.fa.md)
-
 # 🎉 Successful push summary - DR-50 and DR-51
 
 ## ✅ Status

@@ -1,5 +1,3 @@
-[English](mcp.md) · [فارسی](mcp.fa.md)
-
 # MCP & agents page
 
 Code: `apps/dashboard/src/pages/mcp.tsx` (form helpers in `src/lib/mcp.ts`, messages in

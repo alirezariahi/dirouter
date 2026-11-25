@@ -1,5 +1,3 @@
-[English](databricks.md) · [فارسی](databricks.fa.md)
-
 # Databricks Model Serving
 
 > Card 31.6.

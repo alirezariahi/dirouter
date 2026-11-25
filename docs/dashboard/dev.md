@@ -1,5 +1,3 @@
-[English](dev.md) · [فارسی](dev.fa.md)
-
 # Dashboard: Structure and Conventions
 
 Code: `apps/dashboard` · card 7.1

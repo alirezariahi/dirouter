@@ -1,5 +1,3 @@
-[English](control-api.md) · [فارسی](control-api.fa.md)
-
 # Management API (control-api)
 
 Base: `https://admin.<DOMAIN>/api/v1` · Swagger: `/api/docs` (JSON: `/api/docs/openapi.json`) · cards 3.3 and 3.10

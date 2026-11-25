@@ -1,5 +1,3 @@
-[English](testing.md) · [فارسی](testing.fa.md)
-
 # End-to-end test — Sprint 1
 
 The script [`scripts/e2e/sprint-1.mjs`](../scripts/e2e/sprint-1.mjs) checks the real development app through Traefik. Requests go to `api.localhost` and `mock.localhost`, and only the seed fixtures are read.

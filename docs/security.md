@@ -1,5 +1,3 @@
-[English](security.md) · [فارسی](security.fa.md)
-
 # Enterprise security
 
 > Code: `apps/control-api/src/auth/{mfa.service,totp,webauthn}.ts`, `apps/control-api/src/security`, `apps/control-api/src/rbac` (cards 14.1 to 14.5). Dashboard: **Account** (your own second factor) and **Security** (organization policy). SSO has its own page: [sso.md](sso.md).

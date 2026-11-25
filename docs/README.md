@@ -1,8 +1,6 @@
-[English](README.md) · [فارسی](README.fa.md)
-
 # DiRouter — Quick Start
 
-> Every document is bilingual: an English `.md` file and a Persian `.fa.md` file sit side by side, and detailed guides live in `code/docs/`. See [CONTRIBUTING.md](../CONTRIBUTING.md) for the [documentation policy](../CONTRIBUTING.md#documentation-policy).
+> All documentation is in English, and detailed guides live in `code/docs/`. See [CONTRIBUTING.md](../CONTRIBUTING.md) for the [documentation policy](../CONTRIBUTING.md#documentation-policy).
 
 DiRouter is a resilient LLM gateway: an endpoint compatible with OpenAI and Anthropic, failover between providers and credentials, circuit breaker, rate limiting, budgets, and usage accounting. The Gateway does not connect to PostgreSQL on the hot request path, and it keeps serving with the last snapshot when the Control API is unavailable.
 
@@ -119,3 +117,6 @@ CI runs lint, typecheck, test, and build for the changed packages and their cons
 - [Seed data](seed.md), [routing](concepts/routing.md), [routing policies](concepts/routing-policies.md), and [limits](concepts/limits.md)
 - [Invoices, VAT, the Persian PDF and the portal](concepts/invoices.md)
 - [Request bodies, payload view and replay](concepts/request-bodies.md)
+- Migration guides: [from OpenRouter](migrate-from-openrouter.md) and [from LiteLLM](migrate-from-litellm.md)
+- [Request-level routing](concepts/request-routing.md): provider preferences, data policy, model suffixes, service tier and the routing explanation
+- Gateway endpoints added in sprint 5: [Files and Batch](gateway/batch.md), [videos](gateway/videos.md), [moderations](gateway/moderations.md), [rerank](gateway/rerank.md), [Realtime](gateway/realtime.md), [image edits, translations and legacy completions](gateway/legacy-endpoints.md), [pass-through](gateway/passthrough.md) and [web search](gateway/web-search.md)

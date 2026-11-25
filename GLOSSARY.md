@@ -1,5 +1,3 @@
-[English](GLOSSARY.md) · [فارسی](GLOSSARY.fa.md)
-
 # Glossary
 
 Core DiRouter concepts. Use these names consistently in code, APIs, and the dashboard. Some options below describe the target product rather than completed functionality.

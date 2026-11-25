@@ -1,4 +1,4 @@
-// Documentation site (card 22.5): English at the root, Persian (RTL) under /fa.
+// Documentation site (card 22.5): English only.
 import starlight from '@astrojs/starlight';
 import { defineConfig } from 'astro/config';
 
@@ -8,11 +8,6 @@ export default defineConfig({
     starlight({
       title: 'DiRouter',
       description: 'Self-hosted LLM gateway and AI platform',
-      defaultLocale: 'root',
-      locales: {
-        root: { label: 'English', lang: 'en' },
-        fa: { label: 'فارسی', lang: 'fa', dir: 'rtl' },
-      },
       social: [
         { icon: 'github', label: 'GitHub', href: 'https://github.com/alirezariahi/dirouter' },
       ],

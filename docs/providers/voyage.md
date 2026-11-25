@@ -1,5 +1,3 @@
-[English](voyage.md) · [فارسی](voyage.fa.md)
-
 # Voyage AI (card 11.4)
 
 | Field          | Value                         |

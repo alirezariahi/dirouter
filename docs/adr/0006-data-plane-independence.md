@@ -1,5 +1,3 @@
-[English](0006-data-plane-independence.md) · [فارسی](0006-data-plane-independence.fa.md)
-
 # ADR-0006: The data plane does not depend on the control plane
 
 - **Status:** Accepted

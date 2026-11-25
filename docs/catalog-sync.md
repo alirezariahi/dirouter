@@ -1,5 +1,3 @@
-[English](catalog-sync.md) · [فارسی](catalog-sync.fa.md)
-
 # Model catalog and price sync (card 27.5)
 
 The model catalog used to be a JSON file bundled with each release (`packages/model-catalog/src/catalog.json`). It is still the baseline, but a worker job now reads one or more external price sources, so new models and price changes arrive without a release.

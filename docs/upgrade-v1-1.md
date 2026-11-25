@@ -1,5 +1,3 @@
-[English](upgrade-v1-1.md) · [فارسی](upgrade-v1-1.fa.md)
-
 # Upgrading to v1.1
 
 From 1.0.x to 1.1.0. Coming from 0.x or the MVP, follow [upgrade-v1.md](upgrade-v1.md) first. What

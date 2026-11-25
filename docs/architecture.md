@@ -1,8 +1,6 @@
-[English](architecture.md) · [فارسی](architecture.fa.md)
-
 # DiRouter Architecture
 
-> Every document is bilingual: an English `.md` file and a Persian `.fa.md` file sit side by side, and detailed guides live in `code/docs/`. See [CONTRIBUTING.md](../CONTRIBUTING.md) for the [documentation policy](../CONTRIBUTING.md#documentation-policy).
+> All documentation is in English, and detailed guides live in `code/docs/`. See [CONTRIBUTING.md](../CONTRIBUTING.md) for the [documentation policy](../CONTRIBUTING.md#documentation-policy).
 
 > This document is the basis for all Sprint 1 board cards. The decisions and their rationale are in the [ADRs](adr/README.md), and the definitions of concepts are in the [glossary](glossary.md).
 

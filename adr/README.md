@@ -1,5 +1,3 @@
-[English](README.md) · [فارسی](README.fa.md)
-
 # Architecture Decision Records
 
 Decisions follow the [MADR](https://adr.github.io/madr/) format. Each ADR contains three main sections: **Context**, **Decision**, and **Consequences**.
@@ -21,4 +19,4 @@ Decisions follow the [MADR](https://adr.github.io/madr/) format. Each ADR contai
 3. Once approved, change the status to `Accepted` and add it to the table.
 4. To change an accepted decision, write a new ADR and mark the old record `Superseded by ADR-NNNN`; preserve the decision history.
 
-Every document is bilingual: an English `.md` file and a Persian `.fa.md` file sit side by side, and detailed guides live in `code/docs/`. See [CONTRIBUTING.md](../CONTRIBUTING.md) for the [documentation policy](../CONTRIBUTING.md#documentation-policy).
+All documentation is in English, and detailed guides live in `code/docs/`. See [CONTRIBUTING.md](../CONTRIBUTING.md) for the [documentation policy](../CONTRIBUTING.md#documentation-policy).

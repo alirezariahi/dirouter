@@ -1,5 +1,3 @@
-[English](gemini-inbound.md) · [فارسی](gemini-inbound.fa.md)
-
 # Gemini API inbound (card 11.1)
 
 Gemini clients — including **Gemini CLI** and the Google Gen AI SDKs — can point at DiRouter without code changes. The gateway accepts Google's routes, translates the request to canonical, and runs it through the normal routing, retry, fallback, budget and usage pipeline.

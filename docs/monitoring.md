@@ -1,5 +1,3 @@
-[English](monitoring.md) · [فارسی](monitoring.fa.md)
-
 # Monitoring with Prometheus and Grafana
 
 The optional `monitoring` profile scrapes four targets every 15 seconds: the gateway on `8080`, control-api on `3000`, the worker on `3100`, and Traefik on `8082`. The Traefik port is the internal `traefik` entryPoint in the static configuration; `8080` is the gateway port, not Traefik. None of the `/metrics` endpoints are published through public Traefik.

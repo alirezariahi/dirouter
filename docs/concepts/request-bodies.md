@@ -1,5 +1,3 @@
-[English](request-bodies.md) · [فارسی](request-bodies.fa.md)
-
 # Request bodies, payload view and replay
 
 > Code: `apps/gateway/src/body-capture.ts`, `packages/contracts/src/request-body.ts`, `redactForStorage` in `packages/contracts/src/guardrail-engine.ts`, `apps/worker/src/request-bodies.ts`, `apps/control-api/src/bodies` (card 24.1). Dashboard: **Logs** (payload in the request detail, capture levels below the table) and **Playground** (replay).

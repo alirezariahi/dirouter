@@ -1,5 +1,3 @@
-[English](gemini.md) · [فارسی](gemini.fa.md)
-
 # Google Gemini (card 4.8)
 
 - `type: gemini`, `baseUrl: https://generativelanguage.googleapis.com` (control-api default)

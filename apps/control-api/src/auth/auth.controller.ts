@@ -126,14 +126,14 @@ export class AuthController {
   }
 
   @Get('setup')
-  @ApiZodOk(z.object({ required: z.boolean() }), 'آیا ویزارد راه‌اندازی هنوز لازم است')
+  @ApiZodOk(z.object({ required: z.boolean() }), 'Whether the setup wizard is still required')
   async setupStatus() {
     return { required: await this.auth.setupRequired() };
   }
 
   @Post('setup')
   @ApiZodBody(SetupBody)
-  @ApiZodOk(SessionResponse, 'سازمان و مالک ساخته شد؛ refresh token در کوکی')
+  @ApiZodOk(SessionResponse, 'Organization and owner created; refresh token in a cookie')
   async setup(
     @Body(new ZodPipe(SetupBody)) body: z.infer<typeof SetupBody>,
     @Req() req: FastifyRequest,
@@ -160,7 +160,7 @@ export class AuthController {
   @Post('refresh')
   @HttpCode(200)
   @ApiCookieAuth(REFRESH_COOKIE)
-  @ApiZodOk(SessionResponse, 'توکن چرخیده؛ توکن قبلی دیگر قابل استفاده نیست')
+  @ApiZodOk(SessionResponse, 'Token rotated; the previous token can no longer be used')
   async refresh(@Req() req: FastifyRequest, @Res({ passthrough: true }) reply: FastifyReply) {
     try {
       return this.#setRefresh(
@@ -176,7 +176,7 @@ export class AuthController {
   @Post('invitations/accept')
   @HttpCode(200)
   @ApiZodBody(AcceptInviteBody)
-  @ApiZodOk(SessionResponse, 'عضو سازمان شد و وارد شد')
+  @ApiZodOk(SessionResponse, 'Joined the organization and signed in')
   async acceptInvitation(
     @Body(new ZodPipe(AcceptInviteBody)) body: z.infer<typeof AcceptInviteBody>,
     @Req() req: FastifyRequest,
@@ -203,7 +203,7 @@ export class AuthController {
   @UseGuards(AccessGuard)
   @ApiBearerAuth()
   @ApiZodBody(PasswordBody)
-  @ApiNoContentResponse({ description: 'رمز عوض شد و همهٔ نشست‌ها باطل شدند' })
+  @ApiNoContentResponse({ description: 'Password changed and all sessions revoked' })
   async password(
     @CurrentUser() user: AccessClaims,
     @Body(new ZodPipe(PasswordBody)) body: z.infer<typeof PasswordBody>,
@@ -224,7 +224,10 @@ export class AuthController {
   @Get('sessions')
   @UseGuards(AccessGuard)
   @ApiBearerAuth()
-  @ApiZodOk(z.array(SessionSchema), 'نشست‌های فعال کاربر؛ نشست همین درخواست current است')
+  @ApiZodOk(
+    z.array(SessionSchema),
+    'Active sessions of the user; the session of this request is marked current',
+  )
   listSessions(@CurrentUser() user: AccessClaims) {
     return this.sessions.list(user.sub, user.sid);
   }
@@ -233,7 +236,7 @@ export class AuthController {
   @HttpCode(204)
   @UseGuards(AccessGuard)
   @ApiBearerAuth()
-  @ApiNoContentResponse({ description: 'نشست باطل شد؛ refresh token آن دیگر کار نمی‌کند' })
+  @ApiNoContentResponse({ description: 'Session revoked; its refresh token no longer works' })
   async revokeSession(
     @CurrentUser() user: AccessClaims,
     @Param('id') id: string,
@@ -251,7 +254,7 @@ export class AuthController {
   @ApiZodBody(RevokeAllBody)
   @ApiZodOk(
     z.object({ revoked: z.int() }),
-    'خروج از همهٔ دستگاه‌ها (به‌جز همین، مگر includeCurrent)',
+    'Sign out of all devices (except this one, unless includeCurrent)',
   )
   async revokeAllSessions(
     @CurrentUser() user: AccessClaims,

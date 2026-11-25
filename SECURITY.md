@@ -1,7 +1,5 @@
 # Security policy
 
-[فارسی](SECURITY.fa.md)
-
 ## Reporting a vulnerability
 
 Please do not open a public issue. Report privately through GitHub's

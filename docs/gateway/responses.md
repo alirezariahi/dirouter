@@ -1,5 +1,3 @@
-[English](responses.md) · [فارسی](responses.fa.md)
-
 # OpenAI Responses API (card 11.2)
 
 The gateway accepts `POST /v1/responses`, translates the request to canonical, and returns the Responses API shape. Providers do not need to support Responses: the path reuses the existing Chat Completions / Messages / Gemini adapters.

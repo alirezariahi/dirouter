@@ -1,5 +1,3 @@
-[English](README.md) · [فارسی](README.fa.md)
-
 <p align="center">
   <img src="assets/dirouter-hero.svg" alt="DiRouter animated architecture banner" width="100%" />
 </p>
@@ -221,7 +219,7 @@ code/
 ├─ deploy/            Images, Traefik, Prometheus, Grafana, nginx templates
 ├─ scripts/           CI planning, integration runner, benchmarks, dev helpers
 ├─ adr/               Architecture Decision Records
-└─ docs/              Detailed guides (English .md and Persian .fa.md)
+└─ docs/              Detailed guides (English)
 ```
 
 ```mermaid
@@ -374,4 +372,4 @@ flowchart LR
 - [Sprint 2 feature guide](docs/sprint-2.md), [HA deployment](docs/deploy-ha.md), [security](docs/security.md) and [SSO](docs/sso.md)
 - [Observability](docs/observability.md), [usage pipeline](docs/usage-pipeline.md), and [seed data](docs/seed.md)
 
-All documentation in this repository is bilingual. Every document is two separate files — an English `.md` file and a Persian `.fa.md` file — and the language links at the top of each page switch between them. See the [documentation policy](CONTRIBUTING.md#documentation-policy).
+All documentation in this repository is in English. See the [documentation policy](CONTRIBUTING.md#documentation-policy).

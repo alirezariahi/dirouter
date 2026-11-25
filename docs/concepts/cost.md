@@ -1,5 +1,3 @@
-[English](cost.md) · [فارسی](cost.fa.md)
-
 # Cost calculation and token estimation
 
 Code: `packages/model-catalog/src/cost.ts`, `tokens.ts` and `packages/shared/src/money.ts` · card 6.2

@@ -1,5 +1,3 @@
-[English](0003-valkey.md) · [فارسی](0003-valkey.fa.md)
-
 # ADR-0003: Valkey for counters, cache, and pub/sub
 
 - **Status:** Accepted

@@ -1,5 +1,3 @@
-[English](guardrails.md) · [فارسی](guardrails.fa.md)
-
 # Guardrails
 
 > Code: `packages/contracts/src/guardrail-engine.ts` (the engine, shared by the gateway and the live test), `apps/gateway/src/guardrails.ts` (streaming), `packages/contracts/src/guardrails.ts`, `apps/control-api/src/guardrails` (cards 15.1, 15.2 and 23.1). Dashboard: **Guardrails**.

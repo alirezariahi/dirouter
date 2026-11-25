@@ -1,5 +1,3 @@
-[English](moderations.md) · [فارسی](moderations.fa.md)
-
 # Moderations endpoint (card 30.3)
 
 `POST /v1/moderations` is OpenAI's moderation API, so the official OpenAI SDKs work unchanged (`client.moderations.create(...)`). It runs on the same code as the `moderation` guardrail (card 23.2): the model is routed with the caller's key to the configured provider, with fallback, rate limits, budgets, the wallet and a usage event (`inboundApi: "openai.moderations"`).

@@ -1,5 +1,3 @@
-[English](CI.md) · [فارسی](CI.fa.md)
-
 # CI pipeline
 
 Prepared workflow path: `.github/workflows/ci.yml`.

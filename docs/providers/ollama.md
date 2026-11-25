@@ -1,5 +1,3 @@
-[English](ollama.md) · [فارسی](ollama.fa.md)
-
 # Ollama
 
 | Field                        | Value                       |

@@ -1,5 +1,3 @@
-[English](limits.md) · [فارسی](limits.fa.md)
-
 # Rate limit and concurrency (cards 5.7 and 6.1)
 
 DiRouter has two layers of limits:

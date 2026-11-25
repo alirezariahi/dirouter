@@ -214,7 +214,7 @@ export class ModelsController {
   @RequirePermission('models:read')
   @ApiZodOk(
     z.object({ version: z.string(), currency: z.string(), models: z.array(z.unknown()) }),
-    'کاتالوگ نسخه‌دار قیمت',
+    'Versioned price catalog',
   )
   catalog() {
     return this.models.catalog();
@@ -230,7 +230,10 @@ export class ModelsController {
   @Post('models')
   @RequirePermission('models:write')
   @ApiZodBody(ModelBody)
-  @ApiZodOk(ModelView, 'با catalogKey قیمت، context و قابلیت از کاتالوگ پر می‌شود')
+  @ApiZodOk(
+    ModelView,
+    'With catalogKey, price, context and capabilities are filled from the catalog',
+  )
   create(@Org() org: OrgContext, @Body(new ZodPipe(ModelBody)) body: z.infer<typeof ModelBody>) {
     return this.models.createModel(org, body);
   }

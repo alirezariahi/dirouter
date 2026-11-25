@@ -1,7 +1,5 @@
 # Threat model
 
-[فارسی](threat-model.fa.md)
-
 Scope: a DiRouter deployment as in `compose.yaml` — Traefik, gateway, control-api, worker,
 dashboard, portal, Postgres and Valkey — run by an operator (the platform organization) that may
 sell access to customer organizations. Method: STRIDE per trust boundary. Last reviewed for

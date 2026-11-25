@@ -1,5 +1,3 @@
-[English](README.md) · [فارسی](README.fa.md)
-
 # DiRouter Dashboard Documentation
 
 This folder contains the documentation for the DiRouter dashboard pages and components.

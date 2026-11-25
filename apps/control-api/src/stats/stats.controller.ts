@@ -20,11 +20,11 @@ import { StatsService } from './stats.service.js';
 
 const MAX_RANGE_MS = 400 * 86_400_000;
 const Base = z.object({
-  from: z.iso.datetime().optional().describe('پیش‌فرض: ۲۴ ساعت پیش (لاگ‌ها: ۷ روز پیش)'),
-  to: z.iso.datetime().optional().describe('پیش‌فرض: اکنون'),
+  from: z.iso.datetime().optional().describe('Default: 24 hours ago (logs: 7 days ago)'),
+  to: z.iso.datetime().optional().describe('Default: now'),
   projectId: z.string().optional(),
   apiKeyId: z.string().optional(),
-  model: z.string().optional().describe('نام درخواستی (مدل، alias یا combo)'),
+  model: z.string().optional().describe('Requested name (model, alias or combo)'),
 });
 export const RangeQuery = Base;
 export const SeriesQuery = Base.extend({ granularity: z.enum(['hour', 'day']).default('hour') });
@@ -78,7 +78,7 @@ const Overview = z.object({
   costUsd: z.string(),
   avgLatencyMs: z.int().nullable(),
   avgTtftMs: z.int().nullable(),
-  latencyP50Ms: z.int().nullable().describe('تقریبی (مرز بالای سطل هیستوگرام)'),
+  latencyP50Ms: z.int().nullable().describe('Approximate (upper bound of the histogram bucket)'),
   latencyP95Ms: z.int().nullable(),
   latencyP99Ms: z.int().nullable(),
   activeKeys: z.int(),
@@ -143,7 +143,7 @@ const LogDetail = LogItem.extend({
   gatewayInstance: z.string(),
   attempts: z
     .unknown()
-    .describe('همهٔ تلاش‌ها: provider، مدل، credential، نتیجه، status و latency'),
+    .describe('All attempts: provider, model, credential, outcome, status and latency'),
   routing: z
     .unknown()
     .describe('Auto-routing decision (card 20.4): alias, target, task type, source and reasons'),
@@ -233,7 +233,7 @@ export class StatsController {
   @Get('stats/overview')
   @RequirePermission('usage:read')
   @ApiZodQuery(RangeQuery)
-  @ApiZodOk(Overview, 'KPIهای بازه از جدول تجمیعی')
+  @ApiZodOk(Overview, 'KPIs for the range from the rollup table')
   overview(@Org() org: OrgContext, @Query(new ZodPipe(RangeQuery)) q: z.infer<typeof RangeQuery>) {
     return this.stats.overview(org, range(q, 86_400_000), filters(q));
   }
@@ -260,7 +260,7 @@ export class StatsController {
   @Get('logs')
   @RequirePermission('usage:read')
   @ApiZodQuery(LogsQuery)
-  @ApiZodOk(Logs, 'جدیدترین اول؛ nextCursor برای صفحهٔ بعد')
+  @ApiZodOk(Logs, 'Newest first; nextCursor for the next page')
   logs(@Org() org: OrgContext, @Query(new ZodPipe(LogsQuery)) q: z.infer<typeof LogsQuery>) {
     return this.stats.logs(
       org,
@@ -355,7 +355,7 @@ export class StatsController {
 
   @Get('health/runtime')
   @RequirePermission('usage:read')
-  @ApiZodOk(Health, 'breaker، cooldown و lockout هر provider، credential و مدل')
+  @ApiZodOk(Health, 'Breaker, cooldown and lockout of each provider, credential and model')
   health(@Org() org: OrgContext) {
     return this.stats.runtimeHealth(org);
   }
@@ -394,7 +394,7 @@ export class StatsController {
   @ApiZodBody(ResetBody)
   @ApiZodOk(
     z.object({ scope: z.string(), id: z.string(), gatewaysNotified: z.int() }),
-    'ریست breaker یا cooldown در همهٔ گیت‌وی‌ها',
+    'Reset a breaker or cooldown on all gateways',
   )
   reset(@Org() org: OrgContext, @Body(new ZodPipe(ResetBody)) body: z.infer<typeof ResetBody>) {
     return this.stats.reset(org, body.scope, body.id);

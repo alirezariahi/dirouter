@@ -102,7 +102,7 @@ export async function createApp(
     app,
     new DocumentBuilder()
       .setTitle('DiRouter control-api')
-      .setDescription('API مدیریتی DiRouter. همهٔ خطاها با قالب application/problem+json.')
+      .setDescription('DiRouter management API. All errors use application/problem+json.')
       .setVersion('1')
       .addBearerAuth()
       .build(),

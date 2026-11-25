@@ -1,5 +1,3 @@
-[English](vertex.md) · [فارسی](vertex.fa.md)
-
 # Google Vertex AI (card 11.3)
 
 | Field              | Value                                                                                                                                |

@@ -1,5 +1,3 @@
-[English](deploy-production.md) · [فارسی](deploy-production.fa.md)
-
 # Production Deployment
 
 This guide covers deploying on **one Linux server with Docker Compose**, from zero through upgrades and recovery. Example paths: the code in `/opt/dirouter`, the sample domain `example.com`, and an SSH user with sudo. Replace the path and domain with real values in every command.

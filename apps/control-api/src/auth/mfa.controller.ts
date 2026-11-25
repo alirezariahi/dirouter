@@ -32,7 +32,7 @@ export class MfaController {
   constructor(@Inject(MfaService) private readonly mfa: MfaService) {}
 
   @Get()
-  @ApiZodOk(StatusView, 'وضعیت ورود دومرحله‌ای')
+  @ApiZodOk(StatusView, 'Two-factor sign-in status')
   status(@CurrentUser() user: AccessClaims) {
     return this.mfa.status(user.sub);
   }
@@ -42,7 +42,7 @@ export class MfaController {
   @ApiZodBody(SetupBody)
   @ApiZodOk(
     z.object({ secret: z.string(), otpauthUrl: z.string() }),
-    'کلید TOTP برای اسکن با اپ Authenticator',
+    'TOTP secret to scan with an authenticator app',
   )
   setup(
     @CurrentUser() user: AccessClaims,
@@ -55,7 +55,7 @@ export class MfaController {
   @Post('verify')
   @HttpCode(200)
   @ApiZodBody(Code)
-  @ApiZodOk(z.object({ backupCodes: z.array(z.string()) }), 'کدهای پشتیبان؛ فقط یک‌بار نمایش')
+  @ApiZodOk(z.object({ backupCodes: z.array(z.string()) }), 'Backup codes; shown only once')
   verify(
     @CurrentUser() user: AccessClaims,
     @Req() req: FastifyRequest,
@@ -67,7 +67,7 @@ export class MfaController {
   @Post('disable')
   @HttpCode(204)
   @ApiZodBody(Code)
-  @ApiNoContentResponse({ description: 'ورود دومرحله‌ای خاموش شد' })
+  @ApiNoContentResponse({ description: 'Two-factor sign-in disabled' })
   async disable(
     @CurrentUser() user: AccessClaims,
     @Req() req: FastifyRequest,

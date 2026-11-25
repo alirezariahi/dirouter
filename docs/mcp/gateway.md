@@ -1,5 +1,3 @@
-[English](gateway.md) · [فارسی](gateway.fa.md)
-
 # MCP gateway
 
 Cards 20.1 and 28.1 · code: `apps/gateway/src/mcp`, `apps/control-api/src/mcp`, `apps/worker/src/mcp-calls.ts`, `packages/shared/src/oauth-client.ts`, `scripts/mcp/stdio-bridge.mjs`

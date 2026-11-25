@@ -1,5 +1,3 @@
-[English](README.md) · [فارسی](README.fa.md)
-
 # DiRouter website
 
 The Persian, RTL public homepage uses the selected Orbit design, the Fold logo, and the `#2864F0` brand color. It is a separate workspace application; the administration dashboard is unchanged.

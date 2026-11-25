@@ -1,5 +1,3 @@
-[English](keys.md) · [فارسی](keys.fa.md)
-
 # Virtual Keys Page
 
 Code: `apps/dashboard/src/pages/keys.tsx` · test: `keys.test.tsx` · card 7.5

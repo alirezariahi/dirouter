@@ -1,8 +1,6 @@
-[English](glossary.md) · [فارسی](glossary.fa.md)
-
 # Glossary
 
-> Every document is bilingual: an English `.md` file and a Persian `.fa.md` file sit side by side, and detailed guides live in `code/docs/`. See [CONTRIBUTING.md](../CONTRIBUTING.md) for the [documentation policy](../CONTRIBUTING.md#documentation-policy).
+> All documentation is in English, and detailed guides live in `code/docs/`. See [CONTRIBUTING.md](../CONTRIBUTING.md) for the [documentation policy](../CONTRIBUTING.md#documentation-policy).
 
 Core concepts of DiRouter. The names in code, API, and dashboard are exactly these.
 

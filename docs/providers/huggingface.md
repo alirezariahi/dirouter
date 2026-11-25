@@ -1,5 +1,3 @@
-[English](huggingface.md) · [فارسی](huggingface.fa.md)
-
 # Hugging Face Inference Providers
 
 > Card 31.6.

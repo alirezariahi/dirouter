@@ -2,7 +2,7 @@
   "name": "@dirouter/docs",
   "version": "1.1.0",
   "private": true,
-  "description": "Documentation site: docs/ and adr/ in English and Persian (RTL), with search and an API reference (card 22.5)",
+  "description": "Documentation site: docs/ and adr/ in English, with search and an API reference (card 22.5)",
   "type": "module",
   "scripts": {
     "sync": "node scripts/sync.mjs",

@@ -2,8 +2,7 @@
 """Build the DiTask board file (dikar.board format version 1) and a Markdown summary from cards_*.py.
 
 Run (from the docs directory):  python3 tools/board/build_board.py
-Output: board/dirouter-board.json and board/README.fa.md.
-The English board/README.md is its translation and is not overwritten.
+Output: board/dirouter-board.json and board/README.md (both regenerated on every run).
 """
 import hashlib
 import json
@@ -20,48 +19,56 @@ DOCS_DIR = HERE.parent.parent
 OUT_DIR = DOCS_DIR / "board"
 
 LABELS = [
-    ("گیت‌وی", "#0ea5e9"),
-    ("کنترل‌پنل-API", "#6366f1"),
-    ("داشبورد", "#ec4899"),
-    ("زیرساخت-داکر", "#64748b"),
-    ("دیتابیس", "#8b5cf6"),
-    ("تاب‌آوری", "#f97316"),
-    ("امنیت", "#dc2626"),
-    ("تست", "#14b8a6"),
-    ("مستندات", "#10b981"),
-    ("صورت‌حساب", "#eab308"),
-    ("ایجنت-MCP", "#a855f7"),
-    ("ارزش بالا", "#ef4444"),
+    ("gateway", "#0ea5e9"),
+    ("control-api", "#6366f1"),
+    ("dashboard", "#ec4899"),
+    ("infra-docker", "#64748b"),
+    ("database", "#8b5cf6"),
+    ("resilience", "#f97316"),
+    ("security", "#dc2626"),
+    ("testing", "#14b8a6"),
+    ("docs", "#10b981"),
+    ("billing", "#eab308"),
+    ("agent-mcp", "#a855f7"),
+    ("high-value", "#ef4444"),
 ]
 LABEL_INDEX = {name: i for i, (name, _) in enumerate(LABELS)}
 
 SPRINTS = [
-    dict(name="اسپرینت ۱ — MVP: گیت‌وی تاب‌آور، داکر، Traefik و داشبورد پایه",
-         goal="یک گیت‌وی end-to-end پشت Traefik که درخواست OpenAI و Anthropic را با فال‌بک، circuit breaker، rate limit، بودجه و حسابداری به چند provider می‌رساند؛ داشبورد فارسی پایه؛ کاملاً داکرایز و مستند.",
+    dict(name="Sprint 1 — MVP: resilient gateway, Docker, Traefik, and basic dashboard",
+         goal="An end-to-end gateway behind Traefik that forwards OpenAI and Anthropic requests to multiple providers with fallback, circuit breakers, rate limits, budgets, and accounting; a basic Persian dashboard; Docker deployment and documentation.",
          status="ACTIVE", start="2026-11-07", end="2026-11-20", rank="i", cards=S1),
-    dict(name="اسپرینت ۲ — v1: تاب‌آوری پیشرفته، امنیت سازمانی، کش و آنالیتیکس",
-         goal="استراتژی‌های هوشمند مسیریابی و hedging، کش و فشرده‌سازی، MFA و SSO و audit، guardrail، هشدار، داشبورد تحلیلی، config نسخه‌دار و استقرار HA با تست chaos.",
+    dict(name="Sprint 2 — v1: advanced resilience, enterprise security, caching, and analytics",
+         goal="Intelligent routing and hedging, caching and compression, MFA/SSO/audit, guardrails, alerts, an analytics dashboard, versioned configuration, and HA deployment with chaos tests.",
          status="PLANNED", start="2026-11-21", end="2026-12-04", rank="r", cards=S2),
-    dict(name="اسپرینت ۳ — صورت‌حساب، ایجنت/MCP و انتشار v1.0",
-         goal="کیف پول و درگاه پرداخت و پرتال فروش، MCP gateway و A2A، مسیریابی classifier، چندرسانه‌ای، SAML/SCIM، امنیت زنجیرهٔ تأمین، benchmark و انتشار v1.0.",
+    dict(name="Sprint 3 — billing, agents/MCP, and the v1.0 release",
+         goal="Wallet and payment gateways, a sales portal, MCP gateway and A2A, classifier routing, multimodality, SAML/SCIM, supply-chain security, benchmarks, and the v1.0 release.",
          status="PLANNED", start="2026-12-05", end="2026-12-18", rank="v", cards=S3),
 ]
 
-LISTS = [("📥 بک‌لاگ", "i"), ("🔎 آماده برای شروع", "r"), ("🛠 در حال انجام", "v"),
-         ("👀 بازبینی", "x"), ("✅ انجام‌شده", "y")]
+LISTS = [("📥 Backlog", "i"), ("🔎 Ready to start", "r"), ("🛠 In progress", "v"),
+         ("👀 Review", "x"), ("✅ Done", "y")]
 
-DOD = ["تست‌های واحد/یکپارچهٔ مرتبط نوشته شده و در CI سبز است",
-       "مستندات مرتبط در docs/ به‌روزرسانی شده (فارسی)",
-       "در محیط docker compose اجرا و بررسی شده",
-       "بازبینی کد انجام و تأیید شده"]
+ACCEPT_TITLE = "Acceptance criteria"
+DOD_TITLE = "Definition of Done (DoD)"
+DOD = ["Relevant unit/integration tests are written and green in CI",
+       "Relevant documentation in docs/ is updated",
+       "Run and verified in the docker compose environment",
+       "Code review completed and approved"]
 
-FA_DIGITS = str.maketrans("0123456789", "۰۱۲۳۴۵۶۷۸۹")
-PRIORITY_FA = {"URGENT": "فوری", "HIGH": "بالا", "MEDIUM": "متوسط", "LOW": "پایین"}
-TYPE_FA = {"STORY": "استوری", "TASK": "تسک", "BUG": "باگ"}
+PRIORITY_EN = {"URGENT": "Urgent", "HIGH": "High", "MEDIUM": "Medium", "LOW": "Low"}
+TYPE_EN = {"STORY": "Story", "TASK": "Task", "BUG": "Bug"}
 
-
-def fa(s: str) -> str:
-    return s.translate(FA_DIGITS)
+EPICS = {
+    "0": "Architecture and decisions", "1": "Monorepo and tooling", "2": "Docker and Traefik",
+    "3": "Database and control-api", "4": "Gateway core", "5": "Routing and resilience",
+    "6": "Limits, budgets, and accounting", "7": "MVP dashboard", "8": "Observability",
+    "9": "Testing and QA", "10": "MVP documentation", "11": "More APIs and providers",
+    "12": "Advanced routing and resilience", "13": "Caching and token savings", "14": "Enterprise security",
+    "15": "Guardrails", "16": "Advanced dashboard and alerts", "17": "Configuration, tracing, and HA",
+    "18": "Chaos and v1 documentation", "19": "Billing and sales", "20": "Agents, MCP, and intelligent routing",
+    "21": "Multimodality and plugins", "22": "Enterprise features, security, and release",
+}
 
 
 def rank(i: int, n: int) -> str:
@@ -79,19 +86,19 @@ def iso(day: str, end: bool = False) -> str:
 
 
 def describe(c: dict, by_key: dict) -> str:
-    parts = [f"## 🎯 هدف\n{c['goal']}", f"## 📋 شرح کار\n{c['work']}",
-             "## ✅ معیار پذیرش\n" + "\n".join(f"- [ ] {a}" for a in c["accept"])]
+    parts = [f"## 🎯 Goal\n{c['goal']}", f"## 📋 Work\n{c['work']}",
+             f"## ✅ {ACCEPT_TITLE}\n" + "\n".join(f"- [ ] {a}" for a in c["accept"])]
     if c["tech"]:
-        parts.append(f"## 🔧 یادداشت فنی\n{c['tech']}")
+        parts.append(f"## 🔧 Technical notes\n{c['tech']}")
     if c["deps"]:
-        parts.append("## 🔗 وابستگی‌ها\n" + "\n".join(
-            f"- {fa(d)} {by_key[d]['title']}" for d in c["deps"]))
-    parts.append("## 🏁 تعریف انجام (DoD)\n" + "\n".join(f"- [ ] {d}" for d in DOD))
+        parts.append("## 🔗 Dependencies\n" + "\n".join(
+            f"- {d} {by_key[d]['title']}" for d in c["deps"]))
+    parts.append(f"## 🏁 {DOD_TITLE}\n" + "\n".join(f"- [ ] {d}" for d in DOD))
     return "\n\n".join(parts)
 
 
 def checklist(title: str, items: list) -> dict:
-    return {"title": title, "rank": "i" if title == "معیار پذیرش" else "r",
+    return {"title": title, "rank": "i" if title == ACCEPT_TITLE else "r",
             "items": [{"text": t, "done": False, "rank": rank(i, len(items)), "dueDate": None}
                       for i, t in enumerate(items)]}
 
@@ -99,22 +106,22 @@ def checklist(title: str, items: list) -> dict:
 def validate(all_cards: list, sprint_of: dict) -> None:
     keys = [c["key"] for c in all_cards]
     dupes = {k for k in keys if keys.count(k) > 1}
-    assert not dupes, f"کلید تکراری: {dupes}"
+    assert not dupes, f"duplicate keys: {dupes}"
     by_key = {c["key"]: c for c in all_cards}
     for c in all_cards:
         for lab in c["labels"]:
-            assert lab in LABEL_INDEX, f"{c['key']}: برچسب ناشناخته {lab}"
-        assert c["prio"] in PRIORITY_FA and c["type"] in TYPE_FA, c["key"]
+            assert lab in LABEL_INDEX, f"{c['key']}: unknown label {lab}"
+        assert c["prio"] in PRIORITY_EN and c["type"] in TYPE_EN, c["key"]
         for d in c["deps"]:
-            assert d in by_key, f"{c['key']}: وابستگی ناموجود {d}"
+            assert d in by_key, f"{c['key']}: missing dependency {d}"
             assert sprint_of[d] <= sprint_of[c["key"]], \
-                f"{c['key']} به {d} از اسپرینت بعدی وابسته است"
+                f"{c['key']} depends on {d} from a later sprint"
     # cycle detection
     state = {}
 
     def visit(k, path):
         if state.get(k) == 1:
-            raise AssertionError("چرخهٔ وابستگی: " + " → ".join(path + [k]))
+            raise AssertionError("dependency cycle: " + " → ".join(path + [k]))
         if state.get(k) == 2:
             return
         state[k] = 1
@@ -140,7 +147,7 @@ def main() -> None:
         sp = SPRINTS[sprint_of[c["key"]]]
         cards_json.append({
             "ref": ref_for(c["key"]), "number": n,
-            "title": f"{fa(c['key'])} {c['title']}",
+            "title": f"{c['key']} {c['title']}",
             "description": describe(c, by_key),
             "rank": rank(n - 1, len(all_cards)),
             "dueDate": iso(sp["end"]), "startDate": None, "completed": False, "coverColor": None,
@@ -149,7 +156,7 @@ def main() -> None:
             "sprintRef": sprint_of[c["key"]], "epicRef": None,
             "blockedBy": [ref_for(d) for d in c["deps"]], "archived": False,
             "labels": [LABEL_INDEX[lab] for lab in c["labels"]],
-            "checklists": [checklist("معیار پذیرش", c["accept"]), checklist("تعریف انجام (DoD)", DOD)],
+            "checklists": [checklist(ACCEPT_TITLE, c["accept"]), checklist(DOD_TITLE, DOD)],
             "fieldValues": [], "worklogs": [],
         })
 
@@ -157,7 +164,7 @@ def main() -> None:
         "type": "dikar.board", "version": 1,
         "exportedAt": datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z"),
         "board": {
-            "title": "🧭 DiRouter — گیت‌وی هوشمند LLM",
+            "title": "🧭 DiRouter — intelligent LLM gateway",
             "cardPrefix": "DR", "background": "#0ea5e9", "icon": "🧭",
             "visibility": "WORKSPACE", "starred": False,
             "labels": [{"name": n, "color": col} for n, col in LABELS],
@@ -172,62 +179,54 @@ def main() -> None:
     }
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     (OUT_DIR / "dirouter-board.json").write_text(json.dumps(board, ensure_ascii=False, indent=1), encoding="utf-8")
-    # Write the Persian summary next to the English one so regenerating the board
-    # never overwrites the English translation in README.md.
-    fa_summary = summary_md(all_cards, sprint_of).rstrip("\n")
-    (OUT_DIR / "README.fa.md").write_text(
-        '[English](README.md) · [فارسی](README.fa.md)\n\n<div dir="rtl">\n\n'
-        + fa_summary
-        + "\n\n</div>\n",
-        encoding="utf-8",
-    )
+    (OUT_DIR / "README.md").write_text(summary_md(all_cards, sprint_of), encoding="utf-8")
 
-    for si, sp in enumerate(SPRINTS):
+    for sp in SPRINTS:
         cs = sp["cards"]
-        print(f"{sp['name']}: {len(cs)} کارت، {sum(c['sp'] for c in cs)} استوری‌پوینت")
-    print(f"جمع: {len(all_cards)} کارت → {OUT_DIR / 'dirouter-board.json'}")
+        print(f"{sp['name']}: {len(cs)} cards, {sum(c['sp'] for c in cs)} story points")
+    print(f"Total: {len(all_cards)} cards → {OUT_DIR / 'dirouter-board.json'}")
+
+
+def table(header: list, rows: list) -> list:
+    """Markdown table with padded columns (the same layout Prettier produces)."""
+    widths = [max(len(str(r[i])) for r in [header, *rows] + [["---"] * len(header)])
+              for i in range(len(header))]
+
+    def line(cells):
+        return "| " + " | ".join(str(v).ljust(w) for v, w in zip(cells, widths)) + " |"
+
+    return [line(header), "| " + " | ".join("-" * w for w in widths) + " |", *map(line, rows)]
 
 
 def summary_md(all_cards: list, sprint_of: dict) -> str:
-    out = ["# برد DiRouter (دی‌تسک)", "",
-           "> این فایل خودکار از `tools/board/build_board.py` ساخته می‌شود؛ دستی ویرایش نکنید.", "",
-           "## ورود به دی‌تسک",
-           "فایل `docs/board/dirouter-board.json` را از بخش «انتقال اطلاعات / ورود برد» در دی‌تسک وارد کنید. "
-           "همهٔ کارت‌ها در لیست «📥 بک‌لاگ» قرار دارند و به اسپرینت خود متصل‌اند؛ اسپرینت ۱ فعال است.", "",
-           "## پشتهٔ فنی",
-           "- **Backend:** NestJS (روی Fastify adapter) برای gateway، control-api و worker",
-           "- **Frontend:** React + Vite + TypeScript، TanStack Router/Query، shadcn/ui، Tailwind (RTL)",
-           "- **دیتابیس:** PostgreSQL 17 + Prisma (لاگ‌ها پارتیشن‌بندی‌شده + جداول تجمیعی)",
-           "- **شمارنده، کش، pub/sub و صف:** Valkey + BullMQ",
-           "- **ریورس پراکسی:** Traefik v3 (TLS با Let's Encrypt، پشتیبانی SSE)",
-           "- **استقرار:** Docker و docker compose (dev، prod، HA)؛ مونوریپو pnpm + Turborepo", "",
-           "## قراردادها",
-           "- شمارهٔ ابتدای عنوان هر کارت = «اپیک.ردیف» (مثلاً ۴.۵ یعنی اپیک ۴، کارت ۵).",
-           "- وابستگی‌ها در فیلد blockedBy دی‌تسک ثبت شده‌اند؛ ترتیب اجرا را از آن بگیرید.",
-           "- هر کارت دو چک‌لیست دارد: «معیار پذیرش» و «تعریف انجام (DoD)».",
-           "- برآورد زمان = استوری‌پوینت × ۶۰ دقیقه.", "",
-           "## اپیک‌ها",
-           "| شماره | اپیک |", "|---|---|"]
-    epics = {
-        "0": "معماری و تصمیم‌ها", "1": "مونوریپو و ابزار", "2": "داکر و Traefik",
-        "3": "دیتابیس و control-api", "4": "هستهٔ گیت‌وی", "5": "مسیریابی و تاب‌آوری",
-        "6": "محدودیت، بودجه و حسابداری", "7": "داشبورد MVP", "8": "Observability",
-        "9": "تست و QA", "10": "مستندات MVP", "11": "API و providerهای بیشتر",
-        "12": "مسیریابی و تاب‌آوری پیشرفته", "13": "کش و صرفه‌جویی توکن", "14": "امنیت سازمانی",
-        "15": "Guardrail", "16": "داشبورد پیشرفته و هشدار", "17": "پیکربندی، tracing و HA",
-        "18": "Chaos و مستندات v1", "19": "صورت‌حساب و فروش", "20": "ایجنت، MCP و مسیریابی هوشمند",
-        "21": "چندرسانه‌ای و افزونه‌ها", "22": "سازمانی، امنیت و انتشار",
-    }
-    out += [f"| {fa(k)} | {v} |" for k, v in epics.items()]
+    out = ["# DiRouter board (DiTask)", "",
+           "> This file is generated automatically from `tools/board/build_board.py`; do not edit it by hand.", "",
+           "## Importing into DiTask", "",
+           "Import the `docs/board/dirouter-board.json` file through the \"data transfer / board import\" section "
+           "in DiTask. All cards are in the \"📥 Backlog\" list and are linked to their sprints; Sprint 1 is active.", "",
+           "## Technology stack", "",
+           "- **Backend:** NestJS (on the Fastify adapter) for the gateway, control-api, and worker",
+           "- **Frontend:** React + Vite + TypeScript, TanStack Router/Query, shadcn/ui, Tailwind (RTL)",
+           "- **Database:** PostgreSQL 17 + Prisma (partitioned logs + aggregate tables)",
+           "- **Counters, cache, pub/sub, and queue:** Valkey + BullMQ",
+           "- **Reverse proxy:** Traefik v3 (TLS with Let's Encrypt, SSE support)",
+           "- **Deployment:** Docker and docker compose (dev, prod, HA); pnpm + Turborepo monorepo", "",
+           "## Conventions", "",
+           "- The number at the start of each card title is \"epic.row\" (for example, 4.5 means epic 4, card 5).",
+           "- Dependencies are recorded in DiTask's blockedBy field; use it to determine the execution order.",
+           f"- Each card has two checklists: \"{ACCEPT_TITLE}\" and \"{DOD_TITLE}\".",
+           "- Estimated time = story points × 60 minutes.", "",
+           "## Epics", ""]
+    out += table(["Number", "Epic"], list(EPICS.items()))
     for si, sp in enumerate(SPRINTS):
         cs = [c for c in all_cards if sprint_of[c["key"]] == si]
-        out += ["", f"## {sp['name']}",
-                f"**هدف:** {sp['goal']}", "",
-                f"**بازه:** {sp['start']} تا {sp['end']} · **کارت:** {fa(str(len(cs)))} · "
-                f"**استوری‌پوینت:** {fa(str(sum(c['sp'] for c in cs)))}", "",
-                "| # | عنوان | نوع | اولویت | SP | وابستگی |", "|---|---|---|---|---|---|"]
-        out += [f"| {fa(c['key'])} | {c['title']} | {TYPE_FA[c['type']]} | {PRIORITY_FA[c['prio']]} | "
-                f"{fa(str(c['sp']))} | {fa('، '.join(c['deps'])) or '—'} |" for c in cs]
+        out += ["", f"## {sp['name']}", "",
+                f"**Goal:** {sp['goal']}", "",
+                f"**Dates:** {sp['start']} to {sp['end']} · **Cards:** {len(cs)} · "
+                f"**Story points:** {sum(c['sp'] for c in cs)}", ""]
+        out += table(["#", "Title", "Type", "Priority", "SP", "Dependencies"],
+                     [[c["key"], c["title"], TYPE_EN[c["type"]], PRIORITY_EN[c["prio"]], c["sp"],
+                       ", ".join(c["deps"]) or "—"] for c in cs])
     return "\n".join(out) + "\n"
 
 

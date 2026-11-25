@@ -1,5 +1,3 @@
-[English](usage-pipeline.md) · [فارسی](usage-pipeline.fa.md)
-
 # Usage event pipeline and worker
 
 Code: `apps/gateway/src/usage-sink.ts`, `apps/worker/src/*` · Cards 6.4, 6.5 and 3.2

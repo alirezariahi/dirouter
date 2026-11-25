@@ -1,5 +1,3 @@
-[English](mock.md) · [فارسی](mock.fa.md)
-
 # DiRouter mock
 
 | Field                        | Value                              |

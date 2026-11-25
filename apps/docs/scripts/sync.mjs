@@ -33,23 +33,15 @@ for (const repoPath of files) {
   const dest = join(out, target);
   mkdirSync(dirname(dest), { recursive: true });
   writeFileSync(dest, toPage(readFileSync(join(root, repoPath), 'utf8'), repoPath, known));
-  manifest.push({
-    source: repoPath,
-    url: `${target.startsWith('fa/') ? '/fa' : ''}/${sitePath(repoPath) ?? ''}`,
-  });
+  manifest.push({ source: repoPath, url: `/${sitePath(repoPath) ?? ''}` });
 }
 
 // API reference, generated from the control-api's OpenAPI document.
 const openapi = JSON.parse(readFileSync(join(root, 'apps/dashboard/openapi.json'), 'utf8'));
-for (const locale of ['en', 'fa']) {
-  const dest = join(out, locale === 'fa' ? 'fa/api/reference.md' : 'api/reference.md');
-  mkdirSync(dirname(dest), { recursive: true });
-  writeFileSync(dest, apiReference(openapi, locale));
-  manifest.push({
-    source: 'apps/dashboard/openapi.json',
-    url: `${locale === 'fa' ? '/fa' : ''}/api/reference`,
-  });
-}
+const reference = join(out, 'api/reference.md');
+mkdirSync(dirname(reference), { recursive: true });
+writeFileSync(reference, apiReference(openapi));
+manifest.push({ source: 'apps/dashboard/openapi.json', url: '/api/reference' });
 
 writeFileSync(join(app, '.manifest.json'), JSON.stringify(manifest, null, 2));
 process.stdout.write(`synced ${String(manifest.length)} pages\n`);

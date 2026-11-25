@@ -1,5 +1,3 @@
-[English](auth.md) · [فارسی](auth.fa.md)
-
 # Dashboard authentication, sessions, management tokens and setup wizard
 
 Code: `apps/control-api/src/auth` · tests: `auth.unit.test.ts` and `auth.integration.test.ts` · card 3.4

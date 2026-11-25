@@ -1,5 +1,3 @@
-[English](traefik.md) · [فارسی](traefik.fa.md)
-
 # Traefik
 
 > Files: `deploy/traefik/traefik.yml` (static, production), `deploy/traefik/traefik.dev.yml` (static, development), `deploy/traefik/dynamic/middlewares.yml` (dynamic, Go template with env), and the Docker labels in `compose.yaml`.

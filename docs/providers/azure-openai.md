@@ -1,5 +1,3 @@
-[English](azure-openai.md) · [فارسی](azure-openai.fa.md)
-
 # Azure OpenAI
 
 - `type: azure-openai`, `baseUrl: https://<resource>.openai.azure.com`
