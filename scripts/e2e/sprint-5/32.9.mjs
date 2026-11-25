@@ -19,7 +19,7 @@ const setMockBalance = (amount) =>
     200,
   );
 
-export function register({ scenario, cleanups, org }) {
+export async function register({ scenario, cleanups, org }) {
   const tag = randomUUID().slice(0, 6);
   const providers = [];
 
@@ -51,7 +51,7 @@ export function register({ scenario, cleanups, org }) {
     }
   }
 
-  scenario('32.9 the balance of three providers is shown on the Providers page', async () => {
+  await scenario('32.9 the balance of three providers is shown on the Providers page', async () => {
     await setup();
     for (const provider of providers) {
       const refreshed = (await org('POST', `providers/${provider.id}/balance`)).body;
@@ -66,7 +66,7 @@ export function register({ scenario, cleanups, org }) {
     }
   });
 
-  scenario('32.9 a low upstream balance alert reaches the channel', async () => {
+  await scenario('32.9 a low upstream balance alert reaches the channel', async () => {
     await setup();
     await setMockBalance(0.5);
     const low = (await org('POST', `providers/${providers[0].id}/balance`)).body;

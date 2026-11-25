@@ -8,7 +8,7 @@ import { randomUUID } from 'node:crypto';
 
 import { published, request, sql, urls, waitFor } from '../harness.mjs';
 
-export function register({ scenario, cleanups, org, createKey }) {
+export async function register({ scenario, cleanups, org, createKey }) {
   const tag = randomUUID().slice(0, 6);
   const slug = `s5-pass-${tag}`;
   let provider;
@@ -62,41 +62,44 @@ export function register({ scenario, cleanups, org, createKey }) {
       body: JSON.stringify(body),
     });
 
-  scenario('30.7 an untranslated endpoint works through pass-through and is logged', async () => {
-    await setup();
-    const { response, body } = await call(granted.key, '/completions', {
-      model: 'gpt-3.5-turbo-instruct',
-      prompt: 'Say hello',
-    });
-    assert.equal(response.status, 200, JSON.stringify(body));
-    assert.equal(body.object, 'text_completion');
-    assert.equal(response.headers.get('x-dirouter-provider'), slug);
-    const requestId = response.headers.get('x-request-id');
-    let row = '';
-    await waitFor('the pass-through request in request_log', async () => {
-      row = await sql(
-        `SELECT inbound_api, status, http_status, input_tokens, output_tokens, cost_usd > 0
+  await scenario(
+    '30.7 an untranslated endpoint works through pass-through and is logged',
+    async () => {
+      await setup();
+      const { response, body } = await call(granted.key, '/completions', {
+        model: 'gpt-3.5-turbo-instruct',
+        prompt: 'Say hello',
+      });
+      assert.equal(response.status, 200, JSON.stringify(body));
+      assert.equal(body.object, 'text_completion');
+      assert.equal(response.headers.get('x-dirouter-provider'), slug);
+      const requestId = response.headers.get('x-request-id');
+      let row = '';
+      await waitFor('the pass-through request in request_log', async () => {
+        row = await sql(
+          `SELECT inbound_api, status, http_status, input_tokens, output_tokens, cost_usd > 0
            FROM request_log WHERE id = '${requestId}' AND api_key_id = '${granted.id}'`,
-      );
-      return row !== '';
-    });
-    const [api, status, httpStatus, input, output, priced] = row.split('|');
-    assert.equal(api, 'passthrough');
-    assert.equal(status, 'success');
-    assert.equal(httpStatus, '200');
-    assert.equal(Number(input), body.usage.prompt_tokens);
-    assert.equal(Number(output), body.usage.completion_tokens);
-    assert.equal(priced, 't');
-  });
+        );
+        return row !== '';
+      });
+      const [api, status, httpStatus, input, output, priced] = row.split('|');
+      assert.equal(api, 'passthrough');
+      assert.equal(status, 'success');
+      assert.equal(httpStatus, '200');
+      assert.equal(Number(input), body.usage.prompt_tokens);
+      assert.equal(Number(output), body.usage.completion_tokens);
+      assert.equal(priced, 't');
+    },
+  );
 
-  scenario('30.7 a key without the pass-through grant is refused', async () => {
+  await scenario('30.7 a key without the pass-through grant is refused', async () => {
     await setup();
     const { response, body } = await call(plain.key, '/completions', { prompt: 'x' });
     assert.equal(response.status, 403);
     assert.match(body.error.message, /may not use pass-through/);
   });
 
-  scenario('30.7 a path outside the allow-list is refused', async () => {
+  await scenario('30.7 a path outside the allow-list is refused', async () => {
     await setup();
     const { response, body } = await call(granted.key, '/chat/completions', {
       model: 'gpt-3.5-turbo-instruct',

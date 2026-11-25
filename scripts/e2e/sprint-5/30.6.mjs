@@ -17,6 +17,7 @@ export async function register({ scenario, cleanups, org, createKey }) {
   const require = createRequire(join(root, 'apps/gateway/package.json'));
   const { default: OpenAI } = require('openai');
   const tag = randomUUID().slice(0, 6);
+  let made = 0;
   const mock = (method, path, body) =>
     request(
       `${urls.mock}${path}`,
@@ -30,14 +31,16 @@ export async function register({ scenario, cleanups, org, createKey }) {
     );
 
   async function videoModel(type, baseUrl, upstreamModel, pricing, options = {}) {
+    // Unique per call: several scenarios use the same provider type.
+    const id = `${type}-${tag}-${String(++made)}`;
     const provider = (
       await published(() =>
         org(
           'POST',
           'providers',
           {
-            name: `s5-video-${type}-${tag}`,
-            slug: `s5-video-${type}-${tag}`,
+            name: `s5-video-${id}`,
+            slug: `s5-video-${id}`,
             type,
             baseUrl,
             options,
@@ -56,7 +59,7 @@ export async function register({ scenario, cleanups, org, createKey }) {
           {
             providerId: provider.id,
             upstreamModel,
-            slug: `s5-video-${type}-${tag}`,
+            slug: `s5-video-${id}`,
             pricing: { inputPerMTok: '0', outputPerMTok: '0', ...pricing },
             capabilities: { video: true },
           },

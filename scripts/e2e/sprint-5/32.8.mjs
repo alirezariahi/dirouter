@@ -16,10 +16,10 @@ const TEXTS = [
 ];
 const ALIASES = ['auto', 'auto/smart', 'auto/coding', 'auto/fast', 'auto/cheap'];
 
-export function register({ scenario, cleanups, org, createKey }) {
+export async function register({ scenario, cleanups, org, createKey }) {
   const suffix = randomUUID().slice(0, 6);
 
-  scenario(
+  await scenario(
     '32.8 with the low cost tier no auto request reaches an expensive model, and a model outside the allowed set is never selected',
     async () => {
       const model = async (name, price) => {

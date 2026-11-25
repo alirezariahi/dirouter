@@ -11,7 +11,7 @@ import { chat, published, valkey, waitFor } from '../harness.mjs';
 const BUDGET_UNITS_PER_USD = 100_000_000;
 const monthKey = () => `m:${new Date().toISOString().slice(0, 7)}`;
 
-export function register({ scenario, cleanups, org }) {
+export async function register({ scenario, cleanups, org }) {
   const suffix = randomUUID().slice(0, 6);
   const rule = async (body) => {
     const created = (await published(() => org('POST', 'routing/rules', body, 201))).body;
@@ -25,7 +25,7 @@ export function register({ scenario, cleanups, org }) {
       headers,
     );
 
-  scenario('32.2 an invalid condition is refused when the rule is saved', async () => {
+  await scenario('32.2 an invalid condition is refused when the rule is saved', async () => {
     for (const condition of ['budget.team >', 'request.nope == 1', 'request.model == 3']) {
       const res = await org(
         'POST',
@@ -39,7 +39,7 @@ export function register({ scenario, cleanups, org }) {
     assert.equal(check.body.valid, false);
   });
 
-  scenario(
+  await scenario(
     '32.2 a team over 80% of its budget is routed to the cheap model; a header rule reroutes; the simulator and traffic report show the rules',
     async () => {
       const team = (await org('POST', 'teams', { name: `S5 rules ${suffix}` }, 201)).body;

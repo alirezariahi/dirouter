@@ -17,17 +17,20 @@ export async function register({ scenario, cleanups, api, org, createKey }) {
   const require = createRequire(join(root, 'apps/gateway/package.json'));
   const { default: OpenAI, toFile } = require('openai');
   const tag = randomUUID().slice(0, 6);
+  let made = 0;
 
   /** A provider backed by the mock and a model on it with a 50% batch discount. */
   async function batchModel(type, baseUrl, upstreamModel) {
+    // Unique per call: several scenarios use the same provider type.
+    const id = `${type}-${tag}-${String(++made)}`;
     const provider = (
       await published(() =>
         org(
           'POST',
           'providers',
           {
-            name: `s5-batch-${type}-${tag}`,
-            slug: `s5-batch-${type}-${tag}`,
+            name: `s5-batch-${id}`,
+            slug: `s5-batch-${id}`,
             type,
             baseUrl,
             credentials: [{ name: 'k', secret: 'sk-mock' }],
@@ -45,7 +48,7 @@ export async function register({ scenario, cleanups, api, org, createKey }) {
           {
             providerId: provider.id,
             upstreamModel,
-            slug: `s5-batch-${type}-${tag}`,
+            slug: `s5-batch-${id}`,
             pricing: { inputPerMTok: '2', outputPerMTok: '8', batchDiscount: '0.5' },
           },
           201,

@@ -37,6 +37,13 @@ export async function register({ scenario, cleanups, org, createKey }) {
       }),
     );
 
+    // Earlier scenarios (the 32.3 canary on mock/down) may have opened the breakers of mock-down;
+    // the request must reach it, so start from closed breakers.
+    const resetBreaker = async () => {
+      await org('POST', 'health/reset', { scope: 'provider', id: 'prv_mock-down' }, 200);
+      await org('POST', 'health/reset', { scope: 'model', id: 'mdl_dev_mock_down' }, 200);
+    };
+    await resetBreaker();
     // combo `dev`: mock-down (ZDR, answers 503), then mock/small (no ZDR). The fallback is cut.
     await request(`${urls.mock}/__mock/reset`, { method: 'POST' }, 200);
     const res = await ask(key.key, { model: 'dev' });

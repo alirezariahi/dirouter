@@ -6,7 +6,7 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 
-import { published, urls, waitFor } from '../harness.mjs';
+import { published, sleep, urls, waitFor } from '../harness.mjs';
 
 /** Runs `count` jobs with at most `parallel` in flight. */
 async function pool(count, parallel, job) {
@@ -18,53 +18,69 @@ async function pool(count, parallel, job) {
   );
 }
 
-export function register({ scenario, cleanups, org, createKey }) {
+export async function register({ scenario, cleanups, org, createKey }) {
   const suffix = randomUUID().slice(0, 6);
   const createSplit = async (body) => {
     const created = (await published(() => org('POST', 'routing/splits', body, 201))).body;
     cleanups.push(() => org('DELETE', `routing/splits/${created.id}`, undefined, null));
     return created;
   };
+  /** Traefik's own answer while its health check has the single dev gateway out of the pool. */
+  const fromTraefik = (res, text) =>
+    res.status === 503 && !res.headers.get('x-request-id') && text.includes('no available server');
   const ask = async (key, model, headers = {}) => {
-    const res = await fetch(`${urls.gateway}/v1/chat/completions`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', authorization: `Bearer ${key}`, ...headers },
-      body: JSON.stringify({ model, max_tokens: 4, messages: [{ role: 'user', content: 'hi' }] }),
-      signal: AbortSignal.timeout(30_000),
-    });
-    await res.arrayBuffer();
-    return res;
+    for (let tries = 0; ; tries++) {
+      const res = await fetch(`${urls.gateway}/v1/chat/completions`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', authorization: `Bearer ${key}`, ...headers },
+        body: JSON.stringify({ model, max_tokens: 4, messages: [{ role: 'user', content: 'hi' }] }),
+        signal: AbortSignal.timeout(30_000),
+      });
+      const text = await res.text();
+      // The request never reached the gateway: send it again once Traefik has it back (the same
+      // session lands on the same branch, so the share is not affected).
+      if (fromTraefik(res, text) && tries < 40) {
+        await sleep(250);
+        continue;
+      }
+      return res;
+    }
   };
 
-  scenario('32.3 10,000 requests split within ±1% of the configured canary share', async () => {
-    const key = await createKey('split');
-    const match = `s5-split-${suffix}`;
-    const split = await createSplit({
-      name: `s5 split ${suffix}`,
-      match,
-      stable: 'mock/small',
-      canary: 'mock/claude',
-      canaryPercent: 10,
-      stickiness: 'session',
-      autoRollback: null,
-    });
-    let canary = 0;
-    let failed = 0;
-    await pool(10_000, 48, async (i) => {
-      const res = await ask(key.key, match, { 'x-dirouter-session': `s5-${suffix}-${String(i)}` });
-      if (res.status !== 200) failed++;
-      const branch = res.headers.get('x-dirouter-split') ?? '';
-      if (branch.endsWith('branch=canary')) {
-        canary++;
-        assert.equal(res.headers.get('x-dirouter-model'), 'mock/claude');
-      } else assert.equal(res.headers.get('x-dirouter-model'), 'mock/small');
-      assert.ok(branch.startsWith(`${split.id}; v=1;`), branch);
-    });
-    assert.equal(failed, 0);
-    assert.ok(Math.abs(canary / 100 - 10) <= 1, `canary share ${String(canary / 100)}%`);
-  });
+  await scenario(
+    '32.3 10,000 requests split within ±1% of the configured canary share',
+    async () => {
+      const key = await createKey('split');
+      const match = `s5-split-${suffix}`;
+      const split = await createSplit({
+        name: `s5 split ${suffix}`,
+        match,
+        stable: 'mock/small',
+        canary: 'mock/claude',
+        canaryPercent: 10,
+        stickiness: 'session',
+        autoRollback: null,
+      });
+      let canary = 0;
+      // 16 in flight keeps the single dev gateway (tsx, not built) mostly within Traefik's 1 s
+      // health-check timeout; a request Traefik refuses meanwhile is sent again by `ask`.
+      await pool(10_000, 16, async (i) => {
+        const res = await ask(key.key, match, {
+          'x-dirouter-session': `s5-${suffix}-${String(i)}`,
+        });
+        assert.equal(res.status, 200, `request ${String(i)}`);
+        const branch = res.headers.get('x-dirouter-split') ?? '';
+        if (branch.endsWith('branch=canary')) {
+          canary++;
+          assert.equal(res.headers.get('x-dirouter-model'), 'mock/claude');
+        } else assert.equal(res.headers.get('x-dirouter-model'), 'mock/small');
+        assert.ok(branch.startsWith(`${split.id}; v=1;`), branch);
+      });
+      assert.ok(Math.abs(canary / 100 - 10) <= 1, `canary share ${String(canary / 100)}%`);
+    },
+  );
 
-  scenario(
+  await scenario(
     '32.3 an injected canary failure rolls the split back automatically; the report compares both branches',
     async () => {
       const key = await createKey('canary');

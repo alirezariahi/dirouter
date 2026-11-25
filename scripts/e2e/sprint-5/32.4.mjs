@@ -9,7 +9,7 @@ import { randomUUID } from 'node:crypto';
 
 import { chat, published, sql, valkey, waitFor } from '../harness.mjs';
 
-export function register({ scenario, cleanups, org, createKey }) {
+export async function register({ scenario, cleanups, org, createKey }) {
   const suffix = randomUUID().slice(0, 6);
   const shadowModel = async (name, secret) => {
     const provider = (
@@ -53,7 +53,7 @@ export function register({ scenario, cleanups, org, createKey }) {
   const ask = (key, model) =>
     chat(key, { model, max_tokens: 8, messages: [{ role: 'user', content: 'shadow me' }] });
 
-  scenario(
+  await scenario(
     '32.4 a slow and a failing shadow model have no effect on the answer or its latency; the shadow cost is stored apart and not taken from the key budget',
     async () => {
       const slow = await shadowModel('slow', 'mock:latency=2500');
@@ -135,7 +135,7 @@ export function register({ scenario, cleanups, org, createKey }) {
         ),
       );
       const budgetId = await sql(
-        `SELECT id FROM budgets WHERE scope = 'API_KEY' AND scope_id = '${key.id}'`,
+        `SELECT id FROM budgets WHERE scope = 'api_key' AND scope_id = '${key.id}'`,
       );
       const counter = Number(
         (await valkey(
@@ -162,7 +162,7 @@ export function register({ scenario, cleanups, org, createKey }) {
     },
   );
 
-  scenario('32.4 the shadow stops for the day at its own cost cap', async () => {
+  await scenario('32.4 the shadow stops for the day at its own cost cap', async () => {
     const key = await createKey('shadow-cap');
     const target = await sql(`SELECT slug FROM models WHERE id = 'mdl_dev_mock_small'`);
     const capped = await shadowPolicy({

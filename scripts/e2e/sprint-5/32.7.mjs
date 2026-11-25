@@ -22,16 +22,29 @@ export async function register({ scenario, cleanups, org, createKey }) {
     await published(() =>
       org('PUT', 'routing-policies', { scope: 'key', scopeId: key.id, policy: { explain: true } }),
     );
+    // Earlier scenarios (the 32.3 canary on mock/down) may have opened the breakers of mock-down;
+    // the request must reach it, so start from closed breakers.
+    const resetBreaker = async () => {
+      await org('POST', 'health/reset', { scope: 'provider', id: 'prv_mock-down' }, 200);
+      await org('POST', 'health/reset', { scope: 'model', id: 'mdl_dev_mock_down' }, 200);
+    };
+    await resetBreaker();
     const res = await chat(key.key, body, ASK);
     assert.equal(res.response.status, 200, res.text);
     const live = decode(res.response);
     assert.ok(live, 'x-dirouter-routing is present');
     const { attempts, ...plan } = live;
-    // combo `dev`: mock-down fails, then mock/small answers.
-    assert.deepEqual(
-      attempts.map((a) => a.outcome),
-      ['error', 'success'],
+    // combo `dev`: mock-down fails (once, or twice when the retry budget allows a retry of the
+    // 503 on the same target), then mock/small answers.
+    const last = attempts.at(-1);
+    const failed = attempts.slice(0, -1);
+    assert.ok(failed.length >= 1 && failed.length <= 2, JSON.stringify(attempts));
+    assert.ok(
+      failed.every((a) => a.outcome === 'error' && a.modelId === 'mdl_dev_mock_down'),
+      JSON.stringify(attempts),
     );
+    assert.equal(last.outcome, 'success');
+    assert.equal(last.modelId, 'mdl_dev_mock_small');
     const sim = await org('POST', 'routes/simulate', {
       model: 'dev',
       virtualKeyId: key.id,
