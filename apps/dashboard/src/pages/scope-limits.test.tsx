@@ -111,8 +111,16 @@ function mockApi(
       if (path === '/auth/login') response = { status: 200, body: { accessToken: 'token' } };
       else if (path === '/auth/me') response = { status: 200, body: user };
       else if (path === '/orgs/org_1') response = { status: 200, body: user.organizations[0] };
-      else if (path.endsWith('/members') || path.endsWith('/invitations'))
-        response = { status: 200, body: [] };
+      else if (path.endsWith('/members'))
+        response = {
+          status: 200,
+          body: [{ userId: 'usr_2', email: 'dev@example.com', name: 'Dev', role: 'MEMBER' }],
+        };
+      else if (path.endsWith('/invitations')) response = { status: 200, body: [] };
+      else if (path === '/orgs/org_1/models')
+        response = { status: 200, body: [{ id: 'mdl_1', slug: 'openai/gpt-5' }] };
+      else if (path === '/orgs/org_1/providers')
+        response = { status: 200, body: [{ id: 'prv_1', name: 'OpenAI' }] };
       else if (path.endsWith('/teams')) response = { status: 200, body: [TEAM] };
       else if (path.endsWith('/projects')) response = { status: 200, body: [PROJECT] };
       else if (path === '/orgs/org_1/limits') response = { status: 200, body: LIMITS };
@@ -192,8 +200,12 @@ describe('limit form helpers', () => {
         maxConcurrency: '',
         dailyUsd: '',
         dailyTokens: '',
+        weeklyUsd: '',
+        weeklyTokens: '',
         monthlyUsd: '',
         monthlyTokens: '',
+        yearlyUsd: '',
+        yearlyTokens: '',
         thresholds: '',
       }),
     ).toEqual({ ok: true, body: { rpm: null, tpm: null, maxConcurrency: null, budgets: [] } });
@@ -277,6 +289,58 @@ describe('team and project limits on the organization page (card 25.5)', () => {
     fireEvent.click(within(form).getByRole('button', { name: 'Remove all limits' }));
     await waitFor(() => {
       expect(calls.find((c) => c.method === 'DELETE')?.path).toBe('/orgs/org_1/limits/team/team_1');
+    });
+  });
+
+  it('limits the whole organization, a member and a model with weekly and yearly budgets (card 33.1)', async () => {
+    const calls = mockApi('OWNER');
+    const card = await renderOrganization();
+    expect(within(card).getByTestId('limits-organization-org_1').textContent).toContain(
+      'Whole organization',
+    );
+    fireEvent.click(within(card).getByRole('button', { name: 'Edit limits Acme' }));
+    let form = within(card).getByRole('form', { name: 'Edit limits Acme' });
+    fireEvent.change(within(form).getByLabelText('Weekly budget (USD)'), {
+      target: { value: '700' },
+    });
+    fireEvent.change(within(form).getByLabelText('Yearly token cap'), {
+      target: { value: '900000000' },
+    });
+    fireEvent.click(within(form).getByRole('button', { name: 'Save' }));
+    await waitFor(() => {
+      const put = calls.find((c) => c.method === 'PUT');
+      expect(put?.path).toBe('/orgs/org_1/limits/organization/org_1');
+      expect(put?.body?.budgets).toEqual([
+        { period: 'weekly', limitUsd: '700', alertThresholds: [50, 80, 100] },
+        { period: 'yearly', limitTokens: 900000000, alertThresholds: [50, 80, 100] },
+      ]);
+    });
+    fireEvent.click(within(card).getByRole('button', { name: 'Edit limits Dev' }));
+    form = within(card).getByRole('form', { name: 'Edit limits Dev' });
+    fireEvent.change(within(form).getByLabelText('Requests per minute (RPM)'), {
+      target: { value: '30' },
+    });
+    fireEvent.click(within(form).getByRole('button', { name: 'Save' }));
+    await waitFor(() => {
+      expect(calls.filter((c) => c.method === 'PUT').at(-1)?.path).toBe(
+        '/orgs/org_1/limits/user/usr_2',
+      );
+    });
+    // A model without limits yet is picked from the list, then edited like any other scope.
+    const picker = await within(card).findByRole('combobox', { name: 'Limit a model or provider' });
+    await waitFor(() => {
+      expect(within(picker).getByText('Model: openai/gpt-5')).toBeTruthy();
+    });
+    fireEvent.change(picker, { target: { value: 'model:mdl_1' } });
+    form = within(card).getByRole('form', { name: 'Edit limits openai/gpt-5' });
+    fireEvent.change(within(form).getByLabelText('Monthly budget (USD)'), {
+      target: { value: '100' },
+    });
+    fireEvent.click(within(form).getByRole('button', { name: 'Save' }));
+    await waitFor(() => {
+      expect(calls.filter((c) => c.method === 'PUT').at(-1)?.path).toBe(
+        '/orgs/org_1/limits/model/mdl_1',
+      );
     });
   });
 

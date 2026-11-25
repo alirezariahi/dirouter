@@ -26,7 +26,9 @@ export const keyMessagesEn = {
   budgetTokens: 'Token limit',
   period: {
     daily: 'Daily',
+    weekly: 'Weekly (from Monday, UTC)',
     monthly: 'Monthly',
+    yearly: 'Yearly',
   },
   createTitle: 'Create a virtual key',
   editTitle: 'Edit virtual key',
@@ -94,7 +96,9 @@ export const keyMessagesFa: typeof keyMessagesEn = {
   budgetTokens: 'سقف توکن',
   period: {
     daily: 'روزانه',
+    weekly: 'هفتگی (از دوشنبه، UTC)',
     monthly: 'ماهانه',
+    yearly: 'سالانه',
   },
   createTitle: 'ساخت کلید مجازی',
   editTitle: 'ویرایش کلید مجازی',

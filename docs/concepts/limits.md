@@ -207,3 +207,96 @@ PUT /api/v1/orgs/org_1/limits/project/prj_search
 - Once a project's (or team's) budget is reached, every key of that project (or of every project
   of that team) gets `429 budget_exceeded`, e.g. `Monthly project budget exceeded (USD 25.5)`;
   keys of other projects are not affected (`apps/gateway/src/scope-budget.test.ts`).
+
+# Organization, member, model and provider scopes; weekly and yearly budgets (card 33.1)
+
+Limits and budgets also apply to four more scopes, and budgets have two more periods.
+
+| scope          | `scopeId`                                                          | what it covers                                                | when exhausted                                                                                 |
+| -------------- | ------------------------------------------------------------------ | ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `organization` | the organization id                                                | every key of the organization                                 | `429` for every key                                                                            |
+| `user`         | a member's user id                                                 | every key that member created (`api_keys.created_by_id`)      | `429` for those keys                                                                           |
+| `model`        | a model id of the organization (or a public model of the platform) | requests the organization sends to that model                 | the model is taken out of the route; a combo falls back, a request for the model itself is 429 |
+| `provider`     | a provider id of the organization                                  | requests the organization sends to any model of that provider | the provider's targets are taken out of the route, as for a model                              |
+
+They are written through the same API as teams and projects: `PUT /orgs/:org/limits/:scope/:scopeId`
+with `scope` one of `organization`, `team`, `project`, `user`, `model` or `provider`. A scope id
+outside the organization is `404` (another organization, someone who is not a member, another
+tenant's model or provider). `GET limits/usage` lists the organization, every team and project and
+every member, model and provider that has limits, with spend `today`, this `week`, this `month` and
+this `year`; each budget's `usedPercent` is measured in its own period.
+
+```json
+PUT /api/v1/orgs/org_1/limits/organization/org_1
+{ "budgets": [{ "period": "monthly", "limitUsd": "5000" }, { "period": "weekly", "limitUsd": "1500" }] }
+
+PUT /api/v1/orgs/org_1/limits/model/mdl_gpt5
+{ "rpm": 300, "budgets": [{ "period": "daily", "limitUsd": "200" }] }
+```
+
+## Periods
+
+`period` is `daily`, `weekly`, `monthly` or `yearly`, all in UTC, for key budgets and shared
+budgets alike (at most one budget per period, so up to four per scope).
+
+| period    | counter key suffix | starts                                                     |
+| --------- | ------------------ | ---------------------------------------------------------- |
+| `daily`   | `d:2026-11-29`     | 00:00 UTC                                                  |
+| `weekly`  | `w:2026-11-23`     | Monday 00:00 UTC (ISO 8601 week; the suffix is its Monday) |
+| `monthly` | `m:2026-11`        | the 1st, 00:00 UTC                                         |
+| `yearly`  | `y:2026`           | 1 January, 00:00 UTC                                       |
+
+As before, a new period is a new counter, so the reset needs no job, and `Retry-After` points at the
+start of the next period: `Weekly organization budget exceeded (USD 1500)`.
+
+## On the request path
+
+`apps/gateway/src/spend-guard.ts` decides what covers a request, for chat and for the metered APIs
+(embeddings, images, audio):
+
+1. **Budgets** of the key, its project and team, the organization, the key's member, and of every
+   model and provider among the route's candidates are read in **one pipelined round trip**. An
+   exhausted key, project, team, organization or member budget rejects the request. An exhausted
+   model or provider budget removes the matching candidates; only when none is left is the request
+   rejected (`… budget exceeded for every target of '<model>'`).
+2. **Rate limits** of the same request scopes plus the model and provider of the first remaining
+   candidate are checked and applied by **one atomic Lua script**, as for keys, teams and projects.
+3. After the response, every budget is counted by one Lua script. Model and provider budgets only
+   count requests that their model or provider actually served (a fallback is counted where it
+   landed).
+
+So the number of Valkey round trips per request does not grow with the number of scopes. Rate
+counters of shared scopes carry the organization in their name (`org:<org>`,
+`user:<org>:<user>`, `model:<org>:<model>`, `provider:<org>:<provider>`), and budgets are counted by
+their own id, so one member who belongs to two organizations, or two organizations on one platform
+model, never share a counter. The outage behaviour is unchanged: `failMode: open` lets requests
+through and reconcile catches up, `closed` answers 429.
+
+## Reconcile
+
+The worker's `budget-reconcile` job rebuilds every counter from `usage_ledger`, always within the
+budget's organization: `organization_id` for the organization, the member's keys for `user`, and the
+new ledger columns `model_id` and `provider_id` for models and providers. Ledger rows written before
+this release have no model or provider, so a model or provider budget starts counting at the
+upgrade.
+
+## Verification
+
+- `apps/gateway/src/budget-scopes.test.ts`, with `INTEGRATION_VALKEY_URL`:
+  - a monthly organization budget stops every key of the organization (another project and team
+    included) and no key of another organization;
+  - a member budget stops that member's keys, not a colleague's, and not the same person's key in
+    another organization;
+  - a used-up model budget moves a combo to its next target and refuses the model itself;
+  - a provider rate limit counts every key of the organization on that provider;
+  - a weekly budget is exhausted until Monday 00:00 UTC and starts from zero then, and a yearly
+    budget until 1 January, on a fake clock;
+  - overhead: the gateway and Valkey CPU of one admission, with and without the four extra scopes,
+    differs by well under 0.3 ms (about 0.2 ms on a loaded development machine; the number of round
+    trips is the same).
+- `apps/control-api/src/limits/limits.integration.test.ts`: the four scopes over HTTP, ids outside
+  the organization refused, the snapshot, keys carrying their member, and usage per period.
+- `apps/worker/src/budgets.integration.test.ts`: each new scope rebuilt from its own ledger rows,
+  never another tenant's.
+- `packages/contracts/src/budget.test.ts`: week and year boundaries, including a week across New
+  Year.

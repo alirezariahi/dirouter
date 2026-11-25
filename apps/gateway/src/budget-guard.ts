@@ -1,11 +1,16 @@
 /**
- * Budget for key, project and team (card 6.3).
+ * Budgets (card 6.3) for keys, projects and teams, and since card 33.1 for the organization, a
+ * member's keys, models and providers, in daily, weekly, monthly and yearly periods.
  *
  * - Before the request: if the current period's counter has reached the cap (dollars or tokens), 429
  *   `budget_exceeded`. The request's own cost is unknown before it runs, so a request that has started
  *   finishes, and the "next request" is rejected.
  * - After the request: atomically increment the counters with the real cost and tokens. Crossing each threshold
  *   (default 50/80/100%) creates exactly one event, even with multiple replicas (SET NX).
+ * - Budgets with a `target` (a model, provider or credential) do not reject: when exhausted they are
+ *   reported back so the caller takes the matching candidates out of the route, and they only count
+ *   requests that the matching candidate served.
+ * - Every budget of a request is read in one pipelined round trip and written by one Lua script.
  * - Valkey outage: failMode=open means pass through (the shortfall is corrected by reconciling from the ledger), and
  *   failMode=closed means 429.
  */
@@ -13,6 +18,7 @@ import {
   BUDGET_ALERTS_KEY,
   type BudgetAlertEvent,
   type BudgetConfig,
+  type BudgetScope,
   budgetCounterKey,
   budgetPeriodKey,
   budgetPeriodRange,
@@ -22,15 +28,45 @@ import {
 import type { Logger } from '@dirouter/shared';
 import type { Redis } from 'ioredis';
 
-export interface ScopedBudget {
-  budget: BudgetConfig;
-  scope: 'key' | 'project' | 'team';
-  scopeId: string;
-  organizationId: string;
+/** The model, provider and credential a request was (or would be) served by. */
+export interface BudgetTarget {
+  modelId?: string;
+  providerId?: string;
+  credentialId?: string;
 }
 
+export interface ScopedBudget {
+  budget: BudgetConfig;
+  scope: BudgetScope;
+  scopeId: string;
+  organizationId: string;
+  /** Valkey counter id; the budget id unless one budget counts many subjects separately. */
+  counterId?: string;
+  /**
+   * Only candidates matching every given field count against this budget, and exhaustion takes
+   * them out of the route instead of rejecting the request.
+   */
+  target?: BudgetTarget;
+}
+
+/** Whether a candidate is covered by a targeted budget. */
+export function matchesTarget(target: BudgetTarget, served: BudgetTarget): boolean {
+  return (
+    (target.modelId === undefined || target.modelId === served.modelId) &&
+    (target.providerId === undefined || target.providerId === served.providerId) &&
+    (target.credentialId === undefined || target.credentialId === served.credentialId)
+  );
+}
+
+const counterKey = (b: ScopedBudget, now: Date) =>
+  budgetCounterKey(b.counterId ?? b.budget.id, budgetPeriodKey(b.budget.period, now));
+
 export type BudgetCheck =
-  | { ok: true }
+  | {
+      ok: true;
+      /** Targeted budgets that are used up, with the start of their next period. */
+      exhausted?: { budget: ScopedBudget; resetAt: Date }[];
+    }
   | {
       ok: false;
       scope: ScopedBudget['scope'];
@@ -108,13 +144,9 @@ export class BudgetGuard {
     const now = this.#now();
     try {
       const pipeline = redis.pipeline();
-      for (const b of budgets)
-        pipeline.hmget(
-          budgetCounterKey(b.budget.id, budgetPeriodKey(b.budget.period, now)),
-          'usd',
-          'tokens',
-        );
+      for (const b of budgets) pipeline.hmget(counterKey(b, now), 'usd', 'tokens');
       const results = await withTimeout(pipeline.exec(), this.#timeoutMs);
+      const exhausted: { budget: ScopedBudget; resetAt: Date }[] = [];
       for (const [i, b] of budgets.entries()) {
         const [error, values] = results?.[i] ?? [null, null];
         if (error) throw error;
@@ -122,6 +154,13 @@ export class BudgetGuard {
         const usd = Number(usdRaw ?? 0);
         const tokens = Number(tokensRaw ?? 0);
         const { end } = budgetPeriodRange(b.budget.period, now);
+        if (b.target) {
+          const over =
+            (b.budget.limitUsd !== undefined && usd >= usdToUnits(b.budget.limitUsd)) ||
+            (b.budget.limitTokens !== undefined && tokens >= b.budget.limitTokens);
+          if (over) exhausted.push({ budget: b, resetAt: end });
+          continue;
+        }
         if (b.budget.limitUsd !== undefined && usd >= usdToUnits(b.budget.limitUsd)) {
           this.stats.rejected++;
           return {
@@ -145,7 +184,7 @@ export class BudgetGuard {
           };
         }
       }
-      return { ok: true };
+      return exhausted.length > 0 ? { ok: true, exhausted } : { ok: true };
     } catch (error) {
       this.stats.errors++;
       this.options.logger.warn({ err: error }, 'budget check failed (Valkey)');
@@ -223,17 +262,21 @@ export class BudgetGuard {
     return out;
   }
 
-  /** Increments the counters after the response; never awaited and never throws. */
-  record(budgets: ScopedBudget[], costUsd: string, tokens: number): void {
+  /**
+   * Increments the counters after the response; never awaited and never throws. Targeted budgets
+   * only count when `served` (the candidate that answered) matches them.
+   */
+  record(scoped: ScopedBudget[], costUsd: string, tokens: number, served?: BudgetTarget): void {
     const redis = this.#redis;
+    const budgets = scoped.filter(
+      (b) => !b.target || (served !== undefined && matchesTarget(b.target, served)),
+    );
     if (!redis || budgets.length === 0) return;
     const usdDelta = usdToUnits(costUsd);
     const tokenDelta = Math.max(0, Math.round(tokens));
     if (usdDelta <= 0 && tokenDelta === 0) return;
     const now = this.#now();
-    const keys = budgets.map((b) =>
-      budgetCounterKey(b.budget.id, budgetPeriodKey(b.budget.period, now)),
-    );
+    const keys = budgets.map((b) => counterKey(b, now));
     const expireAt = budgets.map(
       (b) => budgetPeriodRange(b.budget.period, now).end.getTime() + KEEP_AFTER_PERIOD_MS,
     );
@@ -278,7 +321,7 @@ export class BudgetGuard {
       if (!(before < at && after >= at)) continue;
       // Only the replica that arrives first creates the event.
       const first = await redis.set(
-        `dirouter:budget:alerted:${b.budget.id}:${periodKey}:${kind}:${String(threshold)}`,
+        `dirouter:budget:alerted:${b.counterId ?? b.budget.id}:${periodKey}:${kind}:${String(threshold)}`,
         '1',
         'PX',
         budgetPeriodRange(b.budget.period, now).end.getTime() -

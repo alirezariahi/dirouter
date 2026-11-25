@@ -93,10 +93,11 @@ import type { Redis } from 'ioredis';
 import { authenticate, extractApiKey } from './auth.js';
 import type { ConfigStore, LoadedConfig } from './config-store.js';
 import type { GatewayMetrics } from './metrics.js';
-import type { BudgetGuard, ScopedBudget } from './budget-guard.js';
+import type { BudgetGuard } from './budget-guard.js';
 import { chargeUsd } from './pricing.js';
 import { type WalletGuard, worstCaseChargeUsd } from './wallet-guard.js';
-import type { LimitScope, RateLimiter } from './rate-limiter.js';
+import type { RateLimiter } from './rate-limiter.js';
+import { admitRequest, type Spent } from './spend-guard.js';
 import {
   cacheKeyFor,
   type ExactCache,
@@ -1063,62 +1064,27 @@ async function proxyRequest(
   deps.lifecycle?.signal.addEventListener('abort', onShutdown, { once: true });
   reply.raw.once('close', () => deps.lifecycle?.signal.removeEventListener('abort', onShutdown));
 
-  // Distributed rate limit (card 6.1): key, project and team. TPM reservation = input + output cap.
-  const admission = deps.limiter
-    ? await deps.limiter.acquire(
-        limitScopes(config, key),
-        estimatedInputTokens + Math.min(canonical.maxOutputTokens ?? 1_024, 8_192),
-        requestId,
-      )
-    : undefined;
-  if (admission && !admission.ok) {
-    for (const [name, value] of Object.entries(admission.headers)) void reply.header(name, value);
-    sendError(
-      reply,
-      api,
-      new RateLimitError({
-        message: admission.unavailable
-          ? 'Rate limiter unavailable (fail-closed), retry shortly'
-          : `Rate limit exceeded for ${admission.scope.split(':')[0] ?? 'key'} (${admission.kind})`,
-        retryAfterMs: admission.retryAfterMs,
-      }),
-      requestId,
-    );
-    deps.metrics?.reject('rate_limit', admission.unavailable ? 'unavailable' : admission.kind);
-    finishSpan('error', { 'gateway.error': 'rate_limit' });
+  // Budgets and rate limits (cards 6.1, 6.3, 25.5 and 33.x; spend-guard.ts). A used-up model or
+  // provider budget takes its candidates out of the route. TPM reservation = input + output cap.
+  const admission = await admitRequest(deps, {
+    config,
+    key,
+    candidates: route.candidates,
+    requested: canonical.model,
+    estimatedTokens: estimatedInputTokens + Math.min(canonical.maxOutputTokens ?? 1_024, 8_192),
+    requestId,
+  });
+  for (const [name, value] of Object.entries(admission.headers)) void reply.header(name, value);
+  if (!admission.ok) {
+    sendError(reply, api, admission.error, requestId);
+    deps.metrics?.reject(admission.metric.guard, admission.metric.reason);
+    finishSpan('error', {
+      'gateway.error': admission.metric.guard === 'budget' ? 'budget_exceeded' : 'rate_limit',
+    });
     observeEarly(reply.statusCode);
     return;
   }
-  if (admission)
-    for (const [name, value] of Object.entries(admission.headers)) void reply.header(name, value);
-
-  // Budget: reaching the cap means 429 budget_exceeded until the next period starts.
-  const budgets = budgetScopes(config, key);
-  const budgetCheck = deps.budgets ? await deps.budgets.check(budgets) : { ok: true as const };
-  if (!budgetCheck.ok) {
-    admission?.settle(0);
-    admission?.release();
-    void reply.header(
-      'retry-after',
-      String(Math.max(1, Math.ceil((budgetCheck.resetAt.getTime() - Date.now()) / 1000))),
-    );
-    const what =
-      budgetCheck.kind === 'usd' ? `USD ${budgetCheck.limit}` : `${budgetCheck.limit} tokens`;
-    sendError(
-      reply,
-      api,
-      new DiRouterError('budget_exceeded', {
-        message: budgetCheck.unavailable
-          ? 'Budget check unavailable (fail-closed), retry shortly'
-          : `${budgetCheck.period === 'daily' ? 'Daily' : 'Monthly'} ${budgetCheck.scope} budget exceeded (${what})`,
-      }),
-      requestId,
-    );
-    deps.metrics?.reject('budget', budgetCheck.unavailable ? 'unavailable' : budgetCheck.kind);
-    finishSpan('error', { 'gateway.error': 'budget_exceeded' });
-    observeEarly(reply.statusCode);
-    return;
-  }
+  route.candidates.splice(0, route.candidates.length, ...admission.candidates);
 
   // Prepaid wallet (card 19.1): reserve the worst-case charge so concurrent requests cannot spend
   // the same credit; the reservation becomes the real charge when the request ends.
@@ -1141,8 +1107,7 @@ async function proxyRequest(
       ),
     );
     if (!reservation.ok) {
-      admission?.settle(0);
-      admission?.release();
+      admission.cancel();
       sendError(
         reply,
         api,
@@ -1219,8 +1184,7 @@ async function proxyRequest(
     }
   }
   if (cached) {
-    admission?.settle(0);
-    admission?.release();
+    admission.cancel();
     // A cached answer can be continued with previous_response_id like a fresh one.
     storeResponseState(deps, api, key, canonical, cached);
     deps.metrics?.cacheHit(cacheKind ?? 'exact');
@@ -1303,8 +1267,7 @@ async function proxyRequest(
   );
   const releaseKey = keyBulkhead ? await keyBulkhead.acquire(clientGone.signal) : () => undefined;
   if (!releaseKey) {
-    admission?.settle(0);
-    admission?.release();
+    admission.cancel();
     settleWallet('0');
     finishSpan('error', { 'gateway.error': 'concurrency' });
     if (clientGone.signal.aborted) {
@@ -1325,7 +1288,7 @@ async function proxyRequest(
     observeEarly(reply.statusCode);
     return;
   }
-  let spent = { tokens: 0, costUsd: '0', chargeUsd: '0' };
+  let spent: Spent & { chargeUsd: string } = { tokens: 0, costUsd: '0', chargeUsd: '0' };
   if (canonical.stream) deps.metrics?.streamStarted();
   try {
     spent = await runRoute(
@@ -1369,9 +1332,7 @@ async function proxyRequest(
     if (canonical.stream) deps.metrics?.streamEnded();
     observeEarly(reply.raw.headersSent ? 200 : reply.statusCode);
     releaseKey();
-    admission?.settle(spent.tokens);
-    admission?.release();
-    deps.budgets?.record(budgets, spent.costUsd, spent.tokens);
+    admission.finish(spent);
     settleWallet(spent.chargeUsd);
     // Shadow traffic (card 32.4): only now, with the answer (or the whole stream) already out,
     // and detached from this request; it never touches the limits, budget or wallet above.
@@ -1449,40 +1410,6 @@ function storeResponseState(
     .catch(() => undefined);
 }
 
-/** Budgets for a key: itself, its project and its team (card 6.3). */
-export function budgetScopes(config: LoadedConfig, key: VirtualKeyConfig): ScopedBudget[] {
-  const out: ScopedBudget[] = key.budgets.map((budget) => ({
-    budget,
-    scope: 'key',
-    scopeId: key.id,
-    organizationId: key.organizationId,
-  }));
-  for (const l of config.snapshot.limits) {
-    if (l.organizationId !== key.organizationId || l.budgets.length === 0) continue;
-    const match =
-      (l.scope === 'project' && l.scopeId === key.projectId) ||
-      (l.scope === 'team' && key.teamId !== null && l.scopeId === key.teamId);
-    if (match)
-      for (const budget of l.budgets)
-        out.push({ budget, scope: l.scope, scopeId: l.scopeId, organizationId: l.organizationId });
-  }
-  return out;
-}
-
-/** Limit scopes for a key: itself, its project and its team. */
-export function limitScopes(config: LoadedConfig, key: VirtualKeyConfig): LimitScope[] {
-  const scopes: LimitScope[] = [];
-  if (key.rateLimit) scopes.push({ name: `key:${key.id}`, limit: key.rateLimit });
-  for (const l of config.snapshot.limits) {
-    if (!l.rateLimit || l.organizationId !== key.organizationId) continue;
-    if (l.scope === 'project' && l.scopeId === key.projectId)
-      scopes.push({ name: `project:${l.scopeId}`, limit: l.rateLimit });
-    else if (l.scope === 'team' && key.teamId && l.scopeId === key.teamId)
-      scopes.push({ name: `team:${l.scopeId}`, limit: l.rateLimit });
-  }
-  return scopes;
-}
-
 async function runRoute(
   api: InboundApi,
   req: FastifyRequest,
@@ -1514,7 +1441,7 @@ async function runRoute(
     /** Request body capture (card 24.1); a stream's answer is handed over here. */
     capture?: BodyCapture;
   },
-): Promise<{ tokens: number; costUsd: string; chargeUsd: string }> {
+): Promise<Spent & { chargeUsd: string }> {
   const { config, key, canonical, route, requestId, started, clientGone } = ctx;
 
   const settings = config.snapshot.settings;
@@ -2103,7 +2030,12 @@ async function runRoute(
       canonical.serviceTier,
     hedgeAttempts: result.ok ? ((result as { hedgeAttempts?: number }).hedgeAttempts ?? 0) : 0,
   });
-  return { tokens: usage ? usage.inputTokens + usage.outputTokens : 0, costUsd, chargeUsd };
+  return {
+    tokens: usage ? usage.inputTokens + usage.outputTokens : 0,
+    costUsd,
+    chargeUsd,
+    candidate: result.ok ? result.candidate : undefined,
+  };
 }
 
 /** Each provider's bulkhead: if full, move to the next candidate (or 429 if no candidates remain). */

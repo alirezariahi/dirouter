@@ -15,6 +15,7 @@ import { ENV, type Env } from '../env.js';
 import { PrismaService } from '../infra/prisma.service.js';
 import type { OrgContext } from '../rbac/org.guard.js';
 import { canAny } from '../rbac/permissions.js';
+import { type BudgetPeriod, fromDbPeriod, toDbPeriod } from '../limits/periods.js';
 
 const ALPHABET = 'abcdefghijkmnopqrstuvwxyz23456789'; // no l, 0, or 1, for readability
 const randomString = (n: number) => {
@@ -40,7 +41,7 @@ export function validCidr(entry: string): boolean {
 }
 
 export interface BudgetInput {
-  period: 'daily' | 'monthly';
+  period: BudgetPeriod;
   limitUsd?: string | undefined;
   limitTokens?: number | undefined;
   alertThresholds?: number[] | undefined;
@@ -119,7 +120,7 @@ export class KeysService {
       createdAt: k.createdAt.toISOString(),
       budgets: budgets.map((b) => ({
         id: b.id,
-        period: b.period === 'DAILY' ? 'daily' : 'monthly',
+        period: fromDbPeriod(b.period),
         limitUsd: b.limitUsd?.toFixed(8).replace(/\.?0+$/, '') ?? null,
         limitTokens: b.limitTokens === null ? null : Number(b.limitTokens),
         alertThresholds: b.alertThresholds,
@@ -326,7 +327,7 @@ export class KeysService {
         ctx,
         nextId,
         budgets.map((b) => ({
-          period: b.period === 'DAILY' ? 'daily' : 'monthly',
+          period: fromDbPeriod(b.period),
           ...(b.limitUsd ? { limitUsd: b.limitUsd.toString() } : {}),
           ...(b.limitTokens !== null ? { limitTokens: Number(b.limitTokens) } : {}),
           alertThresholds: b.alertThresholds,
@@ -358,7 +359,7 @@ export class KeysService {
           organizationId: ctx.organizationId,
           scope: 'API_KEY',
           scopeId: keyId,
-          period: b.period === 'daily' ? 'DAILY' : 'MONTHLY',
+          period: toDbPeriod(b.period),
           limitUsd: b.limitUsd ?? null,
           limitTokens: b.limitTokens ?? null,
           alertThresholds: b.alertThresholds ?? [50, 80, 100],

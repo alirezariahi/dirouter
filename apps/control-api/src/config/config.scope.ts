@@ -84,6 +84,8 @@ export interface OrgOwnedIds {
   /** Active virtual keys. */
   keyIds: ReadonlySet<string>;
   budgetIds: ReadonlySet<string>;
+  /** Members of the organization (card 33.1 member limits). */
+  userIds?: ReadonlySet<string>;
 }
 
 export interface PreparedImport {
@@ -183,6 +185,7 @@ export function prepareImport(
       prefix: stored.prefix,
       projectId: stored.projectId,
       teamId: stored.teamId,
+      ...(stored.userId !== undefined ? { userId: stored.userId } : { userId: undefined }),
     };
   });
 
@@ -222,10 +225,23 @@ export function prepareImport(
   virtualKeys.forEach((key, index) => {
     checkBudgets(key, `virtualKeys.${String(index)}`);
   });
+  const publicModelIds = new Set(
+    items(current, 'models')
+      .filter((model) => model.public === true)
+      .map((model) => String(model.id)),
+  );
   items(document, 'limits').forEach((limit, index) => {
-    const ids = limit.scope === 'team' ? owned.teamIds : owned.projectIds;
-    if (!ids.has(String(limit.scopeId)))
-      problem(`limits.${String(index)}.scopeId`, 'unknown team or project');
+    const id = String(limit.scopeId);
+    const known: Record<string, boolean> = {
+      organization: id === organizationId,
+      team: owned.teamIds.has(id),
+      project: owned.projectIds.has(id),
+      user: owned.userIds?.has(id) ?? false,
+      model: modelIds.has(id) || publicModelIds.has(id),
+      provider: providerIds.has(id),
+    };
+    if (known[String(limit.scope)] === false)
+      problem(`limits.${String(index)}.scopeId`, `unknown ${String(limit.scope)}`);
     checkBudgets(limit, `limits.${String(index)}`);
   });
   const unknownId = (value: unknown, ids: ReadonlySet<string>) =>

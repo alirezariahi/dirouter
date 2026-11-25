@@ -1,4 +1,7 @@
-/** Team and project limits: CRUD, snapshot, usage and four-eyes approval (card 25.5). */
+/**
+ * Shared limits: CRUD, snapshot, usage and four-eyes approval for teams and projects (card 25.5),
+ * and the organization, member, model and provider scopes with weekly and yearly budgets (33.1).
+ */
 import { generateKey } from '@dirouter/shared';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -88,7 +91,7 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('team and project limits over HTTP
     await app
       .get(PrismaService)
       .client.$executeRawUnsafe(
-        'TRUNCATE refresh_tokens, memberships, audit_logs, users, api_keys, projects, teams, budgets, rate_limit_policies, usage_ledger, change_requests, organizations CASCADE',
+        'TRUNCATE refresh_tokens, memberships, audit_logs, users, api_keys, projects, teams, budgets, rate_limit_policies, usage_ledger, change_requests, models, providers, organizations CASCADE',
       );
     await app.init();
     await app.getHttpAdapter().getInstance().ready();
@@ -279,6 +282,209 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('team and project limits over HTTP
     expect(billing?.budgets).toEqual([]);
     expect(billing?.rateLimit).toBeNull();
     expect((await as('viewer', 'GET', 'limits/usage')).statusCode).toBe(200);
+  });
+
+  it('organization, member, model and provider scopes with weekly and yearly budgets (card 33.1)', async () => {
+    const db = app.get(PrismaService).client;
+    await db.provider.create({
+      data: {
+        id: 'prv_lim',
+        organizationId: org,
+        slug: 'lim',
+        name: 'Lim',
+        type: 'OPENAI',
+        baseUrl: 'https://x.test/v1',
+      },
+    });
+    await db.model.create({
+      data: {
+        id: 'mdl_lim',
+        organizationId: org,
+        providerId: 'prv_lim',
+        slug: 'lim/pricey',
+        upstreamModel: 'pricey',
+        inputPrice: '10',
+        outputPrice: '30',
+      },
+    });
+    // Another organization's model and provider are out of reach.
+    await db.organization.create({
+      data: { id: 'org_lim_other', name: 'Other', slug: 'lim-other' },
+    });
+    await db.provider.create({
+      data: {
+        id: 'prv_lim_other',
+        organizationId: 'org_lim_other',
+        slug: 'o',
+        name: 'O',
+        type: 'OPENAI',
+        baseUrl: 'https://x.test/v1',
+      },
+    });
+    await db.model.create({
+      data: {
+        id: 'mdl_lim_other',
+        organizationId: 'org_lim_other',
+        providerId: 'prv_lim_other',
+        slug: 'o/m',
+        upstreamModel: 'm',
+        inputPrice: '1',
+        outputPrice: '1',
+      },
+    });
+
+    const orgRes = await call('PUT', `limits/organization/${org}`, {
+      rpm: 1000,
+      budgets: [
+        { period: 'weekly', limitUsd: '70' },
+        { period: 'yearly', limitUsd: '3000' },
+        { period: 'monthly', limitTokens: 5_000_000 },
+        { period: 'daily', limitUsd: '10' },
+      ],
+    });
+    expect(orgRes.statusCode).toBe(200);
+    expect(orgRes.json<Limit>()).toMatchObject({
+      scope: 'organization',
+      name: 'Limits',
+      rpm: 1000,
+    });
+    expect(orgRes.json<Limit>().budgets.map((b) => b.period)).toEqual([
+      'daily',
+      'weekly',
+      'monthly',
+      'yearly',
+    ]);
+    const userId =
+      (await db.membership.findFirst({ where: { organizationId: org, role: 'MEMBER' } }))?.userId ??
+      '';
+    expect(
+      (
+        await call('PUT', `limits/user/${userId}`, {
+          budgets: [{ period: 'weekly', limitUsd: '5' }],
+        })
+      ).json<Limit>(),
+    ).toMatchObject({ scope: 'user', name: 'member' });
+    expect(
+      (
+        await call('PUT', 'limits/model/mdl_lim', {
+          tpm: 50_000,
+          budgets: [{ period: 'monthly', limitUsd: '20' }],
+        })
+      ).json<Limit>(),
+    ).toMatchObject({ scope: 'model', name: 'lim/pricey', tpm: 50_000 });
+    expect(
+      (await call('PUT', 'limits/provider/prv_lim', { maxConcurrency: 8 })).json<Limit>(),
+    ).toMatchObject({ scope: 'provider', name: 'Lim', maxConcurrency: 8 });
+
+    // Ids outside the organization: another organization, a stranger, another tenant's model.
+    expect((await call('PUT', 'limits/organization/org_lim_other', { rpm: 5 })).statusCode).toBe(
+      404,
+    );
+    expect((await call('PUT', 'limits/user/usr_nobody', { rpm: 5 })).statusCode).toBe(404);
+    expect((await call('PUT', 'limits/model/mdl_lim_other', { rpm: 5 })).statusCode).toBe(404);
+    expect((await call('PUT', 'limits/provider/prv_lim_other', { rpm: 5 })).statusCode).toBe(404);
+    expect(
+      (
+        await call('PUT', `limits/organization/${org}`, {
+          budgets: [{ period: 'hourly', limitUsd: '1' }],
+        })
+      ).statusCode,
+    ).toBe(422);
+
+    const snapshot = await app.get(SnapshotService).build();
+    const mine = (snapshot.limits ?? []).filter((l) => l.organizationId === org);
+    expect(mine).toContainEqual(
+      expect.objectContaining({
+        scope: 'organization',
+        scopeId: org,
+        rateLimit: { requestsPerMinute: 1000 },
+        budgets: expect.arrayContaining([
+          expect.objectContaining({ period: 'weekly', limitUsd: '70' }),
+          expect.objectContaining({ period: 'yearly', limitUsd: '3000' }),
+        ]) as unknown,
+      }),
+    );
+    expect(mine).toContainEqual(expect.objectContaining({ scope: 'user', scopeId: userId }));
+    expect(mine).toContainEqual(
+      expect.objectContaining({
+        scope: 'model',
+        scopeId: 'mdl_lim',
+        rateLimit: { tokensPerMinute: 50_000 },
+      }),
+    );
+    expect(mine).toContainEqual(
+      expect.objectContaining({ scope: 'provider', scopeId: 'prv_lim', budgets: [] }),
+    );
+    // Keys carry the member who created them, for member limits.
+    await db.apiKey.create({
+      data: {
+        id: 'key_lim_member',
+        organizationId: org,
+        projectId: project,
+        name: 'm',
+        prefix: 'dr-limmem1',
+        hash: 'f'.repeat(64),
+        createdById: userId,
+      },
+    });
+    expect(
+      (await app.get(SnapshotService).build()).virtualKeys.find((k) => k.id === 'key_lim_member')
+        ?.userId,
+    ).toBe(userId);
+
+    // Usage reads each scope's spend in the period of each budget.
+    const now = new Date();
+    await db.usageLedger.create({
+      data: {
+        id: 'l33',
+        requestId: 'req_l33',
+        organizationId: org,
+        teamId: null,
+        projectId: other,
+        apiKeyId: 'key_lim_member',
+        modelId: 'mdl_lim',
+        providerId: 'prv_lim',
+        costUsd: '7',
+        tokens: 10,
+        occurredAt: now,
+      },
+    });
+    const usage = (await call('GET', 'limits/usage')).json<{
+      weekStart: string;
+      yearStart: string;
+      scopes: {
+        scope: string;
+        scopeId: string;
+        week: { usd: string };
+        year: { usd: string };
+        budgets: { period: string; usedPercent: number | null }[];
+      }[];
+    }>();
+    const day = (now.getUTCDay() + 6) % 7;
+    expect(usage.weekStart).toBe(
+      new Date(
+        Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - day),
+      ).toISOString(),
+    );
+    expect(usage.yearStart).toBe(`${String(now.getUTCFullYear())}-01-01T00:00:00.000Z`);
+    const of = (scope: string) => usage.scopes.find((s) => s.scope === scope);
+    expect(of('organization')?.budgets.find((b) => b.period === 'weekly')?.usedPercent).toBe(
+      Math.round((Number(of('organization')?.week.usd) / 70) * 1000) / 10,
+    );
+    expect(Number(of('user')?.week.usd)).toBe(7);
+    expect(of('user')?.budgets[0]).toMatchObject({ period: 'weekly', usedPercent: 140 });
+    expect(Number(of('model')?.year.usd)).toBe(7);
+    expect(Number(of('provider')?.week.usd)).toBe(7);
+
+    // The list shows every scope with limits, named for people.
+    const list = (await call('GET', 'limits')).json<Limit[]>();
+    expect(list.map((l) => l.scope)).toEqual(
+      expect.arrayContaining(['organization', 'user', 'model', 'provider']),
+    );
+    await call('DELETE', `limits/organization/${org}`);
+    await call('DELETE', `limits/user/${userId}`);
+    await call('DELETE', 'limits/model/mdl_lim');
+    await call('DELETE', 'limits/provider/prv_lim');
   });
 
   it('with four-eyes, a budget change waits for a second person; a rate change does not', async () => {

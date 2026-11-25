@@ -8,11 +8,17 @@ import { ChangeRequestsService } from '../change-requests/change-requests.servic
 import { sendGated } from '../change-requests/gated.js';
 import { ApiZodBody, ApiZodOk, ZodPipe } from '../common/zod.js';
 import { Org, OrgGuard, type OrgContext, RequirePermission } from '../rbac/org.guard.js';
-import { type LimitInput, type LimitScope, LimitsService } from './limits.service.js';
+import { LIMIT_SCOPES, type LimitInput, type LimitScope, LimitsService } from './limits.service.js';
+import { BUDGET_PERIODS } from './periods.js';
 
-const Scope = z.enum(['team', 'project']);
+const Scope = z
+  .enum(LIMIT_SCOPES)
+  .describe(
+    'organization (scope id = the organization id), team, project, user, model or provider',
+  );
+const Period = z.enum(BUDGET_PERIODS).describe('UTC; weeks start on Monday');
 const Budget = z.object({
-  period: z.enum(['daily', 'monthly']),
+  period: Period,
   limitUsd: z
     .string()
     .regex(/^\d{1,10}(\.\d{1,8})?$/)
@@ -24,12 +30,12 @@ export const LimitBody = z.object({
   rpm: z.int().positive().nullable().optional(),
   tpm: z.int().positive().nullable().optional(),
   maxConcurrency: z.int().positive().nullable().optional(),
-  /** Replaces every budget of the team or project; absent keeps them. */
-  budgets: z.array(Budget).max(2).optional(),
+  /** Replaces every budget of the scope (at most one per period); absent keeps them. */
+  budgets: z.array(Budget).max(4).optional(),
 });
 const BudgetView = z.object({
   id: z.string(),
-  period: z.enum(['daily', 'monthly']),
+  period: Period,
   limitUsd: z.string().nullable(),
   limitTokens: z.int().nullable(),
   alertThresholds: z.array(z.int()),
@@ -46,7 +52,9 @@ const LimitView = z.object({
 const Spend = z.object({ usd: z.string(), tokens: z.int() });
 const UsageView = z.object({
   dayStart: z.string(),
+  weekStart: z.string(),
   monthStart: z.string(),
+  yearStart: z.string(),
   scopes: z.array(
     z.object({
       scope: Scope,
@@ -54,7 +62,9 @@ const UsageView = z.object({
       name: z.string(),
       teamId: z.string().nullable().optional(),
       today: Spend,
+      week: Spend,
       month: Spend,
+      year: Spend,
       rateLimit: z
         .object({
           rpm: z.int().nullable(),
@@ -102,14 +112,20 @@ export class LimitsController {
 
   @Get()
   @RequirePermission('org:read')
-  @ApiZodOk(z.array(LimitView), 'Teams and projects that have a rate limit or a budget')
+  @ApiZodOk(
+    z.array(LimitView),
+    'The organization, teams, projects, members, models and providers that have a rate limit or a budget',
+  )
   list(@Org() org: OrgContext) {
     return this.limits.list(org);
   }
 
   @Get('usage')
   @RequirePermission('usage:read')
-  @ApiZodOk(UsageView, 'Spend of every team and project today and this month, with their limits')
+  @ApiZodOk(
+    UsageView,
+    'Spend of the organization, every team and project and every limited member, model and provider in the current day, week, month and year, with their limits',
+  )
   usage(@Org() org: OrgContext) {
     return this.limits.usage(org);
   }

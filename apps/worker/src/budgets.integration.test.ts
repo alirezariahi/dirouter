@@ -144,3 +144,116 @@ describe.skipIf(!DATABASE_URL || !VALKEY_URL)('budget reconcile on real services
     expect(await redis.llen(BUDGET_ALERTS_KEY)).toBe(0);
   });
 });
+
+describe.skipIf(!DATABASE_URL || !VALKEY_URL)(
+  'reconcile of organization, member, model and provider budgets (card 33.1)',
+  () => {
+    const db = createPrismaClient({ databaseUrl: DATABASE_URL ?? '', maxConnections: 2 });
+    const redis = new Redis(VALKEY_URL ?? '', { maxRetriesPerRequest: null });
+    const ORG2 = `org_scope_it_${RUN}`;
+    const OTHER = `org_scope_other_${RUN}`;
+    const now = new Date();
+    const budgets = {
+      organization: { id: `bdg_org_${RUN}`, scopeId: ORG2, period: 'WEEKLY' as const },
+      user: { id: `bdg_usr_${RUN}`, scopeId: `usr_${RUN}`, period: 'YEARLY' as const },
+      model: { id: `bdg_mdl_${RUN}`, scopeId: `mdl_${RUN}`, period: 'MONTHLY' as const },
+      provider: { id: `bdg_prv_${RUN}`, scopeId: `prv_${RUN}`, period: 'DAILY' as const },
+    };
+    const counter = (b: { id: string; period: string }) =>
+      budgetCounterKey(
+        b.id,
+        budgetPeriodKey(b.period.toLowerCase() as 'daily' | 'weekly' | 'monthly' | 'yearly', now),
+      );
+
+    beforeAll(async () => {
+      for (const [id, slug] of [
+        [ORG2, `scope-it-${RUN}`],
+        [OTHER, `scope-other-${RUN}`],
+      ] as const)
+        await db.organization.create({ data: { id, name: id, slug } });
+      await db.user.create({
+        data: {
+          id: `usr_${RUN}`,
+          email: `u-${RUN}@scope.example.com`,
+          name: 'u',
+          passwordHash: 'not-a-real-hash',
+        },
+      });
+      await db.project.create({
+        data: { id: `prj_${RUN}`, organizationId: ORG2, name: 'p', slug: 'p' },
+      });
+      await db.apiKey.create({
+        data: {
+          id: `key_mine_${RUN}`,
+          organizationId: ORG2,
+          projectId: `prj_${RUN}`,
+          name: 'mine',
+          prefix: `dr-m${RUN}`,
+          hash: `a${RUN}`.padEnd(64, '0'),
+          createdById: `usr_${RUN}`,
+        },
+      });
+      for (const [scope, b] of Object.entries(budgets))
+        await db.budget.create({
+          data: {
+            id: b.id,
+            organizationId: ORG2,
+            scope: scope.toUpperCase() as 'ORGANIZATION',
+            scopeId: b.scopeId,
+            period: b.period,
+            limitUsd: '100',
+          },
+        });
+      const row = (id: string, extra: Record<string, unknown>) => ({
+        id: `led_${id}_${RUN}`,
+        requestId: `req_${id}_${RUN}`,
+        organizationId: ORG2,
+        projectId: `prj_${RUN}`,
+        apiKeyId: 'vk_other',
+        costUsd: '1',
+        tokens: 10,
+        occurredAt: now,
+        ...extra,
+      });
+      await db.usageLedger.createMany({
+        data: [
+          // the member's key on the model and provider
+          row('a', {
+            apiKeyId: `key_mine_${RUN}`,
+            modelId: `mdl_${RUN}`,
+            providerId: `prv_${RUN}`,
+          }),
+          // another key of the organization on the same model and provider
+          row('b', { modelId: `mdl_${RUN}`, providerId: `prv_${RUN}` }),
+          // the organization on something else
+          row('c', {}),
+          // another tenant with the same model and provider ids never counts
+          row('d', {
+            organizationId: OTHER,
+            modelId: `mdl_${RUN}`,
+            providerId: `prv_${RUN}`,
+          }),
+        ],
+      });
+    });
+
+    afterAll(async () => {
+      await db.usageLedger.deleteMany({ where: { organizationId: { in: [ORG2, OTHER] } } });
+      await db.budget.deleteMany({ where: { organizationId: ORG2 } });
+      await db.$disconnect();
+      redis.disconnect();
+    });
+
+    it('each scope is rebuilt from its own ledger rows within the organization and period', async () => {
+      await reconcileBudgets(db as unknown as BudgetDb, redis, logger, { now });
+      const usd = async (b: { id: string; period: string }) =>
+        Number(await redis.hget(counter(b), 'usd')) / 100_000_000;
+      expect(await usd(budgets.organization)).toBe(3);
+      expect(await usd(budgets.user)).toBe(1);
+      expect(await usd(budgets.model)).toBe(2);
+      expect(await usd(budgets.provider)).toBe(2);
+      expect(counter(budgets.organization)).toMatch(/:w:\d{4}-\d{2}-\d{2}$/);
+      expect(counter(budgets.user)).toMatch(/:y:\d{4}$/);
+    });
+  },
+);

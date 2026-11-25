@@ -32,7 +32,8 @@ import type { FastifyRequest } from 'fastify';
 import { authenticate, extractApiKey } from './auth.js';
 import { resolveCredentialKey, tokenFailure } from './credential-tokens.js';
 import { chargeUnits, chargeUsd } from './pricing.js';
-import { budgetScopes, limitScopes, type ProxyDeps, toClientError } from './proxy.js';
+import { type ProxyDeps, toClientError } from './proxy.js';
+import { admitRequest, type Spent } from './spend-guard.js';
 import { planErrorToClient, routingFromRequest } from './route-request.js';
 import { callUpstream, mergeTimeouts, readErrorBody, UpstreamTimeout } from './upstream.js';
 
@@ -169,51 +170,27 @@ export async function runMetered<T>(
                 message: `No provider can serve '${input.model}'`,
               }),
     };
-  const candidates = input.select(route.candidates);
-  if (candidates instanceof DiRouterError) return { ok: false, error: candidates };
+  const selected = input.select(route.candidates);
+  if (selected instanceof DiRouterError) return { ok: false, error: selected };
 
-  // Rate limit (RPM and TPM on the input estimate) and budgets apply before any provider is called.
-  const admission = deps.limiter
-    ? await deps.limiter.acquire(limitScopes(config, key), input.estimatedInputTokens, requestId)
-    : undefined;
-  if (admission && !admission.ok) {
-    deps.metrics?.reject('rate_limit', admission.unavailable ? 'unavailable' : admission.kind);
-    return {
-      ok: false,
-      headers: admission.headers,
-      error: new RateLimitError({
-        message: admission.unavailable
-          ? 'Rate limiter unavailable (fail-closed), retry shortly'
-          : `Rate limit exceeded for ${admission.scope.split(':')[0] ?? 'key'} (${admission.kind})`,
-        retryAfterMs: admission.retryAfterMs,
-      }),
-    };
+  // Budgets and rate limits (RPM and TPM on the input estimate) apply before any provider is
+  // called (spend-guard.ts); a used-up model or provider budget takes its candidates out.
+  const admission = await admitRequest(deps, {
+    config,
+    key,
+    candidates: selected,
+    requested: input.model,
+    estimatedTokens: input.estimatedInputTokens,
+    requestId,
+  });
+  if (!admission.ok) {
+    deps.metrics?.reject(admission.metric.guard, admission.metric.reason);
+    return { ok: false, headers: admission.headers, error: admission.error };
   }
+  const candidates = admission.candidates;
   const releaseAdmission = () => {
-    admission?.settle(0);
-    admission?.release();
+    admission.cancel();
   };
-  const budgets = budgetScopes(config, key);
-  const budgetCheck = deps.budgets ? await deps.budgets.check(budgets) : { ok: true as const };
-  if (!budgetCheck.ok) {
-    releaseAdmission();
-    deps.metrics?.reject('budget', budgetCheck.unavailable ? 'unavailable' : budgetCheck.kind);
-    const what =
-      budgetCheck.kind === 'usd' ? `USD ${budgetCheck.limit}` : `${budgetCheck.limit} tokens`;
-    return {
-      ok: false,
-      headers: {
-        'retry-after': String(
-          Math.max(1, Math.ceil((budgetCheck.resetAt.getTime() - Date.now()) / 1000)),
-        ),
-      },
-      error: new DiRouterError('budget_exceeded', {
-        message: budgetCheck.unavailable
-          ? 'Budget check unavailable (fail-closed), retry shortly'
-          : `${budgetCheck.period === 'daily' ? 'Daily' : 'Monthly'} ${budgetCheck.scope} budget exceeded (${what})`,
-      }),
-    };
-  }
 
   // Prepaid wallet (card 19.1): reserve the worst case at the most expensive candidate's price.
   const walletId = key.walletId;
@@ -370,7 +347,7 @@ export async function runMetered<T>(
     }
   };
 
-  let spent = { tokens: 0, costUsd: '0' };
+  let spent: Spent = { tokens: 0, costUsd: '0' };
   try {
     const result = await executeWithFallback(candidates, attempt, {
       retry: settings.defaultRetry,
@@ -394,7 +371,11 @@ export async function runMetered<T>(
         groupMultiplier: key.priceMultiplier,
         media: metering.media,
       });
-    spent = { tokens: usage.inputTokens + usage.outputTokens, costUsd };
+    spent = {
+      tokens: usage.inputTokens + usage.outputTokens,
+      costUsd,
+      candidate: result.ok ? result.candidate : undefined,
+    };
     const event: UsageEvent = {
       schemaVersion: USAGE_EVENT_SCHEMA_VERSION,
       eventId: ulid(),
@@ -460,14 +441,12 @@ export async function runMetered<T>(
       value: result.value,
       candidate: result.candidate,
       metering,
-      ...(admission ? { headers: admission.headers } : {}),
+      headers: admission.headers,
     };
   } finally {
     deps.lifecycle?.signal.removeEventListener('abort', onShutdown);
     releaseKey();
     if (walletId) deps.wallets?.settle(walletId, requestId, charged);
-    admission?.settle(spent.tokens);
-    admission?.release();
-    deps.budgets?.record(budgets, spent.costUsd, spent.tokens);
+    admission.finish(spent);
   }
 }

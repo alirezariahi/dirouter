@@ -5044,7 +5044,9 @@
                               "type": "string",
                               "enum": [
                                 "daily",
-                                "monthly"
+                                "weekly",
+                                "monthly",
+                                "yearly"
                               ]
                             },
                             "limitUsd": {
@@ -5221,7 +5223,7 @@
                     "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
                   },
                   "budgets": {
-                    "maxItems": 2,
+                    "maxItems": 4,
                     "type": "array",
                     "items": {
                       "type": "object",
@@ -5230,7 +5232,9 @@
                           "type": "string",
                           "enum": [
                             "daily",
-                            "monthly"
+                            "weekly",
+                            "monthly",
+                            "yearly"
                           ]
                         },
                         "limitUsd": {
@@ -5387,7 +5391,9 @@
                             "type": "string",
                             "enum": [
                               "daily",
-                              "monthly"
+                              "weekly",
+                              "monthly",
+                              "yearly"
                             ]
                           },
                           "limitUsd": {
@@ -5602,7 +5608,9 @@
                             "type": "string",
                             "enum": [
                               "daily",
-                              "monthly"
+                              "weekly",
+                              "monthly",
+                              "yearly"
                             ]
                           },
                           "limitUsd": {
@@ -5782,7 +5790,7 @@
                     "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
                   },
                   "budgets": {
-                    "maxItems": 2,
+                    "maxItems": 4,
                     "type": "array",
                     "items": {
                       "type": "object",
@@ -5791,7 +5799,9 @@
                           "type": "string",
                           "enum": [
                             "daily",
-                            "monthly"
+                            "weekly",
+                            "monthly",
+                            "yearly"
                           ]
                         },
                         "limitUsd": {
@@ -5944,7 +5954,9 @@
                             "type": "string",
                             "enum": [
                               "daily",
-                              "monthly"
+                              "weekly",
+                              "monthly",
+                              "yearly"
                             ]
                           },
                           "limitUsd": {
@@ -6154,7 +6166,9 @@
                             "type": "string",
                             "enum": [
                               "daily",
-                              "monthly"
+                              "weekly",
+                              "monthly",
+                              "yearly"
                             ]
                           },
                           "limitUsd": {
@@ -6382,7 +6396,9 @@
                             "type": "string",
                             "enum": [
                               "daily",
-                              "monthly"
+                              "weekly",
+                              "monthly",
+                              "yearly"
                             ]
                           },
                           "limitUsd": {
@@ -6532,7 +6548,9 @@
                                 "type": "string",
                                 "enum": [
                                   "daily",
-                                  "monthly"
+                                  "weekly",
+                                  "monthly",
+                                  "yearly"
                                 ]
                               },
                               "limitUsd": {
@@ -20836,7 +20854,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Teams and projects that have a rate limit or a budget",
+            "description": "The organization, teams, projects, members, models and providers that have a rate limit or a budget",
             "content": {
               "application/json": {
                 "schema": {
@@ -20847,9 +20865,14 @@
                       "scope": {
                         "type": "string",
                         "enum": [
+                          "organization",
                           "team",
-                          "project"
-                        ]
+                          "project",
+                          "user",
+                          "model",
+                          "provider"
+                        ],
+                        "description": "organization (scope id = the organization id), team, project, user, model or provider"
                       },
                       "scopeId": {
                         "type": "string"
@@ -20887,8 +20910,11 @@
                               "type": "string",
                               "enum": [
                                 "daily",
-                                "monthly"
-                              ]
+                                "weekly",
+                                "monthly",
+                                "yearly"
+                              ],
+                              "description": "UTC; weeks start on Monday"
                             },
                             "limitUsd": {
                               "nullable": true,
@@ -20959,7 +20985,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Spend of every team and project today and this month, with their limits",
+            "description": "Spend of the organization, every team and project and every limited member, model and provider in the current day, week, month and year, with their limits",
             "content": {
               "application/json": {
                 "schema": {
@@ -20968,7 +20994,13 @@
                     "dayStart": {
                       "type": "string"
                     },
+                    "weekStart": {
+                      "type": "string"
+                    },
                     "monthStart": {
+                      "type": "string"
+                    },
+                    "yearStart": {
                       "type": "string"
                     },
                     "scopes": {
@@ -20979,9 +21011,14 @@
                           "scope": {
                             "type": "string",
                             "enum": [
+                              "organization",
                               "team",
-                              "project"
-                            ]
+                              "project",
+                              "user",
+                              "model",
+                              "provider"
+                            ],
+                            "description": "organization (scope id = the organization id), team, project, user, model or provider"
                           },
                           "scopeId": {
                             "type": "string"
@@ -21010,7 +21047,41 @@
                               "tokens"
                             ]
                           },
+                          "week": {
+                            "type": "object",
+                            "properties": {
+                              "usd": {
+                                "type": "string"
+                              },
+                              "tokens": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              }
+                            },
+                            "required": [
+                              "usd",
+                              "tokens"
+                            ]
+                          },
                           "month": {
+                            "type": "object",
+                            "properties": {
+                              "usd": {
+                                "type": "string"
+                              },
+                              "tokens": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              }
+                            },
+                            "required": [
+                              "usd",
+                              "tokens"
+                            ]
+                          },
+                          "year": {
                             "type": "object",
                             "properties": {
                               "usd": {
@@ -21068,8 +21139,11 @@
                                   "type": "string",
                                   "enum": [
                                     "daily",
-                                    "monthly"
-                                  ]
+                                    "weekly",
+                                    "monthly",
+                                    "yearly"
+                                  ],
+                                  "description": "UTC; weeks start on Monday"
                                 },
                                 "limitUsd": {
                                   "nullable": true,
@@ -21120,7 +21194,9 @@
                           "scopeId",
                           "name",
                           "today",
+                          "week",
                           "month",
+                          "year",
                           "rateLimit",
                           "budgets"
                         ]
@@ -21129,7 +21205,9 @@
                   },
                   "required": [
                     "dayStart",
+                    "weekStart",
                     "monthStart",
+                    "yearStart",
                     "scopes"
                   ]
                 }
@@ -21187,9 +21265,14 @@
                     "scope": {
                       "type": "string",
                       "enum": [
+                        "organization",
                         "team",
-                        "project"
-                      ]
+                        "project",
+                        "user",
+                        "model",
+                        "provider"
+                      ],
+                      "description": "organization (scope id = the organization id), team, project, user, model or provider"
                     },
                     "scopeId": {
                       "type": "string"
@@ -21227,8 +21310,11 @@
                             "type": "string",
                             "enum": [
                               "daily",
-                              "monthly"
-                            ]
+                              "weekly",
+                              "monthly",
+                              "yearly"
+                            ],
+                            "description": "UTC; weeks start on Monday"
                           },
                           "limitUsd": {
                             "nullable": true,
@@ -21339,7 +21425,7 @@
                     "maximum": 9007199254740991
                   },
                   "budgets": {
-                    "maxItems": 2,
+                    "maxItems": 4,
                     "type": "array",
                     "items": {
                       "type": "object",
@@ -21348,8 +21434,11 @@
                           "type": "string",
                           "enum": [
                             "daily",
-                            "monthly"
-                          ]
+                            "weekly",
+                            "monthly",
+                            "yearly"
+                          ],
+                          "description": "UTC; weeks start on Monday"
                         },
                         "limitUsd": {
                           "type": "string",
@@ -21392,9 +21481,14 @@
                     "scope": {
                       "type": "string",
                       "enum": [
+                        "organization",
                         "team",
-                        "project"
-                      ]
+                        "project",
+                        "user",
+                        "model",
+                        "provider"
+                      ],
+                      "description": "organization (scope id = the organization id), team, project, user, model or provider"
                     },
                     "scopeId": {
                       "type": "string"
@@ -21432,8 +21526,11 @@
                             "type": "string",
                             "enum": [
                               "daily",
-                              "monthly"
-                            ]
+                              "weekly",
+                              "monthly",
+                              "yearly"
+                            ],
+                            "description": "UTC; weeks start on Monday"
                           },
                           "limitUsd": {
                             "nullable": true,
@@ -21526,9 +21623,14 @@
                     "scope": {
                       "type": "string",
                       "enum": [
+                        "organization",
                         "team",
-                        "project"
-                      ]
+                        "project",
+                        "user",
+                        "model",
+                        "provider"
+                      ],
+                      "description": "organization (scope id = the organization id), team, project, user, model or provider"
                     },
                     "scopeId": {
                       "type": "string"
@@ -21566,8 +21668,11 @@
                             "type": "string",
                             "enum": [
                               "daily",
-                              "monthly"
-                            ]
+                              "weekly",
+                              "monthly",
+                              "yearly"
+                            ],
+                            "description": "UTC; weeks start on Monday"
                           },
                           "limitUsd": {
                             "nullable": true,

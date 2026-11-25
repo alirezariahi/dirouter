@@ -22,9 +22,10 @@ import { KeysService } from './keys.service.js';
 import { ChangeRequestsService } from '../change-requests/change-requests.service.js';
 import { sendGated } from '../change-requests/gated.js';
 import type { FastifyReply } from 'fastify';
+import { BUDGET_PERIODS } from '../limits/periods.js';
 
 const Budget = z.object({
-  period: z.enum(['daily', 'monthly']),
+  period: z.enum(BUDGET_PERIODS),
   limitUsd: z
     .string()
     .regex(/^\d{1,10}(\.\d{1,8})?$/)
@@ -58,7 +59,7 @@ export const KeyBody = z.object({
   tpm: z.int().positive().nullable().optional(),
   maxConcurrency: z.int().positive().nullable().optional(),
   expiresAt: z.iso.datetime().nullable().optional(),
-  budgets: z.array(Budget).max(2).optional(),
+  budgets: z.array(Budget).max(4).optional(),
 });
 export const KeyPatch = KeyBody.omit({ projectId: true }).partial();
 export const RotateBody = z.object({
@@ -93,7 +94,7 @@ const KeyView = z.object({
   budgets: z.array(
     z.object({
       id: z.string(),
-      period: z.enum(['daily', 'monthly']),
+      period: z.enum(BUDGET_PERIODS),
       limitUsd: z.string().nullable(),
       limitTokens: z.int().nullable(),
       alertThresholds: z.array(z.int()),

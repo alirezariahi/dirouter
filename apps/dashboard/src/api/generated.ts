@@ -1977,7 +1977,9 @@ export type KeysControllerList200ItemBudgetsItemPeriod = typeof KeysControllerLi
 
 export const KeysControllerList200ItemBudgetsItemPeriod = {
   daily: 'daily',
+  weekly: 'weekly',
   monthly: 'monthly',
+  yearly: 'yearly',
 } as const;
 
 export type KeysControllerList200ItemBudgetsItem = {
@@ -2062,7 +2064,9 @@ export type KeysControllerCreateBodyBudgetsItemPeriod = typeof KeysControllerCre
 
 export const KeysControllerCreateBodyBudgetsItemPeriod = {
   daily: 'daily',
+  weekly: 'weekly',
   monthly: 'monthly',
+  yearly: 'yearly',
 } as const;
 
 export type KeysControllerCreateBodyBudgetsItem = {
@@ -2137,7 +2141,7 @@ export type KeysControllerCreateBody = {
      * @pattern ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d+)?(?:Z))$
      */
   expiresAt?: string | null;
-  /** @maxItems 2 */
+  /** @maxItems 4 */
   budgets?: KeysControllerCreateBodyBudgetsItem[];
 };
 
@@ -2173,7 +2177,9 @@ export type KeysControllerCreate200BudgetsItemPeriod = typeof KeysControllerCrea
 
 export const KeysControllerCreate200BudgetsItemPeriod = {
   daily: 'daily',
+  weekly: 'weekly',
   monthly: 'monthly',
+  yearly: 'yearly',
 } as const;
 
 export type KeysControllerCreate200BudgetsItem = {
@@ -2270,7 +2276,9 @@ export type KeysControllerGet200BudgetsItemPeriod = typeof KeysControllerGet200B
 
 export const KeysControllerGet200BudgetsItemPeriod = {
   daily: 'daily',
+  weekly: 'weekly',
   monthly: 'monthly',
+  yearly: 'yearly',
 } as const;
 
 export type KeysControllerGet200BudgetsItem = {
@@ -2355,7 +2363,9 @@ export type KeysControllerUpdateBodyBudgetsItemPeriod = typeof KeysControllerUpd
 
 export const KeysControllerUpdateBodyBudgetsItemPeriod = {
   daily: 'daily',
+  weekly: 'weekly',
   monthly: 'monthly',
+  yearly: 'yearly',
 } as const;
 
 export type KeysControllerUpdateBodyBudgetsItem = {
@@ -2428,7 +2438,7 @@ export type KeysControllerUpdateBody = {
      * @pattern ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d+)?(?:Z))$
      */
   expiresAt?: string | null;
-  /** @maxItems 2 */
+  /** @maxItems 4 */
   budgets?: KeysControllerUpdateBodyBudgetsItem[];
 };
 
@@ -2464,7 +2474,9 @@ export type KeysControllerUpdate200BudgetsItemPeriod = typeof KeysControllerUpda
 
 export const KeysControllerUpdate200BudgetsItemPeriod = {
   daily: 'daily',
+  weekly: 'weekly',
   monthly: 'monthly',
+  yearly: 'yearly',
 } as const;
 
 export type KeysControllerUpdate200BudgetsItem = {
@@ -2559,7 +2571,9 @@ export type KeysControllerRevoke200BudgetsItemPeriod = typeof KeysControllerRevo
 
 export const KeysControllerRevoke200BudgetsItemPeriod = {
   daily: 'daily',
+  weekly: 'weekly',
   monthly: 'monthly',
+  yearly: 'yearly',
 } as const;
 
 export type KeysControllerRevoke200BudgetsItem = {
@@ -2662,7 +2676,9 @@ export type KeysControllerRotate200BudgetsItemPeriod = typeof KeysControllerRota
 
 export const KeysControllerRotate200BudgetsItemPeriod = {
   daily: 'daily',
+  weekly: 'weekly',
   monthly: 'monthly',
+  yearly: 'yearly',
 } as const;
 
 export type KeysControllerRotate200BudgetsItem = {
@@ -2715,7 +2731,9 @@ export type KeysControllerRotate200PreviousBudgetsItemPeriod = typeof KeysContro
 
 export const KeysControllerRotate200PreviousBudgetsItemPeriod = {
   daily: 'daily',
+  weekly: 'weekly',
   monthly: 'monthly',
+  yearly: 'yearly',
 } as const;
 
 export type KeysControllerRotate200PreviousBudgetsItem = {
@@ -7497,24 +7515,37 @@ export type BodiesControllerBody200 = {
   replay: BodiesControllerBody200Replay;
 };
 
+/**
+ * organization (scope id = the organization id), team, project, user, model or provider
+ */
 export type LimitsControllerList200ItemScope = typeof LimitsControllerList200ItemScope[keyof typeof LimitsControllerList200ItemScope];
 
 
 export const LimitsControllerList200ItemScope = {
+  organization: 'organization',
   team: 'team',
   project: 'project',
+  user: 'user',
+  model: 'model',
+  provider: 'provider',
 } as const;
 
+/**
+ * UTC; weeks start on Monday
+ */
 export type LimitsControllerList200ItemBudgetsItemPeriod = typeof LimitsControllerList200ItemBudgetsItemPeriod[keyof typeof LimitsControllerList200ItemBudgetsItemPeriod];
 
 
 export const LimitsControllerList200ItemBudgetsItemPeriod = {
   daily: 'daily',
+  weekly: 'weekly',
   monthly: 'monthly',
+  yearly: 'yearly',
 } as const;
 
 export type LimitsControllerList200ItemBudgetsItem = {
   id: string;
+  /** UTC; weeks start on Monday */
   period: LimitsControllerList200ItemBudgetsItemPeriod;
   /** @nullable */
   limitUsd: string | null;
@@ -7532,6 +7563,7 @@ export type LimitsControllerList200ItemBudgetsItem = {
 };
 
 export type LimitsControllerList200Item = {
+  /** organization (scope id = the organization id), team, project, user, model or provider */
   scope: LimitsControllerList200ItemScope;
   scopeId: string;
   name: string;
@@ -7556,12 +7588,19 @@ export type LimitsControllerList200Item = {
   budgets: LimitsControllerList200ItemBudgetsItem[];
 };
 
+/**
+ * organization (scope id = the organization id), team, project, user, model or provider
+ */
 export type LimitsControllerUsage200ScopesItemScope = typeof LimitsControllerUsage200ScopesItemScope[keyof typeof LimitsControllerUsage200ScopesItemScope];
 
 
 export const LimitsControllerUsage200ScopesItemScope = {
+  organization: 'organization',
   team: 'team',
   project: 'project',
+  user: 'user',
+  model: 'model',
+  provider: 'provider',
 } as const;
 
 export type LimitsControllerUsage200ScopesItemToday = {
@@ -7573,7 +7612,25 @@ export type LimitsControllerUsage200ScopesItemToday = {
   tokens: number;
 };
 
+export type LimitsControllerUsage200ScopesItemWeek = {
+  usd: string;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     */
+  tokens: number;
+};
+
 export type LimitsControllerUsage200ScopesItemMonth = {
+  usd: string;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     */
+  tokens: number;
+};
+
+export type LimitsControllerUsage200ScopesItemYear = {
   usd: string;
   /**
      * @minimum -9007199254740991
@@ -7606,16 +7663,22 @@ export type LimitsControllerUsage200ScopesItemRateLimit = {
   maxConcurrency: number | null;
 } | null;
 
+/**
+ * UTC; weeks start on Monday
+ */
 export type LimitsControllerUsage200ScopesItemBudgetsItemPeriod = typeof LimitsControllerUsage200ScopesItemBudgetsItemPeriod[keyof typeof LimitsControllerUsage200ScopesItemBudgetsItemPeriod];
 
 
 export const LimitsControllerUsage200ScopesItemBudgetsItemPeriod = {
   daily: 'daily',
+  weekly: 'weekly',
   monthly: 'monthly',
+  yearly: 'yearly',
 } as const;
 
 export type LimitsControllerUsage200ScopesItemBudgetsItem = {
   id: string;
+  /** UTC; weeks start on Monday */
   period: LimitsControllerUsage200ScopesItemBudgetsItemPeriod;
   /** @nullable */
   limitUsd: string | null;
@@ -7641,13 +7704,16 @@ export type LimitsControllerUsage200ScopesItemBudgetsItem = {
 };
 
 export type LimitsControllerUsage200ScopesItem = {
+  /** organization (scope id = the organization id), team, project, user, model or provider */
   scope: LimitsControllerUsage200ScopesItemScope;
   scopeId: string;
   name: string;
   /** @nullable */
   teamId?: string | null;
   today: LimitsControllerUsage200ScopesItemToday;
+  week: LimitsControllerUsage200ScopesItemWeek;
   month: LimitsControllerUsage200ScopesItemMonth;
+  year: LimitsControllerUsage200ScopesItemYear;
   /** @nullable */
   rateLimit: LimitsControllerUsage200ScopesItemRateLimit;
   budgets: LimitsControllerUsage200ScopesItemBudgetsItem[];
@@ -7655,28 +7721,43 @@ export type LimitsControllerUsage200ScopesItem = {
 
 export type LimitsControllerUsage200 = {
   dayStart: string;
+  weekStart: string;
   monthStart: string;
+  yearStart: string;
   scopes: LimitsControllerUsage200ScopesItem[];
 };
 
+/**
+ * organization (scope id = the organization id), team, project, user, model or provider
+ */
 export type LimitsControllerGet200Scope = typeof LimitsControllerGet200Scope[keyof typeof LimitsControllerGet200Scope];
 
 
 export const LimitsControllerGet200Scope = {
+  organization: 'organization',
   team: 'team',
   project: 'project',
+  user: 'user',
+  model: 'model',
+  provider: 'provider',
 } as const;
 
+/**
+ * UTC; weeks start on Monday
+ */
 export type LimitsControllerGet200BudgetsItemPeriod = typeof LimitsControllerGet200BudgetsItemPeriod[keyof typeof LimitsControllerGet200BudgetsItemPeriod];
 
 
 export const LimitsControllerGet200BudgetsItemPeriod = {
   daily: 'daily',
+  weekly: 'weekly',
   monthly: 'monthly',
+  yearly: 'yearly',
 } as const;
 
 export type LimitsControllerGet200BudgetsItem = {
   id: string;
+  /** UTC; weeks start on Monday */
   period: LimitsControllerGet200BudgetsItemPeriod;
   /** @nullable */
   limitUsd: string | null;
@@ -7694,6 +7775,7 @@ export type LimitsControllerGet200BudgetsItem = {
 };
 
 export type LimitsControllerGet200 = {
+  /** organization (scope id = the organization id), team, project, user, model or provider */
   scope: LimitsControllerGet200Scope;
   scopeId: string;
   name: string;
@@ -7718,15 +7800,21 @@ export type LimitsControllerGet200 = {
   budgets: LimitsControllerGet200BudgetsItem[];
 };
 
+/**
+ * UTC; weeks start on Monday
+ */
 export type LimitsControllerSetBodyBudgetsItemPeriod = typeof LimitsControllerSetBodyBudgetsItemPeriod[keyof typeof LimitsControllerSetBodyBudgetsItemPeriod];
 
 
 export const LimitsControllerSetBodyBudgetsItemPeriod = {
   daily: 'daily',
+  weekly: 'weekly',
   monthly: 'monthly',
+  yearly: 'yearly',
 } as const;
 
 export type LimitsControllerSetBodyBudgetsItem = {
+  /** UTC; weeks start on Monday */
   period: LimitsControllerSetBodyBudgetsItemPeriod;
   /** @pattern ^\d{1,10}(\.\d{1,8})?$ */
   limitUsd?: string;
@@ -7762,28 +7850,41 @@ export type LimitsControllerSetBody = {
      * @nullable
      */
   maxConcurrency?: number | null;
-  /** @maxItems 2 */
+  /** @maxItems 4 */
   budgets?: LimitsControllerSetBodyBudgetsItem[];
 };
 
+/**
+ * organization (scope id = the organization id), team, project, user, model or provider
+ */
 export type LimitsControllerSet200Scope = typeof LimitsControllerSet200Scope[keyof typeof LimitsControllerSet200Scope];
 
 
 export const LimitsControllerSet200Scope = {
+  organization: 'organization',
   team: 'team',
   project: 'project',
+  user: 'user',
+  model: 'model',
+  provider: 'provider',
 } as const;
 
+/**
+ * UTC; weeks start on Monday
+ */
 export type LimitsControllerSet200BudgetsItemPeriod = typeof LimitsControllerSet200BudgetsItemPeriod[keyof typeof LimitsControllerSet200BudgetsItemPeriod];
 
 
 export const LimitsControllerSet200BudgetsItemPeriod = {
   daily: 'daily',
+  weekly: 'weekly',
   monthly: 'monthly',
+  yearly: 'yearly',
 } as const;
 
 export type LimitsControllerSet200BudgetsItem = {
   id: string;
+  /** UTC; weeks start on Monday */
   period: LimitsControllerSet200BudgetsItemPeriod;
   /** @nullable */
   limitUsd: string | null;
@@ -7801,6 +7902,7 @@ export type LimitsControllerSet200BudgetsItem = {
 };
 
 export type LimitsControllerSet200 = {
+  /** organization (scope id = the organization id), team, project, user, model or provider */
   scope: LimitsControllerSet200Scope;
   scopeId: string;
   name: string;
@@ -7825,24 +7927,37 @@ export type LimitsControllerSet200 = {
   budgets: LimitsControllerSet200BudgetsItem[];
 };
 
+/**
+ * organization (scope id = the organization id), team, project, user, model or provider
+ */
 export type LimitsControllerRemove200Scope = typeof LimitsControllerRemove200Scope[keyof typeof LimitsControllerRemove200Scope];
 
 
 export const LimitsControllerRemove200Scope = {
+  organization: 'organization',
   team: 'team',
   project: 'project',
+  user: 'user',
+  model: 'model',
+  provider: 'provider',
 } as const;
 
+/**
+ * UTC; weeks start on Monday
+ */
 export type LimitsControllerRemove200BudgetsItemPeriod = typeof LimitsControllerRemove200BudgetsItemPeriod[keyof typeof LimitsControllerRemove200BudgetsItemPeriod];
 
 
 export const LimitsControllerRemove200BudgetsItemPeriod = {
   daily: 'daily',
+  weekly: 'weekly',
   monthly: 'monthly',
+  yearly: 'yearly',
 } as const;
 
 export type LimitsControllerRemove200BudgetsItem = {
   id: string;
+  /** UTC; weeks start on Monday */
   period: LimitsControllerRemove200BudgetsItemPeriod;
   /** @nullable */
   limitUsd: string | null;
@@ -7860,6 +7975,7 @@ export type LimitsControllerRemove200BudgetsItem = {
 };
 
 export type LimitsControllerRemove200 = {
+  /** organization (scope id = the organization id), team, project, user, model or provider */
   scope: LimitsControllerRemove200Scope;
   scopeId: string;
   name: string;

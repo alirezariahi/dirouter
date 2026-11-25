@@ -1,7 +1,8 @@
 /**
- * Team and project limits on the organization page (card 25.5): RPM, TPM, concurrency, daily and
- * monthly budgets and alert thresholds for a whole team or project. A budget change answered with
- * 202 is waiting for a second person's approval (card 22.2).
+ * Shared limits on the organization page (card 25.5): RPM, TPM, concurrency, budgets and alert
+ * thresholds for the whole organization, a team, a project or a member, and for a model or
+ * provider (card 33.1), with daily, weekly, monthly and yearly budgets. A budget change answered
+ * with 202 is waiting for a second person's approval (card 22.2).
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -12,13 +13,20 @@ import { errorMessage } from '../lib/errors';
 import type { SubmitEvent } from '../lib/form';
 import { formatNumber } from '../lib/date';
 import { formatUsd, listOf } from '../lib/s2-format';
-import { type LimitDraft, limitBody, limitDraft, type ScopeLimit } from '../lib/scope-limits';
+import {
+  type LimitDraft,
+  limitBody,
+  limitDraft,
+  PERIODS,
+  type ScopeLimit,
+} from '../lib/scope-limits';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
 import { Field, FormError } from './ui/field';
 
+type Scope = ScopeLimit['scope'];
 interface Target {
-  scope: 'team' | 'project';
+  scope: Scope;
   id: string;
   name: string;
 }
@@ -27,22 +35,30 @@ const FIELDS: { key: keyof LimitDraft; label: string; dir?: 'ltr'; inputMode?: '
   { key: 'rpm', label: 'scopeLimits.rpm' },
   { key: 'tpm', label: 'scopeLimits.tpm' },
   { key: 'maxConcurrency', label: 'scopeLimits.concurrency' },
-  { key: 'dailyUsd', label: 'scopeLimits.dailyUsd', inputMode: 'decimal' },
-  { key: 'monthlyUsd', label: 'scopeLimits.monthlyUsd', inputMode: 'decimal' },
-  { key: 'dailyTokens', label: 'scopeLimits.dailyTokens' },
-  { key: 'monthlyTokens', label: 'scopeLimits.monthlyTokens' },
   { key: 'thresholds', label: 'scopeLimits.thresholds' },
+  ...PERIODS.flatMap((period) => [
+    {
+      key: `${period}Usd` as const,
+      label: `scopeLimits.${period}Usd`,
+      inputMode: 'decimal' as const,
+    },
+    { key: `${period}Tokens` as const, label: `scopeLimits.${period}Tokens` },
+  ]),
 ];
 
 export function ScopeLimitsCard({
   orgId,
+  organizationName,
   teams,
   projects,
+  members = [],
   canManage,
 }: {
   orgId: string;
+  organizationName?: string | undefined;
   teams: { id: string; name: string }[];
   projects: { id: string; name: string }[];
+  members?: { userId: string; name: string; email: string }[];
   canManage: boolean;
 }) {
   const { t, i18n } = useTranslation();
@@ -61,6 +77,18 @@ export function ScopeLimitsCard({
     queryKey: ['scope-limits', orgId],
     queryFn: () => api<unknown>(base),
   });
+  // Models and providers are only listed when they have limits; these feed the picker.
+  const models = useQuery({
+    queryKey: ['scope-limits', orgId, 'models'],
+    queryFn: () => api<unknown>(`/orgs/${orgId}/models`),
+    enabled: canManage,
+  });
+  const providers = useQuery({
+    queryKey: ['scope-limits', orgId, 'providers'],
+    queryFn: () => api<unknown>(`/orgs/${orgId}/providers`),
+    enabled: canManage,
+  });
+  const [extra, setExtra] = useState<Target>();
   const done = () => qc.invalidateQueries({ queryKey: ['scope-limits', orgId] });
   const save = useMutation({
     mutationFn: async ({ target, remove }: { target: Target; remove: boolean }) => {
@@ -82,14 +110,43 @@ export function ScopeLimitsCard({
     },
   });
 
+  const limited = listOf<ScopeLimit>(limits.data);
+  const pickable: Target[] = [
+    ...listOf<{ id: string; slug: string }>(models.data).map((m) => ({
+      scope: 'model' as const,
+      id: m.id,
+      name: m.slug,
+    })),
+    ...listOf<{ id: string; name: string }>(providers.data).map((p) => ({
+      scope: 'provider' as const,
+      id: p.id,
+      name: p.name,
+    })),
+  ];
   const targets: Target[] = [
+    { scope: 'organization', id: orgId, name: organizationName ?? orgId },
     ...teams.map((team) => ({ scope: 'team' as const, id: team.id, name: team.name })),
     ...projects.map((project) => ({
       scope: 'project' as const,
       id: project.id,
       name: project.name,
     })),
+    ...members.map((m) => ({ scope: 'user' as const, id: m.userId, name: m.name || m.email })),
+    ...limited
+      .filter((l) => l.scope === 'model' || l.scope === 'provider')
+      .map((l) => ({ scope: l.scope, id: l.scopeId, name: l.name })),
+    ...(extra && !limited.some((l) => l.scope === extra.scope && l.scopeId === extra.id)
+      ? [extra]
+      : []),
   ];
+  const openEditor = (target: Target) => {
+    const key = `${target.scope}:${target.id}`;
+    setDraft(limitDraft(limitOf(target)));
+    setInvalid(undefined);
+    save.reset();
+    setNotice(undefined);
+    setOpen(key);
+  };
   const limitOf = (target: Target) =>
     listOf<ScopeLimit>(limits.data).find(
       (l) => l.scope === target.scope && l.scopeId === target.id,
@@ -136,6 +193,30 @@ export function ScopeLimitsCard({
       ) : null}
       <FormError message={limits.error ? errorMessage(limits.error, t) : undefined} />
       {!canManage ? <p className="mb-3 text-sm text-muted">{t('scopeLimits.readOnly')}</p> : null}
+      {canManage && pickable.length > 0 ? (
+        <label className="mb-3 flex flex-wrap items-center gap-2 text-sm">
+          <span>{t('scopeLimits.addTarget')}</span>
+          <select
+            className="h-8 rounded-lg border border-border bg-surface px-2 text-sm"
+            aria-label={t('scopeLimits.addTarget')}
+            title={t('scopeLimits.addTargetHelp')}
+            value=""
+            onChange={(event) => {
+              const target = pickable.find((p) => `${p.scope}:${p.id}` === event.target.value);
+              if (!target) return;
+              setExtra(target);
+              openEditor(target);
+            }}
+          >
+            <option value="">{t('scopeLimits.pick')}</option>
+            {pickable.map((p) => (
+              <option key={`${p.scope}:${p.id}`} value={`${p.scope}:${p.id}`}>
+                {t(`scopeLimits.scope.${p.scope}`)}: {p.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : null}
       {targets.length === 0 ? (
         <p className="text-sm text-muted">{t('scopeLimits.empty')}</p>
       ) : (
@@ -170,11 +251,7 @@ export function ScopeLimitsCard({
                           setOpen(undefined);
                           return;
                         }
-                        setDraft(limitDraft(limit));
-                        setInvalid(undefined);
-                        save.reset();
-                        setNotice(undefined);
-                        setOpen(key);
+                        openEditor(target);
                       }}
                     >
                       {open === key ? t('scopeLimits.close') : t('scopeLimits.edit')}

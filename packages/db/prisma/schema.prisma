@@ -527,21 +527,29 @@ model ComboTarget {
 // ───────────── Limits & budgets ─────────────
 
 enum LimitScope {
-  API_KEY @map("api_key")
-  PROJECT @map("project")
-  TEAM    @map("team")
+  API_KEY      @map("api_key")
+  PROJECT      @map("project")
+  TEAM         @map("team")
+  /// Card 33.1: the whole organization, a member's keys, a model or a provider.
+  ORGANIZATION @map("organization")
+  USER         @map("user")
+  MODEL        @map("model")
+  PROVIDER     @map("provider")
 }
 
 enum BudgetPeriod {
   DAILY   @map("daily")
+  /// ISO week, Monday 00:00 UTC (card 33.1).
+  WEEKLY  @map("weekly")
   MONTHLY @map("monthly")
+  YEARLY  @map("yearly")
 }
 
 model Budget {
   id              String       @id
   organizationId  String       @map("organization_id")
   scope           LimitScope
-  /// Key, project, or team ID
+  /// Key, project, team, organization, user, model or provider ID
   scopeId         String       @map("scope_id")
   period          BudgetPeriod
   limitUsd        Decimal?     @map("limit_usd") @db.Decimal(18, 8)
@@ -552,12 +560,13 @@ model Budget {
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  @@unique([scope, scopeId, period])
+  /// Scope ids are unique per organization only (card 33.1), so the organization is part of the key.
+  @@unique([organizationId, scope, scopeId, period])
   @@index([organizationId])
   @@map("budgets")
 }
 
-/// Project- and team-level limits; key-level limits are on the ApiKey itself.
+/// Organization-, team-, project-, member-, model- and provider-level limits; key-level limits are on the ApiKey itself.
 model RateLimitPolicy {
   id             String     @id
   organizationId String     @map("organization_id")
@@ -571,7 +580,7 @@ model RateLimitPolicy {
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  @@unique([scope, scopeId])
+  @@unique([organizationId, scope, scopeId])
   @@index([organizationId])
   @@map("rate_limit_policies")
 }
@@ -642,6 +651,9 @@ model UsageLedger {
   teamId         String?  @map("team_id")
   projectId      String   @map("project_id")
   apiKeyId       String   @map("api_key_id")
+  /// Model and provider that served the request, for model and provider budgets (card 33.1).
+  modelId        String?  @map("model_id")
+  providerId     String?  @map("provider_id")
   costUsd        Decimal  @map("cost_usd") @db.Decimal(18, 8)
   tokens         Int
   occurredAt     DateTime @map("occurred_at") @db.Timestamptz(3)

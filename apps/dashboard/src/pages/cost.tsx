@@ -45,9 +45,9 @@ interface CostData {
   ledgerTotal: { entries: number; costUsd: string; tokens: number };
   budgets: {
     id: string;
-    scope: 'key' | 'project' | 'team';
+    scope: 'key' | 'project' | 'team' | 'organization' | 'user' | 'model' | 'provider';
     scopeId: string;
-    period: 'daily' | 'monthly';
+    period: 'daily' | 'weekly' | 'monthly' | 'yearly';
     limitUsd: string | null;
     spentUsd: string;
     usedPercent: number | null;

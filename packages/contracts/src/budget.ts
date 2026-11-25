@@ -1,7 +1,8 @@
 /**
  * Shared budget counter contract between the gateway and the worker (card 6.3).
  *
- * Each budget counter is a HASH in Valkey whose key includes the period (day or month, UTC). Starting
+ * Each budget counter is a HASH in Valkey whose key includes the period (day, ISO week starting on
+ * Monday, month or year, all UTC; weeks and years since card 33.1). Starting
  * a new period means a new key, so the reset is automatic and the old key is removed by its TTL.
  * Fields:
  * - `usd`: cost in units of 1e-8 dollars, integer (same precision as the Decimal(18,8) ledger, no float error)
@@ -15,25 +16,50 @@ export const BUDGET_UNITS_PER_USD = 100_000_000;
 /** Valkey list of threshold-crossing events (gateway LPUSH, worker consumes). */
 export const BUDGET_ALERTS_KEY = 'dirouter:budget:alerts';
 
-/** Period ID: `d:2026-11-08` or `m:2026-11` (UTC). */
+/**
+ * Period ID (UTC): `d:2026-11-08`, `w:2026-11-02` (the Monday the ISO week starts on),
+ * `m:2026-11` or `y:2026`.
+ */
 export function budgetPeriodKey(period: BudgetPeriod, at: Date = new Date()): string {
-  const iso = at.toISOString();
-  return period === 'daily' ? `d:${iso.slice(0, 10)}` : `m:${iso.slice(0, 7)}`;
+  switch (period) {
+    case 'daily':
+      return `d:${at.toISOString().slice(0, 10)}`;
+    case 'weekly':
+      return `w:${budgetPeriodRange('weekly', at).start.toISOString().slice(0, 10)}`;
+    case 'monthly':
+      return `m:${at.toISOString().slice(0, 7)}`;
+    case 'yearly':
+      return `y:${String(at.getUTCFullYear())}`;
+  }
 }
 
-/** Start and end of the current period (UTC). */
+/** Start and end of the current period (UTC); weeks start on Monday 00:00 UTC (ISO 8601). */
 export function budgetPeriodRange(
   period: BudgetPeriod,
   at: Date = new Date(),
 ): { start: Date; end: Date } {
   const y = at.getUTCFullYear();
   const m = at.getUTCMonth();
-  if (period === 'daily') {
-    const start = new Date(Date.UTC(y, m, at.getUTCDate()));
-    return { start, end: new Date(start.getTime() + 86_400_000) };
+  switch (period) {
+    case 'daily': {
+      const start = new Date(Date.UTC(y, m, at.getUTCDate()));
+      return { start, end: new Date(start.getTime() + 86_400_000) };
+    }
+    case 'weekly': {
+      // getUTCDay: Sunday is 0, so Monday-based offset is (day + 6) % 7.
+      const start = new Date(Date.UTC(y, m, at.getUTCDate() - ((at.getUTCDay() + 6) % 7)));
+      return { start, end: new Date(start.getTime() + 7 * 86_400_000) };
+    }
+    case 'monthly':
+      return { start: new Date(Date.UTC(y, m, 1)), end: new Date(Date.UTC(y, m + 1, 1)) };
+    case 'yearly':
+      return { start: new Date(Date.UTC(y, 0, 1)), end: new Date(Date.UTC(y + 1, 0, 1)) };
   }
-  return { start: new Date(Date.UTC(y, m, 1)), end: new Date(Date.UTC(y, m + 1, 1)) };
 }
+
+/** `Daily`, `Weekly`, `Monthly` or `Yearly`, for error messages. */
+export const budgetPeriodLabel = (period: BudgetPeriod): string =>
+  period.charAt(0).toUpperCase() + period.slice(1);
 
 export const budgetCounterKey = (budgetId: string, periodKey: string): string =>
   `dirouter:budget:${budgetId}:${periodKey}`;
@@ -50,11 +76,18 @@ export function usdToUnits(usd: string): number {
 
 export const unitsToUsd = (units: number): string => (units / BUDGET_UNITS_PER_USD).toFixed(8);
 
+/**
+ * Where a budget applies: a key, team or project (card 6.3), the whole organization, a member's
+ * keys, a model or a provider of the organization (card 33.1).
+ */
+export type BudgetScope =
+  'key' | 'project' | 'team' | 'organization' | 'user' | 'model' | 'provider';
+
 /** Threshold-crossing event that the worker records in audit_log. */
 export interface BudgetAlertEvent {
   budgetId: string;
   organizationId: string;
-  scope: 'key' | 'project' | 'team';
+  scope: BudgetScope;
   scopeId: string;
   period: BudgetPeriod;
   periodKey: string;

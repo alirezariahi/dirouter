@@ -13,6 +13,7 @@
 import {
   BUDGET_ALERTS_KEY,
   type BudgetAlertEvent,
+  type BudgetPeriod,
   budgetCounterKey,
   budgetPeriodKey,
   budgetPeriodRange,
@@ -26,10 +27,19 @@ export interface BudgetDb {
   auditLog: { createMany(args: { data: unknown[] }): Promise<unknown> };
 }
 
-const SCOPE_COLUMN: Record<string, string> = {
-  api_key: 'api_key_id',
-  project: 'project_id',
-  team: 'team_id',
+/**
+ * Ledger condition of each budget scope; `$1` is the scope id. Every query is also limited to the
+ * budget's organization, so a scope id can never pick up another tenant's spend.
+ */
+const SCOPE_FILTER: Record<string, string> = {
+  api_key: 'api_key_id = $1',
+  project: 'project_id = $1',
+  team: 'team_id = $1',
+  // Card 33.1: the whole organization, a member's keys, a model and a provider.
+  organization: 'organization_id = $1',
+  user: 'api_key_id IN (SELECT id FROM api_keys WHERE created_by_id = $1)',
+  model: 'model_id = $1',
+  provider: 'provider_id = $1',
 };
 
 /** KEYS[1]: counter; ARGV: ledgerUsd, ledgerTokens, nowMs, quietMs, expireAtMs */
@@ -86,19 +96,29 @@ export async function reconcileBudgets(
     r.defineCommand('budgetReconcile', { lua: RECONCILE });
 
   const budgets = await db.$queryRawUnsafe<
-    { id: string; scope: string; scope_id: string; period: 'daily' | 'monthly' }[]
-  >('SELECT id, scope::text AS scope, scope_id, period::text AS period FROM budgets');
+    {
+      id: string;
+      organization_id: string;
+      scope: string;
+      scope_id: string;
+      period: BudgetPeriod;
+    }[]
+  >(
+    'SELECT id, organization_id, scope::text AS scope, scope_id, period::text AS period FROM budgets',
+  );
   const result: ReconcileResult = { budgets: budgets.length, adjusted: 0, drift: [] };
   for (const b of budgets) {
-    const column = SCOPE_COLUMN[b.scope];
-    if (!column) continue;
+    const filter = SCOPE_FILTER[b.scope];
+    if (!filter) continue;
     const { start, end } = budgetPeriodRange(b.period, now);
     const [sum] = await db.$queryRawUnsafe<{ usd: string; tokens: string }[]>(
       `SELECT COALESCE(SUM(cost_usd), 0)::text AS usd, COALESCE(SUM(tokens), 0)::bigint::text AS tokens
-         FROM usage_ledger WHERE ${column} = $1 AND occurred_at >= $2 AND occurred_at < $3`,
+         FROM usage_ledger
+        WHERE ${filter} AND organization_id = $4 AND occurred_at >= $2 AND occurred_at < $3`,
       b.scope_id,
       start,
       end,
+      b.organization_id,
     );
     const ledgerUsd = usdToUnits(sum?.usd ?? '0');
     const ledgerTokens = Number(sum?.tokens ?? 0);

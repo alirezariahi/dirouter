@@ -650,8 +650,10 @@ export default function OrganizationPage() {
       {orgId ? (
         <ScopeLimitsCard
           orgId={orgId}
+          organizationName={organization.data.name}
           teams={teams.data ?? []}
           projects={projects.data ?? []}
+          members={members.data ?? []}
           canManage={canManage}
         />
       ) : null}

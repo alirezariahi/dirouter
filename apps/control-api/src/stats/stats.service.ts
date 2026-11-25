@@ -431,7 +431,11 @@ export class StatsService {
     };
   }
 
-  /** Every budget of the organization with what was spent in its current period (UTC day/month). */
+  /**
+   * Every budget of the organization with what was spent in its current period (UTC day, ISO week,
+   * month or year; card 33.1 adds weeks, years and the organization, member, model and provider
+   * scopes).
+   */
   async budgetStatus(ctx: OrgContext) {
     const rows = await this.db.$queryRaw<Record<string, unknown>[]>`
       SELECT b."id", b."scope"::text AS scope, b."scope_id", b."period"::text AS period,
@@ -442,13 +446,19 @@ export class StatsService {
         SELECT coalesce(sum(l."cost_usd"), 0) AS spent_usd, coalesce(sum(l."tokens"), 0) AS spent_tokens
         FROM "usage_ledger" l
         WHERE l."organization_id" = b."organization_id"
-          AND l."occurred_at" >= CASE WHEN b."period"::text = 'daily'
-                THEN date_trunc('day', now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'
-                ELSE date_trunc('month', now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC' END
+          AND l."occurred_at" >= date_trunc(CASE b."period"::text
+                WHEN 'daily' THEN 'day' WHEN 'weekly' THEN 'week'
+                WHEN 'yearly' THEN 'year' ELSE 'month' END,
+                now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'
           AND CASE b."scope"::text
                 WHEN 'api_key' THEN l."api_key_id" = b."scope_id"
                 WHEN 'project' THEN l."project_id" = b."scope_id"
                 WHEN 'team' THEN l."team_id" = b."scope_id"
+                WHEN 'organization' THEN l."organization_id" = b."scope_id"
+                WHEN 'user' THEN l."api_key_id" IN
+                  (SELECT k."id" FROM "api_keys" k WHERE k."created_by_id" = b."scope_id")
+                WHEN 'model' THEN l."model_id" = b."scope_id"
+                WHEN 'provider' THEN l."provider_id" = b."scope_id"
                 ELSE false END
       ) s
       WHERE b."organization_id" = ${ctx.organizationId}

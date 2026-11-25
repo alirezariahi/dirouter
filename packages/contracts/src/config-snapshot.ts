@@ -375,7 +375,8 @@ export const RateLimitConfig = z.object({
 });
 export type RateLimitConfig = z.infer<typeof RateLimitConfig>;
 
-export const BudgetPeriod = z.enum(['daily', 'monthly']);
+/** UTC periods; weeks start on Monday (card 33.1 adds `weekly` and `yearly`). */
+export const BudgetPeriod = z.enum(['daily', 'weekly', 'monthly', 'yearly']);
 export type BudgetPeriod = z.infer<typeof BudgetPeriod>;
 
 export const BudgetConfig = z
@@ -405,6 +406,8 @@ export const VirtualKeyConfig = z.object({
   organizationId: z.string(),
   teamId: z.string().nullable(),
   projectId: z.string(),
+  /** The member who created the key; their `user` limits and budgets cover it (card 33.1). */
+  userId: z.string().optional(),
   enabled: z.boolean(),
   expiresAt: IsoDateTime.nullable(),
   /** Empty means all models; otherwise the model/alias/combo slug. */
@@ -441,9 +444,25 @@ export const VirtualKeyConfig = z.object({
 });
 export type VirtualKeyConfig = z.infer<typeof VirtualKeyConfig>;
 
+/**
+ * Limits and budgets shared by many keys (cards 25.5 and 33.1). `scopeId` is the team, project,
+ * organization (its own id), member (user id), model id or provider id. Organization, team,
+ * project and member scopes reject a request when they are exhausted; model and provider scopes
+ * take their targets out of the route instead, so a combo falls back to its other targets.
+ */
+export const LimitScopeKind = z.enum([
+  'organization',
+  'team',
+  'project',
+  'user',
+  'model',
+  'provider',
+]);
+export type LimitScopeKind = z.infer<typeof LimitScopeKind>;
+
 export const ScopeLimitConfig = z.object({
   organizationId: z.string(),
-  scope: z.enum(['team', 'project']),
+  scope: LimitScopeKind,
   scopeId: z.string(),
   rateLimit: RateLimitConfig.optional(),
   budgets: z.array(BudgetConfig).default([]),

@@ -101,7 +101,7 @@ export class ConfigService {
   async #ownedIds(org: OrgContext): Promise<OrgOwnedIds> {
     const where = { organizationId: org.organizationId };
     const db = this.prisma.client;
-    const [projects, teams, keys, budgets] = await Promise.all([
+    const [projects, teams, keys, budgets, members] = await Promise.all([
       db.project.findMany({ where, select: { id: true } }),
       db.team.findMany({ where, select: { id: true } }),
       db.apiKey.findMany({
@@ -113,6 +113,7 @@ export class ConfigService {
         select: { id: true },
       }),
       db.budget.findMany({ where, select: { id: true } }),
+      db.membership.findMany({ where, select: { userId: true } }),
     ]);
     const ids = (rows: { id: string }[]) => new Set(rows.map((row) => row.id));
     return {
@@ -120,6 +121,7 @@ export class ConfigService {
       teamIds: ids(teams),
       keyIds: ids(keys),
       budgetIds: ids(budgets),
+      userIds: new Set(members.map((m) => m.userId)),
     };
   }
 

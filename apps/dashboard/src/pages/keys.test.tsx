@@ -186,7 +186,7 @@ describe('virtual key management', () => {
           budgets: 'Budgets',
           budgetUsd: 'Cost limit (USD)',
           budgetTokens: 'Token limit',
-          period: { daily: 'Daily', monthly: 'Monthly' },
+          period: { daily: 'Daily', weekly: 'Weekly', monthly: 'Monthly', yearly: 'Yearly' },
           createTitle: 'Create a virtual key',
           editTitle: 'Edit virtual key',
           save: 'Save key',
@@ -281,7 +281,7 @@ describe('virtual key management', () => {
     fireEvent.change(dialog.getAllByLabelText('Cost limit (USD)')[0] as HTMLElement, {
       target: { value: '12.50' },
     });
-    fireEvent.change(dialog.getAllByLabelText('Token limit')[1] as HTMLElement, {
+    fireEvent.change(dialog.getAllByLabelText('Token limit')[2] as HTMLElement, {
       target: { value: '5000000' },
     });
     await act(async () => {

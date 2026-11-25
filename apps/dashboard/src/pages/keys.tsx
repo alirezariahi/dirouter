@@ -23,9 +23,9 @@ import { errorMessage, fieldError } from '../lib/errors';
 import { text, type SubmitEvent } from '../lib/form';
 import { rangeBounds, useRange } from '../lib/range';
 import { currentOrg, useSession } from '../lib/session';
+import { type Period, PERIODS } from '../lib/scope-limits';
 import { useSettings } from '../settings';
 
-type Period = 'daily' | 'monthly';
 type KeyBody = KeysControllerCreateBody | KeysControllerUpdateBody;
 interface TopUsage {
   items: { id: string; requests: number; errors: number; tokens: number; costUsd: string }[];
@@ -149,7 +149,7 @@ function KeyFields({ initial, error }: { initial?: VirtualKey; error?: unknown }
       <fieldset>
         <legend className="mb-2 text-sm font-medium">{t('keys.budgets')}</legend>
         <div className="flex flex-col gap-3">
-          {(['daily', 'monthly'] as const).map((period) => (
+          {PERIODS.map((period) => (
             <div key={period} className="rounded-lg border border-border p-3">
               <p className="mb-2 text-sm font-medium">{t(`keys.period.${period}`)}</p>
               <div className="grid gap-3 sm:grid-cols-2">
@@ -182,7 +182,7 @@ function KeyFields({ initial, error }: { initial?: VirtualKey; error?: unknown }
 
 function bodyFrom(form: FormData, initial?: VirtualKey): KeyBody {
   const budgets: NonNullable<KeysControllerCreateBody['budgets']> = [];
-  for (const period of ['daily', 'monthly'] as const) {
+  for (const period of PERIODS) {
     const limitUsd = text(form, `${period}Usd`).trim();
     const tokens = text(form, `${period}Tokens`).trim();
     if (limitUsd || tokens)

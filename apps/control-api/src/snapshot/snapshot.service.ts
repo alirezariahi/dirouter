@@ -14,6 +14,7 @@ import {
   ConfigSnapshot,
   type ConfigSnapshotInput,
   GatewaySettings,
+  type LimitScopeKind,
   type ModelPricing,
   type RepairKind,
   RequestPolicy,
@@ -28,7 +29,18 @@ import { PrismaService } from '../infra/prisma.service.js';
 import { ValkeyService } from '../infra/valkey.service.js';
 import { LOGGER } from '../infra/tokens.js';
 
+import { fromDbPeriod } from '../limits/periods.js';
 import { CONFIG_CHANNEL, REBUILD_CHANNEL } from './channels.js';
+
+/** Database scope → snapshot scope of shared limits (cards 25.5 and 33.1). */
+const SHARED_SCOPE: Record<string, LimitScopeKind | undefined> = {
+  ORGANIZATION: 'organization',
+  TEAM: 'team',
+  PROJECT: 'project',
+  USER: 'user',
+  MODEL: 'model',
+  PROVIDER: 'provider',
+};
 
 export { CONFIG_CHANNEL, REBUILD_CHANNEL };
 const PERIODIC_MS = 30_000;
@@ -247,12 +259,17 @@ export class SnapshotService implements OnModuleInit, OnModuleDestroy {
       ),
     );
     const teamOf = new Map(projects.map((p) => [p.id, p.teamId]));
-    const budgetsFor = (scope: string, id: string) =>
+    const budgetsFor = (scope: string, id: string, organizationId?: string) =>
       budgets
-        .filter((b) => b.scope === scope && b.scopeId === id)
+        .filter(
+          (b) =>
+            b.scope === scope &&
+            b.scopeId === id &&
+            (organizationId === undefined || b.organizationId === organizationId),
+        )
         .map((b) => ({
           id: b.id,
-          period: b.period === 'DAILY' ? ('daily' as const) : ('monthly' as const),
+          period: fromDbPeriod(b.period),
           ...(b.limitUsd ? { limitUsd: usd(b.limitUsd) } : {}),
           ...(b.limitTokens !== null ? { limitTokens: Number(b.limitTokens) } : {}),
           alertThresholds: b.alertThresholds,
@@ -383,6 +400,7 @@ export class SnapshotService implements OnModuleInit, OnModuleDestroy {
           organizationId: k.organizationId,
           teamId: teamOf.get(k.projectId) ?? null,
           projectId: k.projectId,
+          ...(k.createdById ? { userId: k.createdById } : {}),
           enabled: true,
           expiresAt: k.expiresAt?.toISOString() ?? null,
           allowedModels: k.allowedModels,
@@ -399,35 +417,26 @@ export class SnapshotService implements OnModuleInit, OnModuleDestroy {
             : {}),
         };
       }),
+      // Shared limits (cards 25.5 and 33.1): one entry per scope with a rate limit or a budget.
       limits: [
-        ...policies
-          .filter((p) => p.scope !== 'API_KEY')
-          .map((p) => ({
-            organizationId: p.organizationId,
-            scope: p.scope === 'TEAM' ? ('team' as const) : ('project' as const),
-            scopeId: p.scopeId,
-            ...rateLimit(p),
-            budgets: budgetsFor(p.scope, p.scopeId),
-          })),
-        // A project or team budget without a rate limit must also be included.
-        ...[
-          ...new Set(
-            budgets
-              .filter((b) => b.scope !== 'API_KEY')
-              .map((b) => `${b.scope}|${b.scopeId}|${b.organizationId}`),
-          ),
-        ]
-          .filter((k) => !policies.some((p) => `${p.scope}|${p.scopeId}|${p.organizationId}` === k))
-          .map((k) => {
-            const [scope = '', scopeId = '', organizationId = ''] = k.split('|');
-            return {
-              organizationId,
-              scope: scope === 'TEAM' ? ('team' as const) : ('project' as const),
-              scopeId,
-              budgets: budgetsFor(scope, scopeId),
-            };
-          }),
-      ],
+        ...new Set(
+          [...policies, ...budgets]
+            .filter((p) => p.scope !== 'API_KEY' && SHARED_SCOPE[p.scope])
+            .map((p) => `${p.organizationId}|${p.scope}|${p.scopeId}`),
+        ),
+      ].map((id) => {
+        const [organizationId = '', scope = '', scopeId = ''] = id.split('|');
+        const policy = policies.find(
+          (p) => p.organizationId === organizationId && p.scope === scope && p.scopeId === scopeId,
+        );
+        return {
+          organizationId,
+          scope: SHARED_SCOPE[scope] ?? 'project',
+          scopeId,
+          ...(policy ? rateLimit(policy) : {}),
+          budgets: budgetsFor(scope, scopeId, organizationId),
+        };
+      }),
       guardrails: guardrails.map((g) => ({
         id: g.id,
         organizationId: g.organizationId,
