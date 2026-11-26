@@ -7,6 +7,7 @@ import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { internalLinks, pageUrlOf, resolveTarget } from './links.mjs';
+import { BASE } from './sync-lib.mjs';
 
 const app = join(dirname(fileURLToPath(import.meta.url)), '..');
 const dist = join(app, 'dist');
@@ -29,9 +30,11 @@ const pages = walk(dist);
 let links = 0;
 for (const page of pages) {
   const from = `/${relative(dist, page).split('\\').join('/')}`;
-  for (const target of internalLinks(readFileSync(page, 'utf8'), pageUrlOf(from))) {
+  for (const target of internalLinks(readFileSync(page, 'utf8'), `${BASE}${pageUrlOf(from)}`)) {
     links++;
-    if (!exists(target)) problems.push(`${from} → ${target}`);
+    // Built files sit at the dist root; served URLs carry the base prefix, and one without it is broken.
+    const underBase = !BASE || target === BASE || target.startsWith(`${BASE}/`);
+    if (!underBase || !exists(target.slice(BASE.length))) problems.push(`${from} → ${target}`);
   }
 }
 

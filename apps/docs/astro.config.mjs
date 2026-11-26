@@ -4,6 +4,8 @@ import { defineConfig } from 'astro/config';
 
 export default defineConfig({
   site: process.env.DOCS_SITE_URL ?? 'https://docs.localhost',
+  // GitHub Pages serves the site under /<repo>; DOCS_BASE=/dirouter there, unset elsewhere.
+  base: process.env.DOCS_BASE || undefined,
   integrations: [
     starlight({
       title: 'DiRouter',

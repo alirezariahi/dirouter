@@ -1,0 +1,54 @@
+name: Docs site
+
+# Publishes apps/docs (docs/, adr/ and the API reference) to GitHub Pages at
+# https://alirezariahi.github.io/dirouter/ whenever the documentation changes on main.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/**'
+      - 'adr/**'
+      - 'apps/docs/**'
+      - 'apps/dashboard/openapi.json'
+      - '.github/workflows/docs-pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docs-pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build docs site
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      DOCS_SITE_URL: https://alirezariahi.github.io
+      DOCS_BASE: /dirouter
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup
+      - name: Build and check links
+        run: pnpm --filter @dirouter/docs build
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: apps/docs/dist
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

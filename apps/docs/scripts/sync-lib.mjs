@@ -27,7 +27,13 @@ export function sitePath(repoPath) {
   return path.toLowerCase();
 }
 
-export const siteUrl = (path) => `/${path ? `${path}/` : ''}`;
+/**
+ * Path prefix the site is served under, e.g. `/dirouter` on GitHub Pages; empty at a domain root.
+ * Read from DOCS_BASE, the same variable astro.config.mjs uses for `base`.
+ */
+export const BASE = (process.env.DOCS_BASE ?? '').replace(/\/+$/, '');
+
+export const siteUrl = (path) => `${BASE}/${path ? `${path}/` : ''}`;
 
 /** Where a page file goes inside src/content/docs. */
 export function contentFile(repoPath) {
