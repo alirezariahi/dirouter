@@ -383,8 +383,12 @@ describe('files and batches', () => {
       endpoint: '/v1/chat/completions',
       completion_window: '24h',
     });
-    for (let i = 0; i < 5 && !usage.some((e) => e.requestId === created.id); i++)
+    // A slow runner needs more passes: a pass finds the batch not due yet, or still locked by the
+    // background pass that started with the server.
+    for (let i = 0; i < 100 && !usage.some((e) => e.requestId === created.id); i++) {
       await gw.poller.tick();
+      await new Promise((r) => setTimeout(r, 20));
+    }
     expect(usage.find((e) => e.requestId === created.id)?.status).toBe('success');
   });
 
